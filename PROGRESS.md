@@ -20,3 +20,6 @@
 
 - 2026-09-18: User reported seeing the countdown and locked screen during a manual run and approved committing and pushing the implementation.
   - Device/display configuration was not specified. Relaunch behavior and the full target-device escape-path checklist remain unverified manually.
+
+- 2026-09-18: Changed the GitHub repository to public at the user's request and added prominent README implementation credit to OpenAI GPT-6 Astra LLM through Codex, with product direction and manual verification credited to Carter Yu.
+  - Debug build and all seven offline checks passed. This documentation update does not change app behavior or the v0.1.0 version.

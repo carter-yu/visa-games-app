@@ -4,6 +4,12 @@ Visa Games（簽證遊戲） — native macOS kiosk edition.
 
 Ritual: **先做再玩**.
 
+**Built by OpenAI GPT-6 Astra LLM through Codex, under the direction of
+[Carter Yu](https://github.com/carter-yu).**
+
+Implementation credit: **OpenAI GPT-6 Astra LLM**. Product direction and manual
+verification: **Carter Yu**.
+
 This repository is the successor to `carter-yu/visa-games`. The old project proved the family ritual in a browser: finish a pen-first task, earn visa minutes, then watch an approved video. This repo rebuilds the delivery layer as a native macOS app for a dedicated Mac mini + TV.
 
 ## Why a new repo
