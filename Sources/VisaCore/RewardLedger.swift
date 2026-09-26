@@ -1,9 +1,9 @@
 import Foundation
 
-/// Parent-configured reward inputs for the in-memory model.
+/// Parent-configured reward inputs for the durable model.
 /// ADR 0002 D1/D3: callers (tests / later parent UI) supply the numbers; this type
 /// does not invent a production default allowance or cap.
-public struct RewardPolicy: Sendable, Equatable {
+public struct RewardPolicy: Sendable, Equatable, Codable {
     public var initialAllowanceSeconds: TimeInterval
     public var rewardCapSeconds: TimeInterval
 
@@ -14,17 +14,29 @@ public struct RewardPolicy: Sendable, Equatable {
 }
 
 /// How a completion was achieved. Assisted and unassisted are recorded separately (D7).
-public enum SuccessKind: String, Sendable, Equatable {
+public enum SuccessKind: String, Sendable, Equatable, Codable {
     case unassisted
     case assisted
 }
 
 /// One recorded completion success. Distinct from the absolute session deadline (`Snapshot.endsAt`).
-public struct SuccessRecord: Sendable, Equatable {
+public struct SuccessRecord: Sendable, Equatable, Codable {
     public var completionID: String
     public var kind: SuccessKind
     public var awardedSeconds: TimeInterval
     public var recordedAt: Date
+
+    public init(
+        completionID: String,
+        kind: SuccessKind,
+        awardedSeconds: TimeInterval,
+        recordedAt: Date
+    ) {
+        self.completionID = completionID
+        self.kind = kind
+        self.awardedSeconds = awardedSeconds
+        self.recordedAt = recordedAt
+    }
 }
 
 /// Outcome of attempting to apply a completion reward.
@@ -35,10 +47,50 @@ public enum RewardApplyOutcome: Sendable, Equatable {
     case duplicateRejected
 }
 
-/// Pure in-memory reward decision and viewing-budget application (P1-1).
+/// Durable reward/allowance fields persisted atomically inside `Snapshot` (schemaVersion 2+).
+/// Viewing budget remains separate from answering time and from `Snapshot.endsAt`.
+public struct RewardState: Sendable, Equatable, Codable {
+    public var initialAllowanceSeconds: TimeInterval
+    public var rewardCapSeconds: TimeInterval
+    public var entryActivityCompleted: Bool
+    /// Stable completion IDs that have already received a reward grant (sorted for stable encoding).
+    public var awardedCompletionIDs: [String]
+    public var successRecords: [SuccessRecord]
+    /// Viewing seconds banked for `budgetDayStart`'s calendar day. Not the session `endsAt`.
+    public var viewingSeconds: TimeInterval
+    /// Start-of-day instant that owns `viewingSeconds`. Nil = no day established.
+    public var budgetDayStart: Date?
+
+    public init(
+        initialAllowanceSeconds: TimeInterval,
+        rewardCapSeconds: TimeInterval,
+        entryActivityCompleted: Bool = false,
+        awardedCompletionIDs: [String] = [],
+        successRecords: [SuccessRecord] = [],
+        viewingSeconds: TimeInterval = 0,
+        budgetDayStart: Date? = nil
+    ) {
+        self.initialAllowanceSeconds = initialAllowanceSeconds
+        self.rewardCapSeconds = rewardCapSeconds
+        self.entryActivityCompleted = entryActivityCompleted
+        self.awardedCompletionIDs = awardedCompletionIDs
+        self.successRecords = successRecords
+        self.viewingSeconds = viewingSeconds
+        self.budgetDayStart = budgetDayStart
+    }
+
+    public var policy: RewardPolicy {
+        RewardPolicy(
+            initialAllowanceSeconds: initialAllowanceSeconds,
+            rewardCapSeconds: rewardCapSeconds
+        )
+    }
+}
+
+/// Pure reward decision and viewing-budget application with durable export/import (P1-2).
 ///
 /// Viewing budget is separate from answering time and from the absolute session
-/// deadline (`Snapshot.endsAt` / `Session`). P1-2 will persist this state.
+/// deadline (`Snapshot.endsAt` / `Session`).
 ///
 /// Day-boundary assumption (ADR 0002 D3 + D5): the "day" is the calendar day of
 /// `now` in the injected `Calendar` (timezone included). Remaining viewing budget
@@ -63,6 +115,38 @@ public struct RewardLedger: Sendable {
         self.awardedCompletionIDs = []
         self.viewingSeconds = 0
         self.budgetDayStart = nil
+    }
+
+    /// Restore from durable snapshot state. Call `normalizeAfterLoad` after restore.
+    public init(state: RewardState) {
+        self.policy = state.policy
+        self.successRecords = state.successRecords
+        self.entryActivityCompleted = state.entryActivityCompleted
+        self.awardedCompletionIDs = Set(state.awardedCompletionIDs)
+        self.viewingSeconds = state.viewingSeconds
+        self.budgetDayStart = state.budgetDayStart
+    }
+
+    /// Export durable fields for atomic persistence with `Snapshot`.
+    public func exportState() -> RewardState {
+        RewardState(
+            initialAllowanceSeconds: policy.initialAllowanceSeconds,
+            rewardCapSeconds: policy.rewardCapSeconds,
+            entryActivityCompleted: entryActivityCompleted,
+            awardedCompletionIDs: awardedCompletionIDs.sorted(),
+            successRecords: successRecords,
+            viewingSeconds: viewingSeconds,
+            budgetDayStart: budgetDayStart
+        )
+    }
+
+    /// Normalize day-boundary / stale budget on relaunch, wake, or clock change.
+    /// Does not invent a new allowance or reset parent-configured policy.
+    public mutating func normalizeAfterLoad(now: Date, calendar: Calendar) {
+        normalizeDay(now: now, calendar: calendar)
+        if viewingSeconds > policy.rewardCapSeconds {
+            viewingSeconds = max(0, policy.rewardCapSeconds)
+        }
     }
 
     /// Viewing seconds available at `now`, applying the no-next-day-carryover rule.
@@ -117,7 +201,7 @@ public struct RewardLedger: Sendable {
         _ = completionID
     }
 
-    /// D2: answering does not consume viewing budget. Records nothing durable in P1-1.
+    /// D2: answering does not consume viewing budget.
     public mutating func noteAnswering(durationSeconds: TimeInterval) {
         // Intentionally a no-op on viewing budget.
         _ = durationSeconds

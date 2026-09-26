@@ -1,13 +1,18 @@
 import Foundation
 
 public struct Snapshot: Codable, Equatable, Sendable {
-    public var schemaVersion = 1
+    /// Current on-disk schema. v1 had configured + endsAt only; v2 adds optional reward state.
+    public var schemaVersion = 2
     public var configured: Bool
     public var endsAt: Date?
+    /// Durable reward/allowance state (ADR 0002). Nil means no reward ledger has been recorded yet.
+    public var reward: RewardState?
 
-    public init(configured: Bool = false, endsAt: Date? = nil) {
+    public init(configured: Bool = false, endsAt: Date? = nil, reward: RewardState? = nil) {
+        self.schemaVersion = 2
         self.configured = configured
         self.endsAt = endsAt
+        self.reward = reward
     }
 }
 
@@ -75,15 +80,71 @@ public struct SnapshotStore: Sendable {
 
     public func load() throws -> Snapshot {
         guard FileManager.default.fileExists(atPath: url.path) else { return Snapshot() }
-        let snapshot = try JSONDecoder().decode(Snapshot.self, from: Data(contentsOf: url))
-        guard snapshot.schemaVersion == 1 else { throw StoreError.unsupportedSchema }
-        return snapshot
+        let data = try Data(contentsOf: url)
+        let header = try JSONDecoder().decode(SchemaHeader.self, from: data)
+        switch header.schemaVersion {
+        case 1:
+            let legacy = try JSONDecoder().decode(SnapshotV1.self, from: data)
+            // Migrate v1 → v2 in memory: preserve visa fields; no invented reward/allowance.
+            return Snapshot(configured: legacy.configured, endsAt: legacy.endsAt, reward: nil)
+        case 2:
+            let snapshot = try JSONDecoder().decode(Snapshot.self, from: data)
+            guard snapshot.schemaVersion == 2 else { throw StoreError.unsupportedSchema }
+            if let reward = snapshot.reward {
+                try Self.validateRewardState(reward)
+            }
+            return snapshot
+        default:
+            throw StoreError.unsupportedSchema
+        }
     }
 
     public func save(_ snapshot: Snapshot) throws {
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try JSONEncoder().encode(snapshot).write(to: url, options: .atomic)
+        var toSave = snapshot
+        toSave.schemaVersion = 2
+        if let reward = toSave.reward {
+            try Self.validateRewardState(reward)
+        }
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try JSONEncoder().encode(toSave).write(to: url, options: .atomic)
     }
 
-    public enum StoreError: Error { case unsupportedSchema }
+    /// Fail closed on non-finite, negative, or otherwise unusable reward fields.
+    public static func validateRewardState(_ state: RewardState) throws {
+        let numericFields: [TimeInterval] = [
+            state.initialAllowanceSeconds,
+            state.rewardCapSeconds,
+            state.viewingSeconds
+        ]
+        for value in numericFields {
+            guard value.isFinite, value >= 0 else { throw StoreError.corruptState }
+        }
+        for id in state.awardedCompletionIDs {
+            guard !id.isEmpty else { throw StoreError.corruptState }
+        }
+        for record in state.successRecords {
+            guard !record.completionID.isEmpty,
+                  record.awardedSeconds.isFinite,
+                  record.awardedSeconds >= 0 else { throw StoreError.corruptState }
+        }
+    }
+
+    public enum StoreError: Error {
+        case unsupportedSchema
+        case corruptState
+    }
+
+    private struct SchemaHeader: Codable {
+        var schemaVersion: Int
+    }
+
+    /// Legacy on-disk shape before reward persistence (schemaVersion 1).
+    private struct SnapshotV1: Codable {
+        var schemaVersion: Int
+        var configured: Bool
+        var endsAt: Date?
+    }
 }
