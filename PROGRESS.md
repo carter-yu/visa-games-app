@@ -44,3 +44,9 @@
   - D1–D5 and D7 are Confirmed in `docs/decisions/0002-reward-gating-d1-d7.md`; D6, D8, D9, and D10 remain open.
   - Added `phases/phase-1-gating-rewards.md` with the M1 scope, stop condition, P1-0 through P1-4 slices, and exit evidence.
   - Next task: P1-1 reward model + tests. Do not add YouTube or mark M2/media integration done.
+
+- 2026-09-27: P1-1 in-memory reward model + VisaCoreChecks tests (Linux workshop; Swift not available here).
+  - Branch: `feat/p1-1-reward-model`. Added `Sources/VisaCore/RewardLedger.swift` (`RewardPolicy`, `RewardLedger`, `SuccessKind`, `SuccessRecord`, `RewardApplyOutcome`) and `Tests/VisaCoreTests/RewardLedgerTests.swift`; wired eight reward checks into `VisaCoreChecks` via `SessionTests.swift` TestRunner. `Session.swift` / `Snapshot.endsAt` left unchanged.
+  - Implements ADR 0002 Confirmed D1 (entry activity unlocks parent-configured initial allowance), D2 (answering does not spend viewing budget), D3 (exactly-once per completion ID, parent-set cap, no next-day carryover via injected Calendar day), D7 (language replay unpenalized; assisted vs unassisted recorded separately). Viewing budget kept separate from absolute session deadline. No YouTube/media/UI; no schemaVersion/persistence change (P1-2); D6 not invented; M1 / Mac mini UAT not marked complete.
+  - Verification blocker on this host: `swift: not found`. Mac mini must run `sh scripts/test.sh` (expects PASS: 7 session checks + 8 reward-ledger checks).
+  - Exact next task: P1-2 durable gating and session accounting — persist reward/allowance state atomically with the existing local state boundary, keep answering time separate from viewing budget, enforce absolute session deadline independently, normalize stale/expired state on relaunch/wake/clock changes, and add failure-path tests for invalid/duplicated/capped/partially written state.
