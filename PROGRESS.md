@@ -38,3 +38,9 @@
   - Mac model, exact macOS marketing name, TV model, account name, and hot-corner inventory: Not specified by tester. Automated checks still do not simulate AppKit/LA; household managed-device caveats remain in `docs/phase-0-kiosk-checklist.md`.
   - Documentation-only update on branch `chore/m0-status-reconcile`. No Swift sources, version number, or app behavior changed. Do not invent Phase 1 timer or reward policy.
   - Exact next task: After this Reported M0 acceptance docs land and parent merges via `gh`, open or update the phase file / D decisions needed before child tasks or media work; child tasks and media remain gated until those Phase 1 decisions exist — do not invent Phase 1 policy.
+
+- 2026-09-27: Phase 1 M1 durable gating/rewards starting policy confirmed by Carter Yu.
+  - M0 is recorded as Reported at main commit `7c18c65`.
+  - D1–D5 and D7 are Confirmed in `docs/decisions/0002-reward-gating-d1-d7.md`; D6, D8, D9, and D10 remain open.
+  - Added `phases/phase-1-gating-rewards.md` with the M1 scope, stop condition, P1-0 through P1-4 slices, and exit evidence.
+  - Next task: P1-1 reward model + tests. Do not add YouTube or mark M2/media integration done.
