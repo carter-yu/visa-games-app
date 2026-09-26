@@ -125,14 +125,25 @@ func expectThrowsError<T>(_ expression: @autoclosure () throws -> T, file: Stati
 @main
 struct TestRunner {
     static func main() throws {
-        let tests = SessionTests()
-        tests.testFirstLaunchRequiresAuthenticatedSetup()
-        tests.testChildCannotGrantTimeOrUnlockWithoutAuthentication()
-        tests.testAbsoluteExpiryAndRelaunch()
-        tests.testParentRoundTripPreservesVisaButNeverPersistsUnlock()
-        tests.testInvalidGrantAndUnconfiguredVisaFailClosed()
-        tests.testEscapePolicyInEveryMode()
-        try tests.testAtomicPersistenceRoundTripAndCorruptFile()
-        print("PASS: 7 state, timer, authentication-boundary and persistence tests")
+        let session = SessionTests()
+        session.testFirstLaunchRequiresAuthenticatedSetup()
+        session.testChildCannotGrantTimeOrUnlockWithoutAuthentication()
+        session.testAbsoluteExpiryAndRelaunch()
+        session.testParentRoundTripPreservesVisaButNeverPersistsUnlock()
+        session.testInvalidGrantAndUnconfiguredVisaFailClosed()
+        session.testEscapePolicyInEveryMode()
+        try session.testAtomicPersistenceRoundTripAndCorruptFile()
+
+        let reward = RewardLedgerTests()
+        reward.testEntryActivityUnlocksConfiguredInitialAllowance()
+        reward.testExactlyOnceGrantPerCompletionID()
+        reward.testDuplicateCompletionIDRejected()
+        reward.testParentSetCapEnforcement()
+        reward.testNoNextDayCarryover()
+        reward.testLanguageReplayDoesNotReduceReward()
+        reward.testAssistedSuccessRecordedSeparately()
+        reward.testAnsweringDoesNotSpendViewingBudget()
+
+        print("PASS: 7 session checks + 8 reward-ledger checks")
     }
 }
