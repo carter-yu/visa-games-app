@@ -10,13 +10,18 @@ final class AppModel: ObservableObject {
     @Published private(set) var now = Date()
     @Published private(set) var message: String?
     @Published private(set) var authenticating = false
+    @Published private(set) var themePaletteID: ThemePaletteID
+    @Published private(set) var successFeedbackID: Int? = nil
     private let store: SnapshotStore
+    private let themeStore = ThemePreferenceStore()
+    private var nextFeedbackID = 0
     private var storageFailed = false
     private var authentication: LAContext?
     private var parentDeadline: Date?
     var changed: (() -> Void)?
 
     init() {
+        themePaletteID = ThemePreferenceStore().load()
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         store = SnapshotStore(url: directory.appendingPathComponent("VisaGames/state.json"))
         do {
@@ -95,6 +100,23 @@ final class AppModel: ObservableObject {
     func grant() {
         guard !storageFailed else { return }
         update { $0.grant(seconds: 60, now: Date()) }
+    }
+
+    func selectTheme(_ palette: ThemePaletteID) {
+        guard session.mode == .parent else { return }
+        themeStore.save(palette)
+        themePaletteID = palette
+    }
+
+    func triggerSuccessFeedback() {
+        guard session.mode == .lock || session.mode == .play, !storageFailed else { return }
+        nextFeedbackID += 1
+        let id = nextFeedbackID
+        successFeedbackID = id
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            if successFeedbackID == id { successFeedbackID = nil }
+        }
     }
 
     func resetStorage() {
@@ -179,7 +201,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 struct ShellView: View {
     @ObservedObject var model: AppModel
     var body: some View {
-        VStack(spacing: 28) {
+        let theme = ThemePack.forID(model.themePaletteID)
+        ZStack {
+            Color(rgb: theme.background).ignoresSafeArea()
+            if model.session.mode == .lock || model.session.mode == .play {
+                VehicleParade(color: Color(rgb: theme.watermark))
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+            }
+            VStack(spacing: 28) {
             Text("Visa Games / 簽證遊戲").font(.largeTitle.bold())
             Text("先做再玩 / Do first, then play").font(.title2)
             Spacer()
@@ -190,6 +219,8 @@ struct ShellView: View {
                 Text("用筆畫 / Draw with your pen").font(.system(size: 44, weight: .bold))
                 Text("準備好未？ / Ready?")
                 Text("遊戲稍後加入 / Activities are coming later")
+                Button("泊車示範 / Park-in demo", action: model.triggerSuccessFeedback)
+                    .tint(Color(rgb: theme.accent))
             case .play:
                 Text("簽證時間 / Visa time").font(.title)
                 Text("\(model.session.remaining(at: model.now)) 秒 / seconds")
@@ -198,6 +229,15 @@ struct ShellView: View {
             case .parent:
                 Text("家長設定 / Parent controls").font(.title)
                 Text("兩分鐘後自動鎖定 / Locks automatically after two minutes")
+                Picker("主題 / Theme", selection: Binding(
+                    get: { model.themePaletteID },
+                    set: { model.selectTheme($0) }
+                )) {
+                    ForEach(ThemePaletteID.allCases, id: \.self) { palette in
+                        Text(ThemePack.forID(palette).parentLabel).tag(palette)
+                    }
+                }
+                .frame(maxWidth: 470)
                 if !model.session.snapshot.configured {
                     Button("完成設定 / Finish setup", action: model.setup)
                 } else {
@@ -214,13 +254,19 @@ struct ShellView: View {
             if model.session.mode != .parent {
                 Button("家長 / Parent", action: model.unlock).disabled(model.authenticating)
             }
-            Text("v0.1.0 · Phase 0").font(.footnote)
+            Text("v0.2.0").font(.footnote)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .padding(48)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .foregroundStyle(Color(rgb: theme.foreground))
+            if let id = model.successFeedbackID,
+               model.session.mode == .lock || model.session.mode == .play {
+                SuccessParkAnimation(color: Color(rgb: theme.accent))
+                    .id(id)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+            }
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-        .padding(48)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .foregroundStyle(.white)
-        .background(Color(red: 0.06, green: 0.12, blue: 0.20))
     }
 }

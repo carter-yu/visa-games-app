@@ -57,3 +57,11 @@
   - No UI / YouTube / AppKit / skin changes. D6 not invented. M1 / Mac mini UAT not marked complete.
   - Verification blocker on this host: `swift: not found`. Mac mini must run `sh scripts/test.sh` (expects PASS: 7 session + 8 reward-ledger + 7 reward-persistence checks).
   - Exact next task: P1-3 budget-aware approved-video boundary (parent-approved videos with duration/budget-fit; stop at budget boundary; ADR 0002 pause/buffering/ad/seek/sleep/timezone via deterministic playback seam; no provider integration).
+
+- 2026-09-27: Implemented the theme-long-vehicles overnight slice on `feat/theme-long-vehicles` as v0.2.0 source; Mac mini verification is pending.
+  - Added three Foundation-only `ThemePack` palettes and a `ThemePreferenceStore` using `VisaGames.themePaletteID` in UserDefaults. The authenticated parent view selects the palette; `Snapshot`, `RewardLedger`, and visa/session semantics were not changed.
+  - Added five original SwiftUI vehicle silhouettes in a slow, low-opacity lock/play parade. A lock-mode demo tap calls `AppModel.triggerSuccessFeedback()` and shows a short park-in animation; no activity engine or reward grant was connected by this visual slice.
+  - Added five theme-preference checks to the offline runner alongside the existing seven session, eight reward-ledger, and seven reward-persistence checks. Updated the bundle version to 0.2.0. `git diff --check`, plist parsing, and shell syntax checks passed on the Linux workshop host.
+  - This Linux workshop has no Swift: `sh scripts/test.sh` and `sh scripts/bundle.sh` both exited 127 with `swift: not found`. No Swift compile, test pass, native launch, or visual UAT is claimed here. M1 completion is not claimed.
+  - Existing macOS OS-level escape paths remain as documented in `docs/phase-0-kiosk-checklist.md`; app presentation and key filtering do not replace device policy.
+  - Exact next task: morning Mac mini checklist — run `sh scripts/test.sh` and confirm 7 + 8 + 7 + 5 checks; run `sh scripts/bundle.sh` and launch the app; visually check all three parent-only palettes persist across relaunch, the five silhouettes move subtly only in lock/play, and the lock demo parks then clears in about two seconds. Recheck parent authentication, Escape/Cmd shortcuts, display edges, and system OS escape paths on the target setup; record actual outcomes before any M1 claim.

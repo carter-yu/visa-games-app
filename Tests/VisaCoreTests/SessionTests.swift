@@ -153,6 +153,13 @@ struct TestRunner {
         try persistence.testInvalidRewardStateFailsClosed()
         try persistence.testAnsweringStillDoesNotSpendBudgetAfterReload()
 
-        print("PASS: 7 session checks + 8 reward-ledger checks + 7 reward-persistence checks")
+        let theme = ThemePreferenceTests()
+        theme.testDefaultPalette()
+        theme.testSelectEachPalette()
+        theme.testPersistAndReload()
+        theme.testInvalidRawValueFallsBackToDefault()
+        theme.testBilingualTraditionalChineseLabels()
+
+        print("PASS: 7 session checks + 8 reward-ledger checks + 7 reward-persistence checks + 5 theme-preference checks")
     }
 }
