@@ -23,3 +23,18 @@
 
 - 2026-09-18: Changed the GitHub repository to public at the user's request and added prominent README implementation credit to OpenAI GPT-6 Astra LLM through Codex, with product direction and manual verification credited to Carter Yu.
   - Debug build and all seven offline checks passed. This documentation update does not change app behavior or the v0.1.0 version.
+
+- 2026-09-26: Reconciled Phase 0 / M0 status on the Linux workshop host.
+  - Starting commit: `824e4d1`; branch: `chore/m0-status-reconcile`; working tree was clean before this documentation-only update.
+  - Phase 0 remains active and acceptance is incomplete. The target Mac mini + TV checklist has no recorded target observations; Wacom input, system authentication, sleep/wake, and N1–N9 acceptance remain unverified on the target. The earlier countdown/lock report does not identify its device configuration.
+  - `docs/project-plan.md` is absent. ADR 0001 is the only recorded ADR; no D1–D10 decisions are recorded. This update approves no proposed policy and changes no app behavior, dependencies, UI, or v0.1.0 version.
+  - Verification blocker: `sh scripts/test.sh` exited 127 with `swift: not found` on Linux. No current Swift test or build success is claimed. The app shell was not touched; macOS bundling was not run on this host.
+  - The smallest permitted follow-up is target-device Phase 0 evidence collection. Child tasks and media integration remain gated by the active phase's N1–N9 stop condition.
+  - Exact next task: run `sh scripts/test.sh` and `sh scripts/bundle.sh` on the target Mac mini, then record the tester, macOS/TV/Wacom/account configuration and actual outcomes in `docs/phase-0-kiosk-checklist.md`, including parent authentication, sleep/wake, relaunch, and OS escape paths. Completion is blocked on access to that target configuration and its observations.
+
+- 2026-09-26: Mac mini toolchain green + Carter Reported N1–N9 Pass + Wacom usable; Phase 0 M0 acceptance recorded as Reported.
+  - Parent explicit decision (2026-09-26 chat): “N1-N9 all ok. i can use wacom in the app / merge and proceed”. Evidence label: Reported (Carter Yu), not Confirmed lab instrumentation. This overrides the standing line that said not to mark N1–N9 complete for this documentation slice only.
+  - Target path: `/Users/carteryu/my-ai-projects/visa-games-app` @ `chore/m0-status-reconcile` / `45ef1dc`. Xcode 27.0 Build 27A266a; Swift 6.4; `xctest` present. `sh scripts/test.sh` → PASS (7 state, timer, authentication-boundary and persistence tests). `sh scripts/bundle.sh` → Built `.build/Visa Games.app`. `open ".build/Visa Games.app"` succeeded. Wacom input usable in the app (Reported).
+  - Mac model, exact macOS marketing name, TV model, account name, and hot-corner inventory: Not specified by tester. Automated checks still do not simulate AppKit/LA; household managed-device caveats remain in `docs/phase-0-kiosk-checklist.md`.
+  - Documentation-only update on branch `chore/m0-status-reconcile`. No Swift sources, version number, or app behavior changed. Do not invent Phase 1 timer or reward policy.
+  - Exact next task: After this Reported M0 acceptance docs land and parent merges via `gh`, open or update the phase file / D decisions needed before child tasks or media work; child tasks and media remain gated until those Phase 1 decisions exist — do not invent Phase 1 policy.
