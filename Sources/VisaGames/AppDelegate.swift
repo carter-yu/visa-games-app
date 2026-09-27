@@ -720,7 +720,7 @@ struct ShellView: View {
                         .disabled(model.authenticating)
                         .tint(accent)
                 }
-                Text("v0.6.0").font(.system(size: 16, design: .rounded))
+                Text("v0.6.1").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
@@ -841,7 +841,8 @@ struct ShellView: View {
                             }
                         }
                         ForEach(model.allowlist.videos) { video in
-                            HStack(alignment: .firstTextBaseline) {
+                            HStack(alignment: .center, spacing: 12) {
+                                AllowlistVideoThumbnail(videoID: video.id)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(video.parentListTitle)
                                         .font(.system(size: 18, design: .rounded))
@@ -932,5 +933,59 @@ struct ShellView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 480, alignment: .top)
         .layoutPriority(1)
+    }
+}
+
+
+/// Parent allowlist row preview: YouTube thumbnail CDN via AsyncImage.
+/// Network failure / invalid id → placeholder (never crash). Not child playback.
+private struct AllowlistVideoThumbnail: View {
+    let videoID: String
+    private let width: CGFloat = 96
+    private let height: CGFloat = 54
+
+    var body: some View {
+        Group {
+            if let url = YouTubeEmbedURL.thumbnailURL(videoID: videoID) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    case .failure:
+                        placeholder
+                    case .empty:
+                        ZStack {
+                            placeholderBackground
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                    @unknown default:
+                        placeholder
+                    }
+                }
+            } else {
+                placeholder
+            }
+        }
+        .frame(width: width, height: height)
+        .clipped()
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .accessibilityLabel("預覽圖 / Preview")
+    }
+
+    private var placeholder: some View {
+        ZStack {
+            placeholderBackground
+            Image(systemName: "play.rectangle.fill")
+                .font(.system(size: 22))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var placeholderBackground: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(Color.secondary.opacity(0.18))
     }
 }

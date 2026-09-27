@@ -45,6 +45,12 @@ public struct ApprovedVideo: Sendable, Equatable, Codable, Identifiable {
     public var parentListTitle: String {
         hasParentTitle ? parentLabel : "(未命名 / Untitled)"
     }
+
+    /// Derived YouTube thumbnail CDN URL for parent allowlist preview. Nil if id invalid.
+    /// Not persisted — Codable stays backward compatible with existing allowlist JSON.
+    public var thumbnailURL: URL? {
+        YouTubeEmbedURL.thumbnailURL(videoID: id)
+    }
 }
 
 /// Parent-maintained set of approved videos. Unknown ids are not playable (D8).

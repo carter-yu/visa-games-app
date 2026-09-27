@@ -1,5 +1,15 @@
 # Progress
 
+- 2026-09-27: PR #8 PATCH **v0.6.1** — parent allowlist shows YouTube-style preview thumbnail beside Title + ID. Do not merge; Mac mini UAT pending.
+  - Carter (Mac mini): add the preview image to the allowed video — parent allowlist rows should show a YouTube-style preview/thumbnail next to Title + ID.
+  - Approach (offline-friendly): derive `https://img.youtube.com/vi/{VIDEO_ID}/hqdefault.jpg` from the allowlisted id (`YouTubeEmbedURL.thumbnailURL` + `ApprovedVideo.thumbnailURL`). Nothing extra persisted — Codable allowlist JSON stays backward compatible. No custom image paste required.
+  - Parent UI: `AllowlistVideoThumbnail` (SwiftUI `AsyncImage`) beside Title + ID; network failure / invalid id → play-rectangle placeholder (no crash). Still thumbnail CDN only; D8 scoped embed playback unchanged.
+  - Tests: +1 scoped-playback (`testYouTubeThumbnailURLDerivedFromID`) → expect PASS banner **10+10+7+6+8+12**.
+  - Version: Info.plist **0.6.1 / 17**, footer **v0.6.1**. Prompt: `prompts/pr-0008-m4-parent-allowlist-preview-thumbnail.md`.
+  - Linux workshop: `swift: not found` expected — no Swift compile/test/bundle claimed here. M4 not claimed complete.
+  - Exact next task: Mac mini — fetch tip of `feat/m4-gakken-style-activities`, `sh scripts/test.sh` (expect 10+10+7+6+8+12), `sh scripts/bundle.sh`, Parent → Allowlist → rows show thumb + Title + ID; offline/placeholder if CDN fails; Play/Remove/Preview still work; footer v0.6.1. Do not merge until Carter OK.
+
+
 - 2026-09-27: PR #8 MINOR **v0.6.0** — M4 Gakken-style activity TYPES (original vehicles). Do not merge; Mac mini UAT pending.
   - Base: main @ `5603845` after merge of PR #7 (v0.5.1). Carter Confirmed M3 UAT good; asked for more games referencing Play Smart wipe-clean **activity genres only**.
   - Research (public product description): tracing lines/letters/numbers/shapes, matching, mazes, puzzles, search-and-find, counting/sorting → kiosk genres: two-picture choose, find-the-same, count-to-N, sequencing, maze-lite, path-trace lite, shape sort, connect-the-dots lite. **No Gakken pages/art/titles/packaging copied.** ADR 0005 + `phases/phase-4-gakken-style-activities.md`.

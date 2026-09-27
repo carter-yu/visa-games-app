@@ -210,6 +210,18 @@ final class ScopedPlaybackTests {
         expectTrue(list.video(id: sampleID)?.hasParentTitle == false)
     }
 
+    func testYouTubeThumbnailURLDerivedFromID() {
+        let url = YouTubeEmbedURL.thumbnailURL(videoID: sampleID)
+        expectEqual(url?.absoluteString, "https://img.youtube.com/vi/\(sampleID)/hqdefault.jpg")
+        expectNil(YouTubeEmbedURL.thumbnailURL(videoID: ""))
+        expectNil(YouTubeEmbedURL.thumbnailURL(videoID: "short"))
+        expectNil(YouTubeEmbedURL.thumbnailURL(videoID: "bad id!!!!"))
+        // ApprovedVideo exposes the same derived URL; nothing persisted.
+        let video = ApprovedVideo(id: sampleID, durationSeconds: 60)
+        expectEqual(video.thumbnailURL?.absoluteString, url?.absoluteString)
+        expectNil(ApprovedVideo(id: "not-valid!", durationSeconds: 60).thumbnailURL)
+    }
+
     func testAllowedEmbedMainFrameURLPolicy() {
         expectTrue(YouTubeEmbedURL.isBenignBlankURL(nil))
         expectTrue(YouTubeEmbedURL.isBenignBlankURL(URL(string: "about:blank")))
