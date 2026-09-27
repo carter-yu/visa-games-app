@@ -3,7 +3,7 @@
 Archive of English Codex / manager prompts used for pull requests in this repository, kept for future review and handoff.
 
 ## Reconstruction note
-PR **#1–#3** prompt files (`pr-0001` … `pr-0003`) are **reconstructed** from parent chat + `PROGRESS.md` / ADRs / phase docs when the original manager prompts were **not** archived live on the filesystem. They are labeled as reconstructions inside each file and must not be treated as verbatim originals. PR **#4–#5** were archived closer to the live prompts. PR **#6** (`pr-0006-m2-scoped-player-scaffold.md`) is archived from the live M2 scaffold prompt. PR **#7** (`pr-0007-m3-first-learning-loop.md`) is archived from the live M3 first-learning-loop prompt.
+PR **#1–#3** prompt files (`pr-0001` … `pr-0003`) are **reconstructed** from parent chat + `PROGRESS.md` / ADRs / phase docs when the original manager prompts were **not** archived live on the filesystem. They are labeled as reconstructions inside each file and must not be treated as verbatim originals. PR **#4–#5** were archived closer to the live prompts. PR **#6** (`pr-0006-m2-scoped-player-scaffold.md`) is archived from the live M2 scaffold prompt. PR **#7** (`pr-0007-m3-first-learning-loop.md`, `pr-0007-m3-parent-test-budget-entry-gate.md`, `pr-0007-m3-entry-gate-layout-reset-logs.md`) archives the live M3 first-learning-loop prompt and follow-up PATCHes.
 
 ## Rules
 - Engineering English only in this folder (prompt archives may quote HK Traditional Chinese UI strings that shipped in the product).

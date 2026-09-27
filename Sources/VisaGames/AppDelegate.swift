@@ -44,6 +44,7 @@ final class AppModel: ObservableObject {
             session = Session(snapshot: Snapshot(configured: true), now: Date())
             storageFailed = true
             message = "儲存資料有問題，請家長處理。 / Storage needs parent attention."
+            VisaGamesLog.append("storage load FAILED — 載入失敗 storageFailed=true")
         }
     }
 
@@ -55,6 +56,7 @@ final class AppModel: ObservableObject {
             catch {
                 storageFailed = true
                 message = "未能儲存，請家長處理。 / Could not save. Ask a parent."
+                VisaGamesLog.append("storage save FAILED — 儲存失敗 storageFailed=true")
                 session = Session(snapshot: Snapshot(configured: true), now: Date())
                 changed?()
                 return
@@ -67,7 +69,12 @@ final class AppModel: ObservableObject {
     func tick() {
         now = Date()
         let current = now
+        let modeBefore = session.mode
         update { $0.tick(now: current) }
+        if session.mode != modeBefore {
+            VisaGamesLog.append("mode change — 模式變更 \(modeBefore) → \(session.mode) via tick")
+            logShellBranch(context: "tick")
+        }
         if let parentDeadline, current >= parentDeadline { returnToChild() }
         if let id = activePlayVideoID {
             let decision = PlaybackPolicy().evaluateContinue(
@@ -106,10 +113,14 @@ final class AppModel: ObservableObject {
             parentDeadline = Date().addingTimeInterval(parentAccessSeconds)
             if !storageFailed { message = nil }
             update { $0.enterParent(authenticated: true, now: Date()) }
+            VisaGamesLog.append("mode → parent — 進入家長模式")
+            logShellBranch(context: "enterParent")
         }
     }
 
     func returnToChild() {
+        let beforeMode = session.mode
+        let beforeEntry = isEntryActivityCompleted
         authentication?.invalidate()
         authentication = nil
         authenticating = false
@@ -128,6 +139,10 @@ final class AppModel: ObservableObject {
             )
             if !decision.allowed { activePlayVideoID = nil }
         }
+        VisaGamesLog.append(
+            "returnToChild — 返回兒童 beforeMode=\(beforeMode) afterMode=\(session.mode) entryBefore=\(beforeEntry) entryAfter=\(isEntryActivityCompleted) rewardNil=\(session.snapshot.reward == nil)"
+        )
+        logShellBranch(context: "returnToChild")
     }
 
     func setup() {
@@ -196,9 +211,13 @@ final class AppModel: ObservableObject {
 
     func selectEntryOption(id: String) {
         guard session.mode == .lock || session.mode == .play else { return }
-        guard !storageFailed else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectEntryOption blocked — 已封鎖 storageFailed=true id=\(id)")
+            return
+        }
         if isEntryActivityCompleted {
             entryRetryMessage = "已經完成入口活動。 / Entry activity already done."
+            VisaGamesLog.append("selectEntryOption ignored — 已完成入口 id=\(id)")
             return
         }
         let evaluation = activityEvaluator.evaluate(
@@ -209,7 +228,9 @@ final class AppModel: ObservableObject {
         switch evaluation {
         case .incorrect:
             entryRetryMessage = "再試一次，得嘅。 / Try again — you can do it."
+            VisaGamesLog.append("selectEntryOption incorrect — 答錯 id=\(id) hintUsed=\(entryHintUsed)")
         case .correct(let assisted):
+            VisaGamesLog.append("selectEntryOption correct — 答對 id=\(id) assisted=\(assisted)")
             applyEntrySuccess(assisted: assisted)
         }
     }
@@ -243,6 +264,10 @@ final class AppModel: ObservableObject {
         }
         entryRetryMessage = nil
         triggerSuccessFeedback()
+        VisaGamesLog.append(
+            "applyEntrySuccess — 入口成功 assisted=\(assisted) entryCompleted=\(isEntryActivityCompleted) viewing=\(remainingViewingBudget(at: Date())) mode=\(session.mode)"
+        )
+        logShellBranch(context: "applyEntrySuccess")
         // Play path still requires an active visa + allowlisted video via existing PlaybackPolicy.
         if session.mode == .play, let first = allowlist.videos.first,
            remainingViewingBudget(at: Date()) > 0 {
@@ -312,21 +337,72 @@ final class AppModel: ObservableObject {
             session.replaceRewardState(ledger.exportState())
         }
         playbackMessage = "測試觀看時間已準備。 / Test viewing budget ready."
+        VisaGamesLog.append(
+            "seedTestViewingBudget — 測試觀看時間 entryCompleted=\(isEntryActivityCompleted) viewing=\(remainingViewingBudget(at: Date())) rewardNil=\(session.snapshot.reward == nil)"
+        )
+        logShellBranch(context: "seedTestViewingBudget")
     }
 
     /// Parent-only UAT: clear entryActivityCompleted so the child two-picture game returns.
-    /// Keeps remaining viewing budget and awards; resets entry UI hint/retry flags.
+    /// Keeps remaining viewing budget and awards when a ledger already exists.
+    /// If reward state is nil, creates an empty ledger with entryActivityCompleted=false and persists it.
     func resetEntryActivityForChildUAT() {
-        guard session.mode == .parent, !storageFailed else { return }
+        guard session.mode == .parent else {
+            VisaGamesLog.append("resetEntryActivity blocked — 非家長模式 mode=\(session.mode)")
+            return
+        }
+        guard !storageFailed else {
+            VisaGamesLog.append("resetEntryActivity blocked — 儲存失敗 storageFailed=true")
+            return
+        }
+        let beforeCompleted = isEntryActivityCompleted
+        let beforeNil = session.snapshot.reward == nil
+        VisaGamesLog.append(
+            "resetEntryActivity before — 重設前 entryCompleted=\(beforeCompleted) rewardNil=\(beforeNil) mode=\(session.mode)"
+        )
         update { session in
-            guard let state = session.snapshot.reward else { return }
-            var ledger = RewardLedger(state: state)
-            ledger.resetEntryActivityForParentUAT()
+            var ledger: RewardLedger
+            if let state = session.snapshot.reward {
+                ledger = RewardLedger(state: state)
+                ledger.resetEntryActivityForParentUAT()
+            } else {
+                // Nil reward must still show EntryActivityView; persist empty incomplete ledger
+                // so subsequent reads are consistent after Reset + Return.
+                ledger = RewardLedger(policy: RewardPolicy(
+                    initialAllowanceSeconds: 60,
+                    rewardCapSeconds: 1_200
+                ))
+                // Fresh ledger already has entryActivityCompleted == false.
+            }
             session.replaceRewardState(ledger.exportState())
         }
         entryHintUsed = false
         entryRetryMessage = nil
+        // Force ObservableObject subscribers to refresh derived entry UI even if other fields look similar.
+        objectWillChange.send()
         playbackMessage = "入口活動已重設（兒童 UAT）。 / Entry activity reset (child UAT)."
+        VisaGamesLog.append(
+            "resetEntryActivity after — 重設後 entryCompleted=\(isEntryActivityCompleted) rewardNil=\(session.snapshot.reward == nil) createdFromNil=\(beforeNil)"
+        )
+        logShellBranch(context: "resetEntryActivity")
+    }
+
+    /// Log which ShellView branch the child/parent UI should take (Traditional Chinese + English).
+    func logShellBranch(context: String) {
+        let branch: String
+        switch session.mode {
+        case .setup:
+            branch = "setup"
+        case .parent:
+            branch = "parent"
+        case .lock:
+            branch = isEntryActivityCompleted ? "lock-completed" : "lock-entry"
+        case .play:
+            branch = isEntryActivityCompleted ? "play-ready" : "play-entry"
+        }
+        VisaGamesLog.append(
+            "shell branch=\(branch) — 介面分支 mode=\(session.mode) entryCompleted=\(isEntryActivityCompleted) rewardNil=\(session.snapshot.reward == nil) storageFailed=\(storageFailed) ctx=\(context)"
+        )
     }
 
     func playAllowlisted(id: String) {
@@ -381,9 +457,10 @@ final class AppModel: ObservableObject {
     /// Parent-only: reveal the active ScopedPlayer log directory in Finder.
     func openScopedPlayerLogsFolder() {
         guard session.mode == .parent else { return }
-        ScopedPlayerLog.openActiveDirectory()
-        let path = ScopedPlayerLog.activeLogDirectory.path
+        VisaGamesLog.openActiveDirectory()
+        let path = VisaGamesLog.activeLogDirectory.path
         playbackMessage = "日誌資料夾已開啟。 / Logs folder opened.\n" + path
+        VisaGamesLog.append("openLogsFolder — 開啟日誌 path=\(path)")
     }
 
     func resetStorage() {
@@ -492,6 +569,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
 struct ShellView: View {
     @ObservedObject var model: AppModel
+
+    /// When true, Spacers that compete with the large two-picture gate are suppressed.
+    private var showsEntryGate: Bool {
+        (model.session.mode == .lock || model.session.mode == .play) && !model.isEntryActivityCompleted
+    }
+
     var body: some View {
         let theme = ThemePack.forID(model.themePaletteID)
         let accent = Color(rgb: theme.accent)
@@ -503,19 +586,60 @@ struct ShellView: View {
                 VehicleParade(color: Color(rgb: theme.watermark), yellow: yellow)
                     .frame(maxHeight: .infinity, alignment: .bottom)
                     .padding(.bottom, 12)
+                    .allowsHitTesting(false)
             }
-            VStack(spacing: 32) {
-            Text("Visa Games / 簽證遊戲")
-                .font(.system(size: 44, weight: .bold, design: .rounded))
-            Text("先做再玩 / Do first, then play")
-                .font(.system(size: 28, weight: .semibold, design: .rounded))
-            Spacer()
-            switch model.session.mode {
-            case .setup:
-                Text("請家長設定 / Parent setup required")
-                    .font(.system(size: 34, weight: .semibold, design: .rounded))
-            case .lock:
-                if model.isEntryActivityCompleted {
+            VStack(spacing: showsEntryGate ? 16 : 32) {
+                Text("Visa Games / 簽證遊戲")
+                    .font(.system(size: showsEntryGate ? 36 : 44, weight: .bold, design: .rounded))
+                Text("先做再玩 / Do first, then play")
+                    .font(.system(size: showsEntryGate ? 24 : 28, weight: .semibold, design: .rounded))
+                if !showsEntryGate {
+                    Spacer(minLength: 8)
+                }
+                modeContent(theme: theme, accent: accent, yellow: yellow)
+                    .layoutPriority(1)
+                if let message = model.message {
+                    Text(message).foregroundStyle(yellow)
+                        .font(.system(size: 22, design: .rounded))
+                }
+                if !showsEntryGate {
+                    Spacer(minLength: 8)
+                }
+                if model.session.mode != .parent {
+                    Button("家長 / Parent", action: model.unlock)
+                        .disabled(model.authenticating)
+                        .tint(accent)
+                }
+                Text("v0.4.2").font(.system(size: 16, design: .rounded))
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .padding(showsEntryGate ? 28 : 56)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .foregroundStyle(Color(rgb: theme.foreground))
+            if let id = model.successFeedbackID,
+               model.session.mode == .lock || model.session.mode == .play {
+                SuccessParkAnimation(color: accent, yellow: yellow)
+                    .id(id)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 28)
+                    .allowsHitTesting(false)
+            }
+        }
+        .onAppear {
+            model.logShellBranch(context: "shellAppear")
+        }
+    }
+
+    @ViewBuilder
+    private func modeContent(theme: ThemePack, accent: Color, yellow: Color) -> some View {
+        switch model.session.mode {
+        case .setup:
+            Text("請家長設定 / Parent setup required")
+                .font(.system(size: 34, weight: .semibold, design: .rounded))
+        case .lock:
+            if model.isEntryActivityCompleted {
+                VStack(spacing: 16) {
                     Text("入口活動完成 / Entry activity done")
                         .font(.system(size: 40, weight: .bold, design: .rounded))
                     Text("睇片要簽證同准許清單（家長）。 / Video needs a visa and allowlist (parent).")
@@ -525,67 +649,62 @@ struct ShellView: View {
                                  model.remainingViewingBudget(at: model.now),
                                  model.remainingViewingBudget(at: model.now)))
                         .font(.system(size: 22, design: .rounded))
-                } else {
-                    EntryActivityView(
-                        question: model.currentEntryQuestion,
-                        accent: accent,
-                        yellow: yellow,
-                        foreground: Color(rgb: theme.foreground),
-                        retryMessage: model.entryRetryMessage,
-                        hintUsed: model.entryHintUsed,
-                        onSelect: { model.selectEntryOption(id: $0) },
-                        onHint: model.useEntryHint,
-                        onSpeakPrompt: model.speakEntryPrompt
-                    )
                 }
-            case .play:
-                Text("簽證時間 / Visa time")
-                    .font(.system(size: 34, weight: .semibold, design: .rounded))
-                Text("\(model.session.remaining(at: model.now)) 秒 / seconds")
-                    .font(.system(size: 72, weight: .bold, design: .rounded)).monospacedDigit()
-                    .foregroundStyle(yellow)
-                Text(String(format: "觀看剩餘 %.0f 秒 / Viewing left %.0f s",
-                             model.remainingViewingBudget(at: model.now),
-                             model.remainingViewingBudget(at: model.now)))
-                    .font(.system(size: 22, design: .rounded))
-                if !model.isEntryActivityCompleted {
-                    Text("先做再玩 / Do first, then play")
-                        .font(.system(size: 28, weight: .semibold, design: .rounded))
-                    EntryActivityView(
-                        question: model.currentEntryQuestion,
-                        accent: accent,
-                        yellow: yellow,
-                        foreground: Color(rgb: theme.foreground),
-                        retryMessage: model.entryRetryMessage,
-                        hintUsed: model.entryHintUsed,
-                        onSelect: { model.selectEntryOption(id: $0) },
-                        onHint: model.useEntryHint,
-                        onSpeakPrompt: model.speakEntryPrompt
-                    )
-                } else if let videoID = model.activePlayVideoID {
-                    ScopedPlayerView(videoID: videoID) {
-                        model.stopScopedPlayback(reason: .navigationRejected)
-                    }
-                    .frame(minHeight: 480, maxHeight: 900)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                } else if let first = model.allowlist.videos.first {
-                    ScopedPlayerPlaceholder(
-                        message: "準備准許影片 / Ready for allowlisted video",
-                        yellow: yellow
-                    )
-                    Button("播放准許影片 / Play allowlisted") {
-                        model.playAllowlisted(id: first.id)
-                    }
-                    .tint(yellow)
-                } else {
-                    ScopedPlayerPlaceholder(
-                        message: "未有准許影片，請家長加入。 / No allowlisted video yet.",
-                        yellow: yellow
-                    )
+            } else {
+                entryGateScroll(theme: theme, accent: accent, yellow: yellow)
+            }
+        case .play:
+            if !model.isEntryActivityCompleted {
+                VStack(spacing: 12) {
+                    Text("簽證時間 / Visa time")
+                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    Text("\(model.session.remaining(at: model.now)) 秒 / seconds")
+                        .font(.system(size: 36, weight: .bold, design: .rounded)).monospacedDigit()
+                        .foregroundStyle(yellow)
+                    Text(String(format: "觀看剩餘 %.0f 秒 / Viewing left %.0f s",
+                                 model.remainingViewingBudget(at: model.now),
+                                 model.remainingViewingBudget(at: model.now)))
+                        .font(.system(size: 18, design: .rounded))
+                    entryGateScroll(theme: theme, accent: accent, yellow: yellow)
                 }
-            case .parent:
-                ScrollView {
-                    VStack(spacing: 20) {
+                .layoutPriority(1)
+            } else {
+                VStack(spacing: 16) {
+                    Text("簽證時間 / Visa time")
+                        .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    Text("\(model.session.remaining(at: model.now)) 秒 / seconds")
+                        .font(.system(size: 72, weight: .bold, design: .rounded)).monospacedDigit()
+                        .foregroundStyle(yellow)
+                    Text(String(format: "觀看剩餘 %.0f 秒 / Viewing left %.0f s",
+                                 model.remainingViewingBudget(at: model.now),
+                                 model.remainingViewingBudget(at: model.now)))
+                        .font(.system(size: 22, design: .rounded))
+                    if let videoID = model.activePlayVideoID {
+                        ScopedPlayerView(videoID: videoID) {
+                            model.stopScopedPlayback(reason: .navigationRejected)
+                        }
+                        .frame(minHeight: 480, maxHeight: 900)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    } else if let first = model.allowlist.videos.first {
+                        ScopedPlayerPlaceholder(
+                            message: "準備准許影片 / Ready for allowlisted video",
+                            yellow: yellow
+                        )
+                        Button("播放准許影片 / Play allowlisted") {
+                            model.playAllowlisted(id: first.id)
+                        }
+                        .tint(yellow)
+                    } else {
+                        ScopedPlayerPlaceholder(
+                            message: "未有准許影片，請家長加入。 / No allowlisted video yet.",
+                            yellow: yellow
+                        )
+                    }
+                }
+            }
+        case .parent:
+            ScrollView {
+                VStack(spacing: 20) {
                     Text("家長設定 / Parent controls")
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
                     Text("十分鐘後自動鎖定 / Locks automatically after ten minutes")
@@ -597,6 +716,14 @@ struct ShellView: View {
                         .frame(maxWidth: 640)
                     Button("重設入口活動（兒童 UAT）/ Reset entry activity (child UAT)", action: model.resetEntryActivityForChildUAT)
                         .tint(yellow)
+                    // Immediate confirmation under Reset so parent UAT does not require scrolling.
+                    if let playbackMessage = model.playbackMessage {
+                        Text(playbackMessage)
+                            .font(.system(size: 20, weight: .semibold, design: .rounded))
+                            .foregroundStyle(yellow)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: 640)
+                    }
                     Picker("主題 / Theme", selection: Binding(
                         get: { model.themePaletteID },
                         set: { model.selectTheme($0) }
@@ -658,11 +785,6 @@ struct ShellView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
                     }
-                    if let playbackMessage = model.playbackMessage {
-                        Text(playbackMessage)
-                            .font(.system(size: 20, design: .rounded))
-                            .foregroundStyle(yellow)
-                    }
                     Button("開啟日誌資料夾 / Open logs folder", action: model.openScopedPlayerLogsFolder)
                         .tint(yellow)
                     Button("返回 / Return", action: model.returnToChild)
@@ -673,34 +795,31 @@ struct ShellView: View {
                     }
                     Button("離開程式 / Quit app") { NSApp.terminate(nil) }
                         .tint(accent)
-                    }
-                    .frame(maxWidth: .infinity)
                 }
-            }
-            if let message = model.message {
-                Text(message).foregroundStyle(yellow)
-                    .font(.system(size: 22, design: .rounded))
-            }
-            Spacer()
-            if model.session.mode != .parent {
-                Button("家長 / Parent", action: model.unlock)
-                    .disabled(model.authenticating)
-                    .tint(accent)
-            }
-            Text("v0.4.1").font(.system(size: 16, design: .rounded))
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .padding(56)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .foregroundStyle(Color(rgb: theme.foreground))
-            if let id = model.successFeedbackID,
-               model.session.mode == .lock || model.session.mode == .play {
-                SuccessParkAnimation(color: accent, yellow: yellow)
-                    .id(id)
-                    .frame(maxHeight: .infinity, alignment: .bottom)
-                    .padding(.bottom, 28)
+                .frame(maxWidth: .infinity)
             }
         }
+    }
+
+    /// Scrollable two-picture gate so Spacers / short windows cannot clip the targets away.
+    @ViewBuilder
+    private func entryGateScroll(theme: ThemePack, accent: Color, yellow: Color) -> some View {
+        ScrollView {
+            EntryActivityView(
+                question: model.currentEntryQuestion,
+                accent: accent,
+                yellow: yellow,
+                foreground: Color(rgb: theme.foreground),
+                retryMessage: model.entryRetryMessage,
+                hintUsed: model.entryHintUsed,
+                onSelect: { model.selectEntryOption(id: $0) },
+                onHint: model.useEntryHint,
+                onSpeakPrompt: model.speakEntryPrompt
+            )
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+        }
+        .layoutPriority(1)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }

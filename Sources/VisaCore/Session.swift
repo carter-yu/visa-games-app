@@ -16,7 +16,7 @@ public struct Snapshot: Codable, Equatable, Sendable {
     }
 }
 
-public enum Mode: Sendable { case setup, lock, parent, play }
+public enum Mode: Sendable, Equatable { case setup, lock, parent, play }
 
 public struct Session: Sendable {
     public private(set) var snapshot: Snapshot

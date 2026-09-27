@@ -37,6 +37,27 @@ open ~/Library/Logs/VisaGames
 - `wk didFail|didFailProvisional domain=… code=…`
 - `wk note possible Error 153 …` when the page title looks like a configuration error
 
+
+## VisaGames app log files (v0.4.2+)
+
+Entry / mode / reset diagnostics (no secrets) write to:
+
+1. **Always:** `~/Library/Logs/VisaGames/visa-games-YYYYMMDD.log`
+2. **Also, when found:** this repo `logs/` directory (same discovery as ScopedPlayer)
+3. **Optional override:** `VISA_GAMES_LOG_DIR`
+
+ScopedPlayer lines remain in `scoped-player-YYYYMMDD.log`. Parent **開啟日誌資料夾 / Open logs folder** opens the shared active directory (both file kinds may be present).
+
+### Useful visa-games log lines (Traditional Chinese + English)
+
+- `resetEntryActivity before|after — 重設前|後 entryCompleted=… rewardNil=…`
+- `shell branch=lock-entry|lock-completed|play-entry|play-ready|parent — 介面分支 …`
+- `returnToChild — 返回兒童 beforeMode=… afterMode=…`
+- `seedTestViewingBudget — 測試觀看時間 …`
+- `selectEntryOption correct|incorrect — 答對|答錯 …`
+- `applyEntrySuccess — 入口成功 …`
+- `storage load|save FAILED — 載入|儲存失敗 …`
+
 ## YouTube Error 153 troubleshooting
 
 **Error 153 — Video player configuration error** often means the embed ran without a YouTube-acceptable HTTPS **Referer** / origin (common when WKWebView loads a bare `URLRequest` to `youtube-nocookie`).

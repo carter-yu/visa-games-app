@@ -1,5 +1,14 @@
 # Progress
 
+- 2026-09-27: PR #7 PATCH **v0.4.2** — lock entry gate visible + parent Reset persists nil reward + VisaGamesLog. Do not merge; Mac mini re-UAT pending.
+  - Root cause (code evidence): (1) **Layout** — `ShellView` had `Spacer()` above and below the mode switch; large `EntryActivityView` (two ~280×220 targets) was compressed/clipped so lock looked like title + 先做再玩 + Parent + version only (「冇 game」). Completed-entry short text still fit (earlier 「入口活動完成」 screenshot). (2) **Reset no-op** — `resetEntryActivityForChildUAT` used `guard let reward else { return }`, so nil reward never persisted and left inconsistent state. (3) **No entry/reset logs** — only ScopedPlayer logs existed, so Reset produced no new lines.
+  - Fix: suppress competing Spacers when showing entry gate; wrap `EntryActivityView` in `ScrollView` + `layoutPriority(1)`; compact play-mode visa strip while entry incomplete; parade/success `allowsHitTesting(false)`. Reset always ensures ledger with `entryActivityCompleted=false` (create 60/1200 if nil) and persists; immediate `playbackMessage` under Reset button; `objectWillChange.send()`. Added `VisaGamesLog` → `visa-games-YYYYMMDD.log` (Library + repo `logs/`).
+  - Tests: +1 reward-ledger (`testNilRewardMeansEntryIncompleteAndFreshLedgerPersistsFlagFalse`). Expect PASS: 8 session + **10** reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback + 7 activity.
+  - Version: Info.plist + shell footer **0.4.2** (CFBundleVersion 12). Prompt: `prompts/pr-0007-m3-entry-gate-layout-reset-logs.md`.
+  - Linux workshop: `swift: not found` expected — no Swift compile/test/bundle claimed here.
+  - Exact next task: Mac mini — fetch tip, `sh scripts/test.sh` (expect 8+10+7+6+7+7), `sh scripts/bundle.sh`, Parent → Reset entry (see confirmation) → Return → two large silhouettes on lock/play; open logs folder and confirm `visa-games-*.log` lines. Do not merge until Carter OK.
+
+
 - 2026-09-27: PR #7 PATCH **v0.4.1** — parent Test viewing budget / Preview no longer completes entry activity (child UAT unblock). Do not merge; Mac mini re-UAT pending.
   - Bug (Carter screenshot): `seedTestViewingBudget()` called `completeEntryActivity`, so lock showed 「入口活動完成 / Entry activity done」 and hid the two-picture game.
   - Fix: seed grants ~60s only via `applyCompletion(id: "parent-test-budget", .unassisted)` when budget ≤ 0; creates RewardLedger(60/1200) if no reward state; **leaves `entryActivityCompleted == false`**. Added `RewardLedger.resetEntryActivityForParentUAT()` + parent button 「重設入口活動（兒童 UAT）/ Reset entry activity (child UAT)」 (clears entry flag + UI hint/retry; keeps viewing seconds).

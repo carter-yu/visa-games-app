@@ -167,6 +167,7 @@ struct TestRunner {
         reward.testAssistedSuccessRecordedSeparately()
         reward.testAnsweringDoesNotSpendViewingBudget()
         reward.testResetEntryActivityForParentUATClearsFlagOnly()
+        reward.testNilRewardMeansEntryIncompleteAndFreshLedgerPersistsFlagFalse()
 
         let persistence = RewardPersistenceTests()
         try persistence.testRewardStateRoundTripSaveLoad()
@@ -203,6 +204,6 @@ struct TestRunner {
         activity.testEntrySuccessUnlocksAllowanceOnceWithAssistedFlag()
         activity.testStubAudioDoesNotClaimPack()
 
-        print("PASS: 8 session + 9 reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback + 7 activity checks")
+        print("PASS: 8 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback + 7 activity checks")
     }
 }
