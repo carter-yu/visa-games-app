@@ -103,7 +103,7 @@
   - VisaCore: `isAllowedEmbedMainFrameURL(_:videoID:)`, `isBenignBlankURL`, `isClearEscapeURL`, and a tight host allowlist for `/embed/<exact-id>` on nocookie + youtube.com / m.youtube.com. Construction still uses nocookie `make(videoID:)`.
   - ScopedPlayerView: allow main-frame official embed family + about:blank; quiet-cancel linkActivated / popup / non-https subframe noise; call `onNavigationRejected` only for real main-frame escapes. ADR 0003 note: same-id embed redirects permitted; watch/search still denied.
   - Added one scoped-playback check for main-frame allow/reject cases. Expected banner: 8+8+7+6+**6**. Info.plist 0.3.3 / build 7; shell footer v0.3.3. Prompt archive `prompts/pr-0006-m2-embed-navigation-relax.md`. Added tracked `logs/README.md` (gitignore `logs/*` except README) for Mac mini UAT notes — no secret dumps.
-  - Linux workshop: `swift: not found` expected; no Swift compile / Mac mini PASS claimed from Linux. PR #6 remains open — do not merge until Carter re-UAT OK.
+  - Linux workshop: `swift: not found` expected. **Mac mini toolchain green** @ `7b505b4`: `sh scripts/test.sh` → PASS **8+8+7+6+7**; `sh scripts/bundle.sh` → Built `.build/Visa Games.app` (Info.plist 0.3.4 / build 8). Visual Error 153 / Preview play UAT still pending — do not merge until Carter OK.
 
 - 2026-09-27: PR #6 YouTube Error 153 embed Referer fix + ScopedPlayer logs prepared as **v0.3.4** (PATCH); Mac mini re-UAT pending.
   - Mac mini Reported offline green @ `08c304c` (PASS 8+8+7+6+6; bundle OK) but Preview play showed **Error 153 — Video player configuration error** (likely missing/invalid Referer on bare WK `URLRequest` to youtube-nocookie).
@@ -111,4 +111,4 @@
   - ScopedPlayerView: `loadHTMLString` iframe + `referrerpolicy="strict-origin-when-cross-origin"` + meta referrer + baseURL nocookie `/`; `mediaTypesRequiringUserActionForPlayback = []`. Navigation allow shell or `/embed/<id>`; stop only on real escapes. Lightweight nav/fail/finish logs.
   - ScopedPlayerLog: always `~/Library/Logs/VisaGames/scoped-player-YYYYMMDD.log`; also repo `logs/` when `logs/README.md` found walking up from cwd/bundle; optional `VISA_GAMES_LOG_DIR`. Parent button 「開啟日誌資料夾 / Open logs folder」. Updated `logs/README.md` + ADR 0003 Error 153 note.
   - Added one scoped-playback check for HTML shell / referrerpolicy / shell allowlist. Expected banner: 8+8+7+6+**7**. Info.plist 0.3.4 / build 8; shell footer v0.3.4. Prompt archive `prompts/pr-0006-m2-error153-embed-referrer-logs.md`.
-  - Linux workshop: `swift: not found` expected; no Swift compile / Mac mini PASS claimed from Linux. PR #6 remains open — do not merge until Carter re-UAT OK.
+  - Linux workshop: `swift: not found` expected. **Mac mini toolchain green** @ `7b505b4`: `sh scripts/test.sh` → PASS **8+8+7+6+7**; `sh scripts/bundle.sh` → Built `.build/Visa Games.app` (Info.plist 0.3.4 / build 8). Visual Error 153 / Preview play UAT still pending — do not merge until Carter OK.
