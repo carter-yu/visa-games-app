@@ -362,7 +362,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.minSize = NSSize(width: 640, height: 480)
             let visible = (window.screen ?? NSScreen.main)?.visibleFrame
                 ?? NSRect(x: 0, y: 0, width: 1280, height: 720)
-            let preferred = parentWindowFrame?.size ?? NSSize(width: 960, height: 700)
+            let preferred = parentWindowFrame?.size ?? NSSize(width: 960, height: 800)
             let size = NSSize(width: min(preferred.width, visible.width),
                               height: min(preferred.height, visible.height))
             let frame = NSRect(x: visible.midX - size.width / 2,
@@ -434,7 +434,7 @@ struct ShellView: View {
                     ScopedPlayerView(videoID: videoID) {
                         model.stopScopedPlayback(reason: .navigationRejected)
                     }
-                    .frame(minHeight: 280, maxHeight: 420)
+                    .frame(minHeight: 480, maxHeight: 900)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 } else if let first = model.allowlist.videos.first {
                     ScopedPlayerPlaceholder(
@@ -515,7 +515,7 @@ struct ShellView: View {
                             ScopedPlayerView(videoID: videoID) {
                                 model.stopScopedPlayback(reason: .navigationRejected)
                             }
-                            .frame(minHeight: 220, maxHeight: 320)
+                            .frame(minHeight: 420, maxHeight: 720)
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
                     }
@@ -548,7 +548,7 @@ struct ShellView: View {
                     .disabled(model.authenticating)
                     .tint(accent)
             }
-            Text("v0.3.4").font(.system(size: 16, design: .rounded))
+            Text("v0.3.5").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)

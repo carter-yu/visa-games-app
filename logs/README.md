@@ -5,7 +5,7 @@ Tracked in git: this README only. Ignore `*.log` and other local dumps via `.git
 
 Do not commit secrets, tokens, or full screen recordings with private data.
 
-## ScopedPlayer log files (v0.3.4+)
+## ScopedPlayer log files (v0.3.5+)
 
 The app writes lightweight ScopedPlayer diagnostics (no secrets) to:
 
@@ -50,9 +50,9 @@ This app loads an HTML shell via `loadHTMLString` with:
 
 D8 still applies: only allowlisted ids; main frame is shell host-root or `/embed/<id>` on approved hosts; watch/search/other-id remain denied.
 
-If Error 153 persists after v0.3.4:
+If Error 153 persists after v0.3.5:
 
-1. Confirm offline checks PASS and the shell footer shows **v0.3.4**.
+1. Confirm offline checks PASS and the shell footer shows **v0.3.5**.
 2. Open the logs folder and check `load mode=htmlString` (not a bare URL load).
 3. Note residual YouTube chrome honestly; do not claim OS-level containment.
 4. Capture title / nav cancel lines and share with the workshop (no secrets).
