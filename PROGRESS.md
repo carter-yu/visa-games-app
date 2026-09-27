@@ -1,5 +1,14 @@
 # Progress
 
+- 2026-09-27: PR #7 PATCH **v0.4.3** — restore visible two-picture entry gate (ScrollView collapse regression). Do not merge; Mac mini re-UAT pending.
+  - Root cause (Carter confirmed): on **v0.4.1** crane/bus targets visible; after pull to **v0.4.2** (`7bdd592`) they vanished while title + Parent + version remained. `entryGateScroll` wrapped `EntryActivityView` in `ScrollView { … }.frame(maxWidth: .infinity, maxHeight: .infinity)` inside a parent `VStack`; unbounded-height ScrollView often collapses to ~0 flexible height, so the two large silhouettes disappear.
+  - Fix: remove collapsing ScrollView; restore **direct** `EntryActivityView` in lock/play via `entryGateContent` (0.4.1 proven path) plus `.frame(minHeight: 480)` so the gate cannot shrink away. Keep good 0.4.2 work: Spacer suppression / compact title when showing entry; Reset always persists incomplete ledger; confirmation under Reset; VisaGamesLog; seedTest without `completeEntry`.
+  - Tests: no new unit tests (layout-only). Expect same PASS banner as 0.4.2: 8 session + **10** reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback + 7 activity.
+  - Version: Info.plist + shell footer **0.4.3** (CFBundleVersion 13). Prompt: `prompts/pr-0007-m3-entry-gate-scrollview-collapse.md`.
+  - Linux workshop: `swift: not found` expected — no Swift compile/test/bundle claimed here.
+  - Exact next task: Mac mini — fetch tip, `sh scripts/test.sh` (expect 8+10+7+6+7+7), `sh scripts/bundle.sh`, confirm footer **v0.4.3**, Parent → Reset entry if needed → Return → two large crane/bus silhouettes again on lock/play. Do not merge until Carter OK.
+
+
 - 2026-09-27: PR #7 PATCH **v0.4.2** — lock entry gate visible + parent Reset persists nil reward + VisaGamesLog. Do not merge; Mac mini re-UAT pending.
   - Root cause (code evidence): (1) **Layout** — `ShellView` had `Spacer()` above and below the mode switch; large `EntryActivityView` (two ~280×220 targets) was compressed/clipped so lock looked like title + 先做再玩 + Parent + version only (「冇 game」). Completed-entry short text still fit (earlier 「入口活動完成」 screenshot). (2) **Reset no-op** — `resetEntryActivityForChildUAT` used `guard let reward else { return }`, so nil reward never persisted and left inconsistent state. (3) **No entry/reset logs** — only ScopedPlayer logs existed, so Reset produced no new lines.
   - Fix: suppress competing Spacers when showing entry gate; wrap `EntryActivityView` in `ScrollView` + `layoutPriority(1)`; compact play-mode visa strip while entry incomplete; parade/success `allowsHitTesting(false)`. Reset always ensures ledger with `entryActivityCompleted=false` (create 60/1200 if nil) and persists; immediate `playbackMessage` under Reset button; `objectWillChange.send()`. Added `VisaGamesLog` → `visa-games-YYYYMMDD.log` (Library + repo `logs/`).

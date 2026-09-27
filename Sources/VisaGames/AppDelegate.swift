@@ -610,7 +610,7 @@ struct ShellView: View {
                         .disabled(model.authenticating)
                         .tint(accent)
                 }
-                Text("v0.4.2").font(.system(size: 16, design: .rounded))
+                Text("v0.4.3").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
@@ -651,7 +651,7 @@ struct ShellView: View {
                         .font(.system(size: 22, design: .rounded))
                 }
             } else {
-                entryGateScroll(theme: theme, accent: accent, yellow: yellow)
+                entryGateContent(theme: theme, accent: accent, yellow: yellow)
             }
         case .play:
             if !model.isEntryActivityCompleted {
@@ -665,7 +665,7 @@ struct ShellView: View {
                                  model.remainingViewingBudget(at: model.now),
                                  model.remainingViewingBudget(at: model.now)))
                         .font(.system(size: 18, design: .rounded))
-                    entryGateScroll(theme: theme, accent: accent, yellow: yellow)
+                    entryGateContent(theme: theme, accent: accent, yellow: yellow)
                 }
                 .layoutPriority(1)
             } else {
@@ -801,25 +801,22 @@ struct ShellView: View {
         }
     }
 
-    /// Scrollable two-picture gate so Spacers / short windows cannot clip the targets away.
+    /// Direct two-picture gate (v0.4.1 proven). Do not wrap in unbounded-height ScrollView
+    /// inside the parent VStack — that collapses to ~0 height and hides the targets (v0.4.2 regression).
     @ViewBuilder
-    private func entryGateScroll(theme: ThemePack, accent: Color, yellow: Color) -> some View {
-        ScrollView {
-            EntryActivityView(
-                question: model.currentEntryQuestion,
-                accent: accent,
-                yellow: yellow,
-                foreground: Color(rgb: theme.foreground),
-                retryMessage: model.entryRetryMessage,
-                hintUsed: model.entryHintUsed,
-                onSelect: { model.selectEntryOption(id: $0) },
-                onHint: model.useEntryHint,
-                onSpeakPrompt: model.speakEntryPrompt
-            )
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-        }
+    private func entryGateContent(theme: ThemePack, accent: Color, yellow: Color) -> some View {
+        EntryActivityView(
+            question: model.currentEntryQuestion,
+            accent: accent,
+            yellow: yellow,
+            foreground: Color(rgb: theme.foreground),
+            retryMessage: model.entryRetryMessage,
+            hintUsed: model.entryHintUsed,
+            onSelect: { model.selectEntryOption(id: $0) },
+            onHint: model.useEntryHint,
+            onSpeakPrompt: model.speakEntryPrompt
+        )
+        .frame(maxWidth: .infinity, minHeight: 480, alignment: .top)
         .layoutPriority(1)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
