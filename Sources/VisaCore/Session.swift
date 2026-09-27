@@ -68,6 +68,11 @@ public struct Session: Sendable {
         mode = .play
     }
 
+    /// Parent / persistence seam: replace durable reward state without touching endsAt.
+    public mutating func replaceRewardState(_ reward: RewardState?) {
+        snapshot.reward = reward
+    }
+
     public func remaining(at now: Date) -> Int {
         guard let endsAt = snapshot.endsAt else { return 0 }
         return Int(min(3600, max(0, ceil(endsAt.timeIntervalSince(now)))))

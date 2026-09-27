@@ -75,3 +75,13 @@
   - Exact next task: Mac mini — `git fetch && git checkout feat/theme-long-vehicles && git pull` (or reset to pushed SHA), `sh scripts/test.sh` (expect 7+8+7+6), `sh scripts/bundle.sh`, launch app; visually check Sunny Yellow default + three other palettes, yellow accents without bedroom-yellow walls, playful parade bob, delightful park-in; record outcomes. Do not merge until parent UAT.
 
 - 2026-09-27: Added top-level `prompts/` archive on `feat/theme-long-vehicles` for English Codex/manager prompts used per PR (README + pr-0001…0005). Sanitized; no secrets; engineering English; no Simplified Chinese. Does not change app behavior.
+
+- 2026-09-27: M2 scoped player scaffold (D8) on `feat/m2-scoped-player-scaffold` as **v0.3.0** (MINOR — family-visible ScopedPlayerView stub); Do not merge; Mac mini verification pending.
+  - Base: `origin/main` @ `cfc05d4` (PR #5 theme merged). Parent Confirmed D8 (1+4): child path may only use a scoped official YouTube (or approved) embed with allowlist IDs; no arbitrary navigation, URL bar, or unrestricted search; stop on budget/session expiry.
+  - Docs: `docs/decisions/0003-youtube-containment-d8.md`; `phases/phase-2-scoped-playback.md`; ADR 0002 open-decisions line updated (D8 → ADR 0003; D6/D9/D10 still open). M1 reward model exists; **P1-3 / P1-4 may still be open** — M1 is not claimed fully closed.
+  - VisaCore: `ApprovedVideo` / `VideoAllowlist` / `VideoAllowlistStore` (UserDefaults scaffold), `YouTubeEmbedURL` (nocookie embed construction + arbitrary-URL reject), `PlaybackPolicy` + `FakePlaybackEngine`, `Session.replaceRewardState`.
+  - VisaGames: `ScopedPlayerView` (WKWebView, main-frame embed-only, link clicks cancelled, popups denied); parent-only allowlist text fields + add/remove/play; play-mode scoped surface; parent “Test viewing budget” seeds RewardLedger entry/test completion for demos.
+  - Tests: 4 scoped-playback checks wired into VisaCoreChecks (allowlist unknown ID; budget/session stop; D8 non-embed reject; upsert/label). Expect PASS: 7+8+7+6+4.
+  - Version: Info.plist + shell footer **0.3.0** (CFBundleVersion 4). Prompt archive `prompts/pr-0006-m2-scoped-player-scaffold.md`.
+  - Verification blocker on Linux workshop: `swift: not found`. No Swift compile/test/UAT claimed here.
+  - Exact next task: Mac mini — fetch branch, `sh scripts/test.sh`, `sh scripts/bundle.sh`, parent-add allowlisted ID, exercise play stub + stop conditions, record residual WK/YouTube chrome; do not merge until parent UAT.

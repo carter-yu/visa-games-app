@@ -161,6 +161,12 @@ struct TestRunner {
         theme.testBilingualTraditionalChineseLabels()
         theme.testEveryPaletteIncludesWarmYellowAccent()
 
-        print("PASS: 7 session checks + 8 reward-ledger checks + 7 reward-persistence checks + 6 theme-preference checks")
+        let scoped = ScopedPlaybackTests()
+        scoped.testAllowlistRejectsUnknownID()
+        scoped.testBudgetStopAndSessionStop()
+        scoped.testD8RejectsNonEmbedConstruction()
+        scoped.testApprovedVideoParentLabelAndUpsert()
+
+        print("PASS: 7 session + 8 reward-ledger + 7 reward-persistence + 6 theme-preference + 4 scoped-playback checks")
     }
 }

@@ -45,7 +45,7 @@ Replay in the other supported language is unpenalized and does not reduce the re
 
 ## Open decisions
 
-D6, D8, D9, and D10 remain open. In particular, this ADR does not decide the medium-time product goal or any unrecorded provider, content, or reporting policy. Open decisions must not be inferred from this ADR.
+D6, D9, and D10 remain open. **D8** (scoped official embed containment) is Confirmed in `docs/decisions/0003-youtube-containment-d8.md` and is no longer open here. In particular, this ADR does not decide the medium-time product goal or any unrecorded provider, content, or reporting policy beyond D8. Open decisions must not be inferred from this ADR.
 
 ## Consequences
 
