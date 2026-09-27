@@ -40,6 +40,8 @@ final class AppModel: ObservableObject {
     private let store: SnapshotStore
     private let themeStore = ThemePreferenceStore()
     private let allowlistStore = VideoAllowlistStore()
+    private let shuffleStore = VideoPlaybackShuffleStore()
+    private var playbackShuffle = VideoPlaybackShuffle()
     private var nextFeedbackID = 0
     private var storageFailed = false
     private var authentication: LAContext?
@@ -50,6 +52,7 @@ final class AppModel: ObservableObject {
     init() {
         themePaletteID = ThemePreferenceStore().load()
         allowlist = VideoAllowlistStore().load()
+        playbackShuffle = VideoPlaybackShuffleStore().load()
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         store = SnapshotStore(url: directory.appendingPathComponent("VisaGames/state.json"))
         do {
@@ -394,10 +397,10 @@ final class AppModel: ObservableObject {
             "applyEntrySuccess — 入口成功 assisted=\(assisted) entryCompleted=\(isEntryActivityCompleted) viewing=\(remainingViewingBudget(at: Date())) mode=\(session.mode)"
         )
         logShellBranch(context: "applyEntrySuccess")
-        // Play path still requires an active visa + allowlisted video via existing PlaybackPolicy.
-        if session.mode == .play, let first = allowlist.videos.first,
-           remainingViewingBudget(at: Date()) > 0 {
-            playAllowlisted(id: first.id)
+        // Play path: active visa + shuffled allowlisted video via existing PlaybackPolicy.
+        if session.mode == .play, remainingViewingBudget(at: Date()) > 0,
+           let id = nextShuffledAllowlistedVideoID() {
+            playAllowlisted(id: id)
         }
     }
 
@@ -595,6 +598,18 @@ final class AppModel: ObservableObject {
         VisaGamesLog.append(
             "shell branch=\(branch) — 介面分支 mode=\(session.mode) entryCompleted=\(isEntryActivityCompleted) rewardNil=\(session.snapshot.reward == nil) storageFailed=\(storageFailed) ctx=\(context)"
         )
+    }
+
+    /// Child path: next allowlisted id in shuffled order (reshuffle when exhausted; no immediate repeat if count > 1).
+    func nextShuffledAllowlistedVideoID() -> String? {
+        var rng = SystemRandomNumberGenerator()
+        let ids = allowlist.videos.map(\.id)
+        let picked = playbackShuffle.nextVideoID(from: ids, using: &rng)
+        shuffleStore.save(playbackShuffle)
+        if let picked {
+            VisaGamesLog.append("shuffle pick — 隨機選片 id=\(picked) remaining=\(playbackShuffle.remainingIDs.count)")
+        }
+        return picked
     }
 
     func playAllowlisted(id: String) {
@@ -810,7 +825,7 @@ struct ShellView: View {
                         .disabled(model.authenticating)
                         .tint(accent)
                 }
-                Text("v0.7.1").font(.system(size: 16, design: .rounded))
+                Text("v0.7.2").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
@@ -860,9 +875,11 @@ struct ShellView: View {
                     }
                     .frame(minHeight: 360, maxHeight: 900)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                } else if let first = model.allowlist.videos.first {
+                } else if !model.allowlist.videos.isEmpty {
                     Button("播放准許影片 / Play allowlisted") {
-                        model.playAllowlisted(id: first.id)
+                        if let id = model.nextShuffledAllowlistedVideoID() {
+                            model.playAllowlisted(id: id)
+                        }
                     }
                     .tint(yellow)
                 } else {

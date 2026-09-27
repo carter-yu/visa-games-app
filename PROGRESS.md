@@ -1,5 +1,14 @@
 # Progress
 
+- 2026-09-27: PR #8 PATCH **v0.7.2 / build 21** — storybook face push + allowlist shuffle play. Do not merge; Mac mini UAT pending.
+  - Faces (Codex gpt-6-astra polish on workshop rewrite): front-disc / headlight eyes with heavier sleepy lids, cream sclera, low pupils, soft blush + tiny nostrils where natural; chubbier rounded cabs/noses; warmer fills + soft gradients; faces remain non-interactive. Original HK/NY taxi, fire, metro (no roundel), works fleet only — no Egypt IP scenes copied.
+  - Shuffle: new VisaCore `VideoPlaybackShuffle` + UserDefaults cursor store. Child visa success and play-mode allowlist button pick next id via Fisher–Yates deck; reshuffle when exhausted; avoid immediate repeat of `lastPlayedVideoID` when allowlist count > 1. Parent preview still uses explicit row / first. D8 scoped player / allowlist / kiosk otherwise unchanged.
+  - Tests: +3 scoped-playback (`testPlaybackShuffleAvoidsImmediateRepeatAndReshuffles`, `testPlaybackShuffleSingleAndEmpty`, `testShuffledDeckAvoidsImmediateFirstRepeat`) → expect PASS banner **10+10+7+6+12+13**.
+  - Info.plist **0.7.2 / 21**, shell footer **v0.7.2**. Prompt: `prompts/pr-0008-m4-storybook-faces-shuffle-v072.md`.
+  - Verification: `git diff --check`, plist/version assertions and shell syntax checks. `sh scripts/test.sh` / `bundle.sh` exit 127 (`swift: not found`) on Linux — no Swift compile/test/native visual pass claimed.
+  - Next: Mac mini fetch tip of `feat/m4-gakken-style-activities`, `sh scripts/test.sh` (expect 10+10+7+6+12+13), `sh scripts/bundle.sh`, footer v0.7.2; visual face UAT + shuffle UAT (2+ allowlisted videos → earn visa twice → different order; exhaust deck → reshuffle without immediate repeat). PR #8 must remain unmerged. D9/D10 open.
+
+
 - 2026-09-27: PR #8 PATCH **v0.7.1 / build 20** — redesigned original fleet faces after Carter's v0.7.0 feedback. Do not merge; Mac mini visual UAT pending.
   - Removed the floating white face plate. Cab-specific glass eye sockets now use cream whites, low pupils, soft brown outlines and heavier sleepy lids; happy mood widens the small curved hood/bumper smile. Flatbed eyes fit its low headlight zone. Drawing coordinates scale with the vehicle, without a minimum eye size.
   - Added warm silhouette outlines and clipped existing highlights/metro stripe to the vehicle body. All ten kinds retain faces; face overlays remain non-interactive. Games, parent IP disclaimer and ADR 0006 unchanged.

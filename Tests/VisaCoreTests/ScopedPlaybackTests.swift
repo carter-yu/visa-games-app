@@ -341,4 +341,65 @@ final class ScopedPlaybackTests {
         expectNil(YouTubeOEmbed.parse(Data("not-json".utf8)))
         expectNil(YouTubeOEmbed.parse(Data("{}".utf8))?.title)
     }
+
+    func testPlaybackShuffleAvoidsImmediateRepeatAndReshuffles() {
+        let ids = ["vidAAAAAAA1", "vidAAAAAAA2", "vidAAAAAAA3"]
+        var shuffle = VideoPlaybackShuffle()
+        var rng = SeededGenerator(seed: 42)
+        var seen: [String] = []
+        for _ in 0..<9 {
+            guard let id = shuffle.nextVideoID(from: ids, using: &rng) else {
+                fatalError("expected id")
+            }
+            seen.append(id)
+        }
+        expectEqual(seen.count, 9)
+        // Every id appears exactly 3 times across 3 full decks.
+        for id in ids {
+            expectEqual(seen.filter { $0 == id }.count, 3)
+        }
+        // Within each deck of 3, no duplicates; across deck boundaries avoid immediate repeat.
+        for i in 1..<seen.count {
+            if i % 3 != 0 {
+                // interior of a deck — uniqueness checked via set size below
+                _ = i
+            } else {
+                // Boundary between decks: must not immediately repeat lastPlayed.
+                expectTrue(seen[i] != seen[i - 1])
+            }
+        }
+        for deckStart in stride(from: 0, to: 9, by: 3) {
+            let deck = Set(seen[deckStart..<deckStart + 3])
+            expectEqual(deck.count, 3)
+        }
+        expectEqual(shuffle.lastPlayedVideoID, seen.last)
+    }
+
+    func testPlaybackShuffleSingleAndEmpty() {
+        var shuffle = VideoPlaybackShuffle()
+        var rng = SeededGenerator(seed: 7)
+        expectNil(shuffle.nextVideoID(from: [], using: &rng))
+        let only = "onlyVideo01"
+        expectEqual(shuffle.nextVideoID(from: [only], using: &rng), only)
+        expectEqual(shuffle.nextVideoID(from: [only], using: &rng), only)
+        expectEqual(shuffle.lastPlayedVideoID, only)
+        // Stale queue entry dropped when removed from allowlist.
+        shuffle = VideoPlaybackShuffle(remainingIDs: ["goneVideo01", only], lastPlayedVideoID: "goneVideo01")
+        expectEqual(shuffle.nextVideoID(from: [only], using: &rng), only)
+    }
+
+    func testShuffledDeckAvoidsImmediateFirstRepeat() {
+        let ids = ["aaaaaaaaaa1", "aaaaaaaaaa2"]
+        for seed in UInt64(1)...40 {
+            var rng = SeededGenerator(seed: seed)
+            let deck = VideoPlaybackShuffle.shuffledDeck(
+                from: ids,
+                avoidingImmediateRepeatOf: "aaaaaaaaaa1",
+                using: &rng
+            )
+            expectEqual(Set(deck), Set(ids))
+            expectEqual(deck.first, "aaaaaaaaaa2")
+        }
+    }
+
 }
