@@ -68,6 +68,14 @@ public struct Session: Sendable {
         mode = .play
     }
 
+    /// Child completion seam. Tasks stay in lock; an active visa cannot be extended here.
+    public mutating func startPlayVisa(seconds: TimeInterval, now: Date) {
+        guard mode == .lock, snapshot.configured, seconds.isFinite,
+              seconds > 0, seconds <= 3600, now.timeIntervalSince1970.isFinite else { return }
+        snapshot.endsAt = now.addingTimeInterval(seconds)
+        mode = .play
+    }
+
     /// Set a visa deadline for an authenticated parent preview without entering child play.
     public mutating func extendVisaKeepingParent(seconds: TimeInterval, now: Date) {
         guard mode == .parent, snapshot.configured, seconds.isFinite,
