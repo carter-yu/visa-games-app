@@ -68,6 +68,13 @@ public struct Session: Sendable {
         mode = .play
     }
 
+    /// Set a visa deadline for an authenticated parent preview without entering child play.
+    public mutating func extendVisaKeepingParent(seconds: TimeInterval, now: Date) {
+        guard mode == .parent, snapshot.configured, seconds.isFinite,
+              seconds > 0, seconds <= 3600 else { return }
+        snapshot.endsAt = now.addingTimeInterval(seconds)
+    }
+
     /// Parent / persistence seam: replace durable reward state without touching endsAt.
     public mutating func replaceRewardState(_ reward: RewardState?) {
         snapshot.reward = reward

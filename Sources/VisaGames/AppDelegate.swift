@@ -25,6 +25,7 @@ final class AppModel: ObservableObject {
     private var storageFailed = false
     private var authentication: LAContext?
     private var parentDeadline: Date?
+    private let parentAccessSeconds: TimeInterval = 600
     var changed: (() -> Void)?
 
     init() {
@@ -97,7 +98,7 @@ final class AppModel: ObservableObject {
                 message = "未能確認家長身份。 / Parent authentication cancelled or failed."
                 return
             }
-            parentDeadline = Date().addingTimeInterval(120)
+            parentDeadline = Date().addingTimeInterval(parentAccessSeconds)
             if !storageFailed { message = nil }
             update { $0.enterParent(authenticated: true, now: Date()) }
         }
@@ -231,6 +232,17 @@ final class AppModel: ObservableObject {
         guard !storageFailed else { return }
         guard session.mode == .parent || session.mode == .play else { return }
         let now = Date()
+        let isParentPreview = session.mode == .parent
+        if isParentPreview {
+            if remainingViewingBudget(at: now) <= 0 {
+                seedTestViewingBudget()
+                guard !storageFailed else { return }
+            }
+            if session.snapshot.endsAt.map({ $0 <= now }) ?? true {
+                update { $0.extendVisaKeepingParent(seconds: 600, now: now) }
+                guard !storageFailed else { return }
+            }
+        }
         let decision = PlaybackPolicy().evaluateStart(
             videoID: id,
             allowlist: allowlist,
@@ -252,10 +264,7 @@ final class AppModel: ObservableObject {
         }
         activePlayVideoID = id
         playbackMessage = nil
-        // Parent preview that already has visa+budget may leave parent mode into play.
-        if session.mode == .parent, session.snapshot.endsAt != nil {
-            // Stay in parent so allowlist editing remains available; player still shown below.
-        }
+        if isParentPreview { parentDeadline = Date().addingTimeInterval(parentAccessSeconds) }
     }
 
     func stopScopedPlayback(reason: PlaybackStopReason) {
@@ -439,7 +448,7 @@ struct ShellView: View {
                     VStack(spacing: 20) {
                     Text("家長設定 / Parent controls")
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
-                    Text("兩分鐘後自動鎖定 / Locks automatically after two minutes")
+                    Text("十分鐘後自動鎖定 / Locks automatically after ten minutes")
                         .font(.system(size: 22, design: .rounded))
                     Picker("主題 / Theme", selection: Binding(
                         get: { model.themePaletteID },
@@ -529,7 +538,7 @@ struct ShellView: View {
                     .disabled(model.authenticating)
                     .tint(accent)
             }
-            Text("v0.3.1").font(.system(size: 16, design: .rounded))
+            Text("v0.3.2").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
