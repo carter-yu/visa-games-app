@@ -70,6 +70,28 @@ final class SessionTests {
         }
     }
 
+    func testParentPreviewVisaKeepsParentWhileGrantStartsPlay() {
+        var unconfigured = Session(snapshot: .init(), now: now)
+        unconfigured.enterParent(authenticated: true, now: now)
+        unconfigured.extendVisaKeepingParent(seconds: 600, now: now)
+        expectNil(unconfigured.snapshot.endsAt)
+
+        var session = Session(snapshot: .init(configured: true), now: now)
+        session.extendVisaKeepingParent(seconds: 600, now: now)
+        expectNil(session.snapshot.endsAt)
+
+        session.enterParent(authenticated: true, now: now)
+        session.extendVisaKeepingParent(seconds: 3_601, now: now)
+        expectNil(session.snapshot.endsAt)
+        session.extendVisaKeepingParent(seconds: 600, now: now)
+        expectEqual(session.snapshot.endsAt, now.addingTimeInterval(600))
+        expectEqual(session.mode, .parent)
+
+        session.grant(seconds: 60, now: now)
+        expectEqual(session.snapshot.endsAt, now.addingTimeInterval(60))
+        expectEqual(session.mode, .play)
+    }
+
     func testEscapePolicyInEveryMode() {
         var session = Session(snapshot: .init(), now: now)
         for configured in [false, true] {
@@ -131,6 +153,7 @@ struct TestRunner {
         session.testAbsoluteExpiryAndRelaunch()
         session.testParentRoundTripPreservesVisaButNeverPersistsUnlock()
         session.testInvalidGrantAndUnconfiguredVisaFailClosed()
+        session.testParentPreviewVisaKeepsParentWhileGrantStartsPlay()
         session.testEscapePolicyInEveryMode()
         try session.testAtomicPersistenceRoundTripAndCorruptFile()
 
@@ -161,6 +184,15 @@ struct TestRunner {
         theme.testBilingualTraditionalChineseLabels()
         theme.testEveryPaletteIncludesWarmYellowAccent()
 
-        print("PASS: 7 session checks + 8 reward-ledger checks + 7 reward-persistence checks + 6 theme-preference checks")
+        let scoped = ScopedPlaybackTests()
+        scoped.testAllowlistRejectsUnknownID()
+        scoped.testBudgetStopAndSessionStop()
+        scoped.testD8RejectsNonEmbedConstruction()
+        scoped.testExtractVideoIDForParentPaste()
+        scoped.testApprovedVideoParentLabelAndUpsert()
+        scoped.testAllowedEmbedMainFrameURLPolicy()
+        scoped.testEmbedHTMLStringReferrerShell()
+
+        print("PASS: 8 session + 8 reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback checks")
     }
 }

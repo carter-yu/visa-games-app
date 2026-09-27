@@ -19,7 +19,7 @@ M0 (Phase 0) is recorded as **Reported** at main commit `7c18c65`. M0 acceptance
 - YouTube or any other media-provider integration, provider authentication, ads SDK work, or general browser surface.
 - The full child task catalog, skins, cloud sync, accounts, analytics, LLM teacher, or remote administration.
 - New timer values or a replacement for the existing absolute `endsAt` visa model.
-- Resolving the still-open D6, D8, D9, or D10 decisions.
+- Resolving D6, D9, or D10. (D8 is Confirmed separately in ADR 0003 / Phase 2; this phase still does not implement provider playback.)
 - Claiming M2 or media integration complete.
 
 ## Starting policy
@@ -87,4 +87,4 @@ The phase exit record must include:
 - target Mac acceptance results, including relaunch and sleep/wake observations;
 - the configured parent values used for the run, without inventing values not approved by the parent;
 - explicit evidence that no Swift/app version or unrelated app behavior changed; and
-- a list of any remaining open decisions, especially D6, D8, D9, and D10.
+- a list of any remaining open decisions, especially D6, D9, and D10 (D8 tracked in ADR 0003).
