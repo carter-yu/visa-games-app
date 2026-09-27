@@ -35,7 +35,6 @@ struct ScopedPlayerView: NSViewRepresentable {
         }
     }
 
-    @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         var videoID: String
         var onNavigationRejected: (() -> Void)?
@@ -66,10 +65,11 @@ struct ScopedPlayerView: NSViewRepresentable {
                 && url.host?.lowercased() == expected.host?.lowercased()
         }
 
+        // Match macOS 26+/WK SWIFT_UI_ACTOR decisionHandler so the method is the real delegate hook.
         func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
-            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+            decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
         ) {
             // Always deny explicit user link activation — no free browsing.
             if navigationAction.navigationType == .linkActivated {
