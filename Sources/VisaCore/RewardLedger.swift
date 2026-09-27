@@ -195,6 +195,12 @@ public struct RewardLedger: Sendable {
         return .awarded(granted)
     }
 
+    /// Parent UAT only: clear the entry-activity flag so the child two-picture game can show again.
+    /// Keeps viewing seconds, awards, success records, and parent-configured policy unchanged.
+    public mutating func resetEntryActivityForParentUAT() {
+        entryActivityCompleted = false
+    }
+
     /// D7: language replay does not reduce the reward or viewing budget.
     public mutating func recordLanguageReplay(completionID: String) {
         // Intentionally a no-op on viewing budget and prior awarded seconds.

@@ -281,7 +281,8 @@ final class AppModel: ObservableObject {
     }
 
     /// Parent-only scaffold: ensure a small viewing budget exists for play-stub demos.
-    /// Uses RewardLedger entry unlock or a one-off test completion; does not invent D6.
+    /// Grants via applyCompletion only — never marks entryActivityCompleted (child UAT needs the game).
+    /// Does not invent D6.
     func seedTestViewingBudget() {
         guard session.mode == .parent, !storageFailed else { return }
         let now = Date()
@@ -297,9 +298,9 @@ final class AppModel: ObservableObject {
                     rewardCapSeconds: 1_200
                 ))
             }
-            if !ledger.entryActivityCompleted {
-                _ = ledger.completeEntryActivity(now: now, calendar: calendar)
-            } else if ledger.availableViewingSeconds(now: now, calendar: calendar) <= 0 {
+            // Parent preview / Test viewing budget must leave entryActivityCompleted == false
+            // so lock/play still shows the two-picture entry game for child UAT.
+            if ledger.availableViewingSeconds(now: now, calendar: calendar) <= 0 {
                 _ = ledger.applyCompletion(
                     id: "parent-test-budget",
                     rewardSeconds: 60,
@@ -311,6 +312,21 @@ final class AppModel: ObservableObject {
             session.replaceRewardState(ledger.exportState())
         }
         playbackMessage = "測試觀看時間已準備。 / Test viewing budget ready."
+    }
+
+    /// Parent-only UAT: clear entryActivityCompleted so the child two-picture game returns.
+    /// Keeps remaining viewing budget and awards; resets entry UI hint/retry flags.
+    func resetEntryActivityForChildUAT() {
+        guard session.mode == .parent, !storageFailed else { return }
+        update { session in
+            guard let state = session.snapshot.reward else { return }
+            var ledger = RewardLedger(state: state)
+            ledger.resetEntryActivityForParentUAT()
+            session.replaceRewardState(ledger.exportState())
+        }
+        entryHintUsed = false
+        entryRetryMessage = nil
+        playbackMessage = "入口活動已重設（兒童 UAT）。 / Entry activity reset (child UAT)."
     }
 
     func playAllowlisted(id: String) {
@@ -579,6 +595,8 @@ struct ShellView: View {
                         .foregroundStyle(yellow)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: 640)
+                    Button("重設入口活動（兒童 UAT）/ Reset entry activity (child UAT)", action: model.resetEntryActivityForChildUAT)
+                        .tint(yellow)
                     Picker("主題 / Theme", selection: Binding(
                         get: { model.themePaletteID },
                         set: { model.selectTheme($0) }
@@ -669,7 +687,7 @@ struct ShellView: View {
                     .disabled(model.authenticating)
                     .tint(accent)
             }
-            Text("v0.4.0").font(.system(size: 16, design: .rounded))
+            Text("v0.4.1").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)

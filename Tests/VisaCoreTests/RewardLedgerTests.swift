@@ -167,4 +167,32 @@ final class RewardLedgerTests {
         expectEqual(ledger.availableViewingSeconds(now: now, calendar: calendar), before)
         expectEqual(before, 300)
     }
+
+    func testResetEntryActivityForParentUATClearsFlagOnly() {
+        var ledger = makeLedger(initialAllowance: 300, cap: 1_200)
+        _ = ledger.completeEntryActivity(now: now, calendar: calendar)
+        expectTrue(ledger.entryActivityCompleted)
+        expectEqual(ledger.availableViewingSeconds(now: now, calendar: calendar), 300)
+        _ = ledger.applyCompletion(
+            id: "parent-test-budget",
+            rewardSeconds: 60,
+            kind: .unassisted,
+            now: now,
+            calendar: calendar
+        )
+        expectEqual(ledger.availableViewingSeconds(now: now, calendar: calendar), 360)
+        expectEqual(ledger.successRecords.count, 1)
+
+        ledger.resetEntryActivityForParentUAT()
+        expectTrue(!ledger.entryActivityCompleted)
+        // Viewing budget and awards kept for parent preview / child UAT.
+        expectEqual(ledger.availableViewingSeconds(now: now, calendar: calendar), 360)
+        expectEqual(ledger.successRecords.count, 1)
+        expectEqual(ledger.successRecords[0].completionID, "parent-test-budget")
+        // After UAT reset, D1 entry unlock can run again and grant initial allowance once more.
+        let grantedAgain = ledger.completeEntryActivity(now: now, calendar: calendar)
+        expectEqual(grantedAgain, 300)
+        expectTrue(ledger.entryActivityCompleted)
+        expectEqual(ledger.availableViewingSeconds(now: now, calendar: calendar), 660)
+    }
 }

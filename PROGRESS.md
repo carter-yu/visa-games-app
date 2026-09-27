@@ -1,5 +1,13 @@
 # Progress
 
+- 2026-09-27: PR #7 PATCH **v0.4.1** — parent Test viewing budget / Preview no longer completes entry activity (child UAT unblock). Do not merge; Mac mini re-UAT pending.
+  - Bug (Carter screenshot): `seedTestViewingBudget()` called `completeEntryActivity`, so lock showed 「入口活動完成 / Entry activity done」 and hid the two-picture game.
+  - Fix: seed grants ~60s only via `applyCompletion(id: "parent-test-budget", .unassisted)` when budget ≤ 0; creates RewardLedger(60/1200) if no reward state; **leaves `entryActivityCompleted == false`**. Added `RewardLedger.resetEntryActivityForParentUAT()` + parent button 「重設入口活動（兒童 UAT）/ Reset entry activity (child UAT)」 (clears entry flag + UI hint/retry; keeps viewing seconds).
+  - Tests: +1 reward-ledger check (`testResetEntryActivityForParentUATClearsFlagOnly`). Expect PASS: 8 session + **9** reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback + 7 activity.
+  - Version: Info.plist + shell footer **0.4.1** (CFBundleVersion 11). Prompt: `prompts/pr-0007-m3-parent-test-budget-entry-gate.md`.
+  - Linux workshop: `swift: not found` expected — no Swift compile/test/bundle claimed here.
+  - Exact next task: Mac mini — fetch/pull branch tip, `sh scripts/test.sh` (expect 8+9+7+6+7+7), `sh scripts/bundle.sh`, Parent → Reset entry activity if needed → Return → confirm two-picture on lock; Parent Preview must not hide entry game. Do not merge until Carter OK.
+
 - 2026-09-27: M3 first learning loop scaffold on `feat/m3-first-learning-loop` as **v0.4.0** (MINOR — family-visible two-picture entry gate); Do not merge; Mac mini verification pending.
   - Base: `origin/main` @ `53e5f29` (PR #6 M2 merged; Carter: play works; UI polish deferred). ADR 0002 D1–D5/D7 Confirmed; D8 Confirmed; **D6/D9/D10 still open**.
   - Docs: `docs/decisions/0004-first-learning-loop-m3.md`; `phases/phase-3-first-learning-loop.md`. States scaffold vs open D9 (pack/audio), D6, D10. No unverified YouTube IDs hardcoded as approved pack.
