@@ -1,5 +1,59 @@
 # Progress
 
+- 2026-09-27: PR #7 PATCH **v0.5.1** — parent allowlist shows YouTube Title + ID. Do not merge; Mac mini UAT pending.
+  - Carter Confirmed (HK Cantonese): allowlist page should show a YouTube Title beside the ID so parents can track what was added.
+  - Parent add form gains `parentVideoTitleDraft` + bilingual 「YouTube 標題 / YouTube Title」 field. Upsert writes into existing `ApprovedVideo.titleCantonese` (if draft has CJK) or `titleEnglish` otherwise; empty title leaves both nil. No YouTube network title fetch.
+  - Allowlist rows show primary `parentListTitle` (title or 「(未命名 / Untitled)」) and secondary monospaced video id — id is never hidden when a title exists. Title draft clears on successful add.
+  - Model: `ApprovedVideo.hasParentTitle` / `parentListTitle`. Existing `testApprovedVideoParentLabelAndUpsert` extended for untitled list semantics. Expect same PASS banner counts (7 scoped-playback).
+  - Version: Info.plist **0.5.1 / 15**, footer **v0.5.1**. Prompt: `prompts/pr-0007-m3-parent-allowlist-youtube-title.md`.
+  - Linux workshop: `swift: not found` expected — no Swift compile/test/bundle claimed here.
+  - Exact next task: Mac mini — pull tip, `sh scripts/test.sh`, `sh scripts/bundle.sh`, Parent → Allowlist → add with title (Title+ID), add without title (Untitled+ID), remove/preview still work, footer v0.5.1. Do not merge until Carter OK. M3 not marked complete.
+
+- 2026-09-27: PR #7 MINOR **v0.5.0** — child difficulty cards → task → visa → scoped playback. Mac mini UAT pending; no merge.
+  - Evidence: Carter Confirmed in this task the visa-games reference child flow and **10 / 20 / 30 minutes** (600 / 1200 / 1800 seconds); practical D6 closed for this scaffold. D9 IDs/audio and D10 remain open.
+  - Added pure ChildDifficulty mapping and configured lock-only Session.startPlayVisa; parent grant remains parent-only. AppModel keeps round selection/UUID in memory, persists D1 + round-unique D7 reward + visa atomically in existing schema 2, and clears task/hint/retry/video on expiry. Lock cards are independent of the durable D1 completion flag.
+  - Play shows visa countdown and existing scoped player through PlaybackPolicy, or bilingual parent-add-video guidance. Existing 1200-second viewing cap remains: Challenge requests 1800 but banks at most 1200, with a 1800-second visa. Existing provider viewing-time accounting is still a follow-up; this slice does not claim full budget metering.
+  - Tests added before implementation for mapping, repeated successful rounds despite D1, duplicate rejection, assisted recording/cap, child visa boundaries and expiry; extended persistence check for child visa relaunch. Expected Mac runner: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback + 7 activity checks.
+  - Version: Info.plist **0.5.0 / 14**, footer **v0.5.0**. Prompt archive: `prompts/pr-0007-m3-difficulty-cards-child-flow.md`. ADR 0004 and Phase 3 updated. Existing OS escape paths remain documented in the Phase 0 kiosk checklist.
+  - Linux verification: test and bundle each exited 127 (`swift: not found`); no Swift compile/test/native UAT pass claimed. Plist version assertions, shell syntax, and `git diff --check` passed.
+  - Exact next task: Mac mini UAT — run test + bundle, open → 3 cards → pick → two pictures → success → YouTube if allowlisted. Check 10/20/30, wrong/retry, hint/assisted, no-allowlist message, expiry → cards → another success without Reset, parent emergency controls, and existing escape-path checklist. M3 is not marked complete.
+
+- 2026-09-27: PR #7 PATCH **v0.4.3** — restore visible two-picture entry gate (ScrollView collapse regression). Do not merge; Mac mini re-UAT pending.
+  - Root cause (Carter confirmed): on **v0.4.1** crane/bus targets visible; after pull to **v0.4.2** (`7bdd592`) they vanished while title + Parent + version remained. `entryGateScroll` wrapped `EntryActivityView` in `ScrollView { … }.frame(maxWidth: .infinity, maxHeight: .infinity)` inside a parent `VStack`; unbounded-height ScrollView often collapses to ~0 flexible height, so the two large silhouettes disappear.
+  - Fix: remove collapsing ScrollView; restore **direct** `EntryActivityView` in lock/play via `entryGateContent` (0.4.1 proven path) plus `.frame(minHeight: 480)` so the gate cannot shrink away. Keep good 0.4.2 work: Spacer suppression / compact title when showing entry; Reset always persists incomplete ledger; confirmation under Reset; VisaGamesLog; seedTest without `completeEntry`.
+  - Tests: no new unit tests (layout-only). Expect same PASS banner as 0.4.2: 8 session + **10** reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback + 7 activity.
+  - Version: Info.plist + shell footer **0.4.3** (CFBundleVersion 13). Prompt: `prompts/pr-0007-m3-entry-gate-scrollview-collapse.md`.
+  - Linux workshop: `swift: not found` expected — no Swift compile/test/bundle claimed here.
+  - Exact next task: Mac mini — fetch tip, `sh scripts/test.sh` (expect 8+10+7+6+7+7), `sh scripts/bundle.sh`, confirm footer **v0.4.3**, Parent → Reset entry if needed → Return → two large crane/bus silhouettes again on lock/play. Do not merge until Carter OK.
+
+
+- 2026-09-27: PR #7 PATCH **v0.4.2** — lock entry gate visible + parent Reset persists nil reward + VisaGamesLog. Do not merge; Mac mini re-UAT pending.
+  - Root cause (code evidence): (1) **Layout** — `ShellView` had `Spacer()` above and below the mode switch; large `EntryActivityView` (two ~280×220 targets) was compressed/clipped so lock looked like title + 先做再玩 + Parent + version only (「冇 game」). Completed-entry short text still fit (earlier 「入口活動完成」 screenshot). (2) **Reset no-op** — `resetEntryActivityForChildUAT` used `guard let reward else { return }`, so nil reward never persisted and left inconsistent state. (3) **No entry/reset logs** — only ScopedPlayer logs existed, so Reset produced no new lines.
+  - Fix: suppress competing Spacers when showing entry gate; wrap `EntryActivityView` in `ScrollView` + `layoutPriority(1)`; compact play-mode visa strip while entry incomplete; parade/success `allowsHitTesting(false)`. Reset always ensures ledger with `entryActivityCompleted=false` (create 60/1200 if nil) and persists; immediate `playbackMessage` under Reset button; `objectWillChange.send()`. Added `VisaGamesLog` → `visa-games-YYYYMMDD.log` (Library + repo `logs/`).
+  - Tests: +1 reward-ledger (`testNilRewardMeansEntryIncompleteAndFreshLedgerPersistsFlagFalse`). Expect PASS: 8 session + **10** reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback + 7 activity.
+  - Version: Info.plist + shell footer **0.4.2** (CFBundleVersion 12). Prompt: `prompts/pr-0007-m3-entry-gate-layout-reset-logs.md`.
+  - Linux workshop: `swift: not found` expected — no Swift compile/test/bundle claimed here.
+  - Exact next task: Mac mini — fetch tip, `sh scripts/test.sh` (expect 8+10+7+6+7+7), `sh scripts/bundle.sh`, Parent → Reset entry (see confirmation) → Return → two large silhouettes on lock/play; open logs folder and confirm `visa-games-*.log` lines. Do not merge until Carter OK.
+
+
+- 2026-09-27: PR #7 PATCH **v0.4.1** — parent Test viewing budget / Preview no longer completes entry activity (child UAT unblock). Do not merge; Mac mini re-UAT pending.
+  - Bug (Carter screenshot): `seedTestViewingBudget()` called `completeEntryActivity`, so lock showed 「入口活動完成 / Entry activity done」 and hid the two-picture game.
+  - Fix: seed grants ~60s only via `applyCompletion(id: "parent-test-budget", .unassisted)` when budget ≤ 0; creates RewardLedger(60/1200) if no reward state; **leaves `entryActivityCompleted == false`**. Added `RewardLedger.resetEntryActivityForParentUAT()` + parent button 「重設入口活動（兒童 UAT）/ Reset entry activity (child UAT)」 (clears entry flag + UI hint/retry; keeps viewing seconds).
+  - Tests: +1 reward-ledger check (`testResetEntryActivityForParentUATClearsFlagOnly`). Expect PASS: 8 session + **9** reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback + 7 activity.
+  - Version: Info.plist + shell footer **0.4.1** (CFBundleVersion 11). Prompt: `prompts/pr-0007-m3-parent-test-budget-entry-gate.md`.
+  - Linux workshop: `swift: not found` expected — no Swift compile/test/bundle claimed here.
+  - Exact next task: Mac mini — fetch/pull branch tip, `sh scripts/test.sh` (expect 8+9+7+6+7+7), `sh scripts/bundle.sh`, Parent → Reset entry activity if needed → Return → confirm two-picture on lock; Parent Preview must not hide entry game. Do not merge until Carter OK.
+
+- 2026-09-27: M3 first learning loop scaffold on `feat/m3-first-learning-loop` as **v0.4.0** (MINOR — family-visible two-picture entry gate); Do not merge; Mac mini verification pending.
+  - Base: `origin/main` @ `53e5f29` (PR #6 M2 merged; Carter: play works; UI polish deferred). ADR 0002 D1–D5/D7 Confirmed; D8 Confirmed; **D6/D9/D10 still open**.
+  - Docs: `docs/decisions/0004-first-learning-loop-m3.md`; `phases/phase-3-first-learning-loop.md`. States scaffold vs open D9 (pack/audio), D6, D10. No unverified YouTube IDs hardcoded as approved pack.
+  - VisaCore: `Activity.swift` — `TwoPictureQuestion`, `ActivityOption`, `ActivityEvaluator`, `FirstEntryActivity` (crane vs articulated bus silhouette asset IDs), `ActivityAudioPrompting` + `StubActivityAudioPrompt` (scaffold only; not “audio done”).
+  - VisaGames: lock-mode “activities coming later” replaced with large-target `EntryActivityView`; play mode gates video until entry completion (先做再玩). Success → `completeEntryActivity` + `applyCompletion` (stable completion ID, assisted if hint used, zero extra seconds). Wrong → gentle retry. SuccessParkAnimation reused. Parent note: entry game live; YouTube pack still D9.
+  - Tests: `ActivityTests` (7) wired into VisaCoreChecks. Expect PASS: 8+8+7+6+7+**7**.
+  - Version: Info.plist + shell footer **0.4.0** (CFBundleVersion 10). Prompt archive `prompts/pr-0007-m3-first-learning-loop.md`.
+  - Linux workshop: `swift: not found` expected. No Swift compile/test/bundle claimed here. Mac mini must run test + bundle + Wacom UAT before merge.
+  - Exact next task: Mac mini — fetch branch, `sh scripts/test.sh` (expect 8+8+7+6+7+7), `sh scripts/bundle.sh`, child entry UAT, parent visa+allowlist after entry; confirm D9 still open. Do not invent pack IDs.
+
 - 2026-09-17: Created `visa-games-app` bootstrap plan as a native macOS successor to `visa-games`.
   - Product invariants preserved: Visa Games / 簽證遊戲, 先做再玩, pen + finger child path, Cantonese + English UI, no Simplified Chinese, parent-controlled approved content, absolute visa expiry timestamp.
   - Architecture reset: Swift + SwiftUI/AppKit target; browser fullscreen is no longer treated as the kiosk boundary.

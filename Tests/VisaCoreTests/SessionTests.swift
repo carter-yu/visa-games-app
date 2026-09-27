@@ -4,6 +4,63 @@ import VisaCore
 final class SessionTests {
     let now = Date(timeIntervalSince1970: 1_000)
 
+    func testDifficultyAndRepeatedChildVisas() {
+        let calendar = Calendar(identifier: .gregorian)
+        var ledger = RewardLedger(policy: .init(initialAllowanceSeconds: 60, rewardCapSeconds: 1200))
+        var session = Session(snapshot: .init(configured: true), now: now)
+        for stars in 1...3 {
+            let difficulty = ChildDifficulty(rawValue: stars)!
+            expectEqual(difficulty.minutes, stars * 10)
+            expectEqual(difficulty.seconds, Double(stars * 600))
+            ledger.completeEntryActivity(now: now, calendar: calendar)
+            let id = "round-\(stars)"
+            ledger.applyCompletion(id: id, rewardSeconds: difficulty.seconds,
+                                   kind: stars == 2 ? .assisted : .unassisted, now: now, calendar: calendar)
+            expectEqual(ledger.applyCompletion(id: id, rewardSeconds: difficulty.seconds,
+                                               kind: .unassisted, now: now, calendar: calendar), .duplicateRejected)
+            session.replaceRewardState(ledger.exportState())
+            session.startPlayVisa(seconds: difficulty.seconds, now: now)
+            expectEqual(session.mode, .play)
+            expectEqual(session.snapshot.endsAt, now.addingTimeInterval(difficulty.seconds))
+            expectFalse(session.allowsExit)
+            session.tick(now: now.addingTimeInterval(difficulty.seconds))
+            expectEqual(session.mode, .lock)
+            expectNil(session.snapshot.endsAt)
+            expectTrue(session.snapshot.reward!.entryActivityCompleted)
+        }
+        expectEqual(ledger.successRecords.count, 3)
+        expectEqual(ledger.successRecords[1].kind, .assisted)
+        expectEqual(ledger.availableViewingSeconds(now: now, calendar: calendar), 1200)
+        expectNil(ChildDifficulty(rawValue: 0))
+        expectNil(ChildDifficulty(rawValue: 4))
+    }
+
+    func testChildVisaFailsClosed() {
+        for configured in [false, true] {
+            var session = Session(snapshot: .init(configured: configured), now: now)
+            for seconds in [0.0, -1, 3601, .infinity, .nan] {
+                session.startPlayVisa(seconds: seconds, now: now)
+                expectNil(session.snapshot.endsAt)
+            }
+            session.startPlayVisa(seconds: 600, now: Date(timeIntervalSince1970: .infinity))
+            expectNil(session.snapshot.endsAt)
+            if !configured {
+                session.startPlayVisa(seconds: 600, now: now)
+                expectEqual(session.mode, .setup)
+                expectNil(session.snapshot.endsAt)
+            }
+            session.enterParent(authenticated: true, now: now)
+            session.startPlayVisa(seconds: 600, now: now)
+            expectEqual(session.mode, .parent)
+            expectNil(session.snapshot.endsAt)
+        }
+        var session = Session(snapshot: .init(configured: true), now: now)
+        session.startPlayVisa(seconds: 600, now: now)
+        session.startPlayVisa(seconds: 1800, now: now)
+        session.grant(seconds: 1800, now: now)
+        expectEqual(session.snapshot.endsAt, now.addingTimeInterval(600))
+    }
+
     func testFirstLaunchRequiresAuthenticatedSetup() {
         var session = Session(snapshot: .init(), now: now)
         expectEqual(session.mode, .setup)
@@ -117,6 +174,12 @@ final class SessionTests {
         let snapshot = Snapshot(configured: true, endsAt: now.addingTimeInterval(60))
         try store.save(snapshot)
         expectEqual(try store.load(), snapshot)
+        var child = Session(snapshot: .init(configured: true), now: now)
+        child.startPlayVisa(seconds: 1800, now: now)
+        try store.save(child.snapshot)
+        let restoredChild = Session(snapshot: try store.load(), now: now.addingTimeInterval(60))
+        expectEqual(restoredChild.mode, .play)
+        expectEqual(restoredChild.remaining(at: now.addingTimeInterval(60)), 1740)
         try Data("broken".utf8).write(to: store.url)
         expectThrowsError(try store.load())
         try Data("{\"schemaVersion\":99,\"configured\":true}".utf8).write(to: store.url)
@@ -148,6 +211,8 @@ func expectThrowsError<T>(_ expression: @autoclosure () throws -> T, file: Stati
 struct TestRunner {
     static func main() throws {
         let session = SessionTests()
+        session.testDifficultyAndRepeatedChildVisas()
+        session.testChildVisaFailsClosed()
         session.testFirstLaunchRequiresAuthenticatedSetup()
         session.testChildCannotGrantTimeOrUnlockWithoutAuthentication()
         session.testAbsoluteExpiryAndRelaunch()
@@ -166,6 +231,8 @@ struct TestRunner {
         reward.testLanguageReplayDoesNotReduceReward()
         reward.testAssistedSuccessRecordedSeparately()
         reward.testAnsweringDoesNotSpendViewingBudget()
+        reward.testResetEntryActivityForParentUATClearsFlagOnly()
+        reward.testNilRewardMeansEntryIncompleteAndFreshLedgerPersistsFlagFalse()
 
         let persistence = RewardPersistenceTests()
         try persistence.testRewardStateRoundTripSaveLoad()
@@ -193,6 +260,15 @@ struct TestRunner {
         scoped.testAllowedEmbedMainFrameURLPolicy()
         scoped.testEmbedHTMLStringReferrerShell()
 
-        print("PASS: 8 session + 8 reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback checks")
+        let activity = ActivityTests()
+        activity.testFirstEntryQuestionIsWellFormed()
+        activity.testCorrectUnassistedEvaluation()
+        activity.testCorrectAssistedWhenHintUsed()
+        activity.testWrongAnswerIsIncorrectWithoutPenaltySemantics()
+        activity.testMalformedQuestionFailsClosed()
+        activity.testEntrySuccessUnlocksAllowanceOnceWithAssistedFlag()
+        activity.testStubAudioDoesNotClaimPack()
+
+        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback + 7 activity checks")
     }
 }

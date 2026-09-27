@@ -16,7 +16,7 @@ public struct Snapshot: Codable, Equatable, Sendable {
     }
 }
 
-public enum Mode: Sendable { case setup, lock, parent, play }
+public enum Mode: Sendable, Equatable { case setup, lock, parent, play }
 
 public struct Session: Sendable {
     public private(set) var snapshot: Snapshot
@@ -64,6 +64,14 @@ public struct Session: Sendable {
     public mutating func grant(seconds: TimeInterval, now: Date) {
         guard mode == .parent, snapshot.configured, seconds.isFinite,
               seconds > 0, seconds <= 3600 else { return }
+        snapshot.endsAt = now.addingTimeInterval(seconds)
+        mode = .play
+    }
+
+    /// Child completion seam. Tasks stay in lock; an active visa cannot be extended here.
+    public mutating func startPlayVisa(seconds: TimeInterval, now: Date) {
+        guard mode == .lock, snapshot.configured, seconds.isFinite,
+              seconds > 0, seconds <= 3600, now.timeIntervalSince1970.isFinite else { return }
         snapshot.endsAt = now.addingTimeInterval(seconds)
         mode = .play
     }

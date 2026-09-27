@@ -167,4 +167,61 @@ final class RewardLedgerTests {
         expectEqual(ledger.availableViewingSeconds(now: now, calendar: calendar), before)
         expectEqual(before, 300)
     }
+
+    func testResetEntryActivityForParentUATClearsFlagOnly() {
+        var ledger = makeLedger(initialAllowance: 300, cap: 1_200)
+        _ = ledger.completeEntryActivity(now: now, calendar: calendar)
+        expectTrue(ledger.entryActivityCompleted)
+        expectEqual(ledger.availableViewingSeconds(now: now, calendar: calendar), 300)
+        _ = ledger.applyCompletion(
+            id: "parent-test-budget",
+            rewardSeconds: 60,
+            kind: .unassisted,
+            now: now,
+            calendar: calendar
+        )
+        expectEqual(ledger.availableViewingSeconds(now: now, calendar: calendar), 360)
+        expectEqual(ledger.successRecords.count, 1)
+
+        ledger.resetEntryActivityForParentUAT()
+        expectTrue(!ledger.entryActivityCompleted)
+        // Viewing budget and awards kept for parent preview / child UAT.
+        expectEqual(ledger.availableViewingSeconds(now: now, calendar: calendar), 360)
+        expectEqual(ledger.successRecords.count, 1)
+        expectEqual(ledger.successRecords[0].completionID, "parent-test-budget")
+        // After UAT reset, D1 entry unlock can run again and grant initial allowance once more.
+        let grantedAgain = ledger.completeEntryActivity(now: now, calendar: calendar)
+        expectEqual(grantedAgain, 300)
+        expectTrue(ledger.entryActivityCompleted)
+        expectEqual(ledger.availableViewingSeconds(now: now, calendar: calendar), 660)
+    }
+
+    /// Product rule: missing Snapshot.reward means entry is not completed; parent UAT reset
+    /// must be able to persist a fresh ledger with entryActivityCompleted=false.
+    func testNilRewardMeansEntryIncompleteAndFreshLedgerPersistsFlagFalse() {
+        let snapshot = Snapshot(configured: true, endsAt: nil, reward: nil)
+        // Same predicate AppModel.isEntryActivityCompleted uses.
+        expectTrue(snapshot.reward?.entryActivityCompleted != true)
+
+        var ledger = RewardLedger(policy: RewardPolicy(
+            initialAllowanceSeconds: 60,
+            rewardCapSeconds: 1_200
+        ))
+        expectTrue(!ledger.entryActivityCompleted)
+        ledger.resetEntryActivityForParentUAT()
+        expectTrue(!ledger.entryActivityCompleted)
+        let exported = ledger.exportState()
+        expectEqual(exported.entryActivityCompleted, false)
+        expectEqual(exported.viewingSeconds, 0)
+        expectEqual(exported.awardedCompletionIDs, [])
+
+        var session = Session(snapshot: snapshot, now: now)
+        session.replaceRewardState(exported)
+        guard let persisted = session.snapshot.reward else {
+            preconditionFailure("Expected reward state after parent UAT reset persist")
+        }
+        expectEqual(persisted.entryActivityCompleted, false)
+        expectTrue(persisted.entryActivityCompleted != true)
+    }
+
 }

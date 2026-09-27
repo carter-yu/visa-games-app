@@ -32,6 +32,19 @@ public struct ApprovedVideo: Sendable, Equatable, Codable, Identifiable {
         default: return id
         }
     }
+
+    /// True when the parent supplied at least one display title.
+    public var hasParentTitle: Bool {
+        let cantonese = titleCantonese?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let english = titleEnglish?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return !cantonese.isEmpty || !english.isEmpty
+    }
+
+    /// Primary line for the parent allowlist row. Never substitutes the raw id here —
+    /// untitled rows show a bilingual placeholder so the id can stay visible as secondary.
+    public var parentListTitle: String {
+        hasParentTitle ? parentLabel : "(未命名 / Untitled)"
+    }
 }
 
 /// Parent-maintained set of approved videos. Unknown ids are not playable (D8).
