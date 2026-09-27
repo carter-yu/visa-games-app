@@ -21,7 +21,7 @@ final class ActivityTests {
         expectEqual(question.options[1].assetID, "silhouette.hkTaxi")
         // Language lock: prompts are Traditional Chinese + English (spot-check characters).
         expectTrue(question.promptTraditionalChinese.contains("消防"))
-        expectTrue(question.promptEnglish.lower().contains("fire"))
+        expectTrue(question.promptEnglish.lowercased().contains("fire"))
         expectFalse(question.promptTraditionalChinese.contains("哪辆")) // mainland phrasing rejected
     }
 
