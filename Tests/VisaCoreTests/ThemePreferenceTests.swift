@@ -39,21 +39,24 @@ final class ThemePreferenceTests {
     }
 
     func testBilingualTraditionalChineseLabels() {
-        expectEqual(ThemePack.forID(.sunnyYellow).parentLabel, "陽光黃 / Sunny Yellow")
-        expectEqual(ThemePack.forID(.engineeringOrange).parentLabel, "工程橙 / Engineering Orange")
-        expectEqual(ThemePack.forID(.logisticsWhiteRed).parentLabel, "物流白紅 / Logistics White-Red")
-        expectEqual(ThemePack.forID(.busBlue).parentLabel, "巴士藍 / Bus Blue")
+        expectEqual(ThemePack.forID(.sunnyYellow).parentLabel, "陽光沙地 / Sunny Sand")
+        expectEqual(ThemePack.forID(.engineeringOrange).parentLabel, "工程橙沙 / Engineering Ochre")
+        expectEqual(ThemePack.forID(.logisticsWhiteRed).parentLabel, "物流紅沙 / Logistics Red Sand")
+        expectEqual(ThemePack.forID(.busBlue).parentLabel, "巴士藍沙 / Bus Blue Sand")
     }
 
     func testEveryPaletteIncludesWarmYellowAccent() {
         for palette in ThemePaletteID.allCases {
             let pack = ThemePack.forID(palette)
-            // Yellow channel must be warm (high R+G, lower B) for accent use — not a full-screen wall color.
+            // Yellow channel must be warm (high R+G, lower B) for accent use.
             expectTrue(pack.yellow.red >= 0.90)
             expectTrue(pack.yellow.green >= 0.80)
             expectTrue(pack.yellow.blue <= 0.45)
-            // Background stays calming soft blue/green family (blue or green dominate over yellow wall).
-            expectTrue(pack.background.blue >= pack.background.red || pack.background.green >= pack.background.red)
+            // Storybook sand backgrounds are warm ochre (red+green high); sky stays soft blue.
+            expectTrue(pack.background.red >= 0.85)
+            expectTrue(pack.background.green >= 0.75)
+            expectTrue(pack.sky.blue >= pack.sky.red)
+            expectTrue(pack.sand.red >= 0.80)
         }
     }
 }

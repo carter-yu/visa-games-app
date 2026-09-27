@@ -1,5 +1,16 @@
 # Progress
 
+- 2026-09-27: PR #8 MINOR **v0.7.0** — storybook child UX + original recognizable vehicles (HK/NY taxi, fire, metro, works). Do not merge; Mac mini visual UAT pending.
+  - World shell: warm sand/ochre `StorybookWorldBackground`, wooden station sign 「簽證車廠」, friendly convoy parade.
+  - Difficulty: three mission tickets (的士短程 / 消防車任務 / 地鐵長程) with mascots + ★ + Confirmed 10/20/30 + press bounce.
+  - Vehicles: original cute faces; `hkTaxi` / `nyTaxi` / `fireEngine` / `metroTrain` (+ existing long works). No licensed character likenesses; metro uses original blue stripe (no transit roundel).
+  - Games: faced bigger taps; find-same HK taxi; count fire trucks; **sequence short→long convoy playable** (4 catalog kinds). Success → visa stamp / ticket punch + park-in.
+  - Parent: About/license footer (HK Trad + English) — home educational use; original art; not affiliated with named third-party toy/animation companies. ADR `docs/decisions/0006-storybook-child-ux-original-vehicles.md`.
+  - Keep: D8 scoped player, one-paste allowlist + oEmbed, parent LA, kiosk, no Simplified Chinese.
+  - Version: Info.plist **0.7.0 / 19**, footer **v0.7.0**. Prompt: `prompts/pr-0008-m4-storybook-child-ux-v070.md`.
+  - Linux workshop: `swift: not found` expected — no compile/test claim from Linux. Offline suite conceptually **10+10+7+6+9+13**.
+  - Exact next task: Mac mini — fetch tip of `feat/m4-gakken-style-activities`, `sh scripts/test.sh` (expect 10+10+7+6+9+13), `sh scripts/bundle.sh`, visual 4yo UAT (depot shell, tickets, faces, all 4 games, stamp, parent footer). Do not merge until Carter OK. D9/D10 remain open.
+
 - 2026-09-27: PR #8 PATCH **v0.6.2** — parent allowlist paste-URL auto-fills title + preview (oEmbed); duration explained. Do not merge; Mac mini UAT pending.
   - Carter ask: extract title + preview from YouTube; explain Duration / why default 120; can duration come from YouTube? Clarification (Mac mini): happy path = paste URL/id only → Add; title/duration not required.
   - Auto-fetch: `YouTubeOEmbed.requestURL` + `parse` (no API key). Parent Add calls oEmbed; stores title into existing `titleEnglish` / `titleCantonese` (CJK → Cantonese field as raw evidence; no invented translation). Preview remains derived `img.youtube.com/vi/{id}/hqdefault.jpg` (oEmbed thumbnail_url also parsed for completeness). Fetching status: 「正在取得片名… / Fetching title…」. Failure still allows add with id + optional Advanced + thumb-from-id.

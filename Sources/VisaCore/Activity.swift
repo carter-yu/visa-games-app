@@ -32,7 +32,7 @@ public enum ActivityKind: String, CaseIterable, Sendable, Codable, Equatable, Ha
     case findTheSame
     /// Show N vehicle silhouettes; tap the correct count.
     case countVehicles
-    /// Stub: order vehicles short→long. Not playable yet (M4 TODO).
+    /// Order vehicles short→long (convoy lineup). Playable in v0.7+.
     case sequenceShortToLong
 }
 
@@ -145,10 +145,11 @@ public struct CountQuestion: Sendable, Equatable, Codable {
     }
 }
 
-/// Stub only — sequencing short→long vehicles. Do not wire as playable until implemented.
+/// Sequencing short→long vehicles (convoy lineup). Original silhouettes only.
 public struct SequenceQuestion: Sendable, Equatable, Codable {
     public var promptTraditionalChinese: String
     public var promptEnglish: String
+    /// Asset IDs already ordered short → long (correct convoy order).
     public var orderedAssetIDs: [String]
     public var completionID: String
 
@@ -164,11 +165,12 @@ public struct SequenceQuestion: Sendable, Equatable, Codable {
         self.completionID = completionID
     }
 
-    /// Always false until M4+ lands a real sequencer UI + evaluator.
-    public var isPlayable: Bool { false }
+    /// Playable once catalog + large-target order UI are wired (v0.7).
+    public var isPlayable: Bool { true }
 
     public var isWellFormed: Bool {
         orderedAssetIDs.count >= 3
+            && orderedAssetIDs.count <= 4
             && !completionID.isEmpty
             && orderedAssetIDs.allSatisfy { !$0.isEmpty }
             && Set(orderedAssetIDs).count == orderedAssetIDs.count
@@ -227,32 +229,61 @@ public struct ActivityEvaluator: Sendable {
         }
         return .incorrect
     }
+
+    /// Full short→long tap order must match `orderedAssetIDs` exactly.
+    public func evaluate(
+        question: SequenceQuestion,
+        orderedSelectionIDs: [String],
+        hintUsed: Bool
+    ) -> ActivityEvaluation {
+        guard question.isPlayable, question.isWellFormed else { return .incorrect }
+        guard orderedSelectionIDs.count == question.orderedAssetIDs.count else {
+            return .incorrect
+        }
+        if orderedSelectionIDs == question.orderedAssetIDs {
+            return .correct(assisted: hintUsed)
+        }
+        return .incorrect
+    }
+
+    /// Next expected asset for progressive convoy tapping (nil when complete).
+    public func nextExpectedAssetID(
+        question: SequenceQuestion,
+        tappedSoFar: [String]
+    ) -> String? {
+        guard question.isPlayable, question.isWellFormed else { return nil }
+        guard tappedSoFar.count < question.orderedAssetIDs.count else { return nil }
+        // Prefix must already be correct; otherwise UI should have reset.
+        let expectedPrefix = Array(question.orderedAssetIDs.prefix(tappedSoFar.count))
+        guard tappedSoFar == expectedPrefix else { return nil }
+        return question.orderedAssetIDs[tappedSoFar.count]
+    }
 }
 
 /// Built-in first entry activity using original long-vehicle silhouette asset IDs already in the app.
-/// Does not reference Tomica / Takara / Thomas trademarks. Does not hardcode YouTube pack IDs (D9 open).
+/// Original city / works vehicles only. Does not hardcode YouTube pack IDs (D9 open).
 public enum FirstEntryActivity {
-    public static let completionID = "entry-two-picture-crane-vs-bus-v1"
+    public static let completionID = "entry-two-picture-fire-vs-taxi-v1"
 
-    /// Crane (long works vehicle) vs articulated bus — two distinct in-repo silhouettes.
+    /// HK fire engine vs HK red taxi — recognizable city vehicles, original art.
     public static let question = TwoPictureQuestion(
-        promptTraditionalChinese: "邊架係吊機車？用筆撳一撳。",
-        promptEnglish: "Which one is the crane truck? Tap with your pen.",
+        promptTraditionalChinese: "邊架係消防車呀？撳一撳！",
+        promptEnglish: "Which one is the fire truck? Tap!",
         options: [
             ActivityOption(
-                id: "opt-crane",
-                assetID: "silhouette.crane",
-                labelTraditionalChinese: "吊機車",
-                labelEnglish: "Crane truck"
+                id: "opt-fire",
+                assetID: "silhouette.fireEngine",
+                labelTraditionalChinese: "消防車",
+                labelEnglish: "Fire truck"
             ),
             ActivityOption(
-                id: "opt-bus",
-                assetID: "silhouette.articulatedBus",
-                labelTraditionalChinese: "巴士",
-                labelEnglish: "Bus"
+                id: "opt-hktaxi",
+                assetID: "silhouette.hkTaxi",
+                labelTraditionalChinese: "的士",
+                labelEnglish: "Taxi"
             )
         ],
-        correctOptionID: "opt-crane",
+        correctOptionID: "opt-fire",
         completionID: completionID
     )
 }
@@ -263,13 +294,12 @@ public enum ActivityCatalog {
     public static let playableKinds: [ActivityKind] = [
         .twoPictureChoose,
         .findTheSame,
-        .countVehicles
-    ]
-
-    /// Stub kinds reserved for a later slice (clear TODOs in UI / docs).
-    public static let stubKinds: [ActivityKind] = [
+        .countVehicles,
         .sequenceShortToLong
     ]
+
+    /// Reserved for future genres (path-trace, maze-lite, …). Empty in v0.7.
+    public static let stubKinds: [ActivityKind] = []
 
     /// Deterministic rotation from the round UUID / seed string.
     public static func kind(forRoundSeed seed: String) -> ActivityKind {
@@ -289,75 +319,80 @@ public enum ActivityCatalog {
     /// Target tanker; options tanker / crane / bus. Original silhouettes only.
     public static func findSameQuestion() -> FindSameQuestion {
         FindSameQuestion(
-            promptTraditionalChinese: "搵同一個。邊架同上面一樣？用筆撳一撳。",
-            promptEnglish: "Find the same. Which one matches the truck above? Tap with your pen.",
-            targetAssetID: "silhouette.tanker",
+            promptTraditionalChinese: "搵同一個！邊架同上面一樣？",
+            promptEnglish: "Find the same! Which one matches above?",
+            targetAssetID: "silhouette.hkTaxi",
             options: [
                 ActivityOption(
-                    id: "find-crane",
-                    assetID: "silhouette.crane",
-                    labelTraditionalChinese: "吊機車",
-                    labelEnglish: "Crane truck"
+                    id: "find-fire",
+                    assetID: "silhouette.fireEngine",
+                    labelTraditionalChinese: "消防車",
+                    labelEnglish: "Fire truck"
                 ),
                 ActivityOption(
-                    id: "find-tanker",
-                    assetID: "silhouette.tanker",
-                    labelTraditionalChinese: "油罐車",
-                    labelEnglish: "Tanker"
+                    id: "find-hktaxi",
+                    assetID: "silhouette.hkTaxi",
+                    labelTraditionalChinese: "紅的",
+                    labelEnglish: "Red taxi"
                 ),
                 ActivityOption(
-                    id: "find-bus",
-                    assetID: "silhouette.articulatedBus",
-                    labelTraditionalChinese: "巴士",
-                    labelEnglish: "Bus"
+                    id: "find-nytaxi",
+                    assetID: "silhouette.nyTaxi",
+                    labelTraditionalChinese: "黃的",
+                    labelEnglish: "Yellow taxi"
                 )
             ],
-            correctOptionID: "find-tanker",
-            completionID: "entry-find-same-tanker-v1"
+            correctOptionID: "find-hktaxi",
+            completionID: "entry-find-same-hk-taxi-v1"
         )
     }
 
     /// Three logistics trucks — tap 3 among 2/3/4.
     public static func countQuestion() -> CountQuestion {
         CountQuestion(
-            promptTraditionalChinese: "數一數有幾架車？用筆撳個數。",
-            promptEnglish: "How many trucks? Tap the number with your pen.",
+            promptTraditionalChinese: "數一數有幾架消防車呀？撳個數！",
+            promptEnglish: "How many fire trucks? Tap the number!",
             vehicleAssetIDs: [
-                "silhouette.logisticsTruck",
-                "silhouette.logisticsTruck",
-                "silhouette.logisticsTruck"
+                "silhouette.fireEngine",
+                "silhouette.fireEngine",
+                "silhouette.fireEngine"
             ],
             correctCount: 3,
             choiceCounts: [2, 3, 4],
-            completionID: "entry-count-logistics-3-v1"
+            completionID: "entry-count-fire-3-v1"
         )
     }
 
-    /// Stub payload for short→long sequencing. Not playable (`isPlayable == false`).
-    public static func sequenceStubQuestion() -> SequenceQuestion {
+    /// Short→long convoy: toy car → logistics → bus → crane (visual length order).
+    public static func sequenceQuestion() -> SequenceQuestion {
         SequenceQuestion(
-            promptTraditionalChinese: "由短到長排一排。（稍後）",
-            promptEnglish: "Line them up short to long. (Coming later)",
+            promptTraditionalChinese: "由短到長排車隊。最短先撳。",
+            promptEnglish: "Line up the convoy short to long. Tap the shortest first.",
             orderedAssetIDs: [
+                "silhouette.hkTaxi",
+                "silhouette.fireEngine",
                 "silhouette.crane",
-                "silhouette.tanker",
-                "silhouette.articulatedBus",
-                "silhouette.logisticsTruck"
+                "silhouette.metroTrain"
             ],
-            completionID: "entry-sequence-short-to-long-stub-v1"
+            completionID: "entry-sequence-short-to-long-v1"
         )
+    }
+
+    /// Compatibility alias — same playable convoy question.
+    public static func sequenceStubQuestion() -> SequenceQuestion {
+        sequenceQuestion()
     }
 
     public static func hintTraditionalChinese(for kind: ActivityKind) -> String {
         switch kind {
         case .twoPictureChoose:
-            return "提示：吊機有長臂。 / Hint: the crane has a long arm."
+            return "提示：消防車有長梯。 / Hint: the fire truck has a long ladder."
         case .findTheSame:
-            return "提示：搵圓圓油罐嗰架。 / Hint: look for the round tank truck."
+            return "提示：搵紅色的士。 / Hint: look for the red taxi."
         case .countVehicles:
-            return "提示：一架一架數。 / Hint: count one truck at a time."
+            return "提示：一架一架數消防車。 / Hint: count one fire truck at a time."
         case .sequenceShortToLong:
-            return "稍後開放。 / Coming later."
+            return "提示：最短嗰架的士先。 / Hint: tap the shortest taxi first."
         }
     }
 }

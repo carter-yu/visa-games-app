@@ -16,13 +16,13 @@ final class ActivityTests {
         expectTrue(question.isWellFormed)
         expectEqual(question.options.count, 2)
         expectEqual(question.completionID, FirstEntryActivity.completionID)
-        expectEqual(question.correctOptionID, "opt-crane")
-        expectEqual(question.options[0].assetID, "silhouette.crane")
-        expectEqual(question.options[1].assetID, "silhouette.articulatedBus")
+        expectEqual(question.correctOptionID, "opt-fire")
+        expectEqual(question.options[0].assetID, "silhouette.fireEngine")
+        expectEqual(question.options[1].assetID, "silhouette.hkTaxi")
         // Language lock: prompts are Traditional Chinese + English (spot-check characters).
-        expectTrue(question.promptTraditionalChinese.contains("吊機"))
-        expectTrue(question.promptEnglish.contains("crane"))
-        expectFalse(question.promptTraditionalChinese.contains("吊机")) // Simplified rejected by copy review
+        expectTrue(question.promptTraditionalChinese.contains("消防"))
+        expectTrue(question.promptEnglish.lower().contains("fire"))
+        expectFalse(question.promptTraditionalChinese.contains("哪辆")) // mainland phrasing rejected
     }
 
     func testCorrectUnassistedEvaluation() {
@@ -136,16 +136,17 @@ final class ActivityTests {
     }
 
     func testCatalogPlayableKindsAndRotation() {
-        expectEqual(ActivityCatalog.playableKinds.count, 3)
+        expectEqual(ActivityCatalog.playableKinds.count, 4)
         expectTrue(ActivityCatalog.playableKinds.contains(.twoPictureChoose))
         expectTrue(ActivityCatalog.playableKinds.contains(.findTheSame))
         expectTrue(ActivityCatalog.playableKinds.contains(.countVehicles))
-        expectEqual(ActivityCatalog.stubKinds, [.sequenceShortToLong])
+        expectTrue(ActivityCatalog.playableKinds.contains(.sequenceShortToLong))
+        expectEqual(ActivityCatalog.stubKinds, [])
         // Deterministic: same seed → same kind; covering seeds hit all playable kinds.
         let a = ActivityCatalog.kind(forRoundSeed: "seed-alpha")
         expectEqual(ActivityCatalog.kind(forRoundSeed: "seed-alpha"), a)
         var seen = Set<ActivityKind>()
-        for i in 0..<60 {
+        for i in 0..<80 {
             seen.insert(ActivityCatalog.kind(forRoundSeed: "round-\(i)"))
         }
         expectEqual(seen, Set(ActivityCatalog.playableKinds))
@@ -154,25 +155,25 @@ final class ActivityTests {
     func testFindSameQuestionWellFormedAndEvaluation() {
         let question = ActivityCatalog.findSameQuestion()
         expectTrue(question.isWellFormed)
-        expectEqual(question.targetAssetID, "silhouette.tanker")
-        expectEqual(question.correctOptionID, "find-tanker")
+        expectEqual(question.targetAssetID, "silhouette.hkTaxi")
+        expectEqual(question.correctOptionID, "find-hktaxi")
         expectTrue(question.promptTraditionalChinese.contains("搵"))
         expectFalse(question.promptTraditionalChinese.contains("找同")) // avoid mainland phrasing drift
         expectEqual(
-            evaluator.evaluate(question: question, selectedOptionID: "find-tanker", hintUsed: false),
+            evaluator.evaluate(question: question, selectedOptionID: "find-hktaxi", hintUsed: false),
             .correct(assisted: false)
         )
         expectEqual(
-            evaluator.evaluate(question: question, selectedOptionID: "find-crane", hintUsed: true),
+            evaluator.evaluate(question: question, selectedOptionID: "find-fire", hintUsed: true),
             .incorrect
         )
         let bad = FindSameQuestion(
             promptTraditionalChinese: "測試",
             promptEnglish: "Test",
-            targetAssetID: "silhouette.tanker",
+            targetAssetID: "silhouette.hkTaxi",
             options: [
-                ActivityOption(id: "x", assetID: "silhouette.crane", labelTraditionalChinese: "甲", labelEnglish: "A"),
-                ActivityOption(id: "y", assetID: "silhouette.crane", labelTraditionalChinese: "乙", labelEnglish: "B")
+                ActivityOption(id: "x", assetID: "silhouette.fireEngine", labelTraditionalChinese: "甲", labelEnglish: "A"),
+                ActivityOption(id: "y", assetID: "silhouette.fireEngine", labelTraditionalChinese: "乙", labelEnglish: "B")
             ],
             correctOptionID: "x",
             completionID: "bad-find"
@@ -191,6 +192,7 @@ final class ActivityTests {
         expectEqual(question.vehicleAssetIDs.count, 3)
         expectEqual(question.choiceCounts, [2, 3, 4])
         expectTrue(question.promptTraditionalChinese.contains("幾架"))
+        expectTrue(question.vehicleAssetIDs.allSatisfy { $0 == "silhouette.fireEngine" })
         expectFalse(question.promptTraditionalChinese.contains("几架")) // Simplified rejected
         expectEqual(
             evaluator.evaluate(question: question, selectedCount: 3, hintUsed: false),
@@ -219,12 +221,46 @@ final class ActivityTests {
         expectFalse(bad.isWellFormed)
     }
 
-    func testSequenceStubNotPlayable() {
-        let stub = ActivityCatalog.sequenceStubQuestion()
-        expectTrue(stub.isWellFormed)
-        expectFalse(stub.isPlayable)
-        expectTrue(stub.promptTraditionalChinese.contains("稍後"))
-        expectFalse(stub.promptTraditionalChinese.contains("稍后")) // Simplified rejected
+    func testSequenceConvoyPlayableAndEvaluation() {
+        let question = ActivityCatalog.sequenceQuestion()
+        expectTrue(question.isWellFormed)
+        expectTrue(question.isPlayable)
+        expectEqual(question.orderedAssetIDs.first, "silhouette.hkTaxi")
+        expectEqual(question.orderedAssetIDs.last, "silhouette.metroTrain")
+        expectTrue(question.promptTraditionalChinese.contains("短"))
+        expectFalse(question.promptTraditionalChinese.contains("稍后")) // Simplified rejected
+        expectEqual(
+            evaluator.evaluate(
+                question: question,
+                orderedSelectionIDs: question.orderedAssetIDs,
+                hintUsed: false
+            ),
+            .correct(assisted: false)
+        )
+        expectEqual(
+            evaluator.evaluate(
+                question: question,
+                orderedSelectionIDs: question.orderedAssetIDs,
+                hintUsed: true
+            ),
+            .correct(assisted: true)
+        )
+        expectEqual(
+            evaluator.evaluate(
+                question: question,
+                orderedSelectionIDs: Array(question.orderedAssetIDs.reversed()),
+                hintUsed: false
+            ),
+            .incorrect
+        )
+        expectEqual(
+            evaluator.nextExpectedAssetID(question: question, tappedSoFar: []),
+            "silhouette.hkTaxi"
+        )
+        expectEqual(
+            evaluator.nextExpectedAssetID(question: question, tappedSoFar: ["silhouette.hkTaxi"]),
+            "silhouette.fireEngine"
+        )
     }
 
     func testCatalogHintsAreBilingualTraditional() {

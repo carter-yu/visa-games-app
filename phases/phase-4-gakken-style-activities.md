@@ -34,3 +34,7 @@ Land registry, find-same, count, sequence stub, UI, tests, docs, v0.6.0.
 ### P4-1 — Mac mini compile + child UAT
 
 Pull tip, `sh scripts/test.sh`, `sh scripts/bundle.sh`, exercise all three playable kinds across repeated difficulty picks, confirm visa 10/20/30 unchanged.
+
+### P4-2 — Storybook child UX + recognizable original vehicles (v0.7.0)
+
+Warm sand depot shell, mission tickets, friendly faces on HK/NY/fire/metro/works vehicles (original IP), playable short→long convoy, visa stamp celebration, parent license footer (ADR 0006). Do not merge until Mac mini UAT.

@@ -33,6 +33,8 @@ final class AppModel: ObservableObject {
     private var twoPictureQuestion = ActivityCatalog.twoPictureQuestion()
     private var findSameQuestion = ActivityCatalog.findSameQuestion()
     private var countQuestion = ActivityCatalog.countQuestion()
+    private var sequenceQuestion = ActivityCatalog.sequenceQuestion()
+    @Published private(set) var sequenceTappedAssetIDs: [String] = []
     private let activityEvaluator = ActivityEvaluator()
     private let activityAudio: ActivityAudioPrompting = StubActivityAudioPrompt()
     private let store: SnapshotStore
@@ -208,6 +210,7 @@ final class AppModel: ObservableObject {
     var currentTwoPictureQuestion: TwoPictureQuestion { twoPictureQuestion }
     var currentFindSameQuestion: FindSameQuestion { findSameQuestion }
     var currentCountQuestion: CountQuestion { countQuestion }
+    var currentSequenceQuestion: SequenceQuestion { sequenceQuestion }
 
     func selectDifficulty(stars: Int) {
         guard !storageFailed, session.mode == .lock, !taskRoundOpen,
@@ -222,6 +225,8 @@ final class AppModel: ObservableObject {
         twoPictureQuestion = ActivityCatalog.twoPictureQuestion()
         findSameQuestion = ActivityCatalog.findSameQuestion()
         countQuestion = ActivityCatalog.countQuestion()
+        sequenceQuestion = ActivityCatalog.sequenceQuestion()
+        sequenceTappedAssetIDs = []
         taskRoundOpen = true
         VisaGamesLog.append("selectDifficulty — 選擇難度 stars=\(stars) kind=\(kind.rawValue) seed=\(seed)")
     }
@@ -236,6 +241,7 @@ final class AppModel: ObservableObject {
         activePlayVideoID = nil
         playbackMessage = nil
         successFeedbackID = nil
+        sequenceTappedAssetIDs = []
     }
 
     func useEntryHint() {
@@ -307,6 +313,36 @@ final class AppModel: ObservableObject {
             hintUsed: entryHintUsed
         )
         handleEvaluation(evaluation, selectionLabel: "count-\(count)")
+    }
+
+    func selectSequenceAsset(id assetID: String) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .sequenceShortToLong else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectSequenceAsset blocked — 已封鎖 storageFailed=true asset=\(assetID)")
+            return
+        }
+        guard !sequenceTappedAssetIDs.contains(assetID) else { return }
+        let expected = activityEvaluator.nextExpectedAssetID(
+            question: sequenceQuestion,
+            tappedSoFar: sequenceTappedAssetIDs
+        )
+        if expected != assetID {
+            sequenceTappedAssetIDs = []
+            handleEvaluation(.incorrect, selectionLabel: "seq-\(assetID)")
+            return
+        }
+        sequenceTappedAssetIDs.append(assetID)
+        if sequenceTappedAssetIDs.count == sequenceQuestion.orderedAssetIDs.count {
+            let evaluation = activityEvaluator.evaluate(
+                question: sequenceQuestion,
+                orderedSelectionIDs: sequenceTappedAssetIDs,
+                hintUsed: entryHintUsed
+            )
+            handleEvaluation(evaluation, selectionLabel: "seq-complete")
+        } else {
+            entryRetryMessage = "好！下一架～ / Good! Next one~"
+            VisaGamesLog.append("sequence progress — 車隊進度 count=\(sequenceTappedAssetIDs.count)")
+        }
     }
 
     private func handleEvaluation(_ evaluation: ActivityEvaluation, selectionLabel: String) {
@@ -732,27 +768,38 @@ struct ShellView: View {
         let theme = ThemePack.forID(model.themePaletteID)
         let accent = Color(rgb: theme.accent)
         let yellow = Color(rgb: theme.yellow)
+        let sand = Color(rgb: theme.sand)
         ZStack {
-            Color(rgb: theme.background).ignoresSafeArea()
+            StorybookWorldBackground(theme: theme)
             SoftSunRoadAccent(yellow: yellow, accent: accent)
             if model.session.mode == .lock || model.session.mode == .play {
                 VehicleParade(color: Color(rgb: theme.watermark), yellow: yellow)
                     .frame(maxHeight: .infinity, alignment: .bottom)
-                    .padding(.bottom, 12)
+                    .padding(.bottom, 8)
                     .allowsHitTesting(false)
             }
-            VStack(spacing: usesCompactShell ? 16 : 32) {
-                Text("Visa Games / 簽證遊戲")
-                    .font(.system(size: usesCompactShell ? 36 : 44, weight: .bold, design: .rounded))
-                Text("先做再玩 / Do first, then play")
-                    .font(.system(size: usesCompactShell ? 24 : 28, weight: .semibold, design: .rounded))
+            VStack(spacing: usesCompactShell ? 14 : 28) {
+                if model.session.mode == .lock || model.session.mode == .play {
+                    WoodenStationSign(
+                        title: "簽證車廠 / Visa Depot",
+                        subtitle: "先做再玩 / Do first, then play",
+                        foreground: Color(rgb: theme.foreground),
+                        yellow: yellow,
+                        sand: sand
+                    )
+                } else {
+                    Text("Visa Games / 簽證遊戲")
+                        .font(.system(size: 44, weight: .bold, design: .rounded))
+                    Text("先做再玩 / Do first, then play")
+                        .font(.system(size: 28, weight: .semibold, design: .rounded))
+                }
                 if !usesCompactShell {
                     Spacer(minLength: 8)
                 }
-                modeContent(theme: theme, accent: accent, yellow: yellow)
+                modeContent(theme: theme, accent: accent, yellow: yellow, sand: sand)
                     .layoutPriority(1)
                 if let message = model.message {
-                    Text(message).foregroundStyle(yellow)
+                    Text(message).foregroundStyle(accent)
                         .font(.system(size: 22, design: .rounded))
                 }
                 if !usesCompactShell {
@@ -763,11 +810,11 @@ struct ShellView: View {
                         .disabled(model.authenticating)
                         .tint(accent)
                 }
-                Text("v0.6.2").font(.system(size: 16, design: .rounded))
+                Text("v0.7.0").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .padding(usesCompactShell ? 28 : 56)
+            .padding(usesCompactShell ? 24 : 48)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .foregroundStyle(Color(rgb: theme.foreground))
             if let id = model.successFeedbackID,
@@ -775,7 +822,7 @@ struct ShellView: View {
                 SuccessParkAnimation(color: accent, yellow: yellow)
                     .id(id)
                     .frame(maxHeight: .infinity, alignment: .bottom)
-                    .padding(.bottom, 28)
+                    .padding(.bottom, 24)
                     .allowsHitTesting(false)
             }
         }
@@ -785,16 +832,22 @@ struct ShellView: View {
     }
 
     @ViewBuilder
-    private func modeContent(theme: ThemePack, accent: Color, yellow: Color) -> some View {
+    private func modeContent(theme: ThemePack, accent: Color, yellow: Color, sand: Color) -> some View {
         switch model.session.mode {
         case .setup:
             Text("請家長設定 / Parent setup required")
                 .font(.system(size: 34, weight: .semibold, design: .rounded))
         case .lock:
             if model.taskRoundOpen {
-                entryGateContent(theme: theme, accent: accent, yellow: yellow)
+                entryGateContent(theme: theme, accent: accent, yellow: yellow, sand: sand)
             } else {
-                DifficultyCardsView(accent: accent, yellow: yellow, onSelect: model.selectDifficulty)
+                DifficultyCardsView(
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    onSelect: model.selectDifficulty
+                )
             }
         case .play:
             VStack(spacing: 12) {
@@ -828,11 +881,13 @@ struct ShellView: View {
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
                     Text("十分鐘後自動鎖定 / Locks automatically after ten minutes")
                         .font(.system(size: 22, design: .rounded))
-                    Text("入口遊戲已開（兩圖／搵相同／數車）。YouTube 內容包仍待家長 D9 審核。 / Entry games live (two-picture / find-same / count). YouTube pack still parent D9.")
+                    Text("入口遊戲已開（兩圖／搵相同／數車／車隊排序）。YouTube 內容包仍待家長 D9 審核。 / Entry games live (two-picture / find-same / count / convoy order). YouTube pack still parent D9.")
                         .font(.system(size: 18, design: .rounded))
-                        .foregroundStyle(yellow)
+                        .foregroundStyle(accent)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: 640)
+                    ParentLicenseFooter()
+                        .frame(maxWidth: 720)
                     Button("重設入口活動（兒童 UAT）/ Reset entry activity (child UAT)", action: model.resetEntryActivityForChildUAT)
                         .tint(yellow)
                     // Immediate confirmation under Reset so parent UAT does not require scrolling.
@@ -953,7 +1008,7 @@ struct ShellView: View {
     /// Direct activity gate (v0.4.1 proven layout). Do not wrap in unbounded-height ScrollView
     /// inside the parent VStack — that collapses to ~0 height and hides the targets (v0.4.2 regression).
     @ViewBuilder
-    private func entryGateContent(theme: ThemePack, accent: Color, yellow: Color) -> some View {
+    private func entryGateContent(theme: ThemePack, accent: Color, yellow: Color, sand: Color) -> some View {
         Group {
             switch model.activeActivityKind {
             case .findTheSame:
@@ -962,6 +1017,7 @@ struct ShellView: View {
                     accent: accent,
                     yellow: yellow,
                     foreground: Color(rgb: theme.foreground),
+                    sand: sand,
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelect: { model.selectFindSameOption(id: $0) },
@@ -974,19 +1030,34 @@ struct ShellView: View {
                     accent: accent,
                     yellow: yellow,
                     foreground: Color(rgb: theme.foreground),
+                    sand: sand,
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelectCount: { model.selectCountChoice($0) },
                     onHint: model.useEntryHint,
                     onSpeakPrompt: model.speakEntryPrompt
                 )
-            case .twoPictureChoose, .sequenceShortToLong, .none:
-                // sequenceShortToLong is a catalog stub — fall back to two-picture until playable.
+            case .sequenceShortToLong:
+                SequenceActivityView(
+                    question: model.currentSequenceQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    tappedAssetIDs: model.sequenceTappedAssetIDs,
+                    onTapAsset: { model.selectSequenceAsset(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .twoPictureChoose, .none:
                 EntryActivityView(
                     question: model.currentTwoPictureQuestion,
                     accent: accent,
                     yellow: yellow,
                     foreground: Color(rgb: theme.foreground),
+                    sand: sand,
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelect: { model.selectEntryOption(id: $0) },
@@ -999,6 +1070,32 @@ struct ShellView: View {
         .layoutPriority(1)
     }
 }
+
+
+/// Parent-visible home-use + original-art license note (HK Trad + English).
+/// Names third-party companies only here for non-affiliation clarity — never on the child path.
+private struct ParentLicenseFooter: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("關於插圖／版權說明 / About artwork & license")
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+            Text("本應用程式僅作家中教育用途。畫面上嘅插圖同友善車輛角色均為原創作品，並非任何第三方商標角色。本應用程式與 Takara Tomy、HIT Entertainment、Mattel 或其他玩具／動畫品牌無關，亦無授權關係。家中免責聲明並不授予使用第三方角色肖像嘅權利。")
+                .font(.system(size: 14, design: .rounded))
+                .fixedSize(horizontal: false, vertical: true)
+            Text("This app is for home educational use. On-screen art and friendly vehicle characters are original works, not third-party trademark characters. Visa Games is not affiliated with Takara Tomy, HIT Entertainment, Mattel, or other toy/animation brands. A home-use disclaimer does not grant rights to use third-party character likenesses.")
+                .font(.system(size: 13, design: .rounded))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.primary.opacity(0.06))
+        )
+        .accessibilityLabel("Artwork and license notice")
+    }
+}
+
 
 
 /// Parent allowlist row preview: YouTube thumbnail CDN via AsyncImage.

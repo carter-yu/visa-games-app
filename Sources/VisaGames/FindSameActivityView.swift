@@ -1,12 +1,13 @@
 import SwiftUI
 import VisaCore
 
-/// Find-the-same entry gate: target silhouette on top, large matching options below (M4).
+/// Find-the-same entry gate with faced vehicles and bigger taps.
 struct FindSameActivityView: View {
     let question: FindSameQuestion
     let accent: Color
     let yellow: Color
     let foreground: Color
+    let sand: Color
     let retryMessage: String?
     let hintUsed: Bool
     let onSelect: (String) -> Void
@@ -14,10 +15,11 @@ struct FindSameActivityView: View {
     let onSpeakPrompt: () -> Void
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 20) {
             Text(question.promptTraditionalChinese)
-                .font(.system(size: 34, weight: .bold, design: .rounded))
+                .font(.system(size: 36, weight: .heavy, design: .rounded))
                 .multilineTextAlignment(.center)
+                .foregroundStyle(foreground)
             Text(question.promptEnglish)
                 .font(.system(size: 24, weight: .semibold, design: .rounded))
                 .multilineTextAlignment(.center)
@@ -25,47 +27,46 @@ struct FindSameActivityView: View {
                 .font(.system(size: 20, weight: .medium, design: .rounded))
 
             ZStack {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color.white.opacity(0.12))
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(yellow.opacity(0.9), lineWidth: 4)
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(Color.white.opacity(0.55))
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .stroke(yellow, lineWidth: 5)
                 if let kind = SilhouetteAsset.kind(for: question.targetAssetID) {
-                    VehicleSilhouette(kind: kind)
-                        .fill(accent)
-                        .padding(.horizontal, 40)
-                        .padding(.vertical, 28)
+                    FriendlyVehicleView(kind: kind, mood: .calm)
+                        .padding(.horizontal, 36)
+                        .padding(.vertical, 22)
                 }
             }
-            .frame(minWidth: 360, minHeight: 140)
+            .frame(minWidth: 380, minHeight: 150)
+            .shadow(color: Color.black.opacity(0.1), radius: 6, y: 3)
             .accessibilityLabel("目標 / Target")
 
-            HStack(spacing: 28) {
+            HStack(spacing: 24) {
                 ForEach(question.options, id: \.id) { option in
                     Button {
                         onSelect(option.id)
                     } label: {
                         VStack(spacing: 12) {
                             ZStack {
-                                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                    .fill(Color.white.opacity(0.14))
-                                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                    .stroke(yellow.opacity(0.85), lineWidth: 4)
+                                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                                    .fill(Color.white.opacity(0.55))
+                                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                                    .stroke(Color(red: 0.45, green: 0.28, blue: 0.14), lineWidth: 4)
                                 if let kind = SilhouetteAsset.kind(for: option.assetID) {
-                                    VehicleSilhouette(kind: kind)
-                                        .fill(accent)
-                                        .padding(.horizontal, 20)
-                                        .padding(.vertical, 28)
+                                    FriendlyVehicleView(kind: kind, mood: .happy)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 22)
                                 }
                             }
-                            .frame(minWidth: 200, minHeight: 160)
-                            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            .frame(minWidth: 220, minHeight: 170)
+                            .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
 
                             Text("\(option.labelTraditionalChinese) / \(option.labelEnglish)")
-                                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
                                 .foregroundStyle(foreground)
                         }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(BouncyChildButtonStyle())
                     .accessibilityLabel("\(option.labelTraditionalChinese), \(option.labelEnglish)")
                 }
             }
@@ -73,7 +74,7 @@ struct FindSameActivityView: View {
             if let retryMessage {
                 Text(retryMessage)
                     .font(.system(size: 22, weight: .medium, design: .rounded))
-                    .foregroundStyle(yellow)
+                    .foregroundStyle(accent)
                     .multilineTextAlignment(.center)
             }
 
@@ -87,6 +88,7 @@ struct FindSameActivityView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
         }
-        .frame(maxWidth: 1100)
+        .background(sand.opacity(0.08), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .frame(maxWidth: 1140)
     }
 }
