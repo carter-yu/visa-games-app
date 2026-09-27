@@ -159,7 +159,8 @@ struct TestRunner {
         theme.testPersistAndReload()
         theme.testInvalidRawValueFallsBackToDefault()
         theme.testBilingualTraditionalChineseLabels()
+        theme.testEveryPaletteIncludesWarmYellowAccent()
 
-        print("PASS: 7 session checks + 8 reward-ledger checks + 7 reward-persistence checks + 5 theme-preference checks")
+        print("PASS: 7 session checks + 8 reward-ledger checks + 7 reward-persistence checks + 6 theme-preference checks")
     }
 }

@@ -11,7 +11,7 @@ final class ThemePreferenceTests {
 
     func testDefaultPalette() {
         let store = ThemePreferenceStore(defaults: makeDefaults())
-        expectEqual(store.load(), .engineeringOrange)
+        expectEqual(store.load(), .sunnyYellow)
     }
 
     func testSelectEachPalette() {
@@ -21,7 +21,7 @@ final class ThemePreferenceTests {
             expectEqual(store.load(), palette)
             expectEqual(store.defaults.string(forKey: ThemePreferenceStore.key), palette.rawValue)
         }
-        expectEqual(ThemePaletteID.allCases.count, 3)
+        expectEqual(ThemePaletteID.allCases.count, 4)
     }
 
     func testPersistAndReload() {
@@ -33,14 +33,27 @@ final class ThemePreferenceTests {
     func testInvalidRawValueFallsBackToDefault() {
         let defaults = makeDefaults()
         defaults.set("unknown-palette", forKey: ThemePreferenceStore.key)
-        expectEqual(ThemePreferenceStore(defaults: defaults).load(), .engineeringOrange)
+        expectEqual(ThemePreferenceStore(defaults: defaults).load(), .sunnyYellow)
         defaults.set(42, forKey: ThemePreferenceStore.key)
-        expectEqual(ThemePreferenceStore(defaults: defaults).load(), .engineeringOrange)
+        expectEqual(ThemePreferenceStore(defaults: defaults).load(), .sunnyYellow)
     }
 
     func testBilingualTraditionalChineseLabels() {
+        expectEqual(ThemePack.forID(.sunnyYellow).parentLabel, "陽光黃 / Sunny Yellow")
         expectEqual(ThemePack.forID(.engineeringOrange).parentLabel, "工程橙 / Engineering Orange")
         expectEqual(ThemePack.forID(.logisticsWhiteRed).parentLabel, "物流白紅 / Logistics White-Red")
         expectEqual(ThemePack.forID(.busBlue).parentLabel, "巴士藍 / Bus Blue")
+    }
+
+    func testEveryPaletteIncludesWarmYellowAccent() {
+        for palette in ThemePaletteID.allCases {
+            let pack = ThemePack.forID(palette)
+            // Yellow channel must be warm (high R+G, lower B) for accent use — not a full-screen wall color.
+            expectTrue(pack.yellow.red >= 0.90)
+            expectTrue(pack.yellow.green >= 0.80)
+            expectTrue(pack.yellow.blue <= 0.45)
+            // Background stays calming soft blue/green family (blue or green dominate over yellow wall).
+            expectTrue(pack.background.blue >= pack.background.red || pack.background.green >= pack.background.red)
+        }
     }
 }

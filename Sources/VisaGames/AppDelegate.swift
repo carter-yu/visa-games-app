@@ -202,33 +202,48 @@ struct ShellView: View {
     @ObservedObject var model: AppModel
     var body: some View {
         let theme = ThemePack.forID(model.themePaletteID)
+        let accent = Color(rgb: theme.accent)
+        let yellow = Color(rgb: theme.yellow)
         ZStack {
             Color(rgb: theme.background).ignoresSafeArea()
+            SoftSunRoadAccent(yellow: yellow, accent: accent)
             if model.session.mode == .lock || model.session.mode == .play {
-                VehicleParade(color: Color(rgb: theme.watermark))
+                VehicleParade(color: Color(rgb: theme.watermark), yellow: yellow)
                     .frame(maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 12)
             }
-            VStack(spacing: 28) {
-            Text("Visa Games / 簽證遊戲").font(.largeTitle.bold())
-            Text("先做再玩 / Do first, then play").font(.title2)
+            VStack(spacing: 32) {
+            Text("Visa Games / 簽證遊戲")
+                .font(.system(size: 44, weight: .bold, design: .rounded))
+            Text("先做再玩 / Do first, then play")
+                .font(.system(size: 28, weight: .semibold, design: .rounded))
             Spacer()
             switch model.session.mode {
             case .setup:
-                Text("請家長設定 / Parent setup required").font(.title)
+                Text("請家長設定 / Parent setup required")
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
             case .lock:
-                Text("用筆畫 / Draw with your pen").font(.system(size: 44, weight: .bold))
+                Text("用筆畫 / Draw with your pen")
+                    .font(.system(size: 52, weight: .bold, design: .rounded))
                 Text("準備好未？ / Ready?")
+                    .font(.system(size: 30, weight: .medium, design: .rounded))
                 Text("遊戲稍後加入 / Activities are coming later")
+                    .font(.system(size: 24, design: .rounded))
                 Button("泊車示範 / Park-in demo", action: model.triggerSuccessFeedback)
-                    .tint(Color(rgb: theme.accent))
+                    .tint(yellow)
             case .play:
-                Text("簽證時間 / Visa time").font(.title)
+                Text("簽證時間 / Visa time")
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
                 Text("\(model.session.remaining(at: model.now)) 秒 / seconds")
-                    .font(.system(size: 64, weight: .bold, design: .rounded)).monospacedDigit()
+                    .font(.system(size: 72, weight: .bold, design: .rounded)).monospacedDigit()
+                    .foregroundStyle(yellow)
                 Text("播放位置預覽 / Playback placeholder")
+                    .font(.system(size: 24, design: .rounded))
             case .parent:
-                Text("家長設定 / Parent controls").font(.title)
+                Text("家長設定 / Parent controls")
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
                 Text("兩分鐘後自動鎖定 / Locks automatically after two minutes")
+                    .font(.system(size: 22, design: .rounded))
                 Picker("主題 / Theme", selection: Binding(
                     get: { model.themePaletteID },
                     set: { model.selectTheme($0) }
@@ -237,35 +252,46 @@ struct ShellView: View {
                         Text(ThemePack.forID(palette).parentLabel).tag(palette)
                     }
                 }
-                .frame(maxWidth: 470)
+                .frame(maxWidth: 520)
                 if !model.session.snapshot.configured {
                     Button("完成設定 / Finish setup", action: model.setup)
+                        .tint(yellow)
                 } else {
                     Button("測試一分鐘簽證 / Test 1-minute visa", action: model.grant)
+                        .tint(yellow)
                 }
                 Button("返回 / Return", action: model.returnToChild)
+                    .tint(accent)
                 if model.message != nil {
                     Button("清除簽證及重設儲存 / Clear visa and reset storage", action: model.resetStorage)
+                        .tint(accent)
                 }
                 Button("離開程式 / Quit app") { NSApp.terminate(nil) }
+                    .tint(accent)
             }
-            if let message = model.message { Text(message).foregroundStyle(.orange) }
+            if let message = model.message {
+                Text(message).foregroundStyle(yellow)
+                    .font(.system(size: 22, design: .rounded))
+            }
             Spacer()
             if model.session.mode != .parent {
-                Button("家長 / Parent", action: model.unlock).disabled(model.authenticating)
+                Button("家長 / Parent", action: model.unlock)
+                    .disabled(model.authenticating)
+                    .tint(accent)
             }
-            Text("v0.2.0").font(.footnote)
+            Text("v0.2.1").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .padding(48)
+            .padding(56)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .foregroundStyle(Color(rgb: theme.foreground))
             if let id = model.successFeedbackID,
                model.session.mode == .lock || model.session.mode == .play {
-                SuccessParkAnimation(color: Color(rgb: theme.accent))
+                SuccessParkAnimation(color: accent, yellow: yellow)
                     .id(id)
                     .frame(maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 28)
             }
         }
     }
