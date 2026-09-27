@@ -9,9 +9,41 @@ public enum YouTubeEmbedURL: Sendable {
     /// YouTube video ids are 11 characters from [A-Za-z0-9_-].
     public static func isValidVideoID(_ id: String) -> Bool {
         let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count == 11 else { return false }
-        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "_-"))
-        return trimmed.unicodeScalars.allSatisfy { allowed.contains($0) }
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
+        return trimmed.unicodeScalars.count == 11 && trimmed.unicodeScalars.allSatisfy { allowed.contains($0) }
+    }
+
+    /// Parse a parent-pasted ID or known YouTube URL. This does not grant navigation permission.
+    public static func extractVideoID(from input: String) -> String? {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if isValidVideoID(trimmed) { return trimmed }
+        guard let components = URLComponents(string: trimmed),
+              let scheme = components.scheme?.lowercased(),
+              scheme == "https" || scheme == "http",
+              let host = components.host?.lowercased(),
+              components.user == nil, components.password == nil, components.port == nil else { return nil }
+
+        let id: String?
+        switch host {
+        case "youtube.com", "www.youtube.com", "m.youtube.com":
+            if components.path == "/watch" {
+                let matches = components.queryItems?.filter { $0.name == "v" } ?? []
+                id = matches.count == 1 ? matches[0].value : nil
+            } else if components.path.hasPrefix("/embed/") {
+                id = String(components.path.dropFirst("/embed/".count))
+            } else {
+                id = nil
+            }
+        case "www.youtube-nocookie.com", "youtube-nocookie.com":
+            id = components.path.hasPrefix("/embed/")
+                ? String(components.path.dropFirst("/embed/".count)) : nil
+        case "youtu.be", "www.youtu.be":
+            id = components.path.hasPrefix("/") ? String(components.path.dropFirst()) : nil
+        default:
+            id = nil
+        }
+        guard let id, id.utf8.count == 11, isValidVideoID(id) else { return nil }
+        return id
     }
 
     /// Build `https://www.youtube-nocookie.com/embed/<id>` with modest embed params.

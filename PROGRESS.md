@@ -85,3 +85,9 @@
   - Version: Info.plist + shell footer **0.3.0** (CFBundleVersion 4). Prompt archive `prompts/pr-0006-m2-scoped-player-scaffold.md`.
   - Linux workshop: `swift: not found` (no claim from Linux). **Mac mini toolchain green** on tip `cb871e7`: `sh scripts/test.sh` → PASS (7+8+7+6+4); `sh scripts/bundle.sh` → Built `.build/Visa Games.app` with no WK delegate warning after MainActor decisionHandler fix. Manual parent UAT / residual YouTube chrome observation still pending — do not merge until parent UAT.
   - Exact next task: Parent visual UAT on Mac mini (allowlist add → test viewing budget → 1-min visa → play allowlisted; confirm no child URL field; note residual WK/YouTube chrome); then parent merge decision.
+
+- 2026-09-27: PR #6 Parent window and YouTube paste UX source updated to v0.3.1 (PATCH); Mac mini re-UAT pending.
+  - Parent mode now uses a titled, resizable, minimizable window with scrollable controls. Returning to child restores borderless full-screen presentation; screen changes resize only the child presentation. Switching to another app no longer ends Parent mode; the existing two-minute deadline and sleep handling remain.
+  - Parent allowlist entry extracts an 11-character ID from a bare ID or known YouTube watch, share, and embed URLs. D8 embed construction and child navigation policy remain separate. Added one scoped-playback check with accepted/rejected paste cases; expected offline output is 7+8+7+6+5 checks.
+  - Info.plist is 0.3.1 / build 5; shell footer is v0.3.1. Prompt archived in `prompts/pr-0006-m2-parent-window-url-extract.md`.
+  - Linux workshop: `sh scripts/test.sh` and `sh scripts/bundle.sh` exited 127 (`swift: not found`). No new Swift compile, test pass, native launch, or Mac mini PASS is claimed. PR #6 remains open; M1 P1-3/P1-4 and M2 target-device evidence remain open. Existing OS escape paths remain documented in `docs/phase-0-kiosk-checklist.md`.

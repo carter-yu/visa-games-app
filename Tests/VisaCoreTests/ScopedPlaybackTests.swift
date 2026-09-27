@@ -147,6 +147,44 @@ final class ScopedPlaybackTests {
         expectTrue(YouTubeEmbedURL.make(videoID: "https://www.youtube.com/watch?v=\(sampleID)") == nil)
     }
 
+    func testExtractVideoIDForParentPaste() {
+        let accepted = [
+            sampleID,
+            "  \(sampleID)\n",
+            "https://www.youtube.com/watch?v=\(sampleID)",
+            "https://youtube.com/watch?list=PL123&t=30&v=\(sampleID)",
+            "http://m.youtube.com/watch?v=\(sampleID)&t=30",
+            "https://youtu.be/\(sampleID)?t=30",
+            "http://youtu.be/\(sampleID)",
+            "https://www.youtube.com/embed/\(sampleID)?start=30",
+            "https://www.youtube-nocookie.com/embed/\(sampleID)"
+        ]
+        for value in accepted {
+            expectEqual(YouTubeEmbedURL.extractVideoID(from: value), sampleID)
+        }
+
+        let rejected = [
+            "", "short", "dQw4w9WgXc!", "abcdefghijé",
+            "https://www.youtube.com/results?search_query=kids",
+            "https://www.youtube.com/channel/\(sampleID)",
+            "https://www.youtube.com/playlist?list=\(sampleID)",
+            "https://www.youtube.com/watch?list=PL123",
+            "https://www.youtube.com/watch?v=short",
+            "https://www.youtube.com/watch?v=\(sampleID)&v=\(otherID)",
+            "https://youtu.be/\(sampleID)/extra",
+            "https://evil.example/watch?v=\(sampleID)",
+            "https://youtube.com.evil.example/watch?v=\(sampleID)",
+            "https://user@youtube.com/watch?v=\(sampleID)",
+            "ftp://youtube.com/watch?v=\(sampleID)"
+        ]
+        for value in rejected {
+            expectNil(YouTubeEmbedURL.extractVideoID(from: value))
+        }
+
+        // A parent-paste URL must remain forbidden as a child navigation target.
+        expectTrue(YouTubeEmbedURL.rejectsArbitraryURL("https://www.youtube.com/watch?v=\(sampleID)"))
+    }
+
     func testApprovedVideoParentLabelAndUpsert() {
         var list = VideoAllowlist()
         expectFalse(list.upsert(ApprovedVideo(id: "", durationSeconds: 10)))

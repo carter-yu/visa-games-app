@@ -165,8 +165,9 @@ struct TestRunner {
         scoped.testAllowlistRejectsUnknownID()
         scoped.testBudgetStopAndSessionStop()
         scoped.testD8RejectsNonEmbedConstruction()
+        scoped.testExtractVideoIDForParentPaste()
         scoped.testApprovedVideoParentLabelAndUpsert()
 
-        print("PASS: 7 session + 8 reward-ledger + 7 reward-persistence + 6 theme-preference + 4 scoped-playback checks")
+        print("PASS: 7 session + 8 reward-ledger + 7 reward-persistence + 6 theme-preference + 5 scoped-playback checks")
     }
 }

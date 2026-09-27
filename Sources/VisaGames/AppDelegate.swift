@@ -166,8 +166,7 @@ final class AppModel: ObservableObject {
 
     func addAllowlistedVideo() {
         guard session.mode == .parent else { return }
-        let id = parentVideoIDDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard YouTubeEmbedURL.isValidVideoID(id) else {
+        guard let id = YouTubeEmbedURL.extractVideoID(from: parentVideoIDDraft) else {
             playbackMessage = "影片編號無效。 / Invalid video ID."
             return
         }
@@ -296,6 +295,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var timer: Timer?
     private var keyMonitor: Any?
     private var isChildPresentation: Bool?
+    private var parentWindowFrame: NSRect?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         window = KioskWindow(contentRect: NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1280, height: 720),
@@ -329,19 +329,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func applyPresentation() {
         let child = !model.session.allowsExit
         guard child != isChildPresentation else { return }
-        isChildPresentation = child
         NSApp.presentationOptions = child ? [.hideDock, .hideMenuBar, .disableAppleMenu,
             .disableProcessSwitching, .disableForceQuit, .disableSessionTermination, .disableHideApplication] : []
         window.level = child ? .mainMenu + 1 : .normal
+        if child {
+            if isChildPresentation == false { parentWindowFrame = window.frame }
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            window.styleMask = [.borderless]
+            window.minSize = .zero
+            if let screen = window.screen ?? NSScreen.main {
+                window.setFrame(screen.frame, display: true)
+            }
+        } else {
+            window.styleMask = [.titled, .miniaturizable, .resizable]
+            window.minSize = NSSize(width: 640, height: 480)
+            let visible = (window.screen ?? NSScreen.main)?.visibleFrame
+                ?? NSRect(x: 0, y: 0, width: 1280, height: 720)
+            let preferred = parentWindowFrame?.size ?? NSSize(width: 960, height: 700)
+            let size = NSSize(width: min(preferred.width, visible.width),
+                              height: min(preferred.height, visible.height))
+            let frame = NSRect(x: visible.midX - size.width / 2,
+                               y: visible.midY - size.height / 2,
+                               width: size.width, height: size.height)
+            window.setFrame(frame, display: true)
+        }
+        isChildPresentation = child
     }
 
     @objc private func willSleep() { model.returnToChild() }
     @objc private func didWake() { model.tick() }
     @objc private func screenChanged() {
-        if let screen = window.screen ?? NSScreen.main { window.setFrame(screen.frame, display: true) }
-    }
-    func applicationDidResignActive(_ notification: Notification) {
-        if model.session.mode == .parent { model.returnToChild() }
+        if !model.session.allowsExit, let screen = window.screen ?? NSScreen.main {
+            window.setFrame(screen.frame, display: true)
+        }
     }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         model.session.allowsExit ? .terminateNow : .terminateCancel
@@ -415,84 +435,89 @@ struct ShellView: View {
                     )
                 }
             case .parent:
-                Text("家長設定 / Parent controls")
-                    .font(.system(size: 34, weight: .semibold, design: .rounded))
-                Text("兩分鐘後自動鎖定 / Locks automatically after two minutes")
-                    .font(.system(size: 22, design: .rounded))
-                Picker("主題 / Theme", selection: Binding(
-                    get: { model.themePaletteID },
-                    set: { model.selectTheme($0) }
-                )) {
-                    ForEach(ThemePaletteID.allCases, id: \.self) { palette in
-                        Text(ThemePack.forID(palette).parentLabel).tag(palette)
-                    }
-                }
-                .frame(maxWidth: 520)
-                if !model.session.snapshot.configured {
-                    Button("完成設定 / Finish setup", action: model.setup)
-                        .tint(yellow)
-                } else {
-                    Button("測試一分鐘簽證 / Test 1-minute visa", action: model.grant)
-                        .tint(yellow)
-                    Button("測試觀看時間 / Test viewing budget", action: model.seedTestViewingBudget)
-                        .tint(yellow)
-                }
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("准許影片清單（僅家長） / Allowlist (parent only)")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    TextField("YouTube 影片編號 / YouTube video ID", text: $model.parentVideoIDDraft)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 520)
-                    TextField("片長秒數 / Duration seconds", text: $model.parentVideoDurationDraft)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 240)
-                    HStack(spacing: 16) {
-                        Button("加入准許清單 / Add to allowlist", action: model.addAllowlistedVideo)
-                            .tint(yellow)
-                        if let first = model.allowlist.videos.first {
-                            Button("試播准許影片 / Preview allowlisted") {
-                                model.playAllowlisted(id: first.id)
-                            }
-                            .tint(yellow)
+                ScrollView {
+                    VStack(spacing: 20) {
+                    Text("家長設定 / Parent controls")
+                        .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    Text("兩分鐘後自動鎖定 / Locks automatically after two minutes")
+                        .font(.system(size: 22, design: .rounded))
+                    Picker("主題 / Theme", selection: Binding(
+                        get: { model.themePaletteID },
+                        set: { model.selectTheme($0) }
+                    )) {
+                        ForEach(ThemePaletteID.allCases, id: \.self) { palette in
+                            Text(ThemePack.forID(palette).parentLabel).tag(palette)
                         }
                     }
-                    ForEach(model.allowlist.videos) { video in
-                        HStack {
-                            Text(video.parentLabel)
-                                .font(.system(size: 18, design: .rounded))
-                            Spacer()
-                            Button("播放 / Play") { model.playAllowlisted(id: video.id) }
+                    .frame(maxWidth: 520)
+                    if !model.session.snapshot.configured {
+                        Button("完成設定 / Finish setup", action: model.setup)
+                            .tint(yellow)
+                    } else {
+                        Button("測試一分鐘簽證 / Test 1-minute visa", action: model.grant)
+                            .tint(yellow)
+                        Button("測試觀看時間 / Test viewing budget", action: model.seedTestViewingBudget)
+                            .tint(yellow)
+                    }
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("准許影片清單（僅家長） / Allowlist (parent only)")
+                            .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        TextField("YouTube 網址或影片編號 / YouTube URL or video ID", text: $model.parentVideoIDDraft)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 520)
+                        TextField("片長秒數 / Duration seconds", text: $model.parentVideoDurationDraft)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 240)
+                        HStack(spacing: 16) {
+                            Button("加入准許清單 / Add to allowlist", action: model.addAllowlistedVideo)
                                 .tint(yellow)
-                            Button("移除 / Remove") { model.removeAllowlistedVideo(id: video.id) }
-                                .tint(accent)
+                            if let first = model.allowlist.videos.first {
+                                Button("試播准許影片 / Preview allowlisted") {
+                                    model.playAllowlisted(id: first.id)
+                                }
+                                .tint(yellow)
+                            }
                         }
-                        .frame(maxWidth: 640)
-                    }
-                    if model.allowlist.videos.isEmpty {
-                        Text("尚未加入影片。 / No videos yet.")
-                            .font(.system(size: 18, design: .rounded))
-                    }
-                    if let videoID = model.activePlayVideoID {
-                        ScopedPlayerView(videoID: videoID) {
-                            model.stopScopedPlayback(reason: .navigationRejected)
+                        ForEach(model.allowlist.videos) { video in
+                            HStack {
+                                Text(video.parentLabel)
+                                    .font(.system(size: 18, design: .rounded))
+                                Spacer()
+                                Button("播放 / Play") { model.playAllowlisted(id: video.id) }
+                                    .tint(yellow)
+                                Button("移除 / Remove") { model.removeAllowlistedVideo(id: video.id) }
+                                    .tint(accent)
+                            }
+                            .frame(maxWidth: 640)
                         }
-                        .frame(minHeight: 220, maxHeight: 320)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        if model.allowlist.videos.isEmpty {
+                            Text("尚未加入影片。 / No videos yet.")
+                                .font(.system(size: 18, design: .rounded))
+                        }
+                        if let videoID = model.activePlayVideoID {
+                            ScopedPlayerView(videoID: videoID) {
+                                model.stopScopedPlayback(reason: .navigationRejected)
+                            }
+                            .frame(minHeight: 220, maxHeight: 320)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        }
                     }
-                }
-                if let playbackMessage = model.playbackMessage {
-                    Text(playbackMessage)
-                        .font(.system(size: 20, design: .rounded))
-                        .foregroundStyle(yellow)
-                }
-                Button("返回 / Return", action: model.returnToChild)
-                    .tint(accent)
-                if model.message != nil {
-                    Button("清除簽證及重設儲存 / Clear visa and reset storage", action: model.resetStorage)
+                    if let playbackMessage = model.playbackMessage {
+                        Text(playbackMessage)
+                            .font(.system(size: 20, design: .rounded))
+                            .foregroundStyle(yellow)
+                    }
+                    Button("返回 / Return", action: model.returnToChild)
                         .tint(accent)
+                    if model.message != nil {
+                        Button("清除簽證及重設儲存 / Clear visa and reset storage", action: model.resetStorage)
+                            .tint(accent)
+                    }
+                    Button("離開程式 / Quit app") { NSApp.terminate(nil) }
+                        .tint(accent)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                Button("離開程式 / Quit app") { NSApp.terminate(nil) }
-                    .tint(accent)
             }
             if let message = model.message {
                 Text(message).foregroundStyle(yellow)
@@ -504,7 +529,7 @@ struct ShellView: View {
                     .disabled(model.authenticating)
                     .tint(accent)
             }
-            Text("v0.3.0").font(.system(size: 16, design: .rounded))
+            Text("v0.3.1").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
