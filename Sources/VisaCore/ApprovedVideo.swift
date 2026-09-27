@@ -90,7 +90,7 @@ public struct VideoAllowlist: Sendable, Equatable, Codable {
 
 /// Parent allowlist persistence for the M2 scaffold (UserDefaults).
 /// Durable Snapshot schema for allowlist may arrive with P1-3/P1-4; this store is explicit scaffold config.
-public struct VideoAllowlistStore: Sendable {
+public struct VideoAllowlistStore {
     public static let key = "VisaGames.videoAllowlist.v1"
     public let defaults: UserDefaults
 
