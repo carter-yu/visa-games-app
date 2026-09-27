@@ -73,3 +73,5 @@
   - Theme preference tests extended (default → sunnyYellow; allCases count 4; bilingual labels; new yellow-accent invariant). Silhouettes unchanged (crane/tanker/bus/dino flatbed/logistics); no Tomica/Takara/Thomas trademarks, logos, faces, or names. HK Traditional Chinese + English only. Snapshot / RewardLedger / reward policy untouched.
   - Verification blocker on this host: `swift: not found`. No Swift compile, test pass, native launch, or visual UAT claimed here. M1 completion not claimed.
   - Exact next task: Mac mini — `git fetch && git checkout feat/theme-long-vehicles && git pull` (or reset to pushed SHA), `sh scripts/test.sh` (expect 7+8+7+6), `sh scripts/bundle.sh`, launch app; visually check Sunny Yellow default + three other palettes, yellow accents without bedroom-yellow walls, playful parade bob, delightful park-in; record outcomes. Do not merge until parent UAT.
+
+- 2026-09-27: Added top-level `prompts/` archive on `feat/theme-long-vehicles` for English Codex/manager prompts used per PR (README + pr-0001…0005). Sanitized; no secrets; engineering English; no Simplified Chinese. Does not change app behavior.
