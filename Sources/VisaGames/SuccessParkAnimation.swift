@@ -68,7 +68,7 @@ struct SuccessParkAnimation: View {
                     }
                 }
 
-                FriendlyVehicleView(kind: .fireEngine, paint: color, mood: .happy)
+                FriendlyVehicleView(kind: .fireEngine, paint: color, mood: .happy, role: .hero)
                     .frame(width: 340, height: 140)
                     .shadow(color: yellow.opacity(0.45), radius: 22)
                     .scaleEffect(bounce ? 1.05 : (parked ? 1.0 : 0.96))

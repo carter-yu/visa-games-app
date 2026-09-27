@@ -36,7 +36,8 @@ struct CountActivityView: View {
                         if let kind = SilhouetteAsset.kind(for: assetID) {
                             FriendlyVehicleView(
                                 kind: kind,
-                                mood: index % 2 == 0 ? .happy : .calm
+                                mood: index % 2 == 0 ? .happy : .calm,
+                                role: .fleet
                             )
                             .padding(.horizontal, 12)
                             .padding(.vertical, 18)

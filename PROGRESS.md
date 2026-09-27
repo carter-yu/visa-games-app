@@ -1,5 +1,14 @@
 # Progress
 
+- 2026-09-28: PR #8 PATCH **v0.7.3 / build 22** — Option 4 hybrid hero + simple fleet. Do not merge; Mac mini visual UAT pending.
+  - Carter locked Option 4 (英雄主角 + 簡車隊). Illustrated hero PNGs for tickets / parade leader / success stamp; procedural simple fleet (faceless) for dense count/sequence/find-same games. Same ToyPaint color language.
+  - Assets (original only, Codex image_gen): `Resources/Vehicles/hero-hk-taxi.png`, `hero-ny-taxi.png`, `hero-fire-engine.png`, `hero-metro-train.png`. Transparent BG; no text/logos/roundels. NO Tayo/Tomica/Thomas/Iconix likenesses.
+  - Swift: `VehicleVisualRole` + `VehicleHeroAsset`; `FriendlyVehicleView(role:)` loads hero `NSImage` when present, else procedural. Tickets + success + parade index0 → `.hero`; entry/find-same/count/sequence → `.fleet`. `bundle.sh` copies Vehicles into app Resources.
+  - Parent IP disclaimer unchanged (ADR 0006). Language HK Trad + English only.
+  - Info.plist **0.7.3 / 22**, shell footer **v0.7.3**. Prompt: `prompts/pr-0008-m4-hybrid-hero-fleet-v073.md`.
+  - Verification: `git diff --check`, plist/version assertions. `sh scripts/test.sh` / `bundle.sh` exit 127 (`swift: not found`) on Linux — no Swift compile/test/native visual pass claimed.
+  - Next: Mac mini fetch tip of `feat/m4-gakken-style-activities`, `sh scripts/test.sh` (expect **10+10+7+6+12+13**), `sh scripts/bundle.sh`, confirm footer v0.7.3 and `Contents/Resources/Vehicles/*.png` present; visual UAT — tickets show illustrated heroes, dense games show simple fleet, success stamp fire hero, parade leader illustrated. PR #8 must remain unmerged. D9/D10 open.
+
 - 2026-09-27: PR #8 PATCH **v0.7.2 / build 21** — storybook face push + allowlist shuffle play. Do not merge; Mac mini UAT pending.
   - Faces (Codex gpt-6-astra polish on workshop rewrite): front-disc / headlight eyes with heavier sleepy lids, cream sclera, low pupils, soft blush + tiny nostrils where natural; chubbier rounded cabs/noses; warmer fills + soft gradients; faces remain non-interactive. Original HK/NY taxi, fire, metro (no roundel), works fleet only — no Egypt IP scenes copied.
   - Shuffle: new VisaCore `VideoPlaybackShuffle` + UserDefaults cursor store. Child visa success and play-mode allowlist button pick next id via Fisher–Yates deck; reshuffle when exhausted; avoid immediate repeat of `lastPlayedVideoID` when allowlist count > 1. Parent preview still uses explicit row / first. D8 scoped player / allowlist / kiosk otherwise unchanged.

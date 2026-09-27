@@ -185,10 +185,12 @@ struct VehicleParade: View {
     private func row(width: CGFloat) -> some View {
         HStack(spacing: 18) {
             ForEach(Array(Self.paradeKinds.enumerated()), id: \.element) { index, kind in
+                // Option 4 hybrid: illustrated leader + simple faceless fleet fillers.
                 FriendlyVehicleView(
                     kind: kind,
                     paint: ToyPaint.forKind(kind).color.opacity(0.95),
-                    mood: index % 2 == 0 ? .happy : .calm
+                    mood: index % 2 == 0 ? .happy : .calm,
+                    role: index == 0 ? .hero : .fleet
                 )
                 .frame(maxWidth: .infinity)
                 .frame(height: 86)

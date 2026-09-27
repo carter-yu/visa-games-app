@@ -108,7 +108,7 @@ private struct MissionTicketButton: View {
                     .font(.system(size: 34, weight: .bold, design: .rounded))
                     .foregroundStyle(yellow)
                     .shadow(color: Color.orange.opacity(0.35), radius: 2)
-                FriendlyVehicleView(kind: mascot, paint: paint, mood: .happy)
+                FriendlyVehicleView(kind: mascot, paint: paint, mood: .happy, role: .hero)
                     .frame(height: 92)
                     .padding(.horizontal, 12)
                 Text(title)

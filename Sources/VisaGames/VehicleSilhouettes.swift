@@ -1,9 +1,11 @@
 import SwiftUI
+import AppKit
 
 /// Original cute vehicle silhouettes inspired by recognizable real-world types
 /// (HK red taxi, NY yellow taxi, HK fire engine, metro train, long works trucks).
 /// Original IP only — no licensed character faces, no protected transit logos.
-/// Storybook cue: the front *is* the face (headlights / boiler / grille), not a sticker plate.
+/// Option 4 hybrid: illustrated hero PNGs (tickets / parade leader / success) +
+/// simple procedural fleet for dense games. Front *is* the face on heroes.
 enum VehicleKind: CaseIterable, Hashable {
     case hkTaxi
     case nyTaxi
@@ -365,31 +367,78 @@ private struct VehicleBodyDetails: View {
     }
 }
 
+/// Hybrid Option 4 visual role — illustrated heroes vs simple procedural fleet.
+enum VehicleVisualRole: Hashable {
+    /// Tickets / parade leader / success stamp — prefer raster hero PNG.
+    case hero
+    /// Dense games (count / sequence / find-same clutter) — simple silhouette, minimal/no face.
+    case fleet
+}
+
+/// Bundle resource names for richly faced hero PNGs under Resources/Vehicles/.
+enum VehicleHeroAsset {
+    static func resourceName(for kind: VehicleKind) -> String? {
+        switch kind {
+        case .hkTaxi: return "hero-hk-taxi"
+        case .nyTaxi: return "hero-ny-taxi"
+        case .fireEngine: return "hero-fire-engine"
+        case .metroTrain: return "hero-metro-train"
+        default: return nil
+        }
+    }
+
+    /// Loads from Contents/Resources/Vehicles/ (preferred) or flat Resources /.
+    static func image(for kind: VehicleKind) -> NSImage? {
+        guard let name = resourceName(for: kind) else { return nil }
+        if let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: "Vehicles")
+            ?? Bundle.main.url(forResource: name, withExtension: "png") {
+            return NSImage(contentsOf: url)
+        }
+        return NSImage(named: name)
+    }
+}
+
 struct FriendlyVehicleView: View {
     let kind: VehicleKind
     var paint: Color? = nil
     var mood: VehicleFaceMood = .calm
+    /// Legacy toggle; ignored when `role == .fleet` (fleet never draws the storybook face).
     var showFace: Bool = true
+    /// Option 4 hybrid: `.hero` uses PNG when available; `.fleet` stays procedural + faceless.
+    var role: VehicleVisualRole = .fleet
 
     var body: some View {
+        if role == .hero, let nsImage = VehicleHeroAsset.image(for: kind) {
+            Image(nsImage: nsImage)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+                .accessibilityHidden(true)
+        } else {
+            proceduralBody(drawFace: role == .hero && showFace)
+        }
+    }
+
+    /// Simple fleet / hero fallback: same color language; faces only when hero PNG missing.
+    @ViewBuilder
+    private func proceduralBody(drawFace: Bool) -> some View {
         let fill = paint ?? ToyPaint.forKind(kind).color
         ZStack {
-            // Soft under-glow for painterly toy feel
             VehicleSilhouette(kind: kind)
-                .fill(fill.opacity(0.35))
+                .fill(fill.opacity(0.28))
                 .offset(y: 2)
-                .blur(radius: 1.5)
+                .blur(radius: 1.2)
             VehicleSilhouette(kind: kind)
                 .fill(fill)
                 .overlay(
                     VehicleSilhouette(kind: kind)
-                        .stroke(Color(red: 0.32, green: 0.22, blue: 0.18).opacity(0.78),
-                                style: StrokeStyle(lineWidth: 2.4, lineCap: .round, lineJoin: .round))
+                        .stroke(Color(red: 0.32, green: 0.22, blue: 0.18).opacity(0.72),
+                                style: StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
                 )
-                .shadow(color: Color.brown.opacity(0.18), radius: 5, y: 3)
+                .shadow(color: Color.brown.opacity(0.14), radius: 4, y: 2)
             VehicleBodyDetails(kind: kind)
                 .clipShape(VehicleSilhouette(kind: kind))
-            if showFace {
+            if drawFace {
                 VehicleFaceOverlay(kind: kind, mood: mood, paint: fill)
             }
         }

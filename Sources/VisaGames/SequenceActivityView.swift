@@ -88,7 +88,7 @@ struct SequenceActivityView: View {
                                         lineWidth: isSelected(assetID) ? 6 : 4
                                     )
                                 if let kind = SilhouetteAsset.kind(for: assetID) {
-                                    FriendlyVehicleView(kind: kind, mood: isSelected(assetID) ? .happy : .calm)
+                                    FriendlyVehicleView(kind: kind, mood: isSelected(assetID) ? .happy : .calm, role: .fleet)
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 16)
                                 }
