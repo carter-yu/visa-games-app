@@ -193,6 +193,15 @@ struct TestRunner {
         scoped.testAllowedEmbedMainFrameURLPolicy()
         scoped.testEmbedHTMLStringReferrerShell()
 
-        print("PASS: 8 session + 8 reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback checks")
+        let activity = ActivityTests()
+        activity.testFirstEntryQuestionIsWellFormed()
+        activity.testCorrectUnassistedEvaluation()
+        activity.testCorrectAssistedWhenHintUsed()
+        activity.testWrongAnswerIsIncorrectWithoutPenaltySemantics()
+        activity.testMalformedQuestionFailsClosed()
+        activity.testEntrySuccessUnlocksAllowanceOnceWithAssistedFlag()
+        activity.testStubAudioDoesNotClaimPack()
+
+        print("PASS: 8 session + 8 reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback + 7 activity checks")
     }
 }

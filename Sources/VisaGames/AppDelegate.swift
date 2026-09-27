@@ -18,6 +18,11 @@ final class AppModel: ObservableObject {
     @Published var parentVideoDurationDraft = "120"
     @Published private(set) var activePlayVideoID: String?
     @Published private(set) var playbackMessage: String?
+    @Published private(set) var entryRetryMessage: String?
+    @Published private(set) var entryHintUsed = false
+    private let entryQuestion = FirstEntryActivity.question
+    private let activityEvaluator = ActivityEvaluator()
+    private let activityAudio: ActivityAudioPrompting = StubActivityAudioPrompt()
     private let store: SnapshotStore
     private let themeStore = ThemePreferenceStore()
     private let allowlistStore = VideoAllowlistStore()
@@ -165,6 +170,86 @@ final class AppModel: ObservableObject {
         return ledger.availableViewingSeconds(now: date, calendar: budgetCalendar)
     }
 
+    /// Whether the first entry activity has unlocked today's / current ledger entry flag.
+    var isEntryActivityCompleted: Bool {
+        session.snapshot.reward?.entryActivityCompleted == true
+    }
+
+    var currentEntryQuestion: TwoPictureQuestion { entryQuestion }
+
+    func useEntryHint() {
+        guard session.mode == .lock || session.mode == .play else { return }
+        guard !isEntryActivityCompleted else { return }
+        entryHintUsed = true
+        entryRetryMessage = "提示：吊機有長臂。 / Hint: the crane has a long arm."
+    }
+
+    func speakEntryPrompt() {
+        guard session.mode == .lock || session.mode == .play else { return }
+        // Scaffold only — StubActivityAudioPrompt; reviewed Cantonese pack waits on D9.
+        activityAudio.speakPrompt(
+            traditionalChinese: entryQuestion.promptTraditionalChinese,
+            english: entryQuestion.promptEnglish
+        )
+        entryRetryMessage = "粵語錄音稍後加入（等 D9）。 / Cantonese audio later (waiting on D9)."
+    }
+
+    func selectEntryOption(id: String) {
+        guard session.mode == .lock || session.mode == .play else { return }
+        guard !storageFailed else { return }
+        if isEntryActivityCompleted {
+            entryRetryMessage = "已經完成入口活動。 / Entry activity already done."
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: entryQuestion,
+            selectedOptionID: id,
+            hintUsed: entryHintUsed
+        )
+        switch evaluation {
+        case .incorrect:
+            entryRetryMessage = "再試一次，得嘅。 / Try again — you can do it."
+        case .correct(let assisted):
+            applyEntrySuccess(assisted: assisted)
+        }
+    }
+
+    private func applyEntrySuccess(assisted: Bool) {
+        let now = Date()
+        let calendar = budgetCalendar
+        let completionID = entryQuestion.completionID
+        let kind: SuccessKind = assisted ? .assisted : .unassisted
+        update { session in
+            var ledger: RewardLedger
+            if let state = session.snapshot.reward {
+                ledger = RewardLedger(state: state)
+                ledger.normalizeAfterLoad(now: now, calendar: calendar)
+            } else {
+                ledger = RewardLedger(policy: RewardPolicy(
+                    initialAllowanceSeconds: 60,
+                    rewardCapSeconds: 1_200
+                ))
+            }
+            _ = ledger.completeEntryActivity(now: now, calendar: calendar)
+            // D7 recording with zero extra seconds — initial allowance already granted by D1.
+            _ = ledger.applyCompletion(
+                id: completionID,
+                rewardSeconds: 0,
+                kind: kind,
+                now: now,
+                calendar: calendar
+            )
+            session.replaceRewardState(ledger.exportState())
+        }
+        entryRetryMessage = nil
+        triggerSuccessFeedback()
+        // Play path still requires an active visa + allowlisted video via existing PlaybackPolicy.
+        if session.mode == .play, let first = allowlist.videos.first,
+           remainingViewingBudget(at: Date()) > 0 {
+            playAllowlisted(id: first.id)
+        }
+    }
+
     func addAllowlistedVideo() {
         guard session.mode == .parent else { return }
         guard let id = YouTubeEmbedURL.extractVideoID(from: parentVideoIDDraft) else {
@@ -294,6 +379,8 @@ final class AppModel: ObservableObject {
             message = nil
             activePlayVideoID = nil
             playbackMessage = nil
+            entryRetryMessage = nil
+            entryHintUsed = false
             session = Session(snapshot: fresh, now: Date())
             changed?()
         } catch { message = "仍未能儲存。 / Storage is still unavailable." }
@@ -412,14 +499,29 @@ struct ShellView: View {
                 Text("請家長設定 / Parent setup required")
                     .font(.system(size: 34, weight: .semibold, design: .rounded))
             case .lock:
-                Text("用筆畫 / Draw with your pen")
-                    .font(.system(size: 52, weight: .bold, design: .rounded))
-                Text("準備好未？ / Ready?")
-                    .font(.system(size: 30, weight: .medium, design: .rounded))
-                Text("遊戲稍後加入 / Activities are coming later")
-                    .font(.system(size: 24, design: .rounded))
-                Button("泊車示範 / Park-in demo", action: model.triggerSuccessFeedback)
-                    .tint(yellow)
+                if model.isEntryActivityCompleted {
+                    Text("入口活動完成 / Entry activity done")
+                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                    Text("睇片要簽證同准許清單（家長）。 / Video needs a visa and allowlist (parent).")
+                        .font(.system(size: 24, weight: .medium, design: .rounded))
+                        .multilineTextAlignment(.center)
+                    Text(String(format: "觀看剩餘 %.0f 秒 / Viewing left %.0f s",
+                                 model.remainingViewingBudget(at: model.now),
+                                 model.remainingViewingBudget(at: model.now)))
+                        .font(.system(size: 22, design: .rounded))
+                } else {
+                    EntryActivityView(
+                        question: model.currentEntryQuestion,
+                        accent: accent,
+                        yellow: yellow,
+                        foreground: Color(rgb: theme.foreground),
+                        retryMessage: model.entryRetryMessage,
+                        hintUsed: model.entryHintUsed,
+                        onSelect: { model.selectEntryOption(id: $0) },
+                        onHint: model.useEntryHint,
+                        onSpeakPrompt: model.speakEntryPrompt
+                    )
+                }
             case .play:
                 Text("簽證時間 / Visa time")
                     .font(.system(size: 34, weight: .semibold, design: .rounded))
@@ -430,7 +532,21 @@ struct ShellView: View {
                              model.remainingViewingBudget(at: model.now),
                              model.remainingViewingBudget(at: model.now)))
                     .font(.system(size: 22, design: .rounded))
-                if let videoID = model.activePlayVideoID {
+                if !model.isEntryActivityCompleted {
+                    Text("先做再玩 / Do first, then play")
+                        .font(.system(size: 28, weight: .semibold, design: .rounded))
+                    EntryActivityView(
+                        question: model.currentEntryQuestion,
+                        accent: accent,
+                        yellow: yellow,
+                        foreground: Color(rgb: theme.foreground),
+                        retryMessage: model.entryRetryMessage,
+                        hintUsed: model.entryHintUsed,
+                        onSelect: { model.selectEntryOption(id: $0) },
+                        onHint: model.useEntryHint,
+                        onSpeakPrompt: model.speakEntryPrompt
+                    )
+                } else if let videoID = model.activePlayVideoID {
                     ScopedPlayerView(videoID: videoID) {
                         model.stopScopedPlayback(reason: .navigationRejected)
                     }
@@ -458,6 +574,11 @@ struct ShellView: View {
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
                     Text("十分鐘後自動鎖定 / Locks automatically after ten minutes")
                         .font(.system(size: 22, design: .rounded))
+                    Text("入口遊戲已開（兩圖選擇）。YouTube 內容包仍待家長 D9 審核。 / First entry game is live (two-picture). YouTube pack review still parent D9.")
+                        .font(.system(size: 18, design: .rounded))
+                        .foregroundStyle(yellow)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 640)
                     Picker("主題 / Theme", selection: Binding(
                         get: { model.themePaletteID },
                         set: { model.selectTheme($0) }
@@ -548,7 +669,7 @@ struct ShellView: View {
                     .disabled(model.authenticating)
                     .tint(accent)
             }
-            Text("v0.3.5").font(.system(size: 16, design: .rounded))
+            Text("v0.4.0").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)

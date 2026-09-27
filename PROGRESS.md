@@ -1,5 +1,15 @@
 # Progress
 
+- 2026-09-27: M3 first learning loop scaffold on `feat/m3-first-learning-loop` as **v0.4.0** (MINOR — family-visible two-picture entry gate); Do not merge; Mac mini verification pending.
+  - Base: `origin/main` @ `53e5f29` (PR #6 M2 merged; Carter: play works; UI polish deferred). ADR 0002 D1–D5/D7 Confirmed; D8 Confirmed; **D6/D9/D10 still open**.
+  - Docs: `docs/decisions/0004-first-learning-loop-m3.md`; `phases/phase-3-first-learning-loop.md`. States scaffold vs open D9 (pack/audio), D6, D10. No unverified YouTube IDs hardcoded as approved pack.
+  - VisaCore: `Activity.swift` — `TwoPictureQuestion`, `ActivityOption`, `ActivityEvaluator`, `FirstEntryActivity` (crane vs articulated bus silhouette asset IDs), `ActivityAudioPrompting` + `StubActivityAudioPrompt` (scaffold only; not “audio done”).
+  - VisaGames: lock-mode “activities coming later” replaced with large-target `EntryActivityView`; play mode gates video until entry completion (先做再玩). Success → `completeEntryActivity` + `applyCompletion` (stable completion ID, assisted if hint used, zero extra seconds). Wrong → gentle retry. SuccessParkAnimation reused. Parent note: entry game live; YouTube pack still D9.
+  - Tests: `ActivityTests` (7) wired into VisaCoreChecks. Expect PASS: 8+8+7+6+7+**7**.
+  - Version: Info.plist + shell footer **0.4.0** (CFBundleVersion 10). Prompt archive `prompts/pr-0007-m3-first-learning-loop.md`.
+  - Linux workshop: `swift: not found` expected. No Swift compile/test/bundle claimed here. Mac mini must run test + bundle + Wacom UAT before merge.
+  - Exact next task: Mac mini — fetch branch, `sh scripts/test.sh` (expect 8+8+7+6+7+7), `sh scripts/bundle.sh`, child entry UAT, parent visa+allowlist after entry; confirm D9 still open. Do not invent pack IDs.
+
 - 2026-09-17: Created `visa-games-app` bootstrap plan as a native macOS successor to `visa-games`.
   - Product invariants preserved: Visa Games / 簽證遊戲, 先做再玩, pen + finger child path, Cantonese + English UI, no Simplified Chinese, parent-controlled approved content, absolute visa expiry timestamp.
   - Architecture reset: Swift + SwiftUI/AppKit target; browser fullscreen is no longer treated as the kiosk boundary.
