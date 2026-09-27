@@ -23,9 +23,12 @@ final class AppModel: ObservableObject {
     @Published private(set) var entryHintUsed = false
     @Published private(set) var taskRoundOpen = false
     @Published private(set) var selectedStars: Int?
+    @Published private(set) var activeActivityKind: ActivityKind?
     var targetVisaMinutes: Int? { selectedStars.flatMap { ChildDifficulty(rawValue: $0) }?.minutes }
     private var roundCompletionID: String?
-    private let entryQuestion = FirstEntryActivity.question
+    private var twoPictureQuestion = ActivityCatalog.twoPictureQuestion()
+    private var findSameQuestion = ActivityCatalog.findSameQuestion()
+    private var countQuestion = ActivityCatalog.countQuestion()
     private let activityEvaluator = ActivityEvaluator()
     private let activityAudio: ActivityAudioPrompting = StubActivityAudioPrompt()
     private let store: SnapshotStore
@@ -198,21 +201,32 @@ final class AppModel: ObservableObject {
         session.snapshot.reward?.entryActivityCompleted == true
     }
 
-    var currentEntryQuestion: TwoPictureQuestion { entryQuestion }
+    var currentTwoPictureQuestion: TwoPictureQuestion { twoPictureQuestion }
+    var currentFindSameQuestion: FindSameQuestion { findSameQuestion }
+    var currentCountQuestion: CountQuestion { countQuestion }
 
     func selectDifficulty(stars: Int) {
         guard !storageFailed, session.mode == .lock, !taskRoundOpen,
               ChildDifficulty(rawValue: stars) != nil else { return }
         resetTaskRound()
         selectedStars = stars
-        roundCompletionID = UUID().uuidString
+        let seed = UUID().uuidString
+        roundCompletionID = seed
+        let kind = ActivityCatalog.kind(forRoundSeed: seed)
+        activeActivityKind = kind
+        // Refresh catalog payloads each round (stable templates today; seam for future variants).
+        twoPictureQuestion = ActivityCatalog.twoPictureQuestion()
+        findSameQuestion = ActivityCatalog.findSameQuestion()
+        countQuestion = ActivityCatalog.countQuestion()
         taskRoundOpen = true
+        VisaGamesLog.append("selectDifficulty — 選擇難度 stars=\(stars) kind=\(kind.rawValue) seed=\(seed)")
     }
 
     private func resetTaskRound() {
         taskRoundOpen = false
         selectedStars = nil
         roundCompletionID = nil
+        activeActivityKind = nil
         entryHintUsed = false
         entryRetryMessage = nil
         activePlayVideoID = nil
@@ -221,38 +235,83 @@ final class AppModel: ObservableObject {
     }
 
     func useEntryHint() {
-        guard session.mode == .lock, taskRoundOpen else { return }
+        guard session.mode == .lock, taskRoundOpen, let kind = activeActivityKind else { return }
         entryHintUsed = true
-        entryRetryMessage = "提示：吊機有長臂。 / Hint: the crane has a long arm."
+        entryRetryMessage = ActivityCatalog.hintTraditionalChinese(for: kind)
     }
 
     func speakEntryPrompt() {
-        guard session.mode == .lock, taskRoundOpen else { return }
+        guard session.mode == .lock, taskRoundOpen, let kind = activeActivityKind else { return }
         // Scaffold only — StubActivityAudioPrompt; reviewed Cantonese pack waits on D9.
-        activityAudio.speakPrompt(
-            traditionalChinese: entryQuestion.promptTraditionalChinese,
-            english: entryQuestion.promptEnglish
-        )
+        let zh: String
+        let en: String
+        switch kind {
+        case .twoPictureChoose:
+            zh = twoPictureQuestion.promptTraditionalChinese
+            en = twoPictureQuestion.promptEnglish
+        case .findTheSame:
+            zh = findSameQuestion.promptTraditionalChinese
+            en = findSameQuestion.promptEnglish
+        case .countVehicles:
+            zh = countQuestion.promptTraditionalChinese
+            en = countQuestion.promptEnglish
+        case .sequenceShortToLong:
+            zh = ActivityCatalog.sequenceStubQuestion().promptTraditionalChinese
+            en = ActivityCatalog.sequenceStubQuestion().promptEnglish
+        }
+        activityAudio.speakPrompt(traditionalChinese: zh, english: en)
         entryRetryMessage = "粵語錄音稍後加入（等 D9）。 / Cantonese audio later (waiting on D9)."
     }
 
     func selectEntryOption(id: String) {
-        guard session.mode == .lock, taskRoundOpen else { return }
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .twoPictureChoose else { return }
         guard !storageFailed else {
             VisaGamesLog.append("selectEntryOption blocked — 已封鎖 storageFailed=true id=\(id)")
             return
         }
         let evaluation = activityEvaluator.evaluate(
-            question: entryQuestion,
+            question: twoPictureQuestion,
             selectedOptionID: id,
             hintUsed: entryHintUsed
         )
+        handleEvaluation(evaluation, selectionLabel: id)
+    }
+
+    func selectFindSameOption(id: String) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .findTheSame else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectFindSameOption blocked — 已封鎖 storageFailed=true id=\(id)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: findSameQuestion,
+            selectedOptionID: id,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: id)
+    }
+
+    func selectCountChoice(_ count: Int) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .countVehicles else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectCountChoice blocked — 已封鎖 storageFailed=true count=\(count)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: countQuestion,
+            selectedCount: count,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: "count-\(count)")
+    }
+
+    private func handleEvaluation(_ evaluation: ActivityEvaluation, selectionLabel: String) {
         switch evaluation {
         case .incorrect:
             entryRetryMessage = "再試一次，得嘅。 / Try again — you can do it."
-            VisaGamesLog.append("selectEntryOption incorrect — 答錯 id=\(id) hintUsed=\(entryHintUsed)")
+            VisaGamesLog.append("activity incorrect — 答錯 selection=\(selectionLabel) kind=\(activeActivityKind?.rawValue ?? "nil") hintUsed=\(entryHintUsed)")
         case .correct(let assisted):
-            VisaGamesLog.append("selectEntryOption correct — 答對 id=\(id) assisted=\(assisted)")
+            VisaGamesLog.append("activity correct — 答對 selection=\(selectionLabel) kind=\(activeActivityKind?.rawValue ?? "nil") assisted=\(assisted)")
             applyEntrySuccess(assisted: assisted)
         }
     }
@@ -661,7 +720,7 @@ struct ShellView: View {
                         .disabled(model.authenticating)
                         .tint(accent)
                 }
-                Text("v0.5.1").font(.system(size: 16, design: .rounded))
+                Text("v0.6.0").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
@@ -726,7 +785,7 @@ struct ShellView: View {
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
                     Text("十分鐘後自動鎖定 / Locks automatically after ten minutes")
                         .font(.system(size: 22, design: .rounded))
-                    Text("入口遊戲已開（兩圖選擇）。YouTube 內容包仍待家長 D9 審核。 / First entry game is live (two-picture). YouTube pack review still parent D9.")
+                    Text("入口遊戲已開（兩圖／搵相同／數車）。YouTube 內容包仍待家長 D9 審核。 / Entry games live (two-picture / find-same / count). YouTube pack still parent D9.")
                         .font(.system(size: 18, design: .rounded))
                         .foregroundStyle(yellow)
                         .multilineTextAlignment(.center)
@@ -826,21 +885,51 @@ struct ShellView: View {
         }
     }
 
-    /// Direct two-picture gate (v0.4.1 proven). Do not wrap in unbounded-height ScrollView
+    /// Direct activity gate (v0.4.1 proven layout). Do not wrap in unbounded-height ScrollView
     /// inside the parent VStack — that collapses to ~0 height and hides the targets (v0.4.2 regression).
     @ViewBuilder
     private func entryGateContent(theme: ThemePack, accent: Color, yellow: Color) -> some View {
-        EntryActivityView(
-            question: model.currentEntryQuestion,
-            accent: accent,
-            yellow: yellow,
-            foreground: Color(rgb: theme.foreground),
-            retryMessage: model.entryRetryMessage,
-            hintUsed: model.entryHintUsed,
-            onSelect: { model.selectEntryOption(id: $0) },
-            onHint: model.useEntryHint,
-            onSpeakPrompt: model.speakEntryPrompt
-        )
+        Group {
+            switch model.activeActivityKind {
+            case .findTheSame:
+                FindSameActivityView(
+                    question: model.currentFindSameQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelect: { model.selectFindSameOption(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .countVehicles:
+                CountActivityView(
+                    question: model.currentCountQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelectCount: { model.selectCountChoice($0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .twoPictureChoose, .sequenceShortToLong, .none:
+                // sequenceShortToLong is a catalog stub — fall back to two-picture until playable.
+                EntryActivityView(
+                    question: model.currentTwoPictureQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelect: { model.selectEntryOption(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            }
+        }
         .frame(maxWidth: .infinity, minHeight: 480, alignment: .top)
         .layoutPriority(1)
     }

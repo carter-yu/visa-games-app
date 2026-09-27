@@ -1,5 +1,15 @@
 # Progress
 
+- 2026-09-27: PR #8 MINOR **v0.6.0** — M4 Gakken-style activity TYPES (original vehicles). Do not merge; Mac mini UAT pending.
+  - Base: main @ `5603845` after merge of PR #7 (v0.5.1). Carter Confirmed M3 UAT good; asked for more games referencing Play Smart wipe-clean **activity genres only**.
+  - Research (public product description): tracing lines/letters/numbers/shapes, matching, mazes, puzzles, search-and-find, counting/sorting → kiosk genres: two-picture choose, find-the-same, count-to-N, sequencing, maze-lite, path-trace lite, shape sort, connect-the-dots lite. **No Gakken pages/art/titles/packaging copied.** ADR 0005 + `phases/phase-4-gakken-style-activities.md`.
+  - VisaCore: `ActivityKind`, `FindSameQuestion`, `CountQuestion`, `SequenceQuestion` stub (`isPlayable == false`), `ActivityCatalog` rotation by round seed, evaluator overloads. Playable: two-picture (existing crane-vs-bus), find-same (tanker target), count (3 logistics trucks → tap 2/3/4).
+  - VisaGames: `FindSameActivityView`, `CountActivityView`, `SequenceActivityStub` TODO; AppModel picks kind after difficulty; ShellView switches gate; same D1/D7 + `startPlayVisa` 10/20/30 path. Parent note updated. Footer **v0.6.0**.
+  - Tests: +5 activity checks → expect PASS banner **10+10+7+6+7+12**. Prompt: `prompts/pr-0008-m4-gakken-style-activities.md`.
+  - Linux workshop: `swift: not found` expected — no Swift compile/test/bundle claimed here.
+  - Exact next task: Mac mini — fetch tip, `sh scripts/test.sh`, `sh scripts/bundle.sh`, footer v0.6.0, pick Easy/Medium/Challenge repeatedly until all three games appear (兩圖 / 搵相同 / 數車), wrong/retry/hint, visa 10/20/30, allowlist play, Parent Reset still works. Do not merge until Carter OK. D9/D10 remain open.
+
+
 - 2026-09-27: PR #7 PATCH **v0.5.1** — parent allowlist shows YouTube Title + ID. Do not merge; Mac mini UAT pending.
   - Carter Confirmed (HK Cantonese): allowlist page should show a YouTube Title beside the ID so parents can track what was added.
   - Parent add form gains `parentVideoTitleDraft` + bilingual 「YouTube 標題 / YouTube Title」 field. Upsert writes into existing `ApprovedVideo.titleCantonese` (if draft has CJK) or `titleEnglish` otherwise; empty title leaves both nil. No YouTube network title fetch.

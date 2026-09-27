@@ -268,7 +268,12 @@ struct TestRunner {
         activity.testMalformedQuestionFailsClosed()
         activity.testEntrySuccessUnlocksAllowanceOnceWithAssistedFlag()
         activity.testStubAudioDoesNotClaimPack()
+        activity.testCatalogPlayableKindsAndRotation()
+        activity.testFindSameQuestionWellFormedAndEvaluation()
+        activity.testCountQuestionWellFormedAndEvaluation()
+        activity.testSequenceStubNotPlayable()
+        activity.testCatalogHintsAreBilingualTraditional()
 
-        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback + 7 activity checks")
+        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback + 12 activity checks")
     }
 }
