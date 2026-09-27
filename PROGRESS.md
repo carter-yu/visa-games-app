@@ -1,5 +1,15 @@
 # Progress
 
+- 2026-09-27: PR #8 PATCH **v0.6.2** — parent allowlist paste-URL auto-fills title + preview (oEmbed); duration explained. Do not merge; Mac mini UAT pending.
+  - Carter ask: extract title + preview from YouTube; explain Duration / why default 120; can duration come from YouTube? Clarification (Mac mini): happy path = paste URL/id only → Add; title/duration not required.
+  - Auto-fetch: `YouTubeOEmbed.requestURL` + `parse` (no API key). Parent Add calls oEmbed; stores title into existing `titleEnglish` / `titleCantonese` (CJK → Cantonese field as raw evidence; no invented translation). Preview remains derived `img.youtube.com/vi/{id}/hqdefault.jpg` (oEmbed thumbnail_url also parsed for completeness). Fetching status: 「正在取得片名… / Fetching title…」. Failure still allows add with id + optional Advanced + thumb-from-id.
+  - UX: one primary URL/id field + Add; Title/Duration demoted under DisclosureGroup 「進階（可選） / Advanced (optional)」. Duration is **D4 budget-fit** (not live player length); default **120** scaffold when parent only pasted id (upsert needs > 0). oEmbed does **not** return duration — no fragile watch-page scrape in M4; YouTube Data API key left as future; manual Advanced override kept.
+  - Tests: +1 scoped-playback (`testYouTubeOEmbedURLAndParseFixture`, fixture JSON only) → expect PASS banner **10+10+7+6+9+12**.
+  - Version: Info.plist **0.6.2 / 18**, footer **v0.6.2**. Prompt: `prompts/pr-0008-m4-parent-allowlist-oembed-title.md`.
+  - Linux workshop: `swift: not found` expected — no Swift compile/test/bundle claimed here. D8 scoped playback unchanged. M4 not claimed complete.
+  - Exact next task: Mac mini — fetch tip of `feat/m4-gakken-style-activities`, `sh scripts/test.sh` (expect 10+10+7+6+9+12), `sh scripts/bundle.sh`, Parent → Allowlist → paste URL only → Add → title+thumb appear; offline oEmbed fail still adds; Advanced optional; footer v0.6.2. Do not merge until Carter OK.
+
+
 - 2026-09-27: PR #8 PATCH **v0.6.1** — parent allowlist shows YouTube-style preview thumbnail beside Title + ID. Do not merge; Mac mini UAT pending.
   - Carter (Mac mini): add the preview image to the allowed video — parent allowlist rows should show a YouTube-style preview/thumbnail next to Title + ID.
   - Approach (offline-friendly): derive `https://img.youtube.com/vi/{VIDEO_ID}/hqdefault.jpg` from the allowlisted id (`YouTubeEmbedURL.thumbnailURL` + `ApprovedVideo.thumbnailURL`). Nothing extra persisted — Codable allowlist JSON stays backward compatible. No custom image paste required.

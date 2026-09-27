@@ -288,4 +288,57 @@ final class ScopedPlaybackTests {
         ))
         expectFalse(YouTubeEmbedURL.isClearEscapeURL(base, videoID: sampleID))
     }
+
+    func testYouTubeOEmbedURLAndParseFixture() {
+        let url = YouTubeOEmbed.requestURL(videoID: sampleID)
+        expectTrue(url != nil)
+        if let url {
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            expectEqual(components?.scheme, "https")
+            expectEqual(components?.host, "www.youtube.com")
+            expectEqual(components?.path, "/oembed")
+            let items = components?.queryItems ?? []
+            expectEqual(items.first(where: { $0.name == "format" })?.value, "json")
+            expectEqual(
+                items.first(where: { $0.name == "url" })?.value,
+                "https://www.youtube.com/watch?v=\(sampleID)"
+            )
+        }
+        expectNil(YouTubeOEmbed.requestURL(videoID: ""))
+        expectNil(YouTubeOEmbed.requestURL(videoID: "short"))
+        expectNil(YouTubeOEmbed.requestURL(videoID: "bad id!!!!"))
+
+        // Fixture JSON only — no live network in unit tests. oEmbed has no duration field.
+        let fixture = """
+        {
+          "title": "Sample Kids Song",
+          "author_name": "Example",
+          "thumbnail_url": "https://i.ytimg.com/vi/\(sampleID)/hqdefault.jpg",
+          "type": "video",
+          "provider_name": "YouTube"
+        }
+        """.data(using: .utf8)!
+        let parsed = YouTubeOEmbed.parse(fixture)
+        expectEqual(parsed?.title, "Sample Kids Song")
+        expectEqual(
+            parsed?.thumbnailURL?.absoluteString,
+            "https://i.ytimg.com/vi/\(sampleID)/hqdefault.jpg"
+        )
+
+        let cjk = """
+        {"title":"  兒童車車歌  ","thumbnail_url":"https://i.ytimg.com/vi/\(sampleID)/mqdefault.jpg"}
+        """.data(using: .utf8)!
+        expectEqual(YouTubeOEmbed.parse(cjk)?.title, "兒童車車歌")
+
+        let emptyTitle = """
+        {"title":"   ","thumbnail_url":"not a url"}
+        """.data(using: .utf8)!
+        let emptyParsed = YouTubeOEmbed.parse(emptyTitle)
+        expectTrue(emptyParsed != nil)
+        expectNil(emptyParsed?.title)
+        expectNil(emptyParsed?.thumbnailURL)
+
+        expectNil(YouTubeOEmbed.parse(Data("not-json".utf8)))
+        expectNil(YouTubeOEmbed.parse(Data("{}".utf8))?.title)
+    }
 }

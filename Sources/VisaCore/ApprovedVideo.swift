@@ -8,7 +8,10 @@ public struct ApprovedVideo: Sendable, Equatable, Codable, Identifiable {
     public var titleEnglish: String?
     /// Optional Hong Kong Traditional Chinese display title. Never Simplified Chinese.
     public var titleCantonese: String?
-    /// Nominal duration used for budget-fit decisions (ADR 0002 D4).
+    /// Nominal duration for **D4 budget-fit** (PlaybackPolicy / whether the video fits the remaining
+    /// viewing bank) — not the live YouTube player length. Default **120** is a safe short scaffold
+    /// when the parent only pasted an id (upsert requires duration > 0). YouTube oEmbed does not
+    /// return duration; without a Data API key, parents may override via Advanced, else 120 remains.
     public var durationSeconds: TimeInterval
 
     public init(

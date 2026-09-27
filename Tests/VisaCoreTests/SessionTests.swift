@@ -260,6 +260,7 @@ struct TestRunner {
         scoped.testYouTubeThumbnailURLDerivedFromID()
         scoped.testAllowedEmbedMainFrameURLPolicy()
         scoped.testEmbedHTMLStringReferrerShell()
+        scoped.testYouTubeOEmbedURLAndParseFixture()
 
         let activity = ActivityTests()
         activity.testFirstEntryQuestionIsWellFormed()
@@ -275,6 +276,6 @@ struct TestRunner {
         activity.testSequenceStubNotPlayable()
         activity.testCatalogHintsAreBilingualTraditional()
 
-        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 8 scoped-playback + 12 activity checks")
+        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 9 scoped-playback + 12 activity checks")
     }
 }

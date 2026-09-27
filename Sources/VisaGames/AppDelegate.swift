@@ -15,8 +15,12 @@ final class AppModel: ObservableObject {
     @Published private(set) var allowlist = VideoAllowlist()
     /// Parent-only draft for the allowlist text field (never shown on child path).
     @Published var parentVideoIDDraft = ""
+    /// Optional advanced override — happy path uses oEmbed title (not required).
     @Published var parentVideoTitleDraft = ""
+    /// Optional advanced override for D4 budget-fit seconds. Default 120 when empty/invalid.
     @Published var parentVideoDurationDraft = "120"
+    @Published var showAllowlistAdvanced = false
+    @Published private(set) var isFetchingAllowlistMetadata = false
     @Published private(set) var activePlayVideoID: String?
     @Published private(set) var playbackMessage: String?
     @Published private(set) var entryRetryMessage: String?
@@ -363,28 +367,67 @@ final class AppModel: ObservableObject {
 
     func addAllowlistedVideo() {
         guard session.mode == .parent else { return }
+        guard !isFetchingAllowlistMetadata else { return }
         guard let id = YouTubeEmbedURL.extractVideoID(from: parentVideoIDDraft) else {
             playbackMessage = "影片編號無效。 / Invalid video ID."
             return
         }
-        let duration = TimeInterval(parentVideoDurationDraft.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
-        let (titleEnglish, titleCantonese) = Self.parentTitleFields(from: parentVideoTitleDraft)
-        var next = allowlist
-        let ok = next.upsert(ApprovedVideo(
-            id: id,
-            titleEnglish: titleEnglish,
-            titleCantonese: titleCantonese,
-            durationSeconds: duration > 0 ? duration : 120
-        ))
-        guard ok else {
-            playbackMessage = "影片編號無效。 / Invalid video ID."
-            return
+        let durationParsed = TimeInterval(parentVideoDurationDraft.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+        let durationSeconds: TimeInterval = durationParsed > 0 ? durationParsed : 120
+        let titleOverride = parentVideoTitleDraft
+        let overrideFields = Self.parentTitleFields(from: titleOverride)
+
+        isFetchingAllowlistMetadata = true
+        playbackMessage = "正在取得片名… / Fetching title…"
+
+        Task { @MainActor in
+            defer { self.isFetchingAllowlistMetadata = false }
+
+            var titleEnglish = overrideFields.0
+            var titleCantonese = overrideFields.1
+            let hasOverride = titleEnglish != nil || titleCantonese != nil
+
+            if !hasOverride, let oembedURL = YouTubeOEmbed.requestURL(videoID: id) {
+                do {
+                    let (data, response) = try await URLSession.shared.data(from: oembedURL)
+                    let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                    if (200..<300).contains(status),
+                       let parsed = YouTubeOEmbed.parse(data),
+                       let fetched = parsed.title {
+                        let fields = Self.parentTitleFields(from: fetched)
+                        titleEnglish = fields.0
+                        titleCantonese = fields.1
+                    }
+                } catch {
+                    // oEmbed failed — still allow add with id + optional override + thumb from id.
+                }
+            }
+
+            var next = self.allowlist
+            let ok = next.upsert(ApprovedVideo(
+                id: id,
+                titleEnglish: titleEnglish,
+                titleCantonese: titleCantonese,
+                durationSeconds: durationSeconds
+            ))
+            guard ok else {
+                self.playbackMessage = "影片編號無效。 / Invalid video ID."
+                return
+            }
+            self.allowlist = next
+            self.allowlistStore.save(next)
+            self.parentVideoIDDraft = ""
+            self.parentVideoTitleDraft = ""
+            self.parentVideoDurationDraft = "120"
+            self.showAllowlistAdvanced = false
+            if hasOverride {
+                self.playbackMessage = "已加入准許清單（使用進階標題）。 / Added to allowlist (Advanced title)."
+            } else if titleEnglish != nil || titleCantonese != nil {
+                self.playbackMessage = "已加入准許清單（已取得片名）。 / Added to allowlist (title fetched)."
+            } else {
+                self.playbackMessage = "已加入准許清單（未能取得片名，可於進階手動填）。 / Added (title unavailable — optional Advanced edit)."
+            }
         }
-        allowlist = next
-        allowlistStore.save(next)
-        parentVideoIDDraft = ""
-        parentVideoTitleDraft = ""
-        playbackMessage = "已加入准許清單。 / Added to allowlist."
     }
 
     /// One parent-facing title draft → existing ApprovedVideo title fields.
@@ -720,7 +763,7 @@ struct ShellView: View {
                         .disabled(model.authenticating)
                         .tint(accent)
                 }
-                Text("v0.6.1").font(.system(size: 16, design: .rounded))
+                Text("v0.6.2").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
@@ -821,18 +864,18 @@ struct ShellView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("准許影片清單（僅家長） / Allowlist (parent only)")
                             .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        Text("貼上網址或編號即可加入；片名與預覽圖會自動取得。 / Paste URL or ID to add — title and preview auto-fill.")
+                            .font(.system(size: 15, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: 640, alignment: .leading)
                         TextField("YouTube 網址或影片編號 / YouTube URL or video ID", text: $model.parentVideoIDDraft)
                             .textFieldStyle(.roundedBorder)
                             .frame(maxWidth: 520)
-                        TextField("YouTube 標題 / YouTube Title", text: $model.parentVideoTitleDraft)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: 520)
-                        TextField("片長秒數 / Duration seconds", text: $model.parentVideoDurationDraft)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: 240)
+                            .disabled(model.isFetchingAllowlistMetadata)
                         HStack(spacing: 16) {
                             Button("加入准許清單 / Add to allowlist", action: model.addAllowlistedVideo)
                                 .tint(yellow)
+                                .disabled(model.isFetchingAllowlistMetadata)
                             if let first = model.allowlist.videos.first {
                                 Button("試播准許影片 / Preview allowlisted") {
                                     model.playAllowlisted(id: first.id)
@@ -840,6 +883,27 @@ struct ShellView: View {
                                 .tint(yellow)
                             }
                         }
+                        DisclosureGroup(isExpanded: $model.showAllowlistAdvanced) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                TextField("標題覆寫（可選） / Title override (optional)", text: $model.parentVideoTitleDraft)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(maxWidth: 520)
+                                    .disabled(model.isFetchingAllowlistMetadata)
+                                TextField("片長秒數（觀看預算） / Duration seconds (viewing budget)", text: $model.parentVideoDurationDraft)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(maxWidth: 320)
+                                    .disabled(model.isFetchingAllowlistMetadata)
+                                Text("片長用於觀看預算；預設 120 秒；可手動改／YouTube oEmbed 無提供時長。 / Duration is for viewing-budget fit (not live player length); default 120s; editable — oEmbed has no duration.")
+                                    .font(.system(size: 13, design: .rounded))
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: 640, alignment: .leading)
+                            }
+                            .padding(.top, 4)
+                        } label: {
+                            Text("進階（可選） / Advanced (optional)")
+                                .font(.system(size: 16, design: .rounded))
+                        }
+                        .frame(maxWidth: 640)
                         ForEach(model.allowlist.videos) { video in
                             HStack(alignment: .center, spacing: 12) {
                                 AllowlistVideoThumbnail(videoID: video.id)
