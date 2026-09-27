@@ -5,11 +5,6 @@ import Foundation
 /// Always mirrors to `~/Library/Logs/VisaGames/` and, when discoverable, the repo `logs/` folder.
 enum ScopedPlayerLog {
     private static let queue = DispatchQueue(label: "family.visagames.scoped-player-log")
-    private static let isoFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
 
     /// Primary folder for the parent "Open logs folder" button: repo `logs/` when found, else Library.
     static var activeLogDirectory: URL {
@@ -25,7 +20,7 @@ enum ScopedPlayerLog {
     }
 
     static func append(_ message: String) {
-        let stamp = isoFormatter.string(from: Date())
+        let stamp = timestamp(Date())
         let line = "\(stamp) \(message)\n"
         let destinations = logFileURLs()
         queue.async {
@@ -104,6 +99,12 @@ enum ScopedPlayerLog {
             }
         }
         return nil
+    }
+
+    private static func timestamp(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: date)
     }
 
     private static func dayStamp(_ date: Date) -> String {
