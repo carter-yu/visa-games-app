@@ -10,13 +10,18 @@ final class AppModel: ObservableObject {
     @Published private(set) var now = Date()
     @Published private(set) var message: String?
     @Published private(set) var authenticating = false
+    @Published private(set) var themePaletteID: ThemePaletteID
+    @Published private(set) var successFeedbackID: Int? = nil
     private let store: SnapshotStore
+    private let themeStore = ThemePreferenceStore()
+    private var nextFeedbackID = 0
     private var storageFailed = false
     private var authentication: LAContext?
     private var parentDeadline: Date?
     var changed: (() -> Void)?
 
     init() {
+        themePaletteID = ThemePreferenceStore().load()
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         store = SnapshotStore(url: directory.appendingPathComponent("VisaGames/state.json"))
         do {
@@ -95,6 +100,23 @@ final class AppModel: ObservableObject {
     func grant() {
         guard !storageFailed else { return }
         update { $0.grant(seconds: 60, now: Date()) }
+    }
+
+    func selectTheme(_ palette: ThemePaletteID) {
+        guard session.mode == .parent else { return }
+        themeStore.save(palette)
+        themePaletteID = palette
+    }
+
+    func triggerSuccessFeedback() {
+        guard session.mode == .lock || session.mode == .play, !storageFailed else { return }
+        nextFeedbackID += 1
+        let id = nextFeedbackID
+        successFeedbackID = id
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            if successFeedbackID == id { successFeedbackID = nil }
+        }
     }
 
     func resetStorage() {
@@ -179,48 +201,98 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 struct ShellView: View {
     @ObservedObject var model: AppModel
     var body: some View {
-        VStack(spacing: 28) {
-            Text("Visa Games / 簽證遊戲").font(.largeTitle.bold())
-            Text("先做再玩 / Do first, then play").font(.title2)
+        let theme = ThemePack.forID(model.themePaletteID)
+        let accent = Color(rgb: theme.accent)
+        let yellow = Color(rgb: theme.yellow)
+        ZStack {
+            Color(rgb: theme.background).ignoresSafeArea()
+            SoftSunRoadAccent(yellow: yellow, accent: accent)
+            if model.session.mode == .lock || model.session.mode == .play {
+                VehicleParade(color: Color(rgb: theme.watermark), yellow: yellow)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 12)
+            }
+            VStack(spacing: 32) {
+            Text("Visa Games / 簽證遊戲")
+                .font(.system(size: 44, weight: .bold, design: .rounded))
+            Text("先做再玩 / Do first, then play")
+                .font(.system(size: 28, weight: .semibold, design: .rounded))
             Spacer()
             switch model.session.mode {
             case .setup:
-                Text("請家長設定 / Parent setup required").font(.title)
+                Text("請家長設定 / Parent setup required")
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
             case .lock:
-                Text("用筆畫 / Draw with your pen").font(.system(size: 44, weight: .bold))
+                Text("用筆畫 / Draw with your pen")
+                    .font(.system(size: 52, weight: .bold, design: .rounded))
                 Text("準備好未？ / Ready?")
+                    .font(.system(size: 30, weight: .medium, design: .rounded))
                 Text("遊戲稍後加入 / Activities are coming later")
+                    .font(.system(size: 24, design: .rounded))
+                Button("泊車示範 / Park-in demo", action: model.triggerSuccessFeedback)
+                    .tint(yellow)
             case .play:
-                Text("簽證時間 / Visa time").font(.title)
+                Text("簽證時間 / Visa time")
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
                 Text("\(model.session.remaining(at: model.now)) 秒 / seconds")
-                    .font(.system(size: 64, weight: .bold, design: .rounded)).monospacedDigit()
+                    .font(.system(size: 72, weight: .bold, design: .rounded)).monospacedDigit()
+                    .foregroundStyle(yellow)
                 Text("播放位置預覽 / Playback placeholder")
+                    .font(.system(size: 24, design: .rounded))
             case .parent:
-                Text("家長設定 / Parent controls").font(.title)
+                Text("家長設定 / Parent controls")
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
                 Text("兩分鐘後自動鎖定 / Locks automatically after two minutes")
+                    .font(.system(size: 22, design: .rounded))
+                Picker("主題 / Theme", selection: Binding(
+                    get: { model.themePaletteID },
+                    set: { model.selectTheme($0) }
+                )) {
+                    ForEach(ThemePaletteID.allCases, id: \.self) { palette in
+                        Text(ThemePack.forID(palette).parentLabel).tag(palette)
+                    }
+                }
+                .frame(maxWidth: 520)
                 if !model.session.snapshot.configured {
                     Button("完成設定 / Finish setup", action: model.setup)
+                        .tint(yellow)
                 } else {
                     Button("測試一分鐘簽證 / Test 1-minute visa", action: model.grant)
+                        .tint(yellow)
                 }
                 Button("返回 / Return", action: model.returnToChild)
+                    .tint(accent)
                 if model.message != nil {
                     Button("清除簽證及重設儲存 / Clear visa and reset storage", action: model.resetStorage)
+                        .tint(accent)
                 }
                 Button("離開程式 / Quit app") { NSApp.terminate(nil) }
+                    .tint(accent)
             }
-            if let message = model.message { Text(message).foregroundStyle(.orange) }
+            if let message = model.message {
+                Text(message).foregroundStyle(yellow)
+                    .font(.system(size: 22, design: .rounded))
+            }
             Spacer()
             if model.session.mode != .parent {
-                Button("家長 / Parent", action: model.unlock).disabled(model.authenticating)
+                Button("家長 / Parent", action: model.unlock)
+                    .disabled(model.authenticating)
+                    .tint(accent)
             }
-            Text("v0.1.0 · Phase 0").font(.footnote)
+            Text("v0.2.1").font(.system(size: 16, design: .rounded))
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .padding(56)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .foregroundStyle(Color(rgb: theme.foreground))
+            if let id = model.successFeedbackID,
+               model.session.mode == .lock || model.session.mode == .play {
+                SuccessParkAnimation(color: accent, yellow: yellow)
+                    .id(id)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 28)
+            }
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-        .padding(48)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .foregroundStyle(.white)
-        .background(Color(red: 0.06, green: 0.12, blue: 0.20))
     }
 }
