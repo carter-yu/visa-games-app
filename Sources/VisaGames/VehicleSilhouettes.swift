@@ -160,79 +160,94 @@ enum ToyPaint: CaseIterable {
     }
 }
 
+/// Features share the silhouette's 190 x 80 drawing space, including at small sizes.
+/// Each eye is a cab window; the painted body between windows and bumper is the face.
 struct VehicleFaceOverlay: View {
     let kind: VehicleKind
     let mood: VehicleFaceMood
 
+    private let ink = Color(red: 0.29, green: 0.20, blue: 0.16)
+    private let glass = Color(red: 0.57, green: 0.76, blue: 0.77)
+    private let sclera = Color(red: 1.0, green: 0.97, blue: 0.87)
+
     var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            let anchor = faceAnchor(in: CGSize(width: w, height: h))
-            let eyeW = max(10, w * 0.055)
-            let eyeH: CGFloat = {
-                switch mood {
-                case .sleepy: return eyeW * 0.55
-                case .calm: return eyeW * 0.85
-                case .happy: return eyeW * 0.95
-                }
-            }()
-            ZStack {
-                RoundedRectangle(cornerRadius: eyeW * 0.8, style: .continuous)
-                    .fill(Color.white.opacity(0.92))
-                    .frame(width: eyeW * 3.4, height: eyeW * 2.2)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: eyeW * 0.8, style: .continuous)
-                            .stroke(Color.black.opacity(0.18), lineWidth: 1.5)
-                    )
-                HStack(spacing: eyeW * 0.55) {
-                    eye(size: CGSize(width: eyeW, height: eyeH))
-                    eye(size: CGSize(width: eyeW, height: eyeH))
-                }
-                .offset(y: mood == .sleepy ? -eyeW * 0.1 : -eyeW * 0.15)
-                Capsule()
-                    .fill(Color(red: 0.35, green: 0.18, blue: 0.12).opacity(0.85))
-                    .frame(width: mood == .happy ? eyeW * 1.35 : eyeW * 0.9,
-                           height: mood == .happy ? eyeW * 0.28 : eyeW * 0.16)
-                    .offset(y: eyeW * 0.55)
+        Canvas { context, size in
+            context.scaleBy(x: size.width / 190, y: size.height / 80)
+            let layout = faceAnchor
+            let eyeWidth = layout.eyeWidth
+            let eyeHeight = layout.eyeHeight
+            for side in [-1.0, 1.0] {
+                let centerX = layout.center.x + CGFloat(side) * eyeWidth * 0.66
+                let rect = CGRect(x: centerX - eyeWidth / 2,
+                                  y: layout.center.y - eyeHeight / 2,
+                                  width: eyeWidth, height: eyeHeight)
+                drawEye(in: rect, context: context)
             }
-            .position(anchor)
+
+            // A small bumper/hood smile, separate from the windshield glass.
+            let smileWidth = eyeWidth * (mood == .happy ? 1.05 : 0.75)
+            let smileDepth: CGFloat = mood == .happy ? 3.0 : (mood == .sleepy ? 0.6 : 1.6)
+            var smile = Path()
+            smile.move(to: CGPoint(x: layout.center.x - smileWidth / 2, y: layout.mouthY))
+            smile.addQuadCurve(to: CGPoint(x: layout.center.x + smileWidth / 2, y: layout.mouthY),
+                               control: CGPoint(x: layout.center.x, y: layout.mouthY + smileDepth))
+            context.stroke(smile, with: .color(ink),
+                           style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
         }
         .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
-    private func eye(size: CGSize) -> some View {
-        ZStack(alignment: .top) {
-            Capsule()
-                .fill(Color.white)
-                .frame(width: size.width, height: size.height)
-            Capsule()
-                .fill(Color(red: 0.18, green: 0.12, blue: 0.10))
-                .frame(width: size.width * 0.55, height: size.height * (mood == .sleepy ? 0.35 : 0.55))
-                .offset(y: mood == .sleepy ? size.height * 0.15 : size.height * 0.2)
-            Capsule()
-                .fill(Color(red: 0.45, green: 0.28, blue: 0.18).opacity(0.35))
-                .frame(width: size.width, height: size.height * 0.28)
-                .offset(y: -size.height * 0.05)
-        }
+    private func drawEye(in rect: CGRect, context: GraphicsContext) {
+        let socket = Path(roundedRect: rect,
+                          cornerRadius: rect.width * 0.45)
+        let lidFraction: CGFloat = mood == .sleepy ? 0.57 : (mood == .happy ? 0.29 : 0.42)
+        let lidY = rect.minY + rect.height * lidFraction
+        var eyeContext = context
+        eyeContext.clip(to: socket)
+        eyeContext.fill(socket, with: .color(glass))
+        // Cream whites only below the hooded lid; no shared white face plate.
+        eyeContext.fill(Path(CGRect(x: rect.minX, y: lidY,
+                                    width: rect.width, height: rect.maxY - lidY)),
+                        with: .color(sclera))
+        let pupilSize = rect.width * 0.32
+        let pupil = CGRect(x: rect.midX - pupilSize / 2,
+                           y: rect.maxY - pupilSize - rect.height * 0.12,
+                           width: pupilSize, height: pupilSize)
+        eyeContext.fill(Path(ellipseIn: pupil), with: .color(ink))
+        var lid = Path()
+        lid.move(to: CGPoint(x: rect.minX, y: lidY))
+        lid.addQuadCurve(to: CGPoint(x: rect.maxX, y: lidY),
+                         control: CGPoint(x: rect.midX, y: lidY + rect.height * 0.08))
+        eyeContext.stroke(lid, with: .color(ink),
+                          style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+        context.stroke(socket, with: .color(ink),
+                       style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round))
     }
 
-    private func faceAnchor(in size: CGSize) -> CGPoint {
-        let sx = size.width / 190
-        let sy = size.height / 80
-        let design: CGPoint
+    // Cab-specific anchors keep both sockets inside the actual vehicle body.
+    // The low flatbed cab uses smaller headlight-zone eyes instead of a floating windshield.
+    private var faceAnchor: (center: CGPoint, eyeWidth: CGFloat, eyeHeight: CGFloat, mouthY: CGFloat) {
         switch kind {
-        case .hkTaxi, .nyTaxi: design = CGPoint(x: 78, y: 30)
-        case .fireEngine: design = CGPoint(x: 48, y: 28)
-        case .metroTrain: design = CGPoint(x: 36, y: 36)
-        case .toyCar: design = CGPoint(x: 102, y: 28)
-        case .crane: design = CGPoint(x: 150, y: 38)
-        case .tanker: design = CGPoint(x: 148, y: 34)
-        case .articulatedBus: design = CGPoint(x: 40, y: 34)
-        case .dinoFlatbed: design = CGPoint(x: 152, y: 40)
-        case .logisticsTruck: design = CGPoint(x: 150, y: 34)
+        case .hkTaxi, .nyTaxi:
+            return (CGPoint(x: 94, y: 29), 12, 13, 46)
+        case .fireEngine:
+            return (CGPoint(x: 49, y: 28), 15, 17, 47)
+        case .metroTrain:
+            return (CGPoint(x: 32, y: 36), 12, 17, 51)
+        case .toyCar:
+            return (CGPoint(x: 96, y: 28), 11, 12, 44)
+        case .crane:
+            return (CGPoint(x: 152, y: 41), 9, 12, 55)
+        case .tanker:
+            return (CGPoint(x: 151, y: 39), 9, 12, 53)
+        case .articulatedBus:
+            return (CGPoint(x: 31, y: 35), 13, 18, 52)
+        case .dinoFlatbed:
+            return (CGPoint(x: 155, y: 49), 8, 9, 57)
+        case .logisticsTruck:
+            return (CGPoint(x: 151, y: 38), 10, 13, 53)
         }
-        return CGPoint(x: design.x * sx, y: design.y * sy)
     }
 }
 
@@ -247,7 +262,12 @@ struct FriendlyVehicleView: View {
         ZStack {
             VehicleSilhouette(kind: kind)
                 .fill(fill)
-                .shadow(color: Color.black.opacity(0.18), radius: 4, y: 3)
+                .overlay(
+                    VehicleSilhouette(kind: kind)
+                        .stroke(Color(red: 0.29, green: 0.20, blue: 0.16).opacity(0.8),
+                                style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                )
+                .shadow(color: Color.brown.opacity(0.16), radius: 4, y: 3)
             // Metro: original blue window stripe (not a transit logo).
             if kind == .metroTrain {
                 Capsule()
@@ -255,6 +275,7 @@ struct FriendlyVehicleView: View {
                     .frame(height: 8)
                     .padding(.horizontal, 22)
                     .offset(y: 6)
+                    .clipShape(VehicleSilhouette(kind: kind))
             }
             // Soft highlight
             Capsule()
@@ -263,6 +284,7 @@ struct FriendlyVehicleView: View {
                 .padding(.horizontal, 28)
                 .offset(y: -8)
                 .opacity(0.8)
+                .clipShape(VehicleSilhouette(kind: kind))
             if showFace {
                 VehicleFaceOverlay(kind: kind, mood: mood)
             }

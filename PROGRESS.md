@@ -1,5 +1,12 @@
 # Progress
 
+- 2026-09-27: PR #8 PATCH **v0.7.1 / build 20** — redesigned original fleet faces after Carter's v0.7.0 feedback. Do not merge; Mac mini visual UAT pending.
+  - Removed the floating white face plate. Cab-specific glass eye sockets now use cream whites, low pupils, soft brown outlines and heavier sleepy lids; happy mood widens the small curved hood/bumper smile. Flatbed eyes fit its low headlight zone. Drawing coordinates scale with the vehicle, without a minimum eye size.
+  - Added warm silhouette outlines and clipped existing highlights/metro stripe to the vehicle body. All ten kinds retain faces; face overlays remain non-interactive. Games, parent IP disclaimer and ADR 0006 unchanged.
+  - Info.plist **0.7.1 / 20**, shell footer **v0.7.1**. Prompt: `prompts/pr-0008-m4-cuter-vehicle-faces-v071.md`.
+  - Verification: `git diff --check`, plist/version assertions and shell syntax checks passed. `sh scripts/test.sh` and `sh scripts/bundle.sh` each exited 127 (`swift: not found`) on Linux; no Swift compile/test pass or native visual acceptance claimed. No behavior changes or new unit tests in this drawing-only slice.
+  - Next: Mac mini test + bundle, then inspect all fleet faces at game/card/parade sizes and calm/happy/sleepy moods; Carter's visual acceptance remains pending. PR #8 must remain unmerged.
+
 - 2026-09-27: PR #8 MINOR **v0.7.0** — storybook child UX + original recognizable vehicles (HK/NY taxi, fire, metro, works). Do not merge; Mac mini visual UAT pending.
   - World shell: warm sand/ochre `StorybookWorldBackground`, wooden station sign 「簽證車廠」, friendly convoy parade.
   - Difficulty: three mission tickets (的士短程 / 消防車任務 / 地鐵長程) with mascots + ★ + Confirmed 10/20/30 + press bounce.
