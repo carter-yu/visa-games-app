@@ -1,5 +1,14 @@
 # Progress
 
+- 2026-09-27: PR #7 PATCH **v0.5.1** — parent allowlist shows YouTube Title + ID. Do not merge; Mac mini UAT pending.
+  - Carter Confirmed (HK Cantonese): allowlist page should show a YouTube Title beside the ID so parents can track what was added.
+  - Parent add form gains `parentVideoTitleDraft` + bilingual 「YouTube 標題 / YouTube Title」 field. Upsert writes into existing `ApprovedVideo.titleCantonese` (if draft has CJK) or `titleEnglish` otherwise; empty title leaves both nil. No YouTube network title fetch.
+  - Allowlist rows show primary `parentListTitle` (title or 「(未命名 / Untitled)」) and secondary monospaced video id — id is never hidden when a title exists. Title draft clears on successful add.
+  - Model: `ApprovedVideo.hasParentTitle` / `parentListTitle`. Existing `testApprovedVideoParentLabelAndUpsert` extended for untitled list semantics. Expect same PASS banner counts (7 scoped-playback).
+  - Version: Info.plist **0.5.1 / 15**, footer **v0.5.1**. Prompt: `prompts/pr-0007-m3-parent-allowlist-youtube-title.md`.
+  - Linux workshop: `swift: not found` expected — no Swift compile/test/bundle claimed here.
+  - Exact next task: Mac mini — pull tip, `sh scripts/test.sh`, `sh scripts/bundle.sh`, Parent → Allowlist → add with title (Title+ID), add without title (Untitled+ID), remove/preview still work, footer v0.5.1. Do not merge until Carter OK. M3 not marked complete.
+
 - 2026-09-27: PR #7 MINOR **v0.5.0** — child difficulty cards → task → visa → scoped playback. Mac mini UAT pending; no merge.
   - Evidence: Carter Confirmed in this task the visa-games reference child flow and **10 / 20 / 30 minutes** (600 / 1200 / 1800 seconds); practical D6 closed for this scaffold. D9 IDs/audio and D10 remain open.
   - Added pure ChildDifficulty mapping and configured lock-only Session.startPlayVisa; parent grant remains parent-only. AppModel keeps round selection/UUID in memory, persists D1 + round-unique D7 reward + visa atomically in existing schema 2, and clears task/hint/retry/video on expiry. Lock cards are independent of the durable D1 completion flag.

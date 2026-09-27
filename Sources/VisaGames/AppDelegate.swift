@@ -15,6 +15,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var allowlist = VideoAllowlist()
     /// Parent-only draft for the allowlist text field (never shown on child path).
     @Published var parentVideoIDDraft = ""
+    @Published var parentVideoTitleDraft = ""
     @Published var parentVideoDurationDraft = "120"
     @Published private(set) var activePlayVideoID: String?
     @Published private(set) var playbackMessage: String?
@@ -308,8 +309,14 @@ final class AppModel: ObservableObject {
             return
         }
         let duration = TimeInterval(parentVideoDurationDraft.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+        let (titleEnglish, titleCantonese) = Self.parentTitleFields(from: parentVideoTitleDraft)
         var next = allowlist
-        let ok = next.upsert(ApprovedVideo(id: id, durationSeconds: duration > 0 ? duration : 120))
+        let ok = next.upsert(ApprovedVideo(
+            id: id,
+            titleEnglish: titleEnglish,
+            titleCantonese: titleCantonese,
+            durationSeconds: duration > 0 ? duration : 120
+        ))
         guard ok else {
             playbackMessage = "影片編號無效。 / Invalid video ID."
             return
@@ -317,7 +324,30 @@ final class AppModel: ObservableObject {
         allowlist = next
         allowlistStore.save(next)
         parentVideoIDDraft = ""
+        parentVideoTitleDraft = ""
         playbackMessage = "已加入准許清單。 / Added to allowlist."
+    }
+
+    /// One parent-facing title draft → existing ApprovedVideo title fields.
+    /// CJK → titleCantonese; otherwise titleEnglish; empty → both nil.
+    private static func parentTitleFields(from draft: String) -> (String?, String?) {
+        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return (nil, nil) }
+        if trimmed.unicodeScalars.contains(where: Self.containsCJKScalar) {
+            return (nil, trimmed)
+        }
+        return (trimmed, nil)
+    }
+
+    private static func containsCJKScalar(_ scalar: UnicodeScalar) -> Bool {
+        let value = scalar.value
+        switch value {
+        case 0x3400...0x4DBF, 0x4E00...0x9FFF, 0xF900...0xFAFF,
+             0x3000...0x303F, 0xFF00...0xFFEF:
+            return true
+        default:
+            return false
+        }
     }
 
     func removeAllowlistedVideo(id: String) {
@@ -631,7 +661,7 @@ struct ShellView: View {
                         .disabled(model.authenticating)
                         .tint(accent)
                 }
-                Text("v0.5.0").font(.system(size: 16, design: .rounded))
+                Text("v0.5.1").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
@@ -735,6 +765,9 @@ struct ShellView: View {
                         TextField("YouTube 網址或影片編號 / YouTube URL or video ID", text: $model.parentVideoIDDraft)
                             .textFieldStyle(.roundedBorder)
                             .frame(maxWidth: 520)
+                        TextField("YouTube 標題 / YouTube Title", text: $model.parentVideoTitleDraft)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 520)
                         TextField("片長秒數 / Duration seconds", text: $model.parentVideoDurationDraft)
                             .textFieldStyle(.roundedBorder)
                             .frame(maxWidth: 240)
@@ -749,9 +782,14 @@ struct ShellView: View {
                             }
                         }
                         ForEach(model.allowlist.videos) { video in
-                            HStack {
-                                Text(video.parentLabel)
-                                    .font(.system(size: 18, design: .rounded))
+                            HStack(alignment: .firstTextBaseline) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(video.parentListTitle)
+                                        .font(.system(size: 18, design: .rounded))
+                                    Text(video.id)
+                                        .font(.system(size: 14, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                }
                                 Spacer()
                                 Button("播放 / Play") { model.playAllowlisted(id: video.id) }
                                     .tint(yellow)

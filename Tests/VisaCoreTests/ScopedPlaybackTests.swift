@@ -197,9 +197,17 @@ final class ScopedPlaybackTests {
         )))
         expectEqual(list.videos.count, 1)
         expectEqual(list.video(id: sampleID)?.parentLabel, "甲 / A")
+        expectEqual(list.video(id: sampleID)?.parentListTitle, "甲 / A")
+        expectTrue(list.video(id: sampleID)?.hasParentTitle == true)
         expectTrue(list.upsert(ApprovedVideo(id: sampleID, titleEnglish: "B", durationSeconds: 91)))
         expectEqual(list.videos.count, 1)
         expectEqual(list.video(id: sampleID)?.titleEnglish, "B")
+        // Untitled: parentLabel still falls back to id; list title uses bilingual placeholder
+        // so the raw id can stay visible as a secondary line in parent UI.
+        expectTrue(list.upsert(ApprovedVideo(id: sampleID, durationSeconds: 92)))
+        expectEqual(list.video(id: sampleID)?.parentLabel, sampleID)
+        expectEqual(list.video(id: sampleID)?.parentListTitle, "(未命名 / Untitled)")
+        expectTrue(list.video(id: sampleID)?.hasParentTitle == false)
     }
 
     func testAllowedEmbedMainFrameURLPolicy() {
