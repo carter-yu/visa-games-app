@@ -125,6 +125,7 @@ public enum YouTubeEmbedURL: Sendable {
     public static func isClearEscapeURL(_ url: URL, videoID: String) -> Bool {
         if isBenignBlankURL(url) { return false }
         if isAllowedEmbedMainFrameURL(url, videoID: videoID) { return false }
+        if isAllowedEmbedShellMainFrameURL(url) { return false }
         // Any other absolute http(s) (or non-embed path on YouTube hosts) is an escape.
         let scheme = (url.scheme ?? "").lowercased()
         return scheme == "http" || scheme == "https" || scheme == "javascript" || scheme == "file"
@@ -138,5 +139,60 @@ public enum YouTubeEmbedURL: Sendable {
         if isValidVideoID(trimmed) { return false }
         guard let url = URL(string: trimmed) else { return true }
         return !isAllowedEmbedURL(url)
+    }
+
+    /// HTTPS origin used as `loadHTMLString` baseURL so WK sends a YouTube-acceptable Referer.
+    /// Path is host root (`/`) on the nocookie host only — not a general browse grant.
+    public static func embedHTMLBaseURL() -> URL {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = embedHost
+        components.path = "/"
+        return components.url!
+    }
+
+    /// True for the intentional HTML-shell document at nocookie host root (Error 153 Referer fix).
+    /// Does not allow youtube.com homepage, watch, search, or other paths.
+    public static func isAllowedEmbedShellMainFrameURL(_ url: URL) -> Bool {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return false
+        }
+        guard components.scheme?.lowercased() == "https" else { return false }
+        guard let host = components.host?.lowercased(),
+              host == embedHost || host == "youtube-nocookie.com" else { return false }
+        let path = components.path
+        return path.isEmpty || path == "/"
+    }
+
+    /// Minimal parent HTML wrapping the official nocookie iframe with referrerpolicy.
+    /// Returns nil when the id is invalid. Iframe `src` is always `make(videoID:)`.
+    public static func embedHTMLString(videoID: String) -> String? {
+        guard let embedURL = make(videoID: videoID) else { return nil }
+        let src = embedURL.absoluteString
+        // Escape only what we interpolate; id was validated by make(videoID:).
+        return """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="referrer" content="strict-origin-when-cross-origin">
+        <title>Visa Games scoped embed</title>
+        <style>
+          html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+          iframe { border: 0; width: 100%; height: 100%; display: block; }
+        </style>
+        </head>
+        <body>
+        <iframe
+          src="\(src)"
+          title="Scoped YouTube embed"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+        ></iframe>
+        </body>
+        </html>
+        """
     }
 }

@@ -277,6 +277,14 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Parent-only: reveal the active ScopedPlayer log directory in Finder.
+    func openScopedPlayerLogsFolder() {
+        guard session.mode == .parent else { return }
+        ScopedPlayerLog.openActiveDirectory()
+        let path = ScopedPlayerLog.activeLogDirectory.path
+        playbackMessage = "日誌資料夾已開啟。 / Logs folder opened.\n" + path
+    }
+
     func resetStorage() {
         guard session.mode == .parent else { return }
         do {
@@ -516,6 +524,8 @@ struct ShellView: View {
                             .font(.system(size: 20, design: .rounded))
                             .foregroundStyle(yellow)
                     }
+                    Button("開啟日誌資料夾 / Open logs folder", action: model.openScopedPlayerLogsFolder)
+                        .tint(yellow)
                     Button("返回 / Return", action: model.returnToChild)
                         .tint(accent)
                     if model.message != nil {
@@ -538,7 +548,7 @@ struct ShellView: View {
                     .disabled(model.authenticating)
                     .tint(accent)
             }
-            Text("v0.3.3").font(.system(size: 16, design: .rounded))
+            Text("v0.3.4").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)

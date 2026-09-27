@@ -3,9 +3,10 @@ import SwiftUI
 import VisaCore
 import WebKit
 
-/// Child/parent play stub: WKWebView loads ONLY a constructed youtube-nocookie embed URL.
-/// Main-frame navigation is limited to the official `/embed/<id>` family for that id
-/// (nocookie or youtube.com redirects). This is not a general browser (ADR 0003 D8).
+/// Child/parent play stub: WKWebView loads a referrer-bearing HTML shell whose iframe
+/// points ONLY at a constructed youtube-nocookie embed URL (Error 153 Referer fix).
+/// Main-frame navigation is limited to the HTML shell host-root and the official
+/// `/embed/<id>` family for that id. This is not a general browser (ADR 0003 D8).
 struct ScopedPlayerView: NSViewRepresentable {
     let videoID: String
     var onNavigationRejected: (() -> Void)?
@@ -17,6 +18,8 @@ struct ScopedPlayerView: NSViewRepresentable {
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.preferences.isElementFullscreenEnabled = false
+        // macOS: allow media without an extra gesture when parent/child already pressed Play.
+        config.mediaTypesRequiringUserActionForPlayback = []
         let view = WKWebView(frame: .zero, configuration: config)
         view.navigationDelegate = context.coordinator
         view.uiDelegate = context.coordinator
@@ -54,9 +57,24 @@ struct ScopedPlayerView: NSViewRepresentable {
         }
 
         func loadEmbedIfPossible() {
-            guard let url = YouTubeEmbedURL.make(videoID: videoID) else { return }
+            guard let html = YouTubeEmbedURL.embedHTMLString(videoID: videoID),
+                  let embedURL = YouTubeEmbedURL.make(videoID: videoID) else {
+                ScopedPlayerLog.append("load skip invalid videoID=\(videoID)")
+                return
+            }
+            let baseURL = YouTubeEmbedURL.embedHTMLBaseURL()
             loadedVideoID = videoID
-            webView?.load(URLRequest(url: url))
+            ScopedPlayerLog.append(
+                "load mode=htmlString videoID=\(videoID) embed=\(embedURL.host ?? "")\(embedURL.path) base=\(baseURL.host ?? "")\(baseURL.path)"
+            )
+            webView?.loadHTMLString(html, baseURL: baseURL)
+        }
+
+        private func describe(_ url: URL?) -> String {
+            guard let url else { return "nil" }
+            let host = url.host ?? ""
+            let path = url.path.isEmpty ? "/" : url.path
+            return "\(host)\(path)"
         }
 
         private func rejectEscapeIfNeeded(url: URL?, isMainFrame: Bool) {
@@ -65,6 +83,7 @@ struct ScopedPlayerView: NSViewRepresentable {
             guard isMainFrame, let url, YouTubeEmbedURL.isClearEscapeURL(url, videoID: videoID) else {
                 return
             }
+            ScopedPlayerLog.append("nav escape-stop videoID=\(videoID) url=\(describe(url))")
             onNavigationRejected?()
         }
 
@@ -76,9 +95,18 @@ struct ScopedPlayerView: NSViewRepresentable {
         ) {
             let url = navigationAction.request.url
             let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
+            let frameTag = isMainFrame ? "main" : "sub"
 
             // Benign WK bootstrap intermediate — never stop playback for blank.
             if YouTubeEmbedURL.isBenignBlankURL(url) {
+                ScopedPlayerLog.append("nav allow \(frameTag) about:blank videoID=\(videoID)")
+                decisionHandler(.allow)
+                return
+            }
+
+            // HTML shell at nocookie host root (Referer origin for Error 153).
+            if isMainFrame, let url, YouTubeEmbedURL.isAllowedEmbedShellMainFrameURL(url) {
+                ScopedPlayerLog.append("nav allow \(frameTag) shell url=\(describe(url)) videoID=\(videoID)")
                 decisionHandler(.allow)
                 return
             }
@@ -88,9 +116,11 @@ struct ScopedPlayerView: NSViewRepresentable {
             // destination is a clear main-frame escape.
             if navigationAction.navigationType == .linkActivated {
                 if let url, YouTubeEmbedURL.isAllowedEmbedMainFrameURL(url, videoID: videoID) {
+                    ScopedPlayerLog.append("nav allow linkActivated embed url=\(describe(url)) videoID=\(videoID)")
                     decisionHandler(.allow)
                     return
                 }
+                ScopedPlayerLog.append("nav cancel linkActivated url=\(describe(url)) videoID=\(videoID)")
                 rejectEscapeIfNeeded(url: url, isMainFrame: isMainFrame)
                 decisionHandler(.cancel)
                 return
@@ -98,22 +128,25 @@ struct ScopedPlayerView: NSViewRepresentable {
 
             if isMainFrame {
                 if let url, YouTubeEmbedURL.isAllowedEmbedMainFrameURL(url, videoID: videoID) {
+                    ScopedPlayerLog.append("nav allow main embed url=\(describe(url)) videoID=\(videoID)")
                     decisionHandler(.allow)
                     return
                 }
-                // Main-frame leave from `/embed/<id>` (watch/search/other id/external) → stop.
+                // Main-frame leave from shell/`/embed/<id>` (watch/search/other id/external) → stop.
+                ScopedPlayerLog.append("nav cancel-stop main url=\(describe(url)) videoID=\(videoID)")
                 onNavigationRejected?()
                 decisionHandler(.cancel)
                 return
             }
 
-            // Non-main-frame HTTPS loads are required for the official player internals.
-            // Residual provider chrome risk is documented in ADR 0003.
+            // Non-main-frame HTTPS loads are required for the official player internals
+            // (including the iframe src=nocookie embed). Residual provider chrome: ADR 0003.
             if url?.scheme?.lowercased() == "https" {
+                ScopedPlayerLog.append("nav allow sub https url=\(describe(url)) videoID=\(videoID)")
                 decisionHandler(.allow)
                 return
             }
-            // Quiet cancel for non-https subframe noise — do not tear down playback.
+            ScopedPlayerLog.append("nav cancel sub non-https url=\(describe(url)) videoID=\(videoID)")
             decisionHandler(.cancel)
         }
 
@@ -123,9 +156,34 @@ struct ScopedPlayerView: NSViewRepresentable {
             for navigationAction: WKNavigationAction,
             windowFeatures: WKWindowFeatures
         ) -> WKWebView? {
-            // Deny popup / target=_blank windows. Quiet deny — do not stop the player
-            // merely for refusing a popup.
+            ScopedPlayerLog.append("popup deny url=\(describe(navigationAction.request.url)) videoID=\(videoID)")
             return nil
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            let ns = error as NSError
+            ScopedPlayerLog.append(
+                "wk didFail domain=\(ns.domain) code=\(ns.code) desc=\(ns.localizedDescription) videoID=\(videoID)"
+            )
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            let ns = error as NSError
+            ScopedPlayerLog.append(
+                "wk didFailProvisional domain=\(ns.domain) code=\(ns.code) desc=\(ns.localizedDescription) videoID=\(videoID)"
+            )
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            let title = webView.title ?? ""
+            if title.localizedCaseInsensitiveContains("153")
+                || title.localizedCaseInsensitiveContains("configuration error") {
+                ScopedPlayerLog.append(
+                    "wk note possible Error 153 title=\(title) videoID=\(videoID)"
+                )
+            } else {
+                ScopedPlayerLog.append("wk didFinish title=\(title.isEmpty ? "(empty)" : title) videoID=\(videoID)")
+            }
         }
     }
 }

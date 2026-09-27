@@ -191,7 +191,8 @@ struct TestRunner {
         scoped.testExtractVideoIDForParentPaste()
         scoped.testApprovedVideoParentLabelAndUpsert()
         scoped.testAllowedEmbedMainFrameURLPolicy()
+        scoped.testEmbedHTMLStringReferrerShell()
 
-        print("PASS: 8 session + 8 reward-ledger + 7 reward-persistence + 6 theme-preference + 6 scoped-playback checks")
+        print("PASS: 8 session + 8 reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback checks")
     }
 }

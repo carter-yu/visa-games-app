@@ -31,5 +31,6 @@ App-level embed containment is **not** a managed-device boundary (ADR 0001). Res
 - M2 may scaffold `ApprovedVideo` / allowlist types, a `PlaybackPolicy` seam, a FakePlaybackEngine for tests, and a ScopedPlayerView that builds only allowlisted embed URLs.
 - Arbitrary URL helpers must fail closed in tests.
 - No general browser, search UI, or child text field for URLs is permitted.
+- To avoid YouTube **Error 153** (missing/invalid Referer in WKWebView), the scoped player may load a minimal **HTML shell** via `loadHTMLString` whose iframe `src` is still the constructed nocookie `/embed/<id>` URL, with `referrerpolicy="strict-origin-when-cross-origin"` and HTTPS `baseURL` on the nocookie host root. The shell host-root is not a general browse grant; watch/search/other-id remain denied.
 - Main-frame navigation may follow **official embed redirects** between `youtube-nocookie.com` and `youtube.com` / `m.youtube.com` for the **same** allowlisted `/embed/<id>` only. Watch, results, channel, search, and other-id embeds remain denied. This does not authorize a URL bar or general browsing, and does not claim OS-level containment.
 - Provider telemetry details (buffering vs ads) remain subject to ADR 0002 and any later provider ADR; D8 does not relax those rules.

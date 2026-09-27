@@ -242,4 +242,30 @@ final class ScopedPlaybackTests {
             expectTrue(YouTubeEmbedURL.isClearEscapeURL(url, videoID: sampleID))
         }
     }
+
+    func testEmbedHTMLStringReferrerShell() {
+        expectNil(YouTubeEmbedURL.embedHTMLString(videoID: "short"))
+        expectNil(YouTubeEmbedURL.embedHTMLString(videoID: "bad id!!!!"))
+
+        let html = YouTubeEmbedURL.embedHTMLString(videoID: sampleID)
+        expectTrue(html != nil)
+        if let html {
+            expectTrue(html.contains("referrerpolicy=\"strict-origin-when-cross-origin\""))
+            expectTrue(html.contains("name=\"referrer\" content=\"strict-origin-when-cross-origin\""))
+            expectTrue(html.contains("/embed/" + sampleID))
+            expectTrue(html.contains("www.youtube-nocookie.com"))
+            expectFalse(html.contains("youtube.com/watch"))
+        }
+
+        let base = YouTubeEmbedURL.embedHTMLBaseURL()
+        expectEqual(base.host, YouTubeEmbedURL.embedHost)
+        expectTrue(base.path == "/" || base.path.isEmpty)
+        expectTrue(YouTubeEmbedURL.isAllowedEmbedShellMainFrameURL(base))
+        expectTrue(YouTubeEmbedURL.isAllowedEmbedShellMainFrameURL(URL(string: "https://youtube-nocookie.com/")!))
+        expectFalse(YouTubeEmbedURL.isAllowedEmbedShellMainFrameURL(URL(string: "https://www.youtube.com/")!))
+        expectFalse(YouTubeEmbedURL.isAllowedEmbedShellMainFrameURL(
+            URL(string: "https://www.youtube.com/watch?v=" + sampleID)!
+        ))
+        expectFalse(YouTubeEmbedURL.isClearEscapeURL(base, videoID: sampleID))
+    }
 }
