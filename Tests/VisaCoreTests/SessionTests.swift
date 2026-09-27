@@ -144,6 +144,15 @@ struct TestRunner {
         reward.testAssistedSuccessRecordedSeparately()
         reward.testAnsweringDoesNotSpendViewingBudget()
 
-        print("PASS: 7 session checks + 8 reward-ledger checks")
+        let persistence = RewardPersistenceTests()
+        try persistence.testRewardStateRoundTripSaveLoad()
+        try persistence.testDuplicateCompletionSurvivesRelaunchAsStillAwarded()
+        try persistence.testDayCarryoverStillRejectedAfterReload()
+        try persistence.testSessionEndsAtIndependentOfRewardBudgetOnReload()
+        try persistence.testSchemaV1MigratesWithoutInventingReward()
+        try persistence.testInvalidRewardStateFailsClosed()
+        try persistence.testAnsweringStillDoesNotSpendBudgetAfterReload()
+
+        print("PASS: 7 session checks + 8 reward-ledger checks + 7 reward-persistence checks")
     }
 }
