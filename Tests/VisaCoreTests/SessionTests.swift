@@ -190,7 +190,8 @@ struct TestRunner {
         scoped.testD8RejectsNonEmbedConstruction()
         scoped.testExtractVideoIDForParentPaste()
         scoped.testApprovedVideoParentLabelAndUpsert()
+        scoped.testAllowedEmbedMainFrameURLPolicy()
 
-        print("PASS: 8 session + 8 reward-ledger + 7 reward-persistence + 6 theme-preference + 5 scoped-playback checks")
+        print("PASS: 8 session + 8 reward-ledger + 7 reward-persistence + 6 theme-preference + 6 scoped-playback checks")
     }
 }

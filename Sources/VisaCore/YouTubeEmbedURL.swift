@@ -6,6 +6,16 @@ public enum YouTubeEmbedURL: Sendable {
     /// Host used for scoped embeds (privacy-enhanced / nocookie pattern).
     public static let embedHost = "www.youtube-nocookie.com"
 
+    /// Tight allowlist of https hosts that may host the official `/embed/<id>` main frame
+    /// after YouTube redirects the constructed nocookie URL. Not a general browsing permit.
+    public static let allowedEmbedMainFrameHosts: Set<String> = [
+        "www.youtube-nocookie.com",
+        "youtube-nocookie.com",
+        "www.youtube.com",
+        "youtube.com",
+        "m.youtube.com"
+    ]
+
     /// YouTube video ids are 11 characters from [A-Za-z0-9_-].
     public static func isValidVideoID(_ id: String) -> Bool {
         let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -77,6 +87,47 @@ public enum YouTubeEmbedURL: Sendable {
         // Reject nested paths such as /embed/id/extra
         guard !id.contains("/"), isValidVideoID(id) else { return false }
         return true
+    }
+
+    /// `about:blank` (and nil) are benign WK intermediates during embed bootstrap — not escapes.
+    public static func isBenignBlankURL(_ url: URL?) -> Bool {
+        guard let url else { return true }
+        let scheme = (url.scheme ?? "").lowercased()
+        if scheme == "about" {
+            let path = url.path.isEmpty ? (url.absoluteString.lowercased()) : url.path.lowercased()
+            // about:blank absoluteString is typically "about:blank"
+            return url.absoluteString.lowercased() == "about:blank" || path == "blank" || path.isEmpty
+        }
+        return false
+    }
+
+    /// Main-frame allow for the **same** allowlisted video id on official YouTube embed hosts.
+    /// Construction still goes through nocookie `make(videoID:)`; this only permits the
+    /// official embed redirect family (`/embed/<exact-id>`), not watch/search/channel pages.
+    public static func isAllowedEmbedMainFrameURL(_ url: URL, videoID: String) -> Bool {
+        let expectedID = videoID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isValidVideoID(expectedID) else { return false }
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return false
+        }
+        guard components.scheme?.lowercased() == "https" else { return false }
+        guard let host = components.host?.lowercased(),
+              allowedEmbedMainFrameHosts.contains(host) else { return false }
+        let path = components.path
+        guard path.hasPrefix("/embed/") else { return false }
+        let id = String(path.dropFirst("/embed/".count))
+        guard !id.contains("/"), isValidVideoID(id), id == expectedID else { return false }
+        return true
+    }
+
+    /// True when a cancelled main-frame destination is a clear leave-embed escape
+    /// (watch/search/channel/other-id/external). Used to decide whether to stop playback.
+    public static func isClearEscapeURL(_ url: URL, videoID: String) -> Bool {
+        if isBenignBlankURL(url) { return false }
+        if isAllowedEmbedMainFrameURL(url, videoID: videoID) { return false }
+        // Any other absolute http(s) (or non-embed path on YouTube hosts) is an escape.
+        let scheme = (url.scheme ?? "").lowercased()
+        return scheme == "http" || scheme == "https" || scheme == "javascript" || scheme == "file"
     }
 
     /// Returns true when `string` must be rejected as a non-embed / arbitrary navigation target.

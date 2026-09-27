@@ -201,4 +201,45 @@ final class ScopedPlaybackTests {
         expectEqual(list.videos.count, 1)
         expectEqual(list.video(id: sampleID)?.titleEnglish, "B")
     }
+
+    func testAllowedEmbedMainFrameURLPolicy() {
+        expectTrue(YouTubeEmbedURL.isBenignBlankURL(nil))
+        expectTrue(YouTubeEmbedURL.isBenignBlankURL(URL(string: "about:blank")))
+        expectFalse(YouTubeEmbedURL.isBenignBlankURL(URL(string: "https://www.youtube.com/embed/\(sampleID)")))
+
+        let allowed = [
+            "https://www.youtube-nocookie.com/embed/\(sampleID)",
+            "https://youtube-nocookie.com/embed/\(sampleID)?playsinline=1",
+            "https://www.youtube.com/embed/\(sampleID)",
+            "https://youtube.com/embed/\(sampleID)?rel=0",
+            "https://m.youtube.com/embed/\(sampleID)"
+        ]
+        for value in allowed {
+            let url = URL(string: value)!
+            expectTrue(YouTubeEmbedURL.isAllowedEmbedMainFrameURL(url, videoID: sampleID))
+            expectFalse(YouTubeEmbedURL.isClearEscapeURL(url, videoID: sampleID))
+        }
+
+        // Construction helper remains nocookie-only.
+        let made = YouTubeEmbedURL.make(videoID: sampleID)!
+        expectTrue(YouTubeEmbedURL.isAllowedEmbedURL(made))
+        expectTrue(YouTubeEmbedURL.isAllowedEmbedMainFrameURL(made, videoID: sampleID))
+        expectFalse(YouTubeEmbedURL.isAllowedEmbedURL(URL(string: "https://www.youtube.com/embed/\(sampleID)")!))
+
+        let rejected = [
+            "https://www.youtube.com/watch?v=\(sampleID)",
+            "https://www.youtube.com/results?search_query=kids",
+            "https://www.youtube.com/channel/\(sampleID)",
+            "https://www.youtube.com/embed/\(otherID)",
+            "https://www.youtube-nocookie.com/embed/\(otherID)",
+            "http://www.youtube.com/embed/\(sampleID)",
+            "https://evil.example/embed/\(sampleID)",
+            "https://www.youtube.com/embed/\(sampleID)/extra"
+        ]
+        for value in rejected {
+            let url = URL(string: value)!
+            expectFalse(YouTubeEmbedURL.isAllowedEmbedMainFrameURL(url, videoID: sampleID))
+            expectTrue(YouTubeEmbedURL.isClearEscapeURL(url, videoID: sampleID))
+        }
+    }
 }

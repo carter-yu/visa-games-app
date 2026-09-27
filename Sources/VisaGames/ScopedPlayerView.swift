@@ -4,7 +4,8 @@ import VisaCore
 import WebKit
 
 /// Child/parent play stub: WKWebView loads ONLY a constructed youtube-nocookie embed URL.
-/// Main-frame navigation away from that embed is cancelled. This is not a general browser (ADR 0003 D8).
+/// Main-frame navigation is limited to the official `/embed/<id>` family for that id
+/// (nocookie or youtube.com redirects). This is not a general browser (ADR 0003 D8).
 struct ScopedPlayerView: NSViewRepresentable {
     let videoID: String
     var onNavigationRejected: (() -> Void)?
@@ -58,11 +59,13 @@ struct ScopedPlayerView: NSViewRepresentable {
             webView?.load(URLRequest(url: url))
         }
 
-        private func isCurrentEmbed(_ url: URL?) -> Bool {
-            guard let url, let expected = YouTubeEmbedURL.make(videoID: videoID) else { return false }
-            return YouTubeEmbedURL.isAllowedEmbedURL(url)
-                && url.path == expected.path
-                && url.host?.lowercased() == expected.host?.lowercased()
+        private func rejectEscapeIfNeeded(url: URL?, isMainFrame: Bool) {
+            // Stop playback only for clear main-frame escapes (watch/search/other id/external).
+            // In-player chrome / consent / linkActivated noise is cancelled quietly.
+            guard isMainFrame, let url, YouTubeEmbedURL.isClearEscapeURL(url, videoID: videoID) else {
+                return
+            }
+            onNavigationRejected?()
         }
 
         // Match macOS 26+/WK SWIFT_UI_ACTOR decisionHandler so the method is the real delegate hook.
@@ -71,22 +74,34 @@ struct ScopedPlayerView: NSViewRepresentable {
             decidePolicyFor navigationAction: WKNavigationAction,
             decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
         ) {
-            // Always deny explicit user link activation — no free browsing.
+            let url = navigationAction.request.url
+            let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
+
+            // Benign WK bootstrap intermediate — never stop playback for blank.
+            if YouTubeEmbedURL.isBenignBlankURL(url) {
+                decisionHandler(.allow)
+                return
+            }
+
+            // linkActivated: allow only if destination is the official embed for this id;
+            // otherwise cancel quietly (player chrome / consent). Stop only when the
+            // destination is a clear main-frame escape.
             if navigationAction.navigationType == .linkActivated {
-                onNavigationRejected?()
+                if let url, YouTubeEmbedURL.isAllowedEmbedMainFrameURL(url, videoID: videoID) {
+                    decisionHandler(.allow)
+                    return
+                }
+                rejectEscapeIfNeeded(url: url, isMainFrame: isMainFrame)
                 decisionHandler(.cancel)
                 return
             }
 
-            let url = navigationAction.request.url
-            let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
-
             if isMainFrame {
-                // Main frame may only show the constructed nocookie embed for this id.
-                if isCurrentEmbed(url) {
+                if let url, YouTubeEmbedURL.isAllowedEmbedMainFrameURL(url, videoID: videoID) {
                     decisionHandler(.allow)
                     return
                 }
+                // Main-frame leave from `/embed/<id>` (watch/search/other id/external) → stop.
                 onNavigationRejected?()
                 decisionHandler(.cancel)
                 return
@@ -98,7 +113,7 @@ struct ScopedPlayerView: NSViewRepresentable {
                 decisionHandler(.allow)
                 return
             }
-            onNavigationRejected?()
+            // Quiet cancel for non-https subframe noise — do not tear down playback.
             decisionHandler(.cancel)
         }
 
@@ -108,8 +123,8 @@ struct ScopedPlayerView: NSViewRepresentable {
             for navigationAction: WKNavigationAction,
             windowFeatures: WKWindowFeatures
         ) -> WKWebView? {
-            // Deny popup / target=_blank windows.
-            onNavigationRejected?()
+            // Deny popup / target=_blank windows. Quiet deny — do not stop the player
+            // merely for refusing a popup.
             return nil
         }
     }

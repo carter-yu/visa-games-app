@@ -5,3 +5,7 @@ DerivedData/
 xcuserdata/
 .swiftpm/
 .env
+
+# Local UAT / troubleshooting dumps (keep logs/README.md tracked)
+logs/*
+!logs/README.md
