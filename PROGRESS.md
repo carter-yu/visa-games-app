@@ -83,5 +83,5 @@
   - VisaGames: `ScopedPlayerView` (WKWebView, main-frame embed-only, link clicks cancelled, popups denied); parent-only allowlist text fields + add/remove/play; play-mode scoped surface; parent “Test viewing budget” seeds RewardLedger entry/test completion for demos.
   - Tests: 4 scoped-playback checks wired into VisaCoreChecks (allowlist unknown ID; budget/session stop; D8 non-embed reject; upsert/label). Expect PASS: 7+8+7+6+4.
   - Version: Info.plist + shell footer **0.3.0** (CFBundleVersion 4). Prompt archive `prompts/pr-0006-m2-scoped-player-scaffold.md`.
-  - Verification blocker on Linux workshop: `swift: not found`. No Swift compile/test/UAT claimed here.
-  - Exact next task: Mac mini — fetch branch, `sh scripts/test.sh`, `sh scripts/bundle.sh`, parent-add allowlisted ID, exercise play stub + stop conditions, record residual WK/YouTube chrome; do not merge until parent UAT.
+  - Linux workshop: `swift: not found` (no claim from Linux). **Mac mini toolchain green** on tip `cb871e7`: `sh scripts/test.sh` → PASS (7+8+7+6+4); `sh scripts/bundle.sh` → Built `.build/Visa Games.app` with no WK delegate warning after MainActor decisionHandler fix. Manual parent UAT / residual YouTube chrome observation still pending — do not merge until parent UAT.
+  - Exact next task: Parent visual UAT on Mac mini (allowlist add → test viewing budget → 1-min visa → play allowlisted; confirm no child URL field; note residual WK/YouTube chrome); then parent merge decision.

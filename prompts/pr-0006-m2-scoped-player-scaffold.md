@@ -5,7 +5,7 @@
 | Date | 2026-09-27 (HK) |
 | Branch | `feat/m2-scoped-player-scaffold` |
 | Base | `origin/main` @ `cfc05d4` (theme PR #5 merged) |
-| PR | (filled after `gh pr create`) |
+| PR | https://github.com/carter-yu/visa-games-app/pull/6 (OPEN) |
 | Model | Prefer `gpt-6-sol`; Astra only if WK kiosk boundary needs it |
 | Goal | Start M2 scaffold: Confirmed D8 scoped official embed only; allowlist + PlaybackPolicy + ScopedPlayerView stub; tests; no merge |
 
