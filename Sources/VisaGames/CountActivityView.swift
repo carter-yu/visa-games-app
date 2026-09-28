@@ -37,7 +37,7 @@ struct CountActivityView: View {
                             FriendlyVehicleView(
                                 kind: kind,
                                 mood: index % 2 == 0 ? .happy : .calm,
-                                role: .fleet
+                                role: .hero
                             )
                             .padding(.horizontal, 12)
                             .padding(.vertical, 18)

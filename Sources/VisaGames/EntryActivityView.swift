@@ -58,7 +58,7 @@ struct EntryActivityView: View {
                                 RoundedRectangle(cornerRadius: 30, style: .continuous)
                                     .stroke(Color(red: 0.45, green: 0.28, blue: 0.14), lineWidth: 5)
                                 if let kind = SilhouetteAsset.kind(for: option.assetID) {
-                                    FriendlyVehicleView(kind: kind, mood: .happy, role: .fleet)
+                                    FriendlyVehicleView(kind: kind, mood: .happy, role: .hero)
                                         .padding(.horizontal, 24)
                                         .padding(.vertical, 28)
                                 } else {

@@ -1,5 +1,24 @@
 # Progress
 
+- 2026-09-28: PR #8 PATCH **v0.7.4 / build 23** — ALL child UI vehicles → illustrated PNGs + soft props. Do not merge; Mac mini visual UAT pending.
+  - Carter UAT on tip `701a10c` / v0.7.3: tickets heroes OK, but parade + find-same still showed old geometric SwiftUI cars (`role: .fleet`). Direction otherwise correct.
+  - **Fix:** `FriendlyVehicleView` always prefers bundled hero PNG for every `VehicleKind`; procedural silhouette is missing-asset fallback only. All activity views + parade use `.hero`.
+  - **New vehicle PNGs** (Codex image_gen, original only): `hero-toy-car`, `hero-crane`, `hero-tanker`, `hero-articulated-bus`, `hero-dino-flatbed` (soft cargo — not a licensed creature), `hero-logistics-truck`. Existing four heroes kept.
+  - **Props** under `Resources/Props/`: sun, cloud (world background), traffic-cone + traffic-light (parade accents); also garage-door, stamp, ticket, toolbox bundled for accents. No new activity types.
+  - Inspiration only (chunky toy color/energy) — NO IP copy of referenced YouTube characters; NO Tayo/Tomica/Thomas/Iconix.
+  - `bundle.sh` copies `Vehicles/*.png` and `Props/*.png`. Parent IP disclaimer + Trad Chinese/English + allowlist shuffle unchanged.
+  - Info.plist **0.7.4 / 23**, shell footer **v0.7.4**. Prompt: `prompts/pr-0008-m4-all-png-fleet-props-v074.md`.
+  - Verification: `git diff --check`, plist/version assertions. `sh scripts/test.sh` / `bundle.sh` exit 127 (`swift: not found`) on Linux — no Swift compile/test/native visual pass claimed.
+  - **Mac mini UAT checklist:**
+    1. `git fetch && git checkout feat/m4-gakken-style-activities && git pull`
+    2. `sh scripts/test.sh` → expect PASS **10+10+7+6+12+13**
+    3. `sh scripts/bundle.sh` → footer **v0.7.4**; confirm `Contents/Resources/Vehicles/*.png` (10) and `Contents/Resources/Props/*.png` (8)
+    4. Lock depot: mission tickets still show illustrated heroes; soft sun/cloud in sky
+    5. Parade strip: **no** oval/flat geometric cars — all illustrated PNGs (taxi/fire/metro/crane/tanker/bus/truck/toy/flatbed) + cone/light accents
+    6. Find-same / two-picture / count / sequence: **no** geometric vehicles — PNG heroes only
+    7. Success stamp still fires; allowlist shuffle + parent disclaimer unchanged
+    8. PR #8 must remain **unmerged**. D9/D10 open.
+
 - 2026-09-28: PR #8 PATCH **v0.7.3 / build 22** — Option 4 hybrid hero + simple fleet. Do not merge; Mac mini visual UAT pending.
   - Carter locked Option 4 (英雄主角 + 簡車隊). Illustrated hero PNGs for tickets / parade leader / success stamp; procedural simple fleet (faceless) for dense count/sequence/find-same games. Same ToyPaint color language.
   - Assets (original only, Codex image_gen): `Resources/Vehicles/hero-hk-taxi.png`, `hero-ny-taxi.png`, `hero-fire-engine.png`, `hero-metro-train.png`. Transparent BG; no text/logos/roundels. NO Tayo/Tomica/Thomas/Iconix likenesses.

@@ -1,11 +1,12 @@
 import SwiftUI
 import AppKit
 
-/// Original cute vehicle silhouettes inspired by recognizable real-world types
+/// Original cute vehicle art for the child UI.
 /// (HK red taxi, NY yellow taxi, HK fire engine, metro train, long works trucks).
 /// Original IP only — no licensed character faces, no protected transit logos.
-/// Option 4 hybrid: illustrated hero PNGs (tickets / parade leader / success) +
-/// simple procedural fleet for dense games. Front *is* the face on heroes.
+/// v0.7.4: ALL child-visible vehicles prefer illustrated hero PNGs under
+/// Resources/Vehicles/. Procedural silhouettes remain only as missing-PNG fallback.
+/// Front *is* the face on illustrated heroes.
 enum VehicleKind: CaseIterable, Hashable {
     case hkTaxi
     case nyTaxi
@@ -367,11 +368,12 @@ private struct VehicleBodyDetails: View {
     }
 }
 
-/// Hybrid Option 4 visual role — illustrated heroes vs simple procedural fleet.
+/// Visual preference for vehicles. PNGs are preferred whenever present (v0.7.4).
+/// `.fleet` kept for API compatibility; it no longer forces procedural geometry.
 enum VehicleVisualRole: Hashable {
-    /// Tickets / parade leader / success stamp — prefer raster hero PNG.
+    /// Prefer illustrated PNG (tickets / parade / games / success).
     case hero
-    /// Dense games (count / sequence / find-same clutter) — simple silhouette, minimal/no face.
+    /// Legacy name — still prefers PNG when bundled; procedural only if asset missing.
     case fleet
 }
 
@@ -383,7 +385,12 @@ enum VehicleHeroAsset {
         case .nyTaxi: return "hero-ny-taxi"
         case .fireEngine: return "hero-fire-engine"
         case .metroTrain: return "hero-metro-train"
-        default: return nil
+        case .toyCar: return "hero-toy-car"
+        case .crane: return "hero-crane"
+        case .tanker: return "hero-tanker"
+        case .articulatedBus: return "hero-articulated-bus"
+        case .dinoFlatbed: return "hero-dino-flatbed"
+        case .logisticsTruck: return "hero-logistics-truck"
         }
     }
 
@@ -398,28 +405,75 @@ enum VehicleHeroAsset {
     }
 }
 
-struct FriendlyVehicleView: View {
-    let kind: VehicleKind
-    var paint: Color? = nil
-    var mood: VehicleFaceMood = .calm
-    /// Legacy toggle; ignored when `role == .fleet` (fleet never draws the storybook face).
-    var showFace: Bool = true
-    /// Option 4 hybrid: `.hero` uses PNG when available; `.fleet` stays procedural + faceless.
-    var role: VehicleVisualRole = .fleet
+/// Soft preschool props for world shell / labels (Resources/Props/).
+enum DepotPropKind: String, CaseIterable, Hashable {
+    case trafficCone, trafficLight, garageDoor, stamp, ticket, sun, cloud, toolbox
+
+    var resourceName: String {
+        switch self {
+        case .trafficCone: return "prop-traffic-cone"
+        case .trafficLight: return "prop-traffic-light"
+        case .garageDoor: return "prop-garage-door"
+        case .stamp: return "prop-stamp"
+        case .ticket: return "prop-ticket"
+        case .sun: return "prop-sun"
+        case .cloud: return "prop-cloud"
+        case .toolbox: return "prop-toolbox"
+        }
+    }
+}
+
+enum DepotPropAsset {
+    static func image(for kind: DepotPropKind) -> NSImage? {
+        let name = kind.resourceName
+        if let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: "Props")
+            ?? Bundle.main.url(forResource: name, withExtension: "png") {
+            return NSImage(contentsOf: url)
+        }
+        return NSImage(named: name)
+    }
+}
+
+struct DepotPropView: View {
+    let kind: DepotPropKind
 
     var body: some View {
-        if role == .hero, let nsImage = VehicleHeroAsset.image(for: kind) {
+        if let nsImage = DepotPropAsset.image(for: kind) {
             Image(nsImage: nsImage)
                 .resizable()
                 .interpolation(.high)
                 .aspectRatio(contentMode: .fit)
                 .accessibilityHidden(true)
         } else {
-            proceduralBody(drawFace: role == .hero && showFace)
+            Color.clear
+        }
+    }
+}
+
+struct FriendlyVehicleView: View {
+    let kind: VehicleKind
+    var paint: Color? = nil
+    var mood: VehicleFaceMood = .calm
+    /// Legacy toggle; only used for procedural fallback faces.
+    var showFace: Bool = true
+    /// Prefer PNG for every child-visible surface (v0.7.4). Procedural is fallback only.
+    var role: VehicleVisualRole = .hero
+
+    var body: some View {
+        // Always prefer illustrated PNG when bundled — no geometric cars in child UI.
+        if let nsImage = VehicleHeroAsset.image(for: kind) {
+            Image(nsImage: nsImage)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+                .accessibilityHidden(true)
+        } else {
+            // Procedural fallback only — `.fleet` stays faceless if PNG missing.
+            proceduralBody(drawFace: showFace && role != .fleet)
         }
     }
 
-    /// Simple fleet / hero fallback: same color language; faces only when hero PNG missing.
+    /// Missing-PNG fallback only: same color language; optional face overlay.
     @ViewBuilder
     private func proceduralBody(drawFace: Bool) -> some View {
         let fill = paint ?? ToyPaint.forKind(kind).color

@@ -25,12 +25,19 @@ struct StorybookWorldBackground: View {
                     startPoint: .top,
                     endPoint: .bottom
                 )
-                // Soft sun
-                Circle()
-                    .fill(Color(rgb: theme.yellow).opacity(0.55))
-                    .frame(width: min(220, w * 0.18), height: min(220, w * 0.18))
-                    .blur(radius: 2)
-                    .offset(x: w * 0.32, y: h * 0.06)
+                // Soft illustrated sun + cloud props (fallback to soft circle if missing).
+                DepotPropView(kind: .sun)
+                    .frame(width: min(200, w * 0.16), height: min(200, w * 0.16))
+                    .opacity(0.92)
+                    .offset(x: w * 0.34, y: h * 0.04)
+                DepotPropView(kind: .cloud)
+                    .frame(width: min(260, w * 0.22), height: min(140, h * 0.12))
+                    .opacity(0.75)
+                    .offset(x: -w * 0.28, y: h * 0.08)
+                DepotPropView(kind: .cloud)
+                    .frame(width: min(180, w * 0.14), height: min(100, h * 0.09))
+                    .opacity(0.55)
+                    .offset(x: w * 0.12, y: h * 0.02)
                 // Distant soft pyramids / depot roofs (abstract triangles — original).
                 HStack(spacing: w * 0.04) {
                     Triangle()
@@ -155,45 +162,64 @@ struct VehicleParade: View {
     @State private var moving = false
     @State private var bobbing = false
 
-    /// Recognizable city + works convoy for depot parade (original art).
+    /// Full illustrated convoy — every slot uses hero PNGs (v0.7.4).
     private static let paradeKinds: [VehicleKind] = [
-        .hkTaxi, .nyTaxi, .fireEngine, .metroTrain, .crane, .logisticsTruck
+        .hkTaxi, .nyTaxi, .fireEngine, .metroTrain,
+        .crane, .tanker, .articulatedBus, .logisticsTruck, .toyCar, .dinoFlatbed
     ]
 
     var body: some View {
         GeometryReader { geometry in
-            let width = max(geometry.size.width, 800)
-            HStack(spacing: 0) {
-                row(width: width)
-                row(width: width)
+            let width = max(geometry.size.width, 1000)
+            ZStack(alignment: .bottom) {
+                HStack(spacing: 0) {
+                    row(width: width)
+                    row(width: width)
+                }
+                .frame(width: width * 2, alignment: .leading)
+                .offset(x: moving ? -width : 0, y: bobbing ? -5 : 5)
+                .onAppear {
+                    moving = true
+                    bobbing = true
+                }
+                .animation(.linear(duration: 48).repeatForever(autoreverses: false), value: moving)
+                .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: bobbing)
+
+                // Soft roadside props (preschool cues; non-interactive).
+                HStack {
+                    DepotPropView(kind: .trafficCone)
+                        .frame(width: 36, height: 44)
+                        .opacity(0.85)
+                    Spacer()
+                    DepotPropView(kind: .trafficLight)
+                        .frame(width: 28, height: 56)
+                        .opacity(0.8)
+                    Spacer()
+                    DepotPropView(kind: .trafficCone)
+                        .frame(width: 36, height: 44)
+                        .opacity(0.85)
+                }
+                .padding(.horizontal, 28)
+                .offset(y: 8)
             }
-            .frame(width: width * 2, alignment: .leading)
-            .offset(x: moving ? -width : 0, y: bobbing ? -5 : 5)
-            .onAppear {
-                moving = true
-                bobbing = true
-            }
-            .animation(.linear(duration: 42).repeatForever(autoreverses: false), value: moving)
-            .animation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: bobbing)
         }
-        .frame(height: 110)
-        .opacity(0.55)
+        .frame(height: 118)
+        .opacity(0.88)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 
     private func row(width: CGFloat) -> some View {
-        HStack(spacing: 18) {
+        HStack(spacing: 14) {
             ForEach(Array(Self.paradeKinds.enumerated()), id: \.element) { index, kind in
-                // Option 4 hybrid: illustrated leader + simple faceless fleet fillers.
                 FriendlyVehicleView(
                     kind: kind,
                     paint: ToyPaint.forKind(kind).color.opacity(0.95),
                     mood: index % 2 == 0 ? .happy : .calm,
-                    role: index == 0 ? .hero : .fleet
+                    role: .hero
                 )
                 .frame(maxWidth: .infinity)
-                .frame(height: 86)
+                .frame(height: 92)
             }
         }
         .frame(width: width)

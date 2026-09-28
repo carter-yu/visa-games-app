@@ -32,7 +32,7 @@ struct FindSameActivityView: View {
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .stroke(yellow, lineWidth: 5)
                 if let kind = SilhouetteAsset.kind(for: question.targetAssetID) {
-                    FriendlyVehicleView(kind: kind, mood: .calm, role: .fleet)
+                    FriendlyVehicleView(kind: kind, mood: .calm, role: .hero)
                         .padding(.horizontal, 36)
                         .padding(.vertical, 22)
                 }
@@ -53,7 +53,7 @@ struct FindSameActivityView: View {
                                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                                     .stroke(Color(red: 0.45, green: 0.28, blue: 0.14), lineWidth: 4)
                                 if let kind = SilhouetteAsset.kind(for: option.assetID) {
-                                    FriendlyVehicleView(kind: kind, mood: .happy, role: .fleet)
+                                    FriendlyVehicleView(kind: kind, mood: .happy, role: .hero)
                                         .padding(.horizontal, 16)
                                         .padding(.vertical, 22)
                                 }
