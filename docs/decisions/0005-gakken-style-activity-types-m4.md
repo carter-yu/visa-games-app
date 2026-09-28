@@ -42,3 +42,10 @@ From public Play Smart wipe-clean / preschool workbook descriptions (tracing, le
 - Lock flow: difficulty cards → rotated activity gate → success → same visa / reward unlock.
 - Offline activity checks expand (expect **12** activity assertions in VisaCoreChecks).
 - Mac mini UAT required before merge; Linux workshop may lack Swift.
+
+## v0.8.0 addendum (2026-09-29)
+
+Expanded playable catalog with six additional genres mapped from workbook **mechanics only**
+into Visa Depot: half-match, shape cousin, capacity compare, more/fewer lots, shadow match,
+empty bay. Sequencing remains playable (from v0.7). Art stays original hero PNGs + soft props.
+No workbook characters/pages copied. Offline activity checks → **18**. Version **0.8.0**.

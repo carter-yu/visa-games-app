@@ -38,3 +38,9 @@ Pull tip, `sh scripts/test.sh`, `sh scripts/bundle.sh`, exercise all three playa
 ### P4-2 — Storybook child UX + recognizable original vehicles (v0.7.0)
 
 Warm sand depot shell, mission tickets, friendly faces on HK/NY/fire/metro/works vehicles (original IP), playable short→long convoy, visa stamp celebration, parent license footer (ADR 0006). Do not merge until Mac mini UAT.
+
+### P4-3 — Workbook-mechanic pack (v0.8.0)
+
+Six new playable ActivityKinds mapped from preschool workbook mechanics into Visa Depot
+(half-match, shape cousin, capacity, more/fewer, shadow match, empty bay). Catalog rotates
+10 kinds. Original heroes/props only; HK Trad + English. Do not merge until Mac mini UAT.

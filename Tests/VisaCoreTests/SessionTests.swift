@@ -278,7 +278,13 @@ struct TestRunner {
         activity.testCountQuestionWellFormedAndEvaluation()
         activity.testSequenceConvoyPlayableAndEvaluation()
         activity.testCatalogHintsAreBilingualTraditional()
+        activity.testHalfMatchWellFormedAndEvaluation()
+        activity.testShapeCousinWellFormedAndEvaluation()
+        activity.testCapacityCompareWellFormedAndEvaluation()
+        activity.testMoreFewerWellFormedAndEvaluation()
+        activity.testShadowMatchWellFormedAndEvaluation()
+        activity.testEmptyBayWellFormedAndEvaluation()
 
-        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 12 scoped-playback + 13 activity checks")
+        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 12 scoped-playback + 18 activity checks")
     }
 }

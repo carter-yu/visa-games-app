@@ -34,6 +34,12 @@ final class AppModel: ObservableObject {
     private var findSameQuestion = ActivityCatalog.findSameQuestion()
     private var countQuestion = ActivityCatalog.countQuestion()
     private var sequenceQuestion = ActivityCatalog.sequenceQuestion()
+    private var halfMatchQuestion = ActivityCatalog.halfMatchQuestion()
+    private var shapeCousinQuestion = ActivityCatalog.shapeCousinQuestion()
+    private var capacityCompareQuestion = ActivityCatalog.capacityCompareQuestion()
+    private var moreFewerQuestion = ActivityCatalog.moreFewerQuestion()
+    private var shadowMatchQuestion = ActivityCatalog.shadowMatchQuestion()
+    private var emptyBayQuestion = ActivityCatalog.emptyBayQuestion()
     @Published private(set) var sequenceTappedAssetIDs: [String] = []
     private let activityEvaluator = ActivityEvaluator()
     private let activityAudio: ActivityAudioPrompting = StubActivityAudioPrompt()
@@ -214,6 +220,12 @@ final class AppModel: ObservableObject {
     var currentFindSameQuestion: FindSameQuestion { findSameQuestion }
     var currentCountQuestion: CountQuestion { countQuestion }
     var currentSequenceQuestion: SequenceQuestion { sequenceQuestion }
+    var currentHalfMatchQuestion: HalfMatchQuestion { halfMatchQuestion }
+    var currentShapeCousinQuestion: ShapeCousinQuestion { shapeCousinQuestion }
+    var currentCapacityCompareQuestion: CapacityCompareQuestion { capacityCompareQuestion }
+    var currentMoreFewerQuestion: MoreFewerQuestion { moreFewerQuestion }
+    var currentShadowMatchQuestion: ShadowMatchQuestion { shadowMatchQuestion }
+    var currentEmptyBayQuestion: EmptyBayQuestion { emptyBayQuestion }
 
     func selectDifficulty(stars: Int) {
         guard !storageFailed, session.mode == .lock, !taskRoundOpen,
@@ -229,6 +241,12 @@ final class AppModel: ObservableObject {
         findSameQuestion = ActivityCatalog.findSameQuestion()
         countQuestion = ActivityCatalog.countQuestion()
         sequenceQuestion = ActivityCatalog.sequenceQuestion()
+        halfMatchQuestion = ActivityCatalog.halfMatchQuestion()
+        shapeCousinQuestion = ActivityCatalog.shapeCousinQuestion()
+        capacityCompareQuestion = ActivityCatalog.capacityCompareQuestion()
+        moreFewerQuestion = ActivityCatalog.moreFewerQuestion()
+        shadowMatchQuestion = ActivityCatalog.shadowMatchQuestion()
+        emptyBayQuestion = ActivityCatalog.emptyBayQuestion()
         sequenceTappedAssetIDs = []
         taskRoundOpen = true
         VisaGamesLog.append("selectDifficulty — 選擇難度 stars=\(stars) kind=\(kind.rawValue) seed=\(seed)")
@@ -269,8 +287,26 @@ final class AppModel: ObservableObject {
             zh = countQuestion.promptTraditionalChinese
             en = countQuestion.promptEnglish
         case .sequenceShortToLong:
-            zh = ActivityCatalog.sequenceStubQuestion().promptTraditionalChinese
-            en = ActivityCatalog.sequenceStubQuestion().promptEnglish
+            zh = sequenceQuestion.promptTraditionalChinese
+            en = sequenceQuestion.promptEnglish
+        case .halfMatch:
+            zh = halfMatchQuestion.promptTraditionalChinese
+            en = halfMatchQuestion.promptEnglish
+        case .shapeCousin:
+            zh = shapeCousinQuestion.promptTraditionalChinese
+            en = shapeCousinQuestion.promptEnglish
+        case .capacityCompare:
+            zh = capacityCompareQuestion.promptTraditionalChinese
+            en = capacityCompareQuestion.promptEnglish
+        case .moreFewer:
+            zh = moreFewerQuestion.promptTraditionalChinese
+            en = moreFewerQuestion.promptEnglish
+        case .shadowMatch:
+            zh = shadowMatchQuestion.promptTraditionalChinese
+            en = shadowMatchQuestion.promptEnglish
+        case .emptyBay:
+            zh = emptyBayQuestion.promptTraditionalChinese
+            en = emptyBayQuestion.promptEnglish
         }
         activityAudio.speakPrompt(traditionalChinese: zh, english: en)
         entryRetryMessage = "粵語錄音稍後加入（等 D9）。 / Cantonese audio later (waiting on D9)."
@@ -346,6 +382,90 @@ final class AppModel: ObservableObject {
             entryRetryMessage = "好！下一架～ / Good! Next one~"
             VisaGamesLog.append("sequence progress — 車隊進度 count=\(sequenceTappedAssetIDs.count)")
         }
+    }
+
+    func selectHalfMatchOption(id: String) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .halfMatch else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectHalfMatchOption blocked — 已封鎖 storageFailed=true id=\(id)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: halfMatchQuestion,
+            selectedOptionID: id,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: id)
+    }
+
+    func selectShapeCousinOption(id: String) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .shapeCousin else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectShapeCousinOption blocked — 已封鎖 storageFailed=true id=\(id)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: shapeCousinQuestion,
+            selectedOptionID: id,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: id)
+    }
+
+    func selectCapacityOption(id: String) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .capacityCompare else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectCapacityOption blocked — 已封鎖 storageFailed=true id=\(id)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: capacityCompareQuestion,
+            selectedOptionID: id,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: id)
+    }
+
+    func selectMoreFewerSide(_ side: ParkingLotSide) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .moreFewer else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectMoreFewerSide blocked — 已封鎖 storageFailed=true side=\(side.rawValue)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: moreFewerQuestion,
+            selectedSide: side,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: "lot-\(side.rawValue)")
+    }
+
+    func selectShadowMatchOption(id: String) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .shadowMatch else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectShadowMatchOption blocked — 已封鎖 storageFailed=true id=\(id)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: shadowMatchQuestion,
+            selectedOptionID: id,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: id)
+    }
+
+    func selectEmptyBay(id: String) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .emptyBay else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectEmptyBay blocked — 已封鎖 storageFailed=true id=\(id)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: emptyBayQuestion,
+            selectedBayID: id,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: id)
     }
 
     private func handleEvaluation(_ evaluation: ActivityEvaluation, selectionLabel: String) {
@@ -825,7 +945,7 @@ struct ShellView: View {
                         .disabled(model.authenticating)
                         .tint(accent)
                 }
-                Text("v0.7.4").font(.system(size: 16, design: .rounded))
+                Text("v0.8.0").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
@@ -1065,6 +1185,84 @@ struct ShellView: View {
                     hintUsed: model.entryHintUsed,
                     tappedAssetIDs: model.sequenceTappedAssetIDs,
                     onTapAsset: { model.selectSequenceAsset(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .halfMatch:
+                HalfMatchActivityView(
+                    question: model.currentHalfMatchQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelect: { model.selectHalfMatchOption(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .shapeCousin:
+                ShapeCousinActivityView(
+                    question: model.currentShapeCousinQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelect: { model.selectShapeCousinOption(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .capacityCompare:
+                CapacityCompareActivityView(
+                    question: model.currentCapacityCompareQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelect: { model.selectCapacityOption(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .moreFewer:
+                MoreFewerActivityView(
+                    question: model.currentMoreFewerQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelectSide: { model.selectMoreFewerSide($0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .shadowMatch:
+                ShadowMatchActivityView(
+                    question: model.currentShadowMatchQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelect: { model.selectShadowMatchOption(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .emptyBay:
+                EmptyBayActivityView(
+                    question: model.currentEmptyBayQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelectBay: { model.selectEmptyBay(id: $0) },
                     onHint: model.useEntryHint,
                     onSpeakPrompt: model.speakEntryPrompt
                 )

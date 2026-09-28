@@ -23,10 +23,11 @@ public struct ActivityOption: Sendable, Equatable, Codable {
 
 /// Activity genres suitable for a 3–5yo Wacom/touch kiosk.
 /// Inspiration is activity-TYPE only (preschool workbook genres such as matching,
-/// find-the-same, count-to-N, sequencing). No Gakken / Play Smart pages, art,
+/// find-the-same, count-to-N, sequencing, half-match, shape cousin, capacity,
+/// more/fewer, shadow match, empty bay). No Gakken / Play Smart pages, art,
 /// characters, titles, or trademarked packaging are copied.
 public enum ActivityKind: String, CaseIterable, Sendable, Codable, Equatable, Hashable {
-    /// Two-picture choose (existing M3 crane-vs-bus).
+    /// Two-picture choose (existing M3 fire-vs-taxi).
     case twoPictureChoose
     /// Show a target silhouette; pick the matching option among distractors.
     case findTheSame
@@ -34,6 +35,18 @@ public enum ActivityKind: String, CaseIterable, Sendable, Codable, Equatable, Ha
     case countVehicles
     /// Order vehicles short→long (convoy lineup). Playable in v0.7+.
     case sequenceShortToLong
+    /// Left half of a vehicle → pick the matching right half (v0.8).
+    case halfMatch
+    /// Round reference (sun) → pick the round cousin among props/vehicles (v0.8).
+    case shapeCousin
+    /// Bus vs taxi — who carries more people (v0.8).
+    case capacityCompare
+    /// Two parking lots — which has more vehicles (v0.8).
+    case moreFewer
+    /// Black silhouette → matching colored hero (v0.8).
+    case shadowMatch
+    /// Three depot bays — tap the empty one (v0.8).
+    case emptyBay
 }
 
 /// First child entry gate: choose one of two pictures (ADR 0004 / M3 scaffold).
@@ -177,6 +190,245 @@ public struct SequenceQuestion: Sendable, Equatable, Codable {
     }
 }
 
+/// Half-match: show the LEFT half of `targetAssetID`; pick the option whose
+/// RIGHT half completes the same vehicle (correct option assetID == target).
+public struct HalfMatchQuestion: Sendable, Equatable, Codable {
+    public var promptTraditionalChinese: String
+    public var promptEnglish: String
+    public var targetAssetID: String
+    public var options: [ActivityOption]
+    public var correctOptionID: String
+    public var completionID: String
+
+    public init(
+        promptTraditionalChinese: String,
+        promptEnglish: String,
+        targetAssetID: String,
+        options: [ActivityOption],
+        correctOptionID: String,
+        completionID: String
+    ) {
+        self.promptTraditionalChinese = promptTraditionalChinese
+        self.promptEnglish = promptEnglish
+        self.targetAssetID = targetAssetID
+        self.options = options
+        self.correctOptionID = correctOptionID
+        self.completionID = completionID
+    }
+
+    public var isWellFormed: Bool {
+        guard options.count >= 2, options.count <= 4 else { return false }
+        guard !completionID.isEmpty, !correctOptionID.isEmpty, !targetAssetID.isEmpty else {
+            return false
+        }
+        let ids = Set(options.map(\.id))
+        guard ids.count == options.count, ids.contains(correctOptionID) else { return false }
+        guard let correct = options.first(where: { $0.id == correctOptionID }),
+              correct.assetID == targetAssetID else { return false }
+        return options.allSatisfy { !$0.id.isEmpty && !$0.assetID.isEmpty }
+    }
+}
+
+/// Shape cousin: match a round (or other) reference among options.
+/// Target may be a prop (`prop.sun`) or vehicle silhouette asset ID.
+public struct ShapeCousinQuestion: Sendable, Equatable, Codable {
+    public var promptTraditionalChinese: String
+    public var promptEnglish: String
+    public var targetAssetID: String
+    public var options: [ActivityOption]
+    public var correctOptionID: String
+    public var completionID: String
+
+    public init(
+        promptTraditionalChinese: String,
+        promptEnglish: String,
+        targetAssetID: String,
+        options: [ActivityOption],
+        correctOptionID: String,
+        completionID: String
+    ) {
+        self.promptTraditionalChinese = promptTraditionalChinese
+        self.promptEnglish = promptEnglish
+        self.targetAssetID = targetAssetID
+        self.options = options
+        self.correctOptionID = correctOptionID
+        self.completionID = completionID
+    }
+
+    public var isWellFormed: Bool {
+        guard options.count >= 2, options.count <= 4 else { return false }
+        guard !completionID.isEmpty, !correctOptionID.isEmpty, !targetAssetID.isEmpty else {
+            return false
+        }
+        let ids = Set(options.map(\.id))
+        guard ids.count == options.count, ids.contains(correctOptionID) else { return false }
+        return options.allSatisfy { !$0.id.isEmpty && !$0.assetID.isEmpty }
+    }
+}
+
+/// Capacity compare: which vehicle carries more (bus vs taxi, etc.).
+public struct CapacityCompareQuestion: Sendable, Equatable, Codable {
+    public var promptTraditionalChinese: String
+    public var promptEnglish: String
+    public var options: [ActivityOption]
+    public var correctOptionID: String
+    public var completionID: String
+
+    public init(
+        promptTraditionalChinese: String,
+        promptEnglish: String,
+        options: [ActivityOption],
+        correctOptionID: String,
+        completionID: String
+    ) {
+        self.promptTraditionalChinese = promptTraditionalChinese
+        self.promptEnglish = promptEnglish
+        self.options = options
+        self.correctOptionID = correctOptionID
+        self.completionID = completionID
+    }
+
+    public var isWellFormed: Bool {
+        guard options.count == 2 else { return false }
+        guard !completionID.isEmpty, !correctOptionID.isEmpty else { return false }
+        let ids = Set(options.map(\.id))
+        guard ids.count == 2, ids.contains(correctOptionID) else { return false }
+        return options.allSatisfy { !$0.id.isEmpty && !$0.assetID.isEmpty }
+    }
+}
+
+/// Parking-lot side for more/fewer.
+public enum ParkingLotSide: String, Sendable, Codable, Equatable {
+    case left
+    case right
+}
+
+/// More/fewer: two parking lots; tap the side with more vehicles.
+public struct MoreFewerQuestion: Sendable, Equatable, Codable {
+    public var promptTraditionalChinese: String
+    public var promptEnglish: String
+    public var leftLotAssetIDs: [String]
+    public var rightLotAssetIDs: [String]
+    public var correctSide: ParkingLotSide
+    public var completionID: String
+
+    public init(
+        promptTraditionalChinese: String,
+        promptEnglish: String,
+        leftLotAssetIDs: [String],
+        rightLotAssetIDs: [String],
+        correctSide: ParkingLotSide,
+        completionID: String
+    ) {
+        self.promptTraditionalChinese = promptTraditionalChinese
+        self.promptEnglish = promptEnglish
+        self.leftLotAssetIDs = leftLotAssetIDs
+        self.rightLotAssetIDs = rightLotAssetIDs
+        self.correctSide = correctSide
+        self.completionID = completionID
+    }
+
+    public var isWellFormed: Bool {
+        guard !completionID.isEmpty else { return false }
+        guard !leftLotAssetIDs.isEmpty, !rightLotAssetIDs.isEmpty else { return false }
+        guard leftLotAssetIDs.count <= 5, rightLotAssetIDs.count <= 5 else { return false }
+        guard leftLotAssetIDs.count != rightLotAssetIDs.count else { return false }
+        guard leftLotAssetIDs.allSatisfy({ !$0.isEmpty }),
+              rightLotAssetIDs.allSatisfy({ !$0.isEmpty }) else { return false }
+        let more: ParkingLotSide =
+            leftLotAssetIDs.count > rightLotAssetIDs.count ? .left : .right
+        return correctSide == more
+    }
+}
+
+/// Shadow match: black silhouette target → pick matching colored hero.
+public struct ShadowMatchQuestion: Sendable, Equatable, Codable {
+    public var promptTraditionalChinese: String
+    public var promptEnglish: String
+    public var targetAssetID: String
+    public var options: [ActivityOption]
+    public var correctOptionID: String
+    public var completionID: String
+
+    public init(
+        promptTraditionalChinese: String,
+        promptEnglish: String,
+        targetAssetID: String,
+        options: [ActivityOption],
+        correctOptionID: String,
+        completionID: String
+    ) {
+        self.promptTraditionalChinese = promptTraditionalChinese
+        self.promptEnglish = promptEnglish
+        self.targetAssetID = targetAssetID
+        self.options = options
+        self.correctOptionID = correctOptionID
+        self.completionID = completionID
+    }
+
+    public var isWellFormed: Bool {
+        guard options.count >= 2, options.count <= 4 else { return false }
+        guard !completionID.isEmpty, !correctOptionID.isEmpty, !targetAssetID.isEmpty else {
+            return false
+        }
+        let ids = Set(options.map(\.id))
+        guard ids.count == options.count, ids.contains(correctOptionID) else { return false }
+        guard let correct = options.first(where: { $0.id == correctOptionID }),
+              correct.assetID == targetAssetID else { return false }
+        return options.allSatisfy { !$0.id.isEmpty && !$0.assetID.isEmpty }
+    }
+}
+
+/// One depot parking bay — `vehicleAssetID == nil` means empty.
+public struct EmptyBaySlot: Sendable, Equatable, Codable {
+    public var id: String
+    public var vehicleAssetID: String?
+
+    public init(id: String, vehicleAssetID: String?) {
+        self.id = id
+        self.vehicleAssetID = vehicleAssetID
+    }
+
+    public var isEmpty: Bool { vehicleAssetID == nil }
+}
+
+/// Empty bay: three depot slots; tap the empty one.
+public struct EmptyBayQuestion: Sendable, Equatable, Codable {
+    public var promptTraditionalChinese: String
+    public var promptEnglish: String
+    public var bays: [EmptyBaySlot]
+    public var correctBayID: String
+    public var completionID: String
+
+    public init(
+        promptTraditionalChinese: String,
+        promptEnglish: String,
+        bays: [EmptyBaySlot],
+        correctBayID: String,
+        completionID: String
+    ) {
+        self.promptTraditionalChinese = promptTraditionalChinese
+        self.promptEnglish = promptEnglish
+        self.bays = bays
+        self.correctBayID = correctBayID
+        self.completionID = completionID
+    }
+
+    public var isWellFormed: Bool {
+        guard bays.count == 3 else { return false }
+        guard !completionID.isEmpty, !correctBayID.isEmpty else { return false }
+        let ids = Set(bays.map(\.id))
+        guard ids.count == 3, ids.contains(correctBayID) else { return false }
+        guard bays.allSatisfy({ !$0.id.isEmpty }) else { return false }
+        let emptyBays = bays.filter(\.isEmpty)
+        guard emptyBays.count == 1, emptyBays[0].id == correctBayID else { return false }
+        // Occupied bays must have non-empty asset IDs.
+        return bays.filter { !$0.isEmpty }.allSatisfy {
+            ($0.vehicleAssetID ?? "").isEmpty == false
+        }
+    }
+}
+
 /// Outcome of evaluating one child selection.
 public enum ActivityEvaluation: Sendable, Equatable {
     case correct(assisted: Bool)
@@ -258,6 +510,93 @@ public struct ActivityEvaluator: Sendable {
         guard tappedSoFar == expectedPrefix else { return nil }
         return question.orderedAssetIDs[tappedSoFar.count]
     }
+
+    public func evaluate(
+        question: HalfMatchQuestion,
+        selectedOptionID: String,
+        hintUsed: Bool
+    ) -> ActivityEvaluation {
+        guard question.isWellFormed else { return .incorrect }
+        guard question.options.contains(where: { $0.id == selectedOptionID }) else {
+            return .incorrect
+        }
+        if selectedOptionID == question.correctOptionID {
+            return .correct(assisted: hintUsed)
+        }
+        return .incorrect
+    }
+
+    public func evaluate(
+        question: ShapeCousinQuestion,
+        selectedOptionID: String,
+        hintUsed: Bool
+    ) -> ActivityEvaluation {
+        guard question.isWellFormed else { return .incorrect }
+        guard question.options.contains(where: { $0.id == selectedOptionID }) else {
+            return .incorrect
+        }
+        if selectedOptionID == question.correctOptionID {
+            return .correct(assisted: hintUsed)
+        }
+        return .incorrect
+    }
+
+    public func evaluate(
+        question: CapacityCompareQuestion,
+        selectedOptionID: String,
+        hintUsed: Bool
+    ) -> ActivityEvaluation {
+        guard question.isWellFormed else { return .incorrect }
+        guard question.options.contains(where: { $0.id == selectedOptionID }) else {
+            return .incorrect
+        }
+        if selectedOptionID == question.correctOptionID {
+            return .correct(assisted: hintUsed)
+        }
+        return .incorrect
+    }
+
+    public func evaluate(
+        question: MoreFewerQuestion,
+        selectedSide: ParkingLotSide,
+        hintUsed: Bool
+    ) -> ActivityEvaluation {
+        guard question.isWellFormed else { return .incorrect }
+        if selectedSide == question.correctSide {
+            return .correct(assisted: hintUsed)
+        }
+        return .incorrect
+    }
+
+    public func evaluate(
+        question: ShadowMatchQuestion,
+        selectedOptionID: String,
+        hintUsed: Bool
+    ) -> ActivityEvaluation {
+        guard question.isWellFormed else { return .incorrect }
+        guard question.options.contains(where: { $0.id == selectedOptionID }) else {
+            return .incorrect
+        }
+        if selectedOptionID == question.correctOptionID {
+            return .correct(assisted: hintUsed)
+        }
+        return .incorrect
+    }
+
+    public func evaluate(
+        question: EmptyBayQuestion,
+        selectedBayID: String,
+        hintUsed: Bool
+    ) -> ActivityEvaluation {
+        guard question.isWellFormed else { return .incorrect }
+        guard question.bays.contains(where: { $0.id == selectedBayID }) else {
+            return .incorrect
+        }
+        if selectedBayID == question.correctBayID {
+            return .correct(assisted: hintUsed)
+        }
+        return .incorrect
+    }
 }
 
 /// Built-in first entry activity using original long-vehicle silhouette asset IDs already in the app.
@@ -288,17 +627,24 @@ public enum FirstEntryActivity {
     )
 }
 
-/// Catalog of original long-vehicle activities (M4). Activity-type inspiration only — no Gakken IP.
+/// Catalog of original Visa Depot activities (M4 / v0.8 pack).
+/// Activity-type inspiration only — no Gakken IP; no Tomica/Thomas/Tayo likenesses.
 public enum ActivityCatalog {
     /// Playable kinds the child can get after picking difficulty (rotation by round seed).
     public static let playableKinds: [ActivityKind] = [
         .twoPictureChoose,
         .findTheSame,
         .countVehicles,
-        .sequenceShortToLong
+        .sequenceShortToLong,
+        .halfMatch,
+        .shapeCousin,
+        .capacityCompare,
+        .moreFewer,
+        .shadowMatch,
+        .emptyBay
     ]
 
-    /// Reserved for future genres (path-trace, maze-lite, …). Empty in v0.7.
+    /// Reserved for future genres (path-trace, maze-lite, inside/outside, …).
     public static let stubKinds: [ActivityKind] = []
 
     /// Deterministic rotation from the round UUID / seed string.
@@ -316,7 +662,7 @@ public enum ActivityCatalog {
         FirstEntryActivity.question
     }
 
-    /// Target tanker; options tanker / crane / bus. Original silhouettes only.
+    /// Target HK taxi; options fire / HK taxi / NY taxi. Original silhouettes only.
     public static func findSameQuestion() -> FindSameQuestion {
         FindSameQuestion(
             promptTraditionalChinese: "搵同一個！邊架同上面一樣？",
@@ -347,7 +693,7 @@ public enum ActivityCatalog {
         )
     }
 
-    /// Three logistics trucks — tap 3 among 2/3/4.
+    /// Three fire trucks — tap 3 among 2/3/4.
     public static func countQuestion() -> CountQuestion {
         CountQuestion(
             promptTraditionalChinese: "數一數有幾架消防車呀？撳個數！",
@@ -363,7 +709,7 @@ public enum ActivityCatalog {
         )
     }
 
-    /// Short→long convoy: toy car → logistics → bus → crane (visual length order).
+    /// Short→long convoy: taxi → fire → crane → metro (visual length order).
     public static func sequenceQuestion() -> SequenceQuestion {
         SequenceQuestion(
             promptTraditionalChinese: "由短到長排車隊。最短先撳。",
@@ -383,6 +729,158 @@ public enum ActivityCatalog {
         sequenceQuestion()
     }
 
+    /// Left half of fire engine; options show right halves — fire / bus / tanker.
+    public static func halfMatchQuestion() -> HalfMatchQuestion {
+        HalfMatchQuestion(
+            promptTraditionalChinese: "搵另一半！邊幅係正確嘅右半邊？",
+            promptEnglish: "Find the other half! Which is the matching right side?",
+            targetAssetID: "silhouette.fireEngine",
+            options: [
+                ActivityOption(
+                    id: "half-bus",
+                    assetID: "silhouette.articulatedBus",
+                    labelTraditionalChinese: "巴士",
+                    labelEnglish: "Bus"
+                ),
+                ActivityOption(
+                    id: "half-fire",
+                    assetID: "silhouette.fireEngine",
+                    labelTraditionalChinese: "消防車",
+                    labelEnglish: "Fire truck"
+                ),
+                ActivityOption(
+                    id: "half-tanker",
+                    assetID: "silhouette.tanker",
+                    labelTraditionalChinese: "油罐車",
+                    labelEnglish: "Tanker"
+                )
+            ],
+            correctOptionID: "half-fire",
+            completionID: "entry-half-match-fire-v1"
+        )
+    }
+
+    /// Sun is round → pick the round tanker tank among cone / toolbox / tanker.
+    public static func shapeCousinQuestion() -> ShapeCousinQuestion {
+        ShapeCousinQuestion(
+            promptTraditionalChinese: "太陽圓圓嘅，邊樣都係圓圓嘅？",
+            promptEnglish: "The sun is round — which one is also round?",
+            targetAssetID: "prop.sun",
+            options: [
+                ActivityOption(
+                    id: "shape-cone",
+                    assetID: "prop.trafficCone",
+                    labelTraditionalChinese: "雪糕筒",
+                    labelEnglish: "Traffic cone"
+                ),
+                ActivityOption(
+                    id: "shape-toolbox",
+                    assetID: "prop.toolbox",
+                    labelTraditionalChinese: "工具箱",
+                    labelEnglish: "Toolbox"
+                ),
+                ActivityOption(
+                    id: "shape-tanker",
+                    assetID: "silhouette.tanker",
+                    labelTraditionalChinese: "油罐車",
+                    labelEnglish: "Tanker"
+                )
+            ],
+            correctOptionID: "shape-tanker",
+            completionID: "entry-shape-cousin-round-tanker-v1"
+        )
+    }
+
+    /// Articulated bus vs HK taxi — bus carries more people.
+    public static func capacityCompareQuestion() -> CapacityCompareQuestion {
+        CapacityCompareQuestion(
+            promptTraditionalChinese: "巴士同的士，邊架載多啲人？",
+            promptEnglish: "Bus or taxi — which carries more people?",
+            options: [
+                ActivityOption(
+                    id: "cap-taxi",
+                    assetID: "silhouette.hkTaxi",
+                    labelTraditionalChinese: "的士",
+                    labelEnglish: "Taxi"
+                ),
+                ActivityOption(
+                    id: "cap-bus",
+                    assetID: "silhouette.articulatedBus",
+                    labelTraditionalChinese: "巴士",
+                    labelEnglish: "Bus"
+                )
+            ],
+            correctOptionID: "cap-bus",
+            completionID: "entry-capacity-bus-vs-taxi-v1"
+        )
+    }
+
+    /// Left lot 2 taxis; right lot 4 mixed heroes — right has more.
+    public static func moreFewerQuestion() -> MoreFewerQuestion {
+        MoreFewerQuestion(
+            promptTraditionalChinese: "邊邊停車場嘅車多啲？撳一撳！",
+            promptEnglish: "Which parking lot has more vehicles? Tap!",
+            leftLotAssetIDs: [
+                "silhouette.hkTaxi",
+                "silhouette.nyTaxi"
+            ],
+            rightLotAssetIDs: [
+                "silhouette.fireEngine",
+                "silhouette.articulatedBus",
+                "silhouette.crane",
+                "silhouette.toyCar"
+            ],
+            correctSide: .right,
+            completionID: "entry-more-fewer-lots-v1"
+        )
+    }
+
+    /// Shadow of metro train → pick metro among fire / metro / logistics.
+    public static func shadowMatchQuestion() -> ShadowMatchQuestion {
+        ShadowMatchQuestion(
+            promptTraditionalChinese: "邊架啱呢個影子？",
+            promptEnglish: "Which vehicle matches this shadow?",
+            targetAssetID: "silhouette.metroTrain",
+            options: [
+                ActivityOption(
+                    id: "shadow-fire",
+                    assetID: "silhouette.fireEngine",
+                    labelTraditionalChinese: "消防車",
+                    labelEnglish: "Fire truck"
+                ),
+                ActivityOption(
+                    id: "shadow-metro",
+                    assetID: "silhouette.metroTrain",
+                    labelTraditionalChinese: "地鐵",
+                    labelEnglish: "Metro"
+                ),
+                ActivityOption(
+                    id: "shadow-truck",
+                    assetID: "silhouette.logisticsTruck",
+                    labelTraditionalChinese: "貨車",
+                    labelEnglish: "Truck"
+                )
+            ],
+            correctOptionID: "shadow-metro",
+            completionID: "entry-shadow-match-metro-v1"
+        )
+    }
+
+    /// Three bays: taxi, empty, fire — empty is correct.
+    public static func emptyBayQuestion() -> EmptyBayQuestion {
+        EmptyBayQuestion(
+            promptTraditionalChinese: "邊個車位係空嘅？",
+            promptEnglish: "Which parking bay is empty?",
+            bays: [
+                EmptyBaySlot(id: "bay-a", vehicleAssetID: "silhouette.hkTaxi"),
+                EmptyBaySlot(id: "bay-b", vehicleAssetID: nil),
+                EmptyBaySlot(id: "bay-c", vehicleAssetID: "silhouette.fireEngine")
+            ],
+            correctBayID: "bay-b",
+            completionID: "entry-empty-bay-v1"
+        )
+    }
+
     public static func hintTraditionalChinese(for kind: ActivityKind) -> String {
         switch kind {
         case .twoPictureChoose:
@@ -393,6 +891,18 @@ public enum ActivityCatalog {
             return "提示：一架一架數消防車。 / Hint: count one fire truck at a time."
         case .sequenceShortToLong:
             return "提示：最短嗰架的士先。 / Hint: tap the shortest taxi first."
+        case .halfMatch:
+            return "提示：睇梯同車頭顏色。 / Hint: match the ladder and cab color."
+        case .shapeCousin:
+            return "提示：油罐車個罐好圓。 / Hint: the tanker tank is round."
+        case .capacityCompare:
+            return "提示：巴士好長，載好多人。 / Hint: the long bus carries many people."
+        case .moreFewer:
+            return "提示：數一數兩邊有幾架。 / Hint: count the vehicles on each side."
+        case .shadowMatch:
+            return "提示：影子好長，似地鐵。 / Hint: the long shadow looks like the metro."
+        case .emptyBay:
+            return "提示：邊格冇車停。 / Hint: find the bay with no vehicle."
         }
     }
 }

@@ -1,5 +1,30 @@
 # Progress
 
+- 2026-09-29: PR #8 MINOR **v0.8.0 / build 24** — Visa Depot workbook-mechanic pack (6 new ActivityKinds). Do not merge; Mac mini UAT pending.
+  - Inspiration ONLY from Carter's 6 uploaded preschool workbook pages (half-match, shape cousin, capacity, collage count/more/shadow, inside/outside, empty plate) — **mechanics mapped into original Visa Depot vehicles + props**. No squirrels/bears/fruit art, no Gakken/Play Smart pages/characters/layout IP, no Tomica/Thomas/Tayo.
+  - **New playable kinds** (rotate with existing two-picture / find-same / count / sequence → **10** total):
+    1. `halfMatch` — left half fire truck → pick matching right half
+    2. `shapeCousin` — sun is round → pick round tanker among cone/toolbox/tanker
+    3. `capacityCompare` — bus vs taxi who carries more people
+    4. `moreFewer` — two parking lots (2 vs 4) tap the fuller lot
+    5. `shadowMatch` — metro silhouette → pick colored metro hero
+    6. `emptyBay` — three depot bays, tap the empty one
+  - VisaCore: question structs + evaluators + catalog factories + bilingual HK Trad/English prompts + hints (never Simplified).
+  - VisaGames: `ActivityAssetViews` (silhouette + prop + half-clip + shadow mask) + six activity views; AppModel select* + entryGate switch; success stamp / 10/20/30 / YouTube shuffle / D8 / parent IP disclaimer unchanged.
+  - Tests: +6 activity checks → offline banner **10+10+7+6+12+18**. Catalog playableKinds == 10; rotation covers all.
+  - Info.plist **0.8.0 / 24**, shell footer **v0.8.0**. Prompt: `prompts/pr-0008-m4-workbook-mechanic-pack-v080.md`.
+  - Verification: `git diff --check`. `sh scripts/test.sh` / `bundle.sh` exit 127 (`swift: not found`) on Linux — no Swift compile/test/native visual pass claimed.
+  - **Mac mini UAT checklist:**
+    1. `git fetch && git checkout feat/m4-gakken-style-activities && git pull`
+    2. Confirm tip ≥ this commit; `sh scripts/test.sh` → expect PASS **10+10+7+6+12+18**
+    3. `sh scripts/bundle.sh` → footer **v0.8.0**; Vehicles (10) + Props (8) still bundled
+    4. Lock depot → pick Easy/Medium/Challenge repeatedly until all **10** games appear (兩圖 / 搵相同 / 數車 / 車隊 / 另一半 / 圓形 / 載人 / 停車場 / 影子 / 空車位)
+    5. Each new game: wrong → gentle retry; Hint bilingual; success → stamp + visa 10/20/30 + allowlist shuffle play
+    6. Confirm art is Visa Depot heroes/props only — no workbook characters
+    7. Parent IP disclaimer still present; child path never Simplified Chinese
+    8. PR #8 must remain **unmerged**. D9/D10 open.
+
+
 - 2026-09-28: PR #8 PATCH **v0.7.4 / build 23** — ALL child UI vehicles → illustrated PNGs + soft props. Do not merge; Mac mini visual UAT pending.
   - Carter UAT on tip `701a10c` / v0.7.3: tickets heroes OK, but parade + find-same still showed old geometric SwiftUI cars (`role: .fleet`). Direction otherwise correct.
   - **Fix:** `FriendlyVehicleView` always prefers bundled hero PNG for every `VehicleKind`; procedural silhouette is missing-asset fallback only. All activity views + parade use `.hero`.
