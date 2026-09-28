@@ -257,8 +257,13 @@ struct TestRunner {
         scoped.testD8RejectsNonEmbedConstruction()
         scoped.testExtractVideoIDForParentPaste()
         scoped.testApprovedVideoParentLabelAndUpsert()
+        scoped.testYouTubeThumbnailURLDerivedFromID()
         scoped.testAllowedEmbedMainFrameURLPolicy()
         scoped.testEmbedHTMLStringReferrerShell()
+        scoped.testYouTubeOEmbedURLAndParseFixture()
+        scoped.testPlaybackShuffleAvoidsImmediateRepeatAndReshuffles()
+        scoped.testPlaybackShuffleSingleAndEmpty()
+        scoped.testShuffledDeckAvoidsImmediateFirstRepeat()
 
         let activity = ActivityTests()
         activity.testFirstEntryQuestionIsWellFormed()
@@ -268,7 +273,18 @@ struct TestRunner {
         activity.testMalformedQuestionFailsClosed()
         activity.testEntrySuccessUnlocksAllowanceOnceWithAssistedFlag()
         activity.testStubAudioDoesNotClaimPack()
+        activity.testCatalogPlayableKindsAndRotation()
+        activity.testFindSameQuestionWellFormedAndEvaluation()
+        activity.testCountQuestionWellFormedAndEvaluation()
+        activity.testSequenceConvoyPlayableAndEvaluation()
+        activity.testCatalogHintsAreBilingualTraditional()
+        activity.testHalfMatchWellFormedAndEvaluation()
+        activity.testShapeCousinWellFormedAndEvaluation()
+        activity.testCapacityCompareWellFormedAndEvaluation()
+        activity.testMoreFewerWellFormedAndEvaluation()
+        activity.testShadowMatchWellFormedAndEvaluation()
+        activity.testEmptyBayWellFormedAndEvaluation()
 
-        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 7 scoped-playback + 7 activity checks")
+        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 12 scoped-playback + 18 activity checks")
     }
 }

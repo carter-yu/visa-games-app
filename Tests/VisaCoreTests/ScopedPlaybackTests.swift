@@ -210,6 +210,18 @@ final class ScopedPlaybackTests {
         expectTrue(list.video(id: sampleID)?.hasParentTitle == false)
     }
 
+    func testYouTubeThumbnailURLDerivedFromID() {
+        let url = YouTubeEmbedURL.thumbnailURL(videoID: sampleID)
+        expectEqual(url?.absoluteString, "https://img.youtube.com/vi/\(sampleID)/hqdefault.jpg")
+        expectNil(YouTubeEmbedURL.thumbnailURL(videoID: ""))
+        expectNil(YouTubeEmbedURL.thumbnailURL(videoID: "short"))
+        expectNil(YouTubeEmbedURL.thumbnailURL(videoID: "bad id!!!!"))
+        // ApprovedVideo exposes the same derived URL; nothing persisted.
+        let video = ApprovedVideo(id: sampleID, durationSeconds: 60)
+        expectEqual(video.thumbnailURL?.absoluteString, url?.absoluteString)
+        expectNil(ApprovedVideo(id: "not-valid!", durationSeconds: 60).thumbnailURL)
+    }
+
     func testAllowedEmbedMainFrameURLPolicy() {
         expectTrue(YouTubeEmbedURL.isBenignBlankURL(nil))
         expectTrue(YouTubeEmbedURL.isBenignBlankURL(URL(string: "about:blank")))
@@ -276,4 +288,118 @@ final class ScopedPlaybackTests {
         ))
         expectFalse(YouTubeEmbedURL.isClearEscapeURL(base, videoID: sampleID))
     }
+
+    func testYouTubeOEmbedURLAndParseFixture() {
+        let url = YouTubeOEmbed.requestURL(videoID: sampleID)
+        expectTrue(url != nil)
+        if let url {
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            expectEqual(components?.scheme, "https")
+            expectEqual(components?.host, "www.youtube.com")
+            expectEqual(components?.path, "/oembed")
+            let items = components?.queryItems ?? []
+            expectEqual(items.first(where: { $0.name == "format" })?.value, "json")
+            expectEqual(
+                items.first(where: { $0.name == "url" })?.value,
+                "https://www.youtube.com/watch?v=\(sampleID)"
+            )
+        }
+        expectNil(YouTubeOEmbed.requestURL(videoID: ""))
+        expectNil(YouTubeOEmbed.requestURL(videoID: "short"))
+        expectNil(YouTubeOEmbed.requestURL(videoID: "bad id!!!!"))
+
+        // Fixture JSON only — no live network in unit tests. oEmbed has no duration field.
+        let fixture = """
+        {
+          "title": "Sample Kids Song",
+          "author_name": "Example",
+          "thumbnail_url": "https://i.ytimg.com/vi/\(sampleID)/hqdefault.jpg",
+          "type": "video",
+          "provider_name": "YouTube"
+        }
+        """.data(using: .utf8)!
+        let parsed = YouTubeOEmbed.parse(fixture)
+        expectEqual(parsed?.title, "Sample Kids Song")
+        expectEqual(
+            parsed?.thumbnailURL?.absoluteString,
+            "https://i.ytimg.com/vi/\(sampleID)/hqdefault.jpg"
+        )
+
+        let cjk = """
+        {"title":"  兒童車車歌  ","thumbnail_url":"https://i.ytimg.com/vi/\(sampleID)/mqdefault.jpg"}
+        """.data(using: .utf8)!
+        expectEqual(YouTubeOEmbed.parse(cjk)?.title, "兒童車車歌")
+
+        let emptyTitle = """
+        {"title":"   ","thumbnail_url":"not a url"}
+        """.data(using: .utf8)!
+        let emptyParsed = YouTubeOEmbed.parse(emptyTitle)
+        expectTrue(emptyParsed != nil)
+        expectNil(emptyParsed?.title)
+        expectNil(emptyParsed?.thumbnailURL)
+
+        expectNil(YouTubeOEmbed.parse(Data("not-json".utf8)))
+        expectNil(YouTubeOEmbed.parse(Data("{}".utf8))?.title)
+    }
+
+    func testPlaybackShuffleAvoidsImmediateRepeatAndReshuffles() {
+        let ids = ["vidAAAAAAA1", "vidAAAAAAA2", "vidAAAAAAA3"]
+        var shuffle = VideoPlaybackShuffle()
+        var rng = SeededGenerator(seed: 42)
+        var seen: [String] = []
+        for _ in 0..<9 {
+            guard let id = shuffle.nextVideoID(from: ids, using: &rng) else {
+                fatalError("expected id")
+            }
+            seen.append(id)
+        }
+        expectEqual(seen.count, 9)
+        // Every id appears exactly 3 times across 3 full decks.
+        for id in ids {
+            expectEqual(seen.filter { $0 == id }.count, 3)
+        }
+        // Within each deck of 3, no duplicates; across deck boundaries avoid immediate repeat.
+        for i in 1..<seen.count {
+            if i % 3 != 0 {
+                // interior of a deck — uniqueness checked via set size below
+                _ = i
+            } else {
+                // Boundary between decks: must not immediately repeat lastPlayed.
+                expectTrue(seen[i] != seen[i - 1])
+            }
+        }
+        for deckStart in stride(from: 0, to: 9, by: 3) {
+            let deck = Set(seen[deckStart..<deckStart + 3])
+            expectEqual(deck.count, 3)
+        }
+        expectEqual(shuffle.lastPlayedVideoID, seen.last)
+    }
+
+    func testPlaybackShuffleSingleAndEmpty() {
+        var shuffle = VideoPlaybackShuffle()
+        var rng = SeededGenerator(seed: 7)
+        expectNil(shuffle.nextVideoID(from: [], using: &rng))
+        let only = "onlyVideo01"
+        expectEqual(shuffle.nextVideoID(from: [only], using: &rng), only)
+        expectEqual(shuffle.nextVideoID(from: [only], using: &rng), only)
+        expectEqual(shuffle.lastPlayedVideoID, only)
+        // Stale queue entry dropped when removed from allowlist.
+        shuffle = VideoPlaybackShuffle(remainingIDs: ["goneVideo01", only], lastPlayedVideoID: "goneVideo01")
+        expectEqual(shuffle.nextVideoID(from: [only], using: &rng), only)
+    }
+
+    func testShuffledDeckAvoidsImmediateFirstRepeat() {
+        let ids = ["aaaaaaaaaa1", "aaaaaaaaaa2"]
+        for seed in UInt64(1)...40 {
+            var rng = SeededGenerator(seed: seed)
+            let deck = VideoPlaybackShuffle.shuffledDeck(
+                from: ids,
+                avoidingImmediateRepeatOf: "aaaaaaaaaa1",
+                using: &rng
+            )
+            expectEqual(Set(deck), Set(ids))
+            expectEqual(deck.first, "aaaaaaaaaa2")
+        }
+    }
+
 }

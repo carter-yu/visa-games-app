@@ -15,22 +15,39 @@ final class AppModel: ObservableObject {
     @Published private(set) var allowlist = VideoAllowlist()
     /// Parent-only draft for the allowlist text field (never shown on child path).
     @Published var parentVideoIDDraft = ""
+    /// Optional advanced override — happy path uses oEmbed title (not required).
     @Published var parentVideoTitleDraft = ""
+    /// Optional advanced override for D4 budget-fit seconds. Default 120 when empty/invalid.
     @Published var parentVideoDurationDraft = "120"
+    @Published var showAllowlistAdvanced = false
+    @Published private(set) var isFetchingAllowlistMetadata = false
     @Published private(set) var activePlayVideoID: String?
     @Published private(set) var playbackMessage: String?
     @Published private(set) var entryRetryMessage: String?
     @Published private(set) var entryHintUsed = false
     @Published private(set) var taskRoundOpen = false
     @Published private(set) var selectedStars: Int?
+    @Published private(set) var activeActivityKind: ActivityKind?
     var targetVisaMinutes: Int? { selectedStars.flatMap { ChildDifficulty(rawValue: $0) }?.minutes }
     private var roundCompletionID: String?
-    private let entryQuestion = FirstEntryActivity.question
+    private var twoPictureQuestion = ActivityCatalog.twoPictureQuestion()
+    private var findSameQuestion = ActivityCatalog.findSameQuestion()
+    private var countQuestion = ActivityCatalog.countQuestion()
+    private var sequenceQuestion = ActivityCatalog.sequenceQuestion()
+    private var halfMatchQuestion = ActivityCatalog.halfMatchQuestion()
+    private var shapeCousinQuestion = ActivityCatalog.shapeCousinQuestion()
+    private var capacityCompareQuestion = ActivityCatalog.capacityCompareQuestion()
+    private var moreFewerQuestion = ActivityCatalog.moreFewerQuestion()
+    private var shadowMatchQuestion = ActivityCatalog.shadowMatchQuestion()
+    private var emptyBayQuestion = ActivityCatalog.emptyBayQuestion()
+    @Published private(set) var sequenceTappedAssetIDs: [String] = []
     private let activityEvaluator = ActivityEvaluator()
     private let activityAudio: ActivityAudioPrompting = StubActivityAudioPrompt()
     private let store: SnapshotStore
     private let themeStore = ThemePreferenceStore()
     private let allowlistStore = VideoAllowlistStore()
+    private let shuffleStore = VideoPlaybackShuffleStore()
+    private var playbackShuffle = VideoPlaybackShuffle()
     private var nextFeedbackID = 0
     private var storageFailed = false
     private var authentication: LAContext?
@@ -41,6 +58,7 @@ final class AppModel: ObservableObject {
     init() {
         themePaletteID = ThemePreferenceStore().load()
         allowlist = VideoAllowlistStore().load()
+        playbackShuffle = VideoPlaybackShuffleStore().load()
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         store = SnapshotStore(url: directory.appendingPathComponent("VisaGames/state.json"))
         do {
@@ -198,61 +216,265 @@ final class AppModel: ObservableObject {
         session.snapshot.reward?.entryActivityCompleted == true
     }
 
-    var currentEntryQuestion: TwoPictureQuestion { entryQuestion }
+    var currentTwoPictureQuestion: TwoPictureQuestion { twoPictureQuestion }
+    var currentFindSameQuestion: FindSameQuestion { findSameQuestion }
+    var currentCountQuestion: CountQuestion { countQuestion }
+    var currentSequenceQuestion: SequenceQuestion { sequenceQuestion }
+    var currentHalfMatchQuestion: HalfMatchQuestion { halfMatchQuestion }
+    var currentShapeCousinQuestion: ShapeCousinQuestion { shapeCousinQuestion }
+    var currentCapacityCompareQuestion: CapacityCompareQuestion { capacityCompareQuestion }
+    var currentMoreFewerQuestion: MoreFewerQuestion { moreFewerQuestion }
+    var currentShadowMatchQuestion: ShadowMatchQuestion { shadowMatchQuestion }
+    var currentEmptyBayQuestion: EmptyBayQuestion { emptyBayQuestion }
 
     func selectDifficulty(stars: Int) {
         guard !storageFailed, session.mode == .lock, !taskRoundOpen,
               ChildDifficulty(rawValue: stars) != nil else { return }
         resetTaskRound()
         selectedStars = stars
-        roundCompletionID = UUID().uuidString
+        let seed = UUID().uuidString
+        roundCompletionID = seed
+        let kind = ActivityCatalog.kind(forRoundSeed: seed)
+        activeActivityKind = kind
+        // Refresh catalog payloads each round (stable templates today; seam for future variants).
+        twoPictureQuestion = ActivityCatalog.twoPictureQuestion()
+        findSameQuestion = ActivityCatalog.findSameQuestion()
+        countQuestion = ActivityCatalog.countQuestion()
+        sequenceQuestion = ActivityCatalog.sequenceQuestion()
+        halfMatchQuestion = ActivityCatalog.halfMatchQuestion()
+        shapeCousinQuestion = ActivityCatalog.shapeCousinQuestion()
+        capacityCompareQuestion = ActivityCatalog.capacityCompareQuestion()
+        moreFewerQuestion = ActivityCatalog.moreFewerQuestion()
+        shadowMatchQuestion = ActivityCatalog.shadowMatchQuestion()
+        emptyBayQuestion = ActivityCatalog.emptyBayQuestion()
+        sequenceTappedAssetIDs = []
         taskRoundOpen = true
+        VisaGamesLog.append("selectDifficulty — 選擇難度 stars=\(stars) kind=\(kind.rawValue) seed=\(seed)")
     }
 
     private func resetTaskRound() {
         taskRoundOpen = false
         selectedStars = nil
         roundCompletionID = nil
+        activeActivityKind = nil
         entryHintUsed = false
         entryRetryMessage = nil
         activePlayVideoID = nil
         playbackMessage = nil
         successFeedbackID = nil
+        sequenceTappedAssetIDs = []
     }
 
     func useEntryHint() {
-        guard session.mode == .lock, taskRoundOpen else { return }
+        guard session.mode == .lock, taskRoundOpen, let kind = activeActivityKind else { return }
         entryHintUsed = true
-        entryRetryMessage = "提示：吊機有長臂。 / Hint: the crane has a long arm."
+        entryRetryMessage = ActivityCatalog.hintTraditionalChinese(for: kind)
     }
 
     func speakEntryPrompt() {
-        guard session.mode == .lock, taskRoundOpen else { return }
+        guard session.mode == .lock, taskRoundOpen, let kind = activeActivityKind else { return }
         // Scaffold only — StubActivityAudioPrompt; reviewed Cantonese pack waits on D9.
-        activityAudio.speakPrompt(
-            traditionalChinese: entryQuestion.promptTraditionalChinese,
-            english: entryQuestion.promptEnglish
-        )
+        let zh: String
+        let en: String
+        switch kind {
+        case .twoPictureChoose:
+            zh = twoPictureQuestion.promptTraditionalChinese
+            en = twoPictureQuestion.promptEnglish
+        case .findTheSame:
+            zh = findSameQuestion.promptTraditionalChinese
+            en = findSameQuestion.promptEnglish
+        case .countVehicles:
+            zh = countQuestion.promptTraditionalChinese
+            en = countQuestion.promptEnglish
+        case .sequenceShortToLong:
+            zh = sequenceQuestion.promptTraditionalChinese
+            en = sequenceQuestion.promptEnglish
+        case .halfMatch:
+            zh = halfMatchQuestion.promptTraditionalChinese
+            en = halfMatchQuestion.promptEnglish
+        case .shapeCousin:
+            zh = shapeCousinQuestion.promptTraditionalChinese
+            en = shapeCousinQuestion.promptEnglish
+        case .capacityCompare:
+            zh = capacityCompareQuestion.promptTraditionalChinese
+            en = capacityCompareQuestion.promptEnglish
+        case .moreFewer:
+            zh = moreFewerQuestion.promptTraditionalChinese
+            en = moreFewerQuestion.promptEnglish
+        case .shadowMatch:
+            zh = shadowMatchQuestion.promptTraditionalChinese
+            en = shadowMatchQuestion.promptEnglish
+        case .emptyBay:
+            zh = emptyBayQuestion.promptTraditionalChinese
+            en = emptyBayQuestion.promptEnglish
+        }
+        activityAudio.speakPrompt(traditionalChinese: zh, english: en)
         entryRetryMessage = "粵語錄音稍後加入（等 D9）。 / Cantonese audio later (waiting on D9)."
     }
 
     func selectEntryOption(id: String) {
-        guard session.mode == .lock, taskRoundOpen else { return }
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .twoPictureChoose else { return }
         guard !storageFailed else {
             VisaGamesLog.append("selectEntryOption blocked — 已封鎖 storageFailed=true id=\(id)")
             return
         }
         let evaluation = activityEvaluator.evaluate(
-            question: entryQuestion,
+            question: twoPictureQuestion,
             selectedOptionID: id,
             hintUsed: entryHintUsed
         )
+        handleEvaluation(evaluation, selectionLabel: id)
+    }
+
+    func selectFindSameOption(id: String) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .findTheSame else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectFindSameOption blocked — 已封鎖 storageFailed=true id=\(id)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: findSameQuestion,
+            selectedOptionID: id,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: id)
+    }
+
+    func selectCountChoice(_ count: Int) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .countVehicles else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectCountChoice blocked — 已封鎖 storageFailed=true count=\(count)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: countQuestion,
+            selectedCount: count,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: "count-\(count)")
+    }
+
+    func selectSequenceAsset(id assetID: String) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .sequenceShortToLong else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectSequenceAsset blocked — 已封鎖 storageFailed=true asset=\(assetID)")
+            return
+        }
+        guard !sequenceTappedAssetIDs.contains(assetID) else { return }
+        let expected = activityEvaluator.nextExpectedAssetID(
+            question: sequenceQuestion,
+            tappedSoFar: sequenceTappedAssetIDs
+        )
+        if expected != assetID {
+            sequenceTappedAssetIDs = []
+            handleEvaluation(.incorrect, selectionLabel: "seq-\(assetID)")
+            return
+        }
+        sequenceTappedAssetIDs.append(assetID)
+        if sequenceTappedAssetIDs.count == sequenceQuestion.orderedAssetIDs.count {
+            let evaluation = activityEvaluator.evaluate(
+                question: sequenceQuestion,
+                orderedSelectionIDs: sequenceTappedAssetIDs,
+                hintUsed: entryHintUsed
+            )
+            handleEvaluation(evaluation, selectionLabel: "seq-complete")
+        } else {
+            entryRetryMessage = "好！下一架～ / Good! Next one~"
+            VisaGamesLog.append("sequence progress — 車隊進度 count=\(sequenceTappedAssetIDs.count)")
+        }
+    }
+
+    func selectHalfMatchOption(id: String) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .halfMatch else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectHalfMatchOption blocked — 已封鎖 storageFailed=true id=\(id)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: halfMatchQuestion,
+            selectedOptionID: id,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: id)
+    }
+
+    func selectShapeCousinOption(id: String) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .shapeCousin else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectShapeCousinOption blocked — 已封鎖 storageFailed=true id=\(id)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: shapeCousinQuestion,
+            selectedOptionID: id,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: id)
+    }
+
+    func selectCapacityOption(id: String) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .capacityCompare else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectCapacityOption blocked — 已封鎖 storageFailed=true id=\(id)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: capacityCompareQuestion,
+            selectedOptionID: id,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: id)
+    }
+
+    func selectMoreFewerSide(_ side: ParkingLotSide) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .moreFewer else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectMoreFewerSide blocked — 已封鎖 storageFailed=true side=\(side.rawValue)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: moreFewerQuestion,
+            selectedSide: side,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: "lot-\(side.rawValue)")
+    }
+
+    func selectShadowMatchOption(id: String) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .shadowMatch else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectShadowMatchOption blocked — 已封鎖 storageFailed=true id=\(id)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: shadowMatchQuestion,
+            selectedOptionID: id,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: id)
+    }
+
+    func selectEmptyBay(id: String) {
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .emptyBay else { return }
+        guard !storageFailed else {
+            VisaGamesLog.append("selectEmptyBay blocked — 已封鎖 storageFailed=true id=\(id)")
+            return
+        }
+        let evaluation = activityEvaluator.evaluate(
+            question: emptyBayQuestion,
+            selectedBayID: id,
+            hintUsed: entryHintUsed
+        )
+        handleEvaluation(evaluation, selectionLabel: id)
+    }
+
+    private func handleEvaluation(_ evaluation: ActivityEvaluation, selectionLabel: String) {
         switch evaluation {
         case .incorrect:
             entryRetryMessage = "再試一次，得嘅。 / Try again — you can do it."
-            VisaGamesLog.append("selectEntryOption incorrect — 答錯 id=\(id) hintUsed=\(entryHintUsed)")
+            VisaGamesLog.append("activity incorrect — 答錯 selection=\(selectionLabel) kind=\(activeActivityKind?.rawValue ?? "nil") hintUsed=\(entryHintUsed)")
         case .correct(let assisted):
-            VisaGamesLog.append("selectEntryOption correct — 答對 id=\(id) assisted=\(assisted)")
+            VisaGamesLog.append("activity correct — 答對 selection=\(selectionLabel) kind=\(activeActivityKind?.rawValue ?? "nil") assisted=\(assisted)")
             applyEntrySuccess(assisted: assisted)
         }
     }
@@ -295,37 +517,76 @@ final class AppModel: ObservableObject {
             "applyEntrySuccess — 入口成功 assisted=\(assisted) entryCompleted=\(isEntryActivityCompleted) viewing=\(remainingViewingBudget(at: Date())) mode=\(session.mode)"
         )
         logShellBranch(context: "applyEntrySuccess")
-        // Play path still requires an active visa + allowlisted video via existing PlaybackPolicy.
-        if session.mode == .play, let first = allowlist.videos.first,
-           remainingViewingBudget(at: Date()) > 0 {
-            playAllowlisted(id: first.id)
+        // Play path: active visa + shuffled allowlisted video via existing PlaybackPolicy.
+        if session.mode == .play, remainingViewingBudget(at: Date()) > 0,
+           let id = nextShuffledAllowlistedVideoID() {
+            playAllowlisted(id: id)
         }
     }
 
     func addAllowlistedVideo() {
         guard session.mode == .parent else { return }
+        guard !isFetchingAllowlistMetadata else { return }
         guard let id = YouTubeEmbedURL.extractVideoID(from: parentVideoIDDraft) else {
             playbackMessage = "影片編號無效。 / Invalid video ID."
             return
         }
-        let duration = TimeInterval(parentVideoDurationDraft.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
-        let (titleEnglish, titleCantonese) = Self.parentTitleFields(from: parentVideoTitleDraft)
-        var next = allowlist
-        let ok = next.upsert(ApprovedVideo(
-            id: id,
-            titleEnglish: titleEnglish,
-            titleCantonese: titleCantonese,
-            durationSeconds: duration > 0 ? duration : 120
-        ))
-        guard ok else {
-            playbackMessage = "影片編號無效。 / Invalid video ID."
-            return
+        let durationParsed = TimeInterval(parentVideoDurationDraft.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+        let durationSeconds: TimeInterval = durationParsed > 0 ? durationParsed : 120
+        let titleOverride = parentVideoTitleDraft
+        let overrideFields = Self.parentTitleFields(from: titleOverride)
+
+        isFetchingAllowlistMetadata = true
+        playbackMessage = "正在取得片名… / Fetching title…"
+
+        Task { @MainActor in
+            defer { self.isFetchingAllowlistMetadata = false }
+
+            var titleEnglish = overrideFields.0
+            var titleCantonese = overrideFields.1
+            let hasOverride = titleEnglish != nil || titleCantonese != nil
+
+            if !hasOverride, let oembedURL = YouTubeOEmbed.requestURL(videoID: id) {
+                do {
+                    let (data, response) = try await URLSession.shared.data(from: oembedURL)
+                    let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                    if (200..<300).contains(status),
+                       let parsed = YouTubeOEmbed.parse(data),
+                       let fetched = parsed.title {
+                        let fields = Self.parentTitleFields(from: fetched)
+                        titleEnglish = fields.0
+                        titleCantonese = fields.1
+                    }
+                } catch {
+                    // oEmbed failed — still allow add with id + optional override + thumb from id.
+                }
+            }
+
+            var next = self.allowlist
+            let ok = next.upsert(ApprovedVideo(
+                id: id,
+                titleEnglish: titleEnglish,
+                titleCantonese: titleCantonese,
+                durationSeconds: durationSeconds
+            ))
+            guard ok else {
+                self.playbackMessage = "影片編號無效。 / Invalid video ID."
+                return
+            }
+            self.allowlist = next
+            self.allowlistStore.save(next)
+            self.parentVideoIDDraft = ""
+            self.parentVideoTitleDraft = ""
+            self.parentVideoDurationDraft = "120"
+            self.showAllowlistAdvanced = false
+            if hasOverride {
+                self.playbackMessage = "已加入准許清單（使用進階標題）。 / Added to allowlist (Advanced title)."
+            } else if titleEnglish != nil || titleCantonese != nil {
+                self.playbackMessage = "已加入准許清單（已取得片名）。 / Added to allowlist (title fetched)."
+            } else {
+                self.playbackMessage = "已加入准許清單（未能取得片名，可於進階手動填）。 / Added (title unavailable — optional Advanced edit)."
+            }
         }
-        allowlist = next
-        allowlistStore.save(next)
-        parentVideoIDDraft = ""
-        parentVideoTitleDraft = ""
-        playbackMessage = "已加入准許清單。 / Added to allowlist."
     }
 
     /// One parent-facing title draft → existing ApprovedVideo title fields.
@@ -457,6 +718,18 @@ final class AppModel: ObservableObject {
         VisaGamesLog.append(
             "shell branch=\(branch) — 介面分支 mode=\(session.mode) entryCompleted=\(isEntryActivityCompleted) rewardNil=\(session.snapshot.reward == nil) storageFailed=\(storageFailed) ctx=\(context)"
         )
+    }
+
+    /// Child path: next allowlisted id in shuffled order (reshuffle when exhausted; no immediate repeat if count > 1).
+    func nextShuffledAllowlistedVideoID() -> String? {
+        var rng = SystemRandomNumberGenerator()
+        let ids = allowlist.videos.map(\.id)
+        let picked = playbackShuffle.nextVideoID(from: ids, using: &rng)
+        shuffleStore.save(playbackShuffle)
+        if let picked {
+            VisaGamesLog.append("shuffle pick — 隨機選片 id=\(picked) remaining=\(playbackShuffle.remainingIDs.count)")
+        }
+        return picked
     }
 
     func playAllowlisted(id: String) {
@@ -630,27 +903,38 @@ struct ShellView: View {
         let theme = ThemePack.forID(model.themePaletteID)
         let accent = Color(rgb: theme.accent)
         let yellow = Color(rgb: theme.yellow)
+        let sand = Color(rgb: theme.sand)
         ZStack {
-            Color(rgb: theme.background).ignoresSafeArea()
+            StorybookWorldBackground(theme: theme)
             SoftSunRoadAccent(yellow: yellow, accent: accent)
             if model.session.mode == .lock || model.session.mode == .play {
                 VehicleParade(color: Color(rgb: theme.watermark), yellow: yellow)
                     .frame(maxHeight: .infinity, alignment: .bottom)
-                    .padding(.bottom, 12)
+                    .padding(.bottom, 8)
                     .allowsHitTesting(false)
             }
-            VStack(spacing: usesCompactShell ? 16 : 32) {
-                Text("Visa Games / 簽證遊戲")
-                    .font(.system(size: usesCompactShell ? 36 : 44, weight: .bold, design: .rounded))
-                Text("先做再玩 / Do first, then play")
-                    .font(.system(size: usesCompactShell ? 24 : 28, weight: .semibold, design: .rounded))
+            VStack(spacing: usesCompactShell ? 14 : 28) {
+                if model.session.mode == .lock || model.session.mode == .play {
+                    WoodenStationSign(
+                        title: "簽證車廠 / Visa Depot",
+                        subtitle: "先做再玩 / Do first, then play",
+                        foreground: Color(rgb: theme.foreground),
+                        yellow: yellow,
+                        sand: sand
+                    )
+                } else {
+                    Text("Visa Games / 簽證遊戲")
+                        .font(.system(size: 44, weight: .bold, design: .rounded))
+                    Text("先做再玩 / Do first, then play")
+                        .font(.system(size: 28, weight: .semibold, design: .rounded))
+                }
                 if !usesCompactShell {
                     Spacer(minLength: 8)
                 }
-                modeContent(theme: theme, accent: accent, yellow: yellow)
+                modeContent(theme: theme, accent: accent, yellow: yellow, sand: sand)
                     .layoutPriority(1)
                 if let message = model.message {
-                    Text(message).foregroundStyle(yellow)
+                    Text(message).foregroundStyle(accent)
                         .font(.system(size: 22, design: .rounded))
                 }
                 if !usesCompactShell {
@@ -661,11 +945,11 @@ struct ShellView: View {
                         .disabled(model.authenticating)
                         .tint(accent)
                 }
-                Text("v0.5.1").font(.system(size: 16, design: .rounded))
+                Text("v0.8.0").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .padding(usesCompactShell ? 28 : 56)
+            .padding(usesCompactShell ? 24 : 48)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .foregroundStyle(Color(rgb: theme.foreground))
             if let id = model.successFeedbackID,
@@ -673,7 +957,7 @@ struct ShellView: View {
                 SuccessParkAnimation(color: accent, yellow: yellow)
                     .id(id)
                     .frame(maxHeight: .infinity, alignment: .bottom)
-                    .padding(.bottom, 28)
+                    .padding(.bottom, 24)
                     .allowsHitTesting(false)
             }
         }
@@ -683,16 +967,22 @@ struct ShellView: View {
     }
 
     @ViewBuilder
-    private func modeContent(theme: ThemePack, accent: Color, yellow: Color) -> some View {
+    private func modeContent(theme: ThemePack, accent: Color, yellow: Color, sand: Color) -> some View {
         switch model.session.mode {
         case .setup:
             Text("請家長設定 / Parent setup required")
                 .font(.system(size: 34, weight: .semibold, design: .rounded))
         case .lock:
             if model.taskRoundOpen {
-                entryGateContent(theme: theme, accent: accent, yellow: yellow)
+                entryGateContent(theme: theme, accent: accent, yellow: yellow, sand: sand)
             } else {
-                DifficultyCardsView(accent: accent, yellow: yellow, onSelect: model.selectDifficulty)
+                DifficultyCardsView(
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    onSelect: model.selectDifficulty
+                )
             }
         case .play:
             VStack(spacing: 12) {
@@ -705,9 +995,11 @@ struct ShellView: View {
                     }
                     .frame(minHeight: 360, maxHeight: 900)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                } else if let first = model.allowlist.videos.first {
+                } else if !model.allowlist.videos.isEmpty {
                     Button("播放准許影片 / Play allowlisted") {
-                        model.playAllowlisted(id: first.id)
+                        if let id = model.nextShuffledAllowlistedVideoID() {
+                            model.playAllowlisted(id: id)
+                        }
                     }
                     .tint(yellow)
                 } else {
@@ -726,11 +1018,13 @@ struct ShellView: View {
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
                     Text("十分鐘後自動鎖定 / Locks automatically after ten minutes")
                         .font(.system(size: 22, design: .rounded))
-                    Text("入口遊戲已開（兩圖選擇）。YouTube 內容包仍待家長 D9 審核。 / First entry game is live (two-picture). YouTube pack review still parent D9.")
+                    Text("入口遊戲已開（兩圖／搵相同／數車／車隊排序）。YouTube 內容包仍待家長 D9 審核。 / Entry games live (two-picture / find-same / count / convoy order). YouTube pack still parent D9.")
                         .font(.system(size: 18, design: .rounded))
-                        .foregroundStyle(yellow)
+                        .foregroundStyle(accent)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: 640)
+                    ParentLicenseFooter()
+                        .frame(maxWidth: 720)
                     Button("重設入口活動（兒童 UAT）/ Reset entry activity (child UAT)", action: model.resetEntryActivityForChildUAT)
                         .tint(yellow)
                     // Immediate confirmation under Reset so parent UAT does not require scrolling.
@@ -762,18 +1056,18 @@ struct ShellView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("准許影片清單（僅家長） / Allowlist (parent only)")
                             .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        Text("貼上網址或編號即可加入；片名與預覽圖會自動取得。 / Paste URL or ID to add — title and preview auto-fill.")
+                            .font(.system(size: 15, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: 640, alignment: .leading)
                         TextField("YouTube 網址或影片編號 / YouTube URL or video ID", text: $model.parentVideoIDDraft)
                             .textFieldStyle(.roundedBorder)
                             .frame(maxWidth: 520)
-                        TextField("YouTube 標題 / YouTube Title", text: $model.parentVideoTitleDraft)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: 520)
-                        TextField("片長秒數 / Duration seconds", text: $model.parentVideoDurationDraft)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: 240)
+                            .disabled(model.isFetchingAllowlistMetadata)
                         HStack(spacing: 16) {
                             Button("加入准許清單 / Add to allowlist", action: model.addAllowlistedVideo)
                                 .tint(yellow)
+                                .disabled(model.isFetchingAllowlistMetadata)
                             if let first = model.allowlist.videos.first {
                                 Button("試播准許影片 / Preview allowlisted") {
                                     model.playAllowlisted(id: first.id)
@@ -781,8 +1075,30 @@ struct ShellView: View {
                                 .tint(yellow)
                             }
                         }
+                        DisclosureGroup(isExpanded: $model.showAllowlistAdvanced) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                TextField("標題覆寫（可選） / Title override (optional)", text: $model.parentVideoTitleDraft)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(maxWidth: 520)
+                                    .disabled(model.isFetchingAllowlistMetadata)
+                                TextField("片長秒數（觀看預算） / Duration seconds (viewing budget)", text: $model.parentVideoDurationDraft)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(maxWidth: 320)
+                                    .disabled(model.isFetchingAllowlistMetadata)
+                                Text("片長用於觀看預算；預設 120 秒；可手動改／YouTube oEmbed 無提供時長。 / Duration is for viewing-budget fit (not live player length); default 120s; editable — oEmbed has no duration.")
+                                    .font(.system(size: 13, design: .rounded))
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: 640, alignment: .leading)
+                            }
+                            .padding(.top, 4)
+                        } label: {
+                            Text("進階（可選） / Advanced (optional)")
+                                .font(.system(size: 16, design: .rounded))
+                        }
+                        .frame(maxWidth: 640)
                         ForEach(model.allowlist.videos) { video in
-                            HStack(alignment: .firstTextBaseline) {
+                            HStack(alignment: .center, spacing: 12) {
+                                AllowlistVideoThumbnail(videoID: video.id)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(video.parentListTitle)
                                         .font(.system(size: 18, design: .rounded))
@@ -826,22 +1142,226 @@ struct ShellView: View {
         }
     }
 
-    /// Direct two-picture gate (v0.4.1 proven). Do not wrap in unbounded-height ScrollView
+    /// Direct activity gate (v0.4.1 proven layout). Do not wrap in unbounded-height ScrollView
     /// inside the parent VStack — that collapses to ~0 height and hides the targets (v0.4.2 regression).
     @ViewBuilder
-    private func entryGateContent(theme: ThemePack, accent: Color, yellow: Color) -> some View {
-        EntryActivityView(
-            question: model.currentEntryQuestion,
-            accent: accent,
-            yellow: yellow,
-            foreground: Color(rgb: theme.foreground),
-            retryMessage: model.entryRetryMessage,
-            hintUsed: model.entryHintUsed,
-            onSelect: { model.selectEntryOption(id: $0) },
-            onHint: model.useEntryHint,
-            onSpeakPrompt: model.speakEntryPrompt
-        )
+    private func entryGateContent(theme: ThemePack, accent: Color, yellow: Color, sand: Color) -> some View {
+        Group {
+            switch model.activeActivityKind {
+            case .findTheSame:
+                FindSameActivityView(
+                    question: model.currentFindSameQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelect: { model.selectFindSameOption(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .countVehicles:
+                CountActivityView(
+                    question: model.currentCountQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelectCount: { model.selectCountChoice($0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .sequenceShortToLong:
+                SequenceActivityView(
+                    question: model.currentSequenceQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    tappedAssetIDs: model.sequenceTappedAssetIDs,
+                    onTapAsset: { model.selectSequenceAsset(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .halfMatch:
+                HalfMatchActivityView(
+                    question: model.currentHalfMatchQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelect: { model.selectHalfMatchOption(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .shapeCousin:
+                ShapeCousinActivityView(
+                    question: model.currentShapeCousinQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelect: { model.selectShapeCousinOption(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .capacityCompare:
+                CapacityCompareActivityView(
+                    question: model.currentCapacityCompareQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelect: { model.selectCapacityOption(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .moreFewer:
+                MoreFewerActivityView(
+                    question: model.currentMoreFewerQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelectSide: { model.selectMoreFewerSide($0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .shadowMatch:
+                ShadowMatchActivityView(
+                    question: model.currentShadowMatchQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelect: { model.selectShadowMatchOption(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .emptyBay:
+                EmptyBayActivityView(
+                    question: model.currentEmptyBayQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelectBay: { model.selectEmptyBay(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            case .twoPictureChoose, .none:
+                EntryActivityView(
+                    question: model.currentTwoPictureQuestion,
+                    accent: accent,
+                    yellow: yellow,
+                    foreground: Color(rgb: theme.foreground),
+                    sand: sand,
+                    retryMessage: model.entryRetryMessage,
+                    hintUsed: model.entryHintUsed,
+                    onSelect: { model.selectEntryOption(id: $0) },
+                    onHint: model.useEntryHint,
+                    onSpeakPrompt: model.speakEntryPrompt
+                )
+            }
+        }
         .frame(maxWidth: .infinity, minHeight: 480, alignment: .top)
         .layoutPriority(1)
+    }
+}
+
+
+/// Parent-visible home-use + original-art license note (HK Trad + English).
+/// Names third-party companies only here for non-affiliation clarity — never on the child path.
+private struct ParentLicenseFooter: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("關於插圖／版權說明 / About artwork & license")
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+            Text("本應用程式僅作家中教育用途。畫面上嘅插圖同友善車輛角色均為原創作品，並非任何第三方商標角色。本應用程式與 Takara Tomy、HIT Entertainment、Mattel 或其他玩具／動畫品牌無關，亦無授權關係。家中免責聲明並不授予使用第三方角色肖像嘅權利。")
+                .font(.system(size: 14, design: .rounded))
+                .fixedSize(horizontal: false, vertical: true)
+            Text("This app is for home educational use. On-screen art and friendly vehicle characters are original works, not third-party trademark characters. Visa Games is not affiliated with Takara Tomy, HIT Entertainment, Mattel, or other toy/animation brands. A home-use disclaimer does not grant rights to use third-party character likenesses.")
+                .font(.system(size: 13, design: .rounded))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.primary.opacity(0.06))
+        )
+        .accessibilityLabel("Artwork and license notice")
+    }
+}
+
+
+
+/// Parent allowlist row preview: YouTube thumbnail CDN via AsyncImage.
+/// Network failure / invalid id → placeholder (never crash). Not child playback.
+private struct AllowlistVideoThumbnail: View {
+    let videoID: String
+    private let width: CGFloat = 96
+    private let height: CGFloat = 54
+
+    var body: some View {
+        Group {
+            if let url = YouTubeEmbedURL.thumbnailURL(videoID: videoID) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    case .failure:
+                        placeholder
+                    case .empty:
+                        ZStack {
+                            placeholderBackground
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                    @unknown default:
+                        placeholder
+                    }
+                }
+            } else {
+                placeholder
+            }
+        }
+        .frame(width: width, height: height)
+        .clipped()
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .accessibilityLabel("預覽圖 / Preview")
+    }
+
+    private var placeholder: some View {
+        ZStack {
+            placeholderBackground
+            Image(systemName: "play.rectangle.fill")
+                .font(.system(size: 22))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var placeholderBackground: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(Color.secondary.opacity(0.18))
     }
 }

@@ -1,5 +1,115 @@
 # Progress
 
+- 2026-09-29: PR #8 MINOR **v0.8.0 / build 24** — Visa Depot workbook-mechanic pack (6 new ActivityKinds). Do not merge; Mac mini UAT pending.
+  - Inspiration ONLY from Carter's 6 uploaded preschool workbook pages (half-match, shape cousin, capacity, collage count/more/shadow, inside/outside, empty plate) — **mechanics mapped into original Visa Depot vehicles + props**. No squirrels/bears/fruit art, no Gakken/Play Smart pages/characters/layout IP, no Tomica/Thomas/Tayo.
+  - **New playable kinds** (rotate with existing two-picture / find-same / count / sequence → **10** total):
+    1. `halfMatch` — left half fire truck → pick matching right half
+    2. `shapeCousin` — sun is round → pick round tanker among cone/toolbox/tanker
+    3. `capacityCompare` — bus vs taxi who carries more people
+    4. `moreFewer` — two parking lots (2 vs 4) tap the fuller lot
+    5. `shadowMatch` — metro silhouette → pick colored metro hero
+    6. `emptyBay` — three depot bays, tap the empty one
+  - VisaCore: question structs + evaluators + catalog factories + bilingual HK Trad/English prompts + hints (never Simplified).
+  - VisaGames: `ActivityAssetViews` (silhouette + prop + half-clip + shadow mask) + six activity views; AppModel select* + entryGate switch; success stamp / 10/20/30 / YouTube shuffle / D8 / parent IP disclaimer unchanged.
+  - Tests: +6 activity checks → offline banner **10+10+7+6+12+18**. Catalog playableKinds == 10; rotation covers all.
+  - Info.plist **0.8.0 / 24**, shell footer **v0.8.0**. Prompt: `prompts/pr-0008-m4-workbook-mechanic-pack-v080.md`.
+  - Verification: `git diff --check`. `sh scripts/test.sh` / `bundle.sh` exit 127 (`swift: not found`) on Linux — no Swift compile/test/native visual pass claimed.
+  - **Mac mini UAT checklist:**
+    1. `git fetch && git checkout feat/m4-gakken-style-activities && git pull`
+    2. Confirm tip ≥ this commit; `sh scripts/test.sh` → expect PASS **10+10+7+6+12+18**
+    3. `sh scripts/bundle.sh` → footer **v0.8.0**; Vehicles (10) + Props (8) still bundled
+    4. Lock depot → pick Easy/Medium/Challenge repeatedly until all **10** games appear (兩圖 / 搵相同 / 數車 / 車隊 / 另一半 / 圓形 / 載人 / 停車場 / 影子 / 空車位)
+    5. Each new game: wrong → gentle retry; Hint bilingual; success → stamp + visa 10/20/30 + allowlist shuffle play
+    6. Confirm art is Visa Depot heroes/props only — no workbook characters
+    7. Parent IP disclaimer still present; child path never Simplified Chinese
+    8. PR #8 must remain **unmerged**. D9/D10 open.
+
+
+- 2026-09-28: PR #8 PATCH **v0.7.4 / build 23** — ALL child UI vehicles → illustrated PNGs + soft props. Do not merge; Mac mini visual UAT pending.
+  - Carter UAT on tip `701a10c` / v0.7.3: tickets heroes OK, but parade + find-same still showed old geometric SwiftUI cars (`role: .fleet`). Direction otherwise correct.
+  - **Fix:** `FriendlyVehicleView` always prefers bundled hero PNG for every `VehicleKind`; procedural silhouette is missing-asset fallback only. All activity views + parade use `.hero`.
+  - **New vehicle PNGs** (Codex image_gen, original only): `hero-toy-car`, `hero-crane`, `hero-tanker`, `hero-articulated-bus`, `hero-dino-flatbed` (soft cargo — not a licensed creature), `hero-logistics-truck`. Existing four heroes kept.
+  - **Props** under `Resources/Props/`: sun, cloud (world background), traffic-cone + traffic-light (parade accents); also garage-door, stamp, ticket, toolbox bundled for accents. No new activity types.
+  - Inspiration only (chunky toy color/energy) — NO IP copy of referenced YouTube characters; NO Tayo/Tomica/Thomas/Iconix.
+  - `bundle.sh` copies `Vehicles/*.png` and `Props/*.png`. Parent IP disclaimer + Trad Chinese/English + allowlist shuffle unchanged.
+  - Info.plist **0.7.4 / 23**, shell footer **v0.7.4**. Prompt: `prompts/pr-0008-m4-all-png-fleet-props-v074.md`.
+  - Verification: `git diff --check`, plist/version assertions. `sh scripts/test.sh` / `bundle.sh` exit 127 (`swift: not found`) on Linux — no Swift compile/test/native visual pass claimed.
+  - **Mac mini UAT checklist:**
+    1. `git fetch && git checkout feat/m4-gakken-style-activities && git pull`
+    2. `sh scripts/test.sh` → expect PASS **10+10+7+6+12+13**
+    3. `sh scripts/bundle.sh` → footer **v0.7.4**; confirm `Contents/Resources/Vehicles/*.png` (10) and `Contents/Resources/Props/*.png` (8)
+    4. Lock depot: mission tickets still show illustrated heroes; soft sun/cloud in sky
+    5. Parade strip: **no** oval/flat geometric cars — all illustrated PNGs (taxi/fire/metro/crane/tanker/bus/truck/toy/flatbed) + cone/light accents
+    6. Find-same / two-picture / count / sequence: **no** geometric vehicles — PNG heroes only
+    7. Success stamp still fires; allowlist shuffle + parent disclaimer unchanged
+    8. PR #8 must remain **unmerged**. D9/D10 open.
+
+- 2026-09-28: PR #8 PATCH **v0.7.3 / build 22** — Option 4 hybrid hero + simple fleet. Do not merge; Mac mini visual UAT pending.
+  - Carter locked Option 4 (英雄主角 + 簡車隊). Illustrated hero PNGs for tickets / parade leader / success stamp; procedural simple fleet (faceless) for dense count/sequence/find-same games. Same ToyPaint color language.
+  - Assets (original only, Codex image_gen): `Resources/Vehicles/hero-hk-taxi.png`, `hero-ny-taxi.png`, `hero-fire-engine.png`, `hero-metro-train.png`. Transparent BG; no text/logos/roundels. NO Tayo/Tomica/Thomas/Iconix likenesses.
+  - Swift: `VehicleVisualRole` + `VehicleHeroAsset`; `FriendlyVehicleView(role:)` loads hero `NSImage` when present, else procedural. Tickets + success + parade index0 → `.hero`; entry/find-same/count/sequence → `.fleet`. `bundle.sh` copies Vehicles into app Resources.
+  - Parent IP disclaimer unchanged (ADR 0006). Language HK Trad + English only.
+  - Info.plist **0.7.3 / 22**, shell footer **v0.7.3**. Prompt: `prompts/pr-0008-m4-hybrid-hero-fleet-v073.md`.
+  - Verification: `git diff --check`, plist/version assertions. `sh scripts/test.sh` / `bundle.sh` exit 127 (`swift: not found`) on Linux — no Swift compile/test/native visual pass claimed.
+  - Next: Mac mini fetch tip of `feat/m4-gakken-style-activities`, `sh scripts/test.sh` (expect **10+10+7+6+12+13**), `sh scripts/bundle.sh`, confirm footer v0.7.3 and `Contents/Resources/Vehicles/*.png` present; visual UAT — tickets show illustrated heroes, dense games show simple fleet, success stamp fire hero, parade leader illustrated. PR #8 must remain unmerged. D9/D10 open.
+
+- 2026-09-27: PR #8 PATCH **v0.7.2 / build 21** — storybook face push + allowlist shuffle play. Do not merge; Mac mini UAT pending.
+  - Faces (Codex gpt-6-astra polish on workshop rewrite): front-disc / headlight eyes with heavier sleepy lids, cream sclera, low pupils, soft blush + tiny nostrils where natural; chubbier rounded cabs/noses; warmer fills + soft gradients; faces remain non-interactive. Original HK/NY taxi, fire, metro (no roundel), works fleet only — no Egypt IP scenes copied.
+  - Shuffle: new VisaCore `VideoPlaybackShuffle` + UserDefaults cursor store. Child visa success and play-mode allowlist button pick next id via Fisher–Yates deck; reshuffle when exhausted; avoid immediate repeat of `lastPlayedVideoID` when allowlist count > 1. Parent preview still uses explicit row / first. D8 scoped player / allowlist / kiosk otherwise unchanged.
+  - Tests: +3 scoped-playback (`testPlaybackShuffleAvoidsImmediateRepeatAndReshuffles`, `testPlaybackShuffleSingleAndEmpty`, `testShuffledDeckAvoidsImmediateFirstRepeat`) → expect PASS banner **10+10+7+6+12+13**.
+  - Info.plist **0.7.2 / 21**, shell footer **v0.7.2**. Prompt: `prompts/pr-0008-m4-storybook-faces-shuffle-v072.md`.
+  - Verification: `git diff --check`, plist/version assertions and shell syntax checks. `sh scripts/test.sh` / `bundle.sh` exit 127 (`swift: not found`) on Linux — no Swift compile/test/native visual pass claimed.
+  - Next: Mac mini fetch tip of `feat/m4-gakken-style-activities`, `sh scripts/test.sh` (expect 10+10+7+6+12+13), `sh scripts/bundle.sh`, footer v0.7.2; visual face UAT + shuffle UAT (2+ allowlisted videos → earn visa twice → different order; exhaust deck → reshuffle without immediate repeat). PR #8 must remain unmerged. D9/D10 open.
+
+
+- 2026-09-27: PR #8 PATCH **v0.7.1 / build 20** — redesigned original fleet faces after Carter's v0.7.0 feedback. Do not merge; Mac mini visual UAT pending.
+  - Removed the floating white face plate. Cab-specific glass eye sockets now use cream whites, low pupils, soft brown outlines and heavier sleepy lids; happy mood widens the small curved hood/bumper smile. Flatbed eyes fit its low headlight zone. Drawing coordinates scale with the vehicle, without a minimum eye size.
+  - Added warm silhouette outlines and clipped existing highlights/metro stripe to the vehicle body. All ten kinds retain faces; face overlays remain non-interactive. Games, parent IP disclaimer and ADR 0006 unchanged.
+  - Info.plist **0.7.1 / 20**, shell footer **v0.7.1**. Prompt: `prompts/pr-0008-m4-cuter-vehicle-faces-v071.md`.
+  - Verification: `git diff --check`, plist/version assertions and shell syntax checks passed. `sh scripts/test.sh` and `sh scripts/bundle.sh` each exited 127 (`swift: not found`) on Linux; no Swift compile/test pass or native visual acceptance claimed. No behavior changes or new unit tests in this drawing-only slice.
+  - Next: Mac mini test + bundle, then inspect all fleet faces at game/card/parade sizes and calm/happy/sleepy moods; Carter's visual acceptance remains pending. PR #8 must remain unmerged.
+
+- 2026-09-27: PR #8 MINOR **v0.7.0** — storybook child UX + original recognizable vehicles (HK/NY taxi, fire, metro, works). Do not merge; Mac mini visual UAT pending.
+  - World shell: warm sand/ochre `StorybookWorldBackground`, wooden station sign 「簽證車廠」, friendly convoy parade.
+  - Difficulty: three mission tickets (的士短程 / 消防車任務 / 地鐵長程) with mascots + ★ + Confirmed 10/20/30 + press bounce.
+  - Vehicles: original cute faces; `hkTaxi` / `nyTaxi` / `fireEngine` / `metroTrain` (+ existing long works). No licensed character likenesses; metro uses original blue stripe (no transit roundel).
+  - Games: faced bigger taps; find-same HK taxi; count fire trucks; **sequence short→long convoy playable** (4 catalog kinds). Success → visa stamp / ticket punch + park-in.
+  - Parent: About/license footer (HK Trad + English) — home educational use; original art; not affiliated with named third-party toy/animation companies. ADR `docs/decisions/0006-storybook-child-ux-original-vehicles.md`.
+  - Keep: D8 scoped player, one-paste allowlist + oEmbed, parent LA, kiosk, no Simplified Chinese.
+  - Version: Info.plist **0.7.0 / 19**, footer **v0.7.0**. Prompt: `prompts/pr-0008-m4-storybook-child-ux-v070.md`.
+  - Linux workshop: `swift: not found` expected — no compile/test claim from Linux. Offline suite conceptually **10+10+7+6+9+13**.
+  - Exact next task: Mac mini — fetch tip of `feat/m4-gakken-style-activities`, `sh scripts/test.sh` (expect 10+10+7+6+9+13), `sh scripts/bundle.sh`, visual 4yo UAT (depot shell, tickets, faces, all 4 games, stamp, parent footer). Do not merge until Carter OK. D9/D10 remain open.
+
+- 2026-09-27: PR #8 PATCH **v0.6.2** — parent allowlist paste-URL auto-fills title + preview (oEmbed); duration explained. Do not merge; Mac mini UAT pending.
+  - Carter ask: extract title + preview from YouTube; explain Duration / why default 120; can duration come from YouTube? Clarification (Mac mini): happy path = paste URL/id only → Add; title/duration not required.
+  - Auto-fetch: `YouTubeOEmbed.requestURL` + `parse` (no API key). Parent Add calls oEmbed; stores title into existing `titleEnglish` / `titleCantonese` (CJK → Cantonese field as raw evidence; no invented translation). Preview remains derived `img.youtube.com/vi/{id}/hqdefault.jpg` (oEmbed thumbnail_url also parsed for completeness). Fetching status: 「正在取得片名… / Fetching title…」. Failure still allows add with id + optional Advanced + thumb-from-id.
+  - UX: one primary URL/id field + Add; Title/Duration demoted under DisclosureGroup 「進階（可選） / Advanced (optional)」. Duration is **D4 budget-fit** (not live player length); default **120** scaffold when parent only pasted id (upsert needs > 0). oEmbed does **not** return duration — no fragile watch-page scrape in M4; YouTube Data API key left as future; manual Advanced override kept.
+  - Tests: +1 scoped-playback (`testYouTubeOEmbedURLAndParseFixture`, fixture JSON only) → expect PASS banner **10+10+7+6+9+12**.
+  - Version: Info.plist **0.6.2 / 18**, footer **v0.6.2**. Prompt: `prompts/pr-0008-m4-parent-allowlist-oembed-title.md`.
+  - Linux workshop: `swift: not found` expected — no Swift compile/test/bundle claimed here. D8 scoped playback unchanged. M4 not claimed complete.
+  - Exact next task: Mac mini — fetch tip of `feat/m4-gakken-style-activities`, `sh scripts/test.sh` (expect 10+10+7+6+9+12), `sh scripts/bundle.sh`, Parent → Allowlist → paste URL only → Add → title+thumb appear; offline oEmbed fail still adds; Advanced optional; footer v0.6.2. Do not merge until Carter OK.
+
+
+- 2026-09-27: PR #8 PATCH **v0.6.1** — parent allowlist shows YouTube-style preview thumbnail beside Title + ID. Do not merge; Mac mini UAT pending.
+  - Carter (Mac mini): add the preview image to the allowed video — parent allowlist rows should show a YouTube-style preview/thumbnail next to Title + ID.
+  - Approach (offline-friendly): derive `https://img.youtube.com/vi/{VIDEO_ID}/hqdefault.jpg` from the allowlisted id (`YouTubeEmbedURL.thumbnailURL` + `ApprovedVideo.thumbnailURL`). Nothing extra persisted — Codable allowlist JSON stays backward compatible. No custom image paste required.
+  - Parent UI: `AllowlistVideoThumbnail` (SwiftUI `AsyncImage`) beside Title + ID; network failure / invalid id → play-rectangle placeholder (no crash). Still thumbnail CDN only; D8 scoped embed playback unchanged.
+  - Tests: +1 scoped-playback (`testYouTubeThumbnailURLDerivedFromID`) → expect PASS banner **10+10+7+6+8+12**.
+  - Version: Info.plist **0.6.1 / 17**, footer **v0.6.1**. Prompt: `prompts/pr-0008-m4-parent-allowlist-preview-thumbnail.md`.
+  - Linux workshop: `swift: not found` expected — no Swift compile/test/bundle claimed here. M4 not claimed complete.
+  - Exact next task: Mac mini — fetch tip of `feat/m4-gakken-style-activities`, `sh scripts/test.sh` (expect 10+10+7+6+8+12), `sh scripts/bundle.sh`, Parent → Allowlist → rows show thumb + Title + ID; offline/placeholder if CDN fails; Play/Remove/Preview still work; footer v0.6.1. Do not merge until Carter OK.
+
+
+- 2026-09-27: PR #8 MINOR **v0.6.0** — M4 Gakken-style activity TYPES (original vehicles). Do not merge; Mac mini UAT pending.
+  - Base: main @ `5603845` after merge of PR #7 (v0.5.1). Carter Confirmed M3 UAT good; asked for more games referencing Play Smart wipe-clean **activity genres only**.
+  - Research (public product description): tracing lines/letters/numbers/shapes, matching, mazes, puzzles, search-and-find, counting/sorting → kiosk genres: two-picture choose, find-the-same, count-to-N, sequencing, maze-lite, path-trace lite, shape sort, connect-the-dots lite. **No Gakken pages/art/titles/packaging copied.** ADR 0005 + `phases/phase-4-gakken-style-activities.md`.
+  - VisaCore: `ActivityKind`, `FindSameQuestion`, `CountQuestion`, `SequenceQuestion` stub (`isPlayable == false`), `ActivityCatalog` rotation by round seed, evaluator overloads. Playable: two-picture (existing crane-vs-bus), find-same (tanker target), count (3 logistics trucks → tap 2/3/4).
+  - VisaGames: `FindSameActivityView`, `CountActivityView`, `SequenceActivityStub` TODO; AppModel picks kind after difficulty; ShellView switches gate; same D1/D7 + `startPlayVisa` 10/20/30 path. Parent note updated. Footer **v0.6.0**.
+  - Tests: +5 activity checks → expect PASS banner **10+10+7+6+7+12**. Prompt: `prompts/pr-0008-m4-gakken-style-activities.md`.
+  - Linux workshop: `swift: not found` expected — no Swift compile/test/bundle claimed here.
+  - Exact next task: Mac mini — fetch tip, `sh scripts/test.sh`, `sh scripts/bundle.sh`, footer v0.6.0, pick Easy/Medium/Challenge repeatedly until all three games appear (兩圖 / 搵相同 / 數車), wrong/retry/hint, visa 10/20/30, allowlist play, Parent Reset still works. Do not merge until Carter OK. D9/D10 remain open.
+
+
 - 2026-09-27: PR #7 PATCH **v0.5.1** — parent allowlist shows YouTube Title + ID. Do not merge; Mac mini UAT pending.
   - Carter Confirmed (HK Cantonese): allowlist page should show a YouTube Title beside the ID so parents can track what was added.
   - Parent add form gains `parentVideoTitleDraft` + bilingual 「YouTube 標題 / YouTube Title」 field. Upsert writes into existing `ApprovedVideo.titleCantonese` (if draft has CJK) or `titleEnglish` otherwise; empty title leaves both nil. No YouTube network title fetch.

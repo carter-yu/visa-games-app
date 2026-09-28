@@ -56,6 +56,15 @@ public enum YouTubeEmbedURL: Sendable {
         return id
     }
 
+    /// Parent allowlist preview only: official YouTube thumbnail CDN URL.
+    /// Pattern: `https://img.youtube.com/vi/<id>/hqdefault.jpg`.
+    /// Thumbnail CDN only — not browse/search/watch. Returns nil for invalid ids.
+    public static func thumbnailURL(videoID: String) -> URL? {
+        guard isValidVideoID(videoID) else { return nil }
+        let id = videoID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return URL(string: "https://img.youtube.com/vi/\(id)/hqdefault.jpg")
+    }
+
     /// Build `https://www.youtube-nocookie.com/embed/<id>` with modest embed params.
     /// Returns nil when the id is not a valid YouTube video id.
     public static func make(videoID: String) -> URL? {
