@@ -1,7 +1,8 @@
 # ADR 0007 — Concept-canvas child UX (UX rebuild)
 
-Status: Accepted by Carter Yu (2026-09-29). UX Phase 1 implemented on `feat/ux-p1-canvas-depot`
-(v0.9.0 / build 25); Mac mini + TV UAT pending. D9 / D10 remain open.
+Status: Accepted by Carter Yu (2026-09-29). UX Phase 1 on `feat/ux-p1-canvas-depot`
+(v0.9.0 / build 25). UX Phases 2–3 on `feat/ux-p2-p3-activity-watch` (v0.10.0 / build 26).
+Mac mini + TV UAT pending. D9 / D10 remain open.
 
 ## Context
 
@@ -47,12 +48,17 @@ Carter chose the canvas over the repo's existing look and approved downloading i
 8. **Unchanged:** kiosk key blocking and presentation, parent authentication, allowlist
    playback, visa accounting, reward policy (D1–D7; 10 / 20 / 30 minutes), activity content.
 
-## Open decisions (before UX Phases 2–5)
+## Decisions closed for UX Phases 2–3 (Carter 2026-09-30)
+
+| Topic | Decision |
+| --- | --- |
+| Auto-hint after 2 misses → assisted (D7) | **Yes.** Two incorrect taps auto-hint (`entryHintUsed`); evaluator records `.correct(assisted: true)`. Reward minutes unchanged. |
+| Visa clock start | **Keep current accounting** (`startPlayVisa` on correct answer). 「出發！」 is presentation-only before the watch UI. |
+
+## Open decisions (before UX Phases 4–5)
 
 | Topic | Needed before |
 | --- | --- |
-| Auto-hint after 2 misses recorded as "assisted" (D7)? | UX Phase 2 |
-| Visa clock starts at the correct answer (today) or on the 「出發！」 tap? | UX Phase 3 |
 | Rounds per ticket (= stars)? Passport unlocks? Daily-cap ending? | UX Phase 4 |
 | Whose voice records the Cantonese clips? | UX Phase 5 |
 | Guide name and design (canvas placeholder 「印仔 Stampy」) | UX Phase 5 at the latest |

@@ -1,5 +1,29 @@
 # Progress
 
+- 2026-09-30: PR #10 MINOR **v0.10.0 / build 26** — UX Phases 2+3: voice-first activities + stamp / road timer / Time's up. Branch `feat/ux-p2-p3-activity-watch` from `feat/ux-p1-canvas-depot` @ `4037f93` (includes Depot P1). Do not merge; Mac mini + TV UAT pending. Opus Pro session limit hit mid-build (~00:58 HKT, reset 02:10); implementation continued on the workshop box against Carter's uploaded canvas boards.
+  - **Carter locks used:** auto-hint after 2 misses → assisted (D7); Stampy placeholder kept; reward 10/20/30 + kiosk + parent auth + allowlist/visa accounting unchanged; visa clock still starts on correct answer (presentation-only 「出發！」); HK Trad + English only; Phase 4 passport unlocks / rounds / daily-cap skipped (no invented policy).
+  - **P2 Activity (board 2) + feedback (board 7):** `ActivityBoardView` + `ChoiceCardChrome` (hop / wiggle / hint glow, Reduce Motion) + `ConeProgressView`; `CanvasActivityHost` rebuilds all 10 kinds as stimulus panel + ≤3 text-free cards; Stampy bubble auto-plays zh-HK prompt via `SystemSpeechPrompt` (no D9 stub toast); miss counter auto-hints at 2.
+  - **P2 empty allowlist:** `EmptyAllowlistView` + return to depot (ends visa, skips Time's up).
+  - **P3 Stamp (board 3):** `StampSuccessView` passport spread + confetti + mint 「出發！ Go!」 gate before watch UI.
+  - **P3 Watch (board 4):** `WatchPlaybackView` + `RoadTimerStrip` (flag → vehicle → garage; 「仲有 N 分鐘」; garage lights + `almostHome` speak at ≤60s).
+  - **P3 Time's up (board 5):** `TimesUpView` dusk park-and-sleep + 「再揀車票 New mission」.
+  - VisaCore: `ChildUXProgress` (`ActivityHintPolicy`, `RoadTimerProgress`); SpokenPrompt UX lines (`stamped`, `departGo`, `almostHome`, `timesUpPark`, `emptyAllowlist`, `timesUp(for:)`).
+  - Concept boards copied to `docs/concept-canvas-boards/` (01–07). ADR 0007 open table updated (assisted + visa-clock presentation decided).
+  - Unchanged: D8 scoped player, shuffle, reward minutes, kiosk escape, parent LA, allowlist accounting.
+  - Tests: +4 ux-p2-p3 checks → expect PASS **10+10+7+6+12+18+9+4+4+4**. Linux `swift: not found` → no compile claim here.
+  - Version: Info.plist **0.10.0 / 26**, parent footer **v0.10.0**. Prompt: `prompts/pr-0010-ux-p2-p3-activity-watch.md`.
+  - **Deferred:** passport board 6 (needs Phase 4 decisions); recorded Cantonese clips (D9 / Phase 5); remaining vehicle vector art beyond taxi/fire/metro/bus; daily-cap ending.
+  - **Mac mini UAT checklist:**
+    1. `git fetch && git checkout feat/ux-p2-p3-activity-watch && git pull`
+    2. `sh scripts/test.sh` → expect PASS **10+10+7+6+12+18+9+4+4+4**
+    3. `sh scripts/bundle.sh`; footer **v0.10.0**; fonts still bundled
+    4. Depot → ticket → activity looks like board 2 (Stampy bubble, stimulus, 3 cards, cones); prompt speaks on entry / bubble replay
+    5. Wrong twice → soft wiggle then hint glow + assisted success; no red X
+    6. Correct → stamp passport + 「出發！」; visa already ticking; Go → dark watch + road timer 「仲有 N 分鐘」
+    7. At 1 min left: garage lights + almost-home voice; expiry → dusk sleep + 「再揀車票」
+    8. Empty allowlist after Go → empty stage + 「返回車廠」
+    9. Visas stay 10/20/30; parent corner 3s hold; Escape / Cmd-Q blocked
+    10. PR stays unmerged until Carter OKs TV check.
 - 2026-09-29: PR #9 MINOR **v0.9.0 / build 25** — UX Phase 1: concept-canvas foundation + Depot home (canvas board 1). Branch `feat/ux-p1-canvas-depot` from `main` @ `e77d8ee`. Do not merge; Mac mini + TV UAT pending.
   - Status correction: PR #8 was squash-merged to `main` on 2026-09-28 16:58 UTC as `e77d8ee`; older entries below that say it "must remain unmerged" predate the merge. No v0.8.0 Mac mini UAT result is recorded here.
   - Carter decisions (2026-09-29 chat): the concept canvas is the child-look source of truth (ADR 0007); base branch `main`; go-ahead for UX Phase 1; font download approved.

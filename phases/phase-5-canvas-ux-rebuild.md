@@ -22,3 +22,12 @@ phases. Each UX phase is one PR that ends with Mac mini + TV UAT before the next
 - `sh scripts/test.sh` PASS with the canvas, voice and pen-spark checks.
 - `sh scripts/bundle.sh` bundles the fonts.
 - Mac mini + TV UAT per the checklist in `PROGRESS.md` (v0.9.0 entry).
+
+
+## UX Phase 2+3 exit evidence
+
+- Branch `feat/ux-p2-p3-activity-watch` (v0.10.0 / build 26) from `feat/ux-p1-canvas-depot` @ 4037f93.
+- Activity board 2 shell for all 10 games; auto-hint→assisted; stamp + Go; road timer; Time's up; empty allowlist return.
+- Canvas board PNGs archived under `docs/concept-canvas-boards/`.
+- `sh scripts/test.sh` on Mac mini → expect PASS banner including `+ 4 ux-p2-p3 checks`.
+- Mac mini + TV UAT checklist in the v0.10.0 `PROGRESS.md` entry.
