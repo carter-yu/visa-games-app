@@ -16,7 +16,35 @@ public struct SpokenPrompt: Equatable, Sendable {
     public static let depotPickTicket = SpokenPrompt(
         key: "depot.pickTicket", traditionalChinese: "揀一張車票！", english: "Pick a ticket!")
 
+    public static let stamped = SpokenPrompt(
+        key: "stamp.stamped", traditionalChinese: "蓋印！", english: "Stamped!")
+
+    public static let departGo = SpokenPrompt(
+        key: "stamp.go", traditionalChinese: "出發！", english: "Go!")
+
+    public static let almostHome = SpokenPrompt(
+        key: "watch.almostHome", traditionalChinese: "快到屋企喇！", english: "Almost home!")
+
+    public static let timesUpPark = SpokenPrompt(
+        key: "timesup.park", traditionalChinese: "返車廠瞓覺喇！", english: "Time to park and rest.")
+
+    public static let emptyAllowlist = SpokenPrompt(
+        key: "play.emptyAllowlist", traditionalChinese: "未有片睇，返車廠啦！", english: "No video yet — back to the depot!")
+
     public static let allDepotLines: [SpokenPrompt] = [depotPickTicket]
+
+    /// All interim spoken lines (Depot + UX P2/P3). Extended in UX Phase 5 with recorded clips.
+    public static let allUXLines: [SpokenPrompt] = [
+        depotPickTicket, stamped, departGo, almostHome, timesUpPark, emptyAllowlist
+    ]
+
+    public static func timesUp(for ticket: MissionTicket) -> SpokenPrompt {
+        SpokenPrompt(
+            key: "timesup.park.\(ticket.difficulty.rawValue)",
+            traditionalChinese: "\(ticket.titleTraditionalChinese)返車廠 瞓覺喇！",
+            english: "Time to park and rest."
+        )
+    }
 }
 
 /// Installed system voice, as reported by the speech synthesizer.

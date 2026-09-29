@@ -308,6 +308,12 @@ struct TestRunner {
         pen.testSparkHidesAfterIdle()
         pen.testMouseMoveOutsideProximityIsNotPenHoverEvidence()
 
-        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 12 scoped-playback + 18 activity + 9 canvas + 4 voice + 4 pen-spark checks")
+        let ux = ChildUXProgressTests()
+        ux.testAutoHintAfterTwoMisses()
+        ux.testRoadTimerFractionAndMinutes()
+        ux.testRoadTimerFromEndsAt()
+        ux.testSpokenUXLinesAreTraditional()
+
+        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 12 scoped-playback + 18 activity + 9 canvas + 4 voice + 4 pen-spark + 4 ux-p2-p3 checks")
     }
 }

@@ -188,13 +188,14 @@ final class CantoneseVoiceTests {
     }
 
     func testSpokenLinesAreBilingualTraditional() {
-        for line in SpokenPrompt.allDepotLines {
+        for line in SpokenPrompt.allUXLines {
             expectFalse(line.traditionalChinese.isEmpty)
             expectFalse(line.english.isEmpty)
             expectTrue(isTraditionalChineseOnly(line.traditionalChinese))
         }
         expectEqual(SpokenPrompt.depotPickTicket.traditionalChinese, "揀一張車票！")
         expectEqual(SpokenPrompt.depotPickTicket.english, "Pick a ticket!")
+        expectEqual(SpokenPrompt.stamped.traditionalChinese, "蓋印！")
     }
 }
 
