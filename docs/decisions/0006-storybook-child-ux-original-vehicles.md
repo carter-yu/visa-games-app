@@ -2,6 +2,9 @@
 
 Status: Implemented on `feat/m4-gakken-style-activities` (PR #8) — Mac mini UAT pending; **do not merge** until Carter OK. D9 / D10 remain open.
 
+Update 2026-09-29: PR #8 was squash-merged to `main` (`e77d8ee`, 2026-09-28). The child look is
+superseded screen by screen by ADR 0007 (concept canvas); the hard IP rules below still apply.
+
 ## Context
 
 Carter Confirmed that home educational use must appeal to a **4-year-old boy**. Reference storybook notes (Egypt + anthropomorphic vehicles, Cantonese kid-speak) set the energy: warm painterly sand worlds, convoy adventure, wooden station signs, friendly vehicle faces. Separately, Carter asked whether a home-use disclaimer licenses Tomica-like images — it does **not**.

@@ -51,7 +51,7 @@ recorded unless noted.
 | N5 Active relaunch | Grant, quit through parent controls, relaunch before expiry: remaining time is preserved. | Pass (Reported); model checks also pass |
 | N6 Expired relaunch | Relaunch after the stored timestamp: lock appears. | Pass (Reported); model checks also pass |
 | N7 Parent boundary | Cancel/fail authentication: no access. Succeed: controls appear. Return preserves visa; expiry still applies. Parent access ends after two minutes, sleep, or loss of activation. | Pass (Reported); model gating also passes |
-| N8 Version | Branding and v0.1.0 are visible at TV viewing distance. | Pass (Reported) |
+| N8 Version | Branding and v0.1.0 are visible at TV viewing distance. Since v0.9.0 the version shows in Parent controls, not on child screens (ADR 0007). | Pass (Reported) for v0.1.0; v0.9.0 placement pending Mac mini UAT |
 | N9 Escape | Press Escape in setup, lock, and play: no exit or window change. | Pass (Reported); key policy also passes |
 | N9 Cmd-Tab | Try app switching in each child state; presentation requests suppression. | Pass (Reported) |
 | N9 Cmd-Q / Cmd-W | Try quit and close in each child state; app rejects them. Authenticated Quit works. | Pass (Reported); exit policy also passes |
@@ -63,6 +63,8 @@ recorded unless noted.
 | Authentication surface | Verify the system prompt appears above the window; cancel returns safely; repeated taps create only one prompt. | Not tested |
 | Storage failure | With app closed, back up then corrupt state; relaunch must lock with an error. Parent reset clears the visa. Repeat with unwritable storage. | Store decoding passes; GUI recovery not tested |
 | Display change | Disconnect/reconnect TV and change resolution; window resizes to its screen. | Not tested |
+| Parent corner (v0.9.0) | On lock and play, a tap on the faint bottom-right corner does nothing; a 3-second hold opens the macOS authentication prompt. A visible Parent button appears only in setup or after a storage error. The corner is not cut off by TV overscan. | Pending Mac mini UAT |
+| Pen glow monitor (v0.9.0) | The pointer monitor only observes: Escape, Cmd-Q, Cmd-W and Cmd-Tab stay blocked in every child state; taps still reach buttons; the glow never blocks a tap. | Pending Mac mini UAT |
 
 ## Remaining OS and physical escape paths
 

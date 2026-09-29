@@ -285,6 +285,29 @@ struct TestRunner {
         activity.testShadowMatchWellFormedAndEvaluation()
         activity.testEmptyBayWellFormedAndEvaluation()
 
-        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 12 scoped-playback + 18 activity checks")
+        let canvas = CanvasFoundationTests()
+        canvas.testPaletteMatchesCanvasTokens()
+        canvas.testTargetsAndTimingTokens()
+        canvas.testStageFitsReferenceInsideTVSafeArea()
+        canvas.testStageFailsSafeForDegenerateSizes()
+        try canvas.testSVGPathParsesAbsoluteRelativeAndSmoothCommands()
+        try canvas.testSVGArcBecomesCubicsThatBulgeTheRightWay()
+        canvas.testSVGPathRejectsMalformedData()
+        canvas.testCanvasArtworkIsCompleteAndParsed()
+        canvas.testMissionTicketsFollowCanvas()
+
+        let voice = CantoneseVoiceTests()
+        voice.testPicksHongKongCantoneseOnly()
+        voice.testNeverFallsBackToMandarin()
+        voice.testPrefersHigherQualityVoice()
+        voice.testSpokenLinesAreBilingualTraditional()
+
+        let pen = PenSparkTests()
+        pen.testHoverInProximityShowsSparkAndRecordsHover()
+        pen.testTouchShowsSparkWithoutHoverSupport()
+        pen.testSparkHidesAfterIdle()
+        pen.testMouseMoveOutsideProximityIsNotPenHoverEvidence()
+
+        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 12 scoped-playback + 18 activity + 9 canvas + 4 voice + 4 pen-spark checks")
     }
 }

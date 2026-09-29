@@ -1,5 +1,28 @@
 # Progress
 
+- 2026-09-29: PR #9 MINOR **v0.9.0 / build 25** — UX Phase 1: concept-canvas foundation + Depot home (canvas board 1). Branch `feat/ux-p1-canvas-depot` from `main` @ `e77d8ee`. Do not merge; Mac mini + TV UAT pending.
+  - Status correction: PR #8 was squash-merged to `main` on 2026-09-28 16:58 UTC as `e77d8ee`; older entries below that say it "must remain unmerged" predate the merge. No v0.8.0 Mac mini UAT result is recorded here.
+  - Carter decisions (2026-09-29 chat): the concept canvas is the child-look source of truth (ADR 0007); base branch `main`; go-ahead for UX Phase 1; font download approved.
+  - Phase 0 audit (report only, from source): Easy / Medium / Challenge change only visa minutes. The game comes from a random round seed, each game has one fixed question, and each ticket is one question. The app consumed no hover or tablet-proximity events. Child screens showed a one-tap Parent button and the version.
+  - VisaCore: `DesignTokens` (canvas palette; 1280×720 stage fitted inside a 5% TV safe area, backdrop full-bleed), `SVGPathData` (path parser incl. arcs), `CanvasArt` (Stampy, taxi, fire engine, metro, bus, depot scene, star, speaker, parent mark, pen spark), `MissionTicket`, `SpokenPrompt` + `CantoneseVoicePicker` (zh-HK only, no Mandarin fallback), `PenSparkState`.
+  - VisaGames: `DesignSystem` (colour tokens, `CanvasStage`, `CanvasFont`, `CanvasText`, `ChunkyButtonStyle`), `VectorArtView`, `DepotHomeView` (board 1 without the passport button), `ParentCornerEntry` (3-second hold → existing parent authentication), `SystemSpeechPrompt` (zh-HK system voice; logs installed zh-HK voices), `PenSparkOverlay` (observe-only monitor; logs proximity and first hover per approach). Removed `DifficultyCardsView`. Legacy activity/play screens lost the Parent button and version and gained the parent corner. Version shown in Parent controls.
+  - Fonts: Baloo 2 + Noto Sans HK (SIL OFL 1.1) in `Resources/Fonts/` (+12.6 MB); `bundle.sh` copies them with their licences.
+  - Unchanged: kiosk key blocking and presentation, parent authentication, allowlist playback, visa accounting, reward policy (10 / 20 / 30), activity content.
+  - Tests: +17 checks → PASS **10+10+7+6+12+18+9+4+4**. The new checks failed to compile before implementation.
+  - Verification on the dev MacBook Air (M4, macOS 15.5, Swift 6.1.2, Command Line Tools): `sh scripts/test.sh` PASS; `swift build` without warnings; `sh scripts/bundle.sh` built the app with fonts. The depot was rendered offscreen (ImageRenderer) at 1280×720, 1920×1080 and 1440×900 and compared with canvas board 1. The app was not launched on the MacBook (kiosk). No Mac mini, TV, Wacom or voice result is claimed.
+  - ADR `docs/decisions/0007-concept-canvas-child-ux.md`; phase file `phases/phase-5-canvas-ux-rebuild.md`; kiosk checklist N8 + two new rows; brief committed at `docs/ux-rebuild-brief.md`. Prompt: `prompts/pr-0009-ux-p1-canvas-depot.md`.
+  - **Mac mini UAT checklist:**
+    1. `git fetch && git checkout feat/ux-p1-canvas-depot && git pull`
+    2. `sh scripts/test.sh` → expect PASS **10+10+7+6+12+18+9+4+4**
+    3. `sh scripts/bundle.sh`; `ls ".build/Visa Games.app/Contents/Resources/Fonts"` → two `.ttf` + two `OFL-*.txt`
+    4. Depot on the TV looks like canvas board 1 (sign, Stampy, bubble, three tickets with stars and road tiles); nothing is cut off at the TV edges, including the faint bottom-right corner
+    5. Voice: Stampy says 「揀一張車票！」 in Cantonese on arrival; tapping the bubble repeats it. If silent, the log shows `voice — 語音 zh-HK picked=none`: add a Cantonese (Hong Kong) voice in System Settings → Accessibility → Spoken Content
+    6. Tickets push down when pressed and start a game; visas stay 10 / 20 / 30
+    7. Parent: a tap on the corner does nothing; a 3-second hold opens the macOS password prompt; Parent controls show `Visa Games v0.9.0`; no Parent button or version on child screens
+    8. Pen: the glow ring follows the pen while hovering or appears on touch. Logs show `pen proximity` lines and, if hover works, `pen hover observed`. Escape / Cmd-Q / Cmd-Tab stay blocked
+    9. Games and video playback still work (legacy look until UX Phases 2–3)
+    10. PR #9 stays unmerged until Carter OKs the TV check.
+
 - 2026-09-29: PR #8 MINOR **v0.8.0 / build 24** — Visa Depot workbook-mechanic pack (6 new ActivityKinds). Do not merge; Mac mini UAT pending.
   - Inspiration ONLY from Carter's 6 uploaded preschool workbook pages (half-match, shape cousin, capacity, collage count/more/shadow, inside/outside, empty plate) — **mechanics mapped into original Visa Depot vehicles + props**. No squirrels/bears/fruit art, no Gakken/Play Smart pages/characters/layout IP, no Tomica/Thomas/Tayo.
   - **New playable kinds** (rotate with existing two-picture / find-same / count / sequence → **10** total):

@@ -43,6 +43,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var sequenceTappedAssetIDs: [String] = []
     private let activityEvaluator = ActivityEvaluator()
     private let activityAudio: ActivityAudioPrompting = StubActivityAudioPrompt()
+    /// Canvas guide voice (interim zh-HK system voice, ADR 0007).
+    private let guideVoice = SystemSpeechPrompt()
     private let store: SnapshotStore
     private let themeStore = ThemePreferenceStore()
     private let allowlistStore = VideoAllowlistStore()
@@ -138,6 +140,7 @@ final class AppModel: ObservableObject {
             }
             parentDeadline = Date().addingTimeInterval(parentAccessSeconds)
             if !storageFailed { message = nil }
+            guideVoice.stop()
             update { $0.enterParent(authenticated: true, now: Date()) }
             VisaGamesLog.append("mode → parent — 進入家長模式")
             logShellBranch(context: "enterParent")
@@ -216,6 +219,15 @@ final class AppModel: ObservableObject {
         session.snapshot.reward?.entryActivityCompleted == true
     }
 
+    /// Storage needs a parent: child screens then show a visible Parent button, not only the corner.
+    var needsParentAttention: Bool { storageFailed }
+
+    /// Board 1 bubble: speak (or replay) the depot line in Cantonese.
+    func speakDepotPrompt() {
+        guard session.mode == .lock, !taskRoundOpen else { return }
+        guideVoice.speak(.depotPickTicket)
+    }
+
     var currentTwoPictureQuestion: TwoPictureQuestion { twoPictureQuestion }
     var currentFindSameQuestion: FindSameQuestion { findSameQuestion }
     var currentCountQuestion: CountQuestion { countQuestion }
@@ -230,6 +242,7 @@ final class AppModel: ObservableObject {
     func selectDifficulty(stars: Int) {
         guard !storageFailed, session.mode == .lock, !taskRoundOpen,
               ChildDifficulty(rawValue: stars) != nil else { return }
+        guideVoice.stop()
         resetTaskRound()
         selectedStars = stars
         let seed = UUID().uuidString
@@ -812,20 +825,24 @@ final class KioskWindow: NSWindow {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let model = AppModel()
+    private let penSpark = PenSparkModel()
     private var window: KioskWindow!
     private var timer: Timer?
     private var keyMonitor: Any?
+    private var pointerMonitor: Any?
     private var isChildPresentation: Bool?
     private var parentWindowFrame: NSRect?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        VisaGamesLog.append("fonts — 字型 canvas=\(CanvasFont.isAvailable)")
         window = KioskWindow(contentRect: NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1280, height: 720),
                              styleMask: [.borderless], backing: .buffered, defer: false)
         window.title = "Visa Games / 簽證遊戲"
         window.delegate = self
         window.isReleasedWhenClosed = false
         window.collectionBehavior = [.fullScreenDisallowsTiling]
-        window.contentView = NSHostingView(rootView: ShellView(model: model))
+        window.acceptsMouseMovedEvents = true
+        window.contentView = NSHostingView(rootView: ShellView(model: model, penSpark: penSpark))
         model.changed = { [weak self] in self?.applyPresentation() }
         applyPresentation()
         window.makeKeyAndOrderFront(nil)
@@ -836,8 +853,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                                             hasCommand: event.modifierFlags.contains(.command)) { return nil }
             return event
         }
+        // Observe-only: feeds the pen glow and always passes the event on unchanged.
+        pointerMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp, .tabletProximity]
+        ) { [weak self] event in
+            self?.penSpark.handle(event)
+            return event
+        }
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.model.tick() }
+            Task { @MainActor in
+                self?.model.tick()
+                self?.penSpark.tick(now: Date())
+            }
         }
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(willSleep),
             name: NSWorkspace.willSleepNotification, object: nil)
@@ -893,13 +920,71 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
 struct ShellView: View {
     @ObservedObject var model: AppModel
+    /// Not observed here, so only `PenSparkOverlay` re-renders while the pen moves.
+    let penSpark: PenSparkModel
 
     /// Child content needs room for large task targets and the scoped player.
     private var usesCompactShell: Bool {
         model.session.mode == .lock || model.session.mode == .play
     }
 
+    private var isChildMode: Bool {
+        model.session.mode == .lock || model.session.mode == .play
+    }
+
     var body: some View {
+        ZStack {
+            if model.session.mode == .lock && !model.taskRoundOpen {
+                DepotHomeView(
+                    onSelect: { model.selectDifficulty(stars: $0.rawValue) },
+                    onSpeakPrompt: model.speakDepotPrompt,
+                    onParentUnlock: model.unlock
+                )
+                .ignoresSafeArea()
+                parentNotice
+            } else {
+                legacyShell
+                if isChildMode {
+                    ParentCornerLayer(onUnlock: model.unlock)
+                        .ignoresSafeArea()
+                }
+            }
+            if isChildMode {
+                PenSparkOverlay(model: penSpark)
+                    .ignoresSafeArea()
+            }
+        }
+        .onAppear {
+            model.logShellBranch(context: "shellAppear")
+        }
+    }
+
+    /// Parent-facing notice on the depot (storage or authentication messages).
+    @ViewBuilder
+    private var parentNotice: some View {
+        if let message = model.message {
+            VStack(spacing: 10) {
+                Text(message)
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.ink)
+                    .multilineTextAlignment(.center)
+                if model.needsParentAttention {
+                    Button("家長 / Parent", action: model.unlock)
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .disabled(model.authenticating)
+                }
+            }
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.9)))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .padding(.bottom, 40)
+        }
+    }
+
+    /// Screens not yet rebuilt to the canvas (activities, play, setup, parent).
+    @ViewBuilder
+    private var legacyShell: some View {
         let theme = ThemePack.forID(model.themePaletteID)
         let accent = Color(rgb: theme.accent)
         let yellow = Color(rgb: theme.yellow)
@@ -940,12 +1025,12 @@ struct ShellView: View {
                 if !usesCompactShell {
                     Spacer(minLength: 8)
                 }
-                if model.session.mode != .parent {
+                // Child screens use the 3-second parent corner; setup and storage failures keep a visible button.
+                if model.session.mode == .setup || (model.session.mode != .parent && model.needsParentAttention) {
                     Button("家長 / Parent", action: model.unlock)
                         .disabled(model.authenticating)
                         .tint(accent)
                 }
-                Text("v0.8.0").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
@@ -961,9 +1046,6 @@ struct ShellView: View {
                     .allowsHitTesting(false)
             }
         }
-        .onAppear {
-            model.logShellBranch(context: "shellAppear")
-        }
     }
 
     @ViewBuilder
@@ -973,16 +1055,9 @@ struct ShellView: View {
             Text("請家長設定 / Parent setup required")
                 .font(.system(size: 34, weight: .semibold, design: .rounded))
         case .lock:
+            // Without an open round the canvas depot (DepotHomeView) is shown instead of this shell.
             if model.taskRoundOpen {
                 entryGateContent(theme: theme, accent: accent, yellow: yellow, sand: sand)
-            } else {
-                DifficultyCardsView(
-                    accent: accent,
-                    yellow: yellow,
-                    foreground: Color(rgb: theme.foreground),
-                    sand: sand,
-                    onSelect: model.selectDifficulty
-                )
             }
         case .play:
             VStack(spacing: 12) {
@@ -1016,6 +1091,10 @@ struct ShellView: View {
                 VStack(spacing: 20) {
                     Text("家長設定 / Parent controls")
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    // Version lives here since v0.9.0; child screens no longer show it (ADR 0007, checklist N8).
+                    Text("Visa Games v0.9.0")
+                        .font(.system(size: 16, design: .rounded))
+                        .foregroundStyle(.secondary)
                     Text("十分鐘後自動鎖定 / Locks automatically after ten minutes")
                         .font(.system(size: 22, design: .rounded))
                     Text("入口遊戲已開（兩圖／搵相同／數車／車隊排序）。YouTube 內容包仍待家長 D9 審核。 / Entry games live (two-picture / find-same / count / convoy order). YouTube pack still parent D9.")
