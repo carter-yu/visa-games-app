@@ -1,0 +1,501 @@
+import SwiftUI
+import VisaCore
+
+// MARK: - Board 3 — Visa stamped
+
+struct StampSuccessView: View {
+    let ticket: MissionTicket
+    let onGo: () -> Void
+    let onSpeak: () -> Void
+    @Environment(\.canvasMetrics) private var metrics
+    @State private var confetti = false
+    @State private var zoomVehicle = false
+
+    var body: some View {
+        CanvasStage {
+            ZStack {
+                Color(hex: DesignTokens.Palette.sunny)
+                // Soft sunburst
+                ForEach(0..<12, id: \.self) { i in
+                    Capsule()
+                        .fill(Color(hex: DesignTokens.Palette.sunnyPale).opacity(0.55))
+                        .frame(width: metrics.u(40), height: metrics.u(900))
+                        .rotationEffect(.degrees(Double(i) * 15))
+                }
+                Color(hex: DesignTokens.Palette.sand)
+                    .frame(height: metrics.u(90))
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                if confetti {
+                    ConfettiField()
+                }
+            }
+        } content: {
+            HStack(alignment: .center, spacing: metrics.u(12)) {
+                VectorArtView(artwork: CanvasArt.stampy)
+                    .frame(width: metrics.u(120), height: metrics.u(120))
+                SpeechBubbleButton(prompt: .stamped, action: onSpeak)
+                    .scaleEffect(0.8, anchor: .leading)
+            }
+            .canvasPlaced(x: 36, y: 40)
+
+            PassportSpread(ticket: ticket)
+                .canvasPlaced(x: 250, y: 120)
+
+            HStack(spacing: metrics.u(18)) {
+                Button(action: onGo) {
+                    HStack(spacing: metrics.u(14)) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: metrics.u(28), weight: .bold))
+                        VStack(spacing: 0) {
+                            CanvasText("出發！", size: 32, weight: 900)
+                            CanvasText("Go!", size: 18, weight: 800)
+                        }
+                    }
+                    .foregroundStyle(Color.ink)
+                    .padding(.horizontal, metrics.u(36))
+                    .padding(.vertical, metrics.u(18))
+                }
+                .buttonStyle(ChunkyButtonStyle(fill: Color(hex: DesignTokens.Palette.mint),
+                                               cornerRadius: 40, shadowDepth: 10))
+                .accessibilityLabel("出發！ Go!")
+
+                VectorArtView(artwork: ticket.artwork)
+                    .frame(width: metrics.u(120), height: metrics.u(75))
+                    .offset(x: zoomVehicle ? metrics.u(160) : 0)
+                    .opacity(zoomVehicle ? 0 : 1)
+            }
+            .canvasPlaced(x: 360, y: 560)
+        }
+        .onAppear {
+            onSpeak()
+            confetti = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                withAnimation(.easeIn(duration: 0.55)) { zoomVehicle = true }
+            }
+        }
+    }
+}
+
+private struct PassportSpread: View {
+    let ticket: MissionTicket
+    @Environment(\.canvasMetrics) private var metrics
+
+    var body: some View {
+        HStack(spacing: 0) {
+            // Left page — polaroid vehicle
+            VStack(spacing: metrics.u(14)) {
+                ZStack(alignment: .top) {
+                    RoundedRectangle(cornerRadius: metrics.u(8))
+                        .fill(Color(hex: DesignTokens.Palette.paper))
+                        .overlay(RoundedRectangle(cornerRadius: metrics.u(8))
+                            .strokeBorder(Color.ink, lineWidth: metrics.u(3)))
+                    VectorArtView(artwork: ticket.artwork)
+                        .frame(width: metrics.u(180), height: metrics.u(110))
+                        .padding(.top, metrics.u(18))
+                    Capsule()
+                        .fill(Color(hex: DesignTokens.Palette.sunny))
+                        .frame(width: metrics.u(70), height: metrics.u(18))
+                        .overlay(Capsule().strokeBorder(Color.ink, lineWidth: metrics.u(2)))
+                        .offset(y: metrics.u(-6))
+                }
+                .frame(width: metrics.u(220), height: metrics.u(160))
+                HStack(spacing: metrics.u(4)) {
+                    ForEach(0..<ticket.stars, id: \.self) { _ in
+                        VectorArtView(artwork: CanvasArt.star)
+                            .frame(width: metrics.u(28), height: metrics.u(28))
+                    }
+                }
+                VStack(spacing: 2) {
+                    CanvasText(ticket.titleTraditionalChinese, size: 22, weight: 800)
+                    CanvasText(ticket.titleEnglish, size: 16, weight: 700)
+                }
+            }
+            .frame(width: metrics.u(340), height: metrics.u(380))
+            .background(Color.white)
+            .overlay(Rectangle().strokeBorder(Color.ink, lineWidth: metrics.u(2)))
+
+            // Right page — stamp
+            ZStack {
+                Color.white
+                VStack(spacing: metrics.u(16)) {
+                    VisaStampBadge()
+                        .rotationEffect(.degrees(-12))
+                    HStack(spacing: metrics.u(6)) {
+                        ForEach(0..<ticket.roadTiles, id: \.self) { _ in RoadTileView() }
+                    }
+                }
+            }
+            .frame(width: metrics.u(340), height: metrics.u(380))
+            .overlay(Rectangle().strokeBorder(Color.ink, lineWidth: metrics.u(2)))
+        }
+        .padding(metrics.u(10))
+        .background(
+            RoundedRectangle(cornerRadius: metrics.u(24), style: .continuous)
+                .fill(Color(hex: DesignTokens.Palette.passportBlue))
+                .overlay(
+                    RoundedRectangle(cornerRadius: metrics.u(24), style: .continuous)
+                        .strokeBorder(Color.ink, lineWidth: metrics.u(5))
+                )
+        )
+        .shadow(color: Color.ink.opacity(0.25), radius: 0, x: 0, y: metrics.u(10))
+    }
+}
+
+struct VisaStampBadge: View {
+    @Environment(\.canvasMetrics) private var metrics
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color(hex: DesignTokens.Palette.stampRed),
+                        style: StrokeStyle(lineWidth: metrics.u(6), dash: [metrics.u(10), metrics.u(6)]))
+                .frame(width: metrics.u(180), height: metrics.u(180))
+            Circle()
+                .strokeBorder(Color(hex: DesignTokens.Palette.stampRed), lineWidth: metrics.u(4))
+                .frame(width: metrics.u(150), height: metrics.u(150))
+            VStack(spacing: 4) {
+                CanvasText("簽證", size: 36, weight: 900, color: Color(hex: DesignTokens.Palette.stampRed))
+                CanvasText("VISA", size: 26, weight: 900, color: Color(hex: DesignTokens.Palette.stampRed))
+            }
+        }
+        .accessibilityLabel("簽證 VISA")
+    }
+}
+
+private struct ConfettiField: View {
+    @Environment(\.canvasMetrics) private var metrics
+    private let colors: [UInt32] = [
+        DesignTokens.Palette.mint, DesignTokens.Palette.tomato,
+        DesignTokens.Palette.metro, DesignTokens.Palette.ink
+    ]
+    var body: some View {
+        GeometryReader { geo in
+            ForEach(0..<28, id: \.self) { i in
+                let x = CGFloat((i * 47) % 100) / 100 * geo.size.width
+                let y = CGFloat((i * 37) % 100) / 100 * geo.size.height * 0.7
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color(hex: colors[i % colors.count]))
+                    .frame(width: metrics.u(i % 3 == 0 ? 14 : 10),
+                           height: metrics.u(i % 2 == 0 ? 14 : 8))
+                    .rotationEffect(.degrees(Double(i * 23)))
+                    .position(x: x, y: y)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Board 4 — Watching + road timer
+
+struct WatchPlaybackView: View {
+    let ticket: MissionTicket
+    let videoID: String?
+    let progress: RoadTimerProgress
+    let onNavigationRejected: () -> Void
+
+    var body: some View {
+        GeometryReader { proxy in
+            let layout = DesignTokens.stageLayout(screenWidth: Double(proxy.size.width),
+                                                  screenHeight: Double(proxy.size.height))
+            let metrics = CanvasMetrics(scale: CGFloat(layout.scale))
+            watchBody(metrics: metrics)
+                .environment(\.canvasMetrics, metrics)
+                .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+        .ignoresSafeArea()
+    }
+
+    @ViewBuilder
+    private func watchBody(metrics: CanvasMetrics) -> some View {
+        ZStack {
+            Color(hex: DesignTokens.Palette.ink)
+            VStack(spacing: metrics.u(18)) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: metrics.u(24), style: .continuous)
+                        .fill(Color.black.opacity(0.55))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: metrics.u(24), style: .continuous)
+                                .strokeBorder(Color(hex: DesignTokens.Palette.metro), lineWidth: metrics.u(5))
+                        )
+                    if let videoID {
+                        ScopedPlayerView(videoID: videoID, onNavigationRejected: onNavigationRejected)
+                            .clipShape(RoundedRectangle(cornerRadius: metrics.u(20), style: .continuous))
+                            .padding(metrics.u(10))
+                    } else {
+                        VStack(spacing: 12) {
+                            Image(systemName: "play.circle.fill")
+                                .font(.system(size: 64))
+                                .foregroundStyle(Color(hex: DesignTokens.Palette.metro))
+                            CanvasText("家長准許嘅影片會喺呢度播。", size: 22, weight: 700,
+                                       color: Color(hex: DesignTokens.Palette.paper))
+                            CanvasText("Parent-approved video plays here.", size: 16, weight: 600,
+                                       color: Color(hex: DesignTokens.Palette.paper))
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: metrics.u(480))
+                .padding(.horizontal, metrics.u(48))
+                .padding(.top, metrics.u(36))
+
+                RoadTimerStrip(ticket: ticket, progress: progress)
+                    .padding(.horizontal, metrics.u(40))
+                    .padding(.bottom, metrics.u(28))
+            }
+        }
+    }
+}
+
+struct RoadTimerStrip: View {
+    let ticket: MissionTicket
+    let progress: RoadTimerProgress
+    @Environment(\.canvasMetrics) private var metrics
+
+    var body: some View {
+        GeometryReader { geo in
+            let roadHeight = metrics.u(78)
+            let travel = max(geo.size.width - metrics.u(160), 1)
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: metrics.u(18), style: .continuous)
+                    .fill(Color(hex: DesignTokens.Palette.road))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: metrics.u(18), style: .continuous)
+                            .strokeBorder(Color.ink, lineWidth: metrics.u(4))
+                    )
+                // Dashed center line
+                Path { path in
+                    path.move(to: CGPoint(x: metrics.u(50), y: roadHeight / 2))
+                    path.addLine(to: CGPoint(x: geo.size.width - metrics.u(90), y: roadHeight / 2))
+                }
+                .stroke(Color(hex: DesignTokens.Palette.sunny),
+                        style: StrokeStyle(lineWidth: metrics.u(4), dash: [metrics.u(14), metrics.u(10)]))
+
+                // Start flag
+                Text("🏁")
+                    .font(.system(size: metrics.u(28)))
+                    .offset(x: metrics.u(10))
+
+                // Vehicle
+                VectorArtView(artwork: ticket.artwork)
+                    .frame(width: metrics.u(90), height: metrics.u(56))
+                    .offset(x: metrics.u(40) + travel * progress.fraction)
+
+                // Parent readout
+                CanvasText("仲有 \(progress.remainingMinutesCeil) 分鐘", size: 18, weight: 800,
+                           color: Color(hex: DesignTokens.Palette.paper))
+                    .offset(x: geo.size.width * 0.55)
+
+                // Garage destination
+                GarageGlyph(lit: progress.almostHome)
+                    .frame(width: metrics.u(56), height: metrics.u(56))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.trailing, metrics.u(8))
+            }
+            .frame(height: roadHeight)
+        }
+        .frame(height: metrics.u(78))
+        .accessibilityLabel("仲有 \(progress.remainingMinutesCeil) 分鐘 / \(progress.remainingMinutesCeil) minutes left")
+    }
+}
+
+private struct GarageGlyph: View {
+    let lit: Bool
+    @Environment(\.canvasMetrics) private var metrics
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: metrics.u(6))
+                .fill(Color(hex: DesignTokens.Palette.sand))
+            RoundedRectangle(cornerRadius: metrics.u(6))
+                .strokeBorder(Color.ink, lineWidth: metrics.u(3))
+            // Roof
+            Path { path in
+                path.move(to: CGPoint(x: 0, y: metrics.u(18)))
+                path.addLine(to: CGPoint(x: metrics.u(28), y: 0))
+                path.addLine(to: CGPoint(x: metrics.u(56), y: metrics.u(18)))
+            }
+            .fill(Color(hex: DesignTokens.Palette.tomato))
+            .overlay(Path { path in
+                path.move(to: CGPoint(x: 0, y: metrics.u(18)))
+                path.addLine(to: CGPoint(x: metrics.u(28), y: 0))
+                path.addLine(to: CGPoint(x: metrics.u(56), y: metrics.u(18)))
+            }.stroke(Color.ink, lineWidth: metrics.u(3)))
+            RoundedRectangle(cornerRadius: 2)
+                .fill(lit ? Color(hex: DesignTokens.Palette.sunny) : Color(hex: DesignTokens.Palette.woodDark))
+                .frame(width: metrics.u(28), height: metrics.u(26))
+                .offset(y: metrics.u(10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 2)
+                        .strokeBorder(Color.ink, lineWidth: metrics.u(2))
+                        .frame(width: metrics.u(28), height: metrics.u(26))
+                        .offset(y: metrics.u(10))
+                )
+        }
+    }
+}
+
+// MARK: - Board 5 — Time's up
+
+struct TimesUpView: View {
+    let ticket: MissionTicket
+    let onNewMission: () -> Void
+    let onSpeak: () -> Void
+    @Environment(\.canvasMetrics) private var metrics
+
+    private var prompt: SpokenPrompt { .timesUp(for: ticket) }
+
+    var body: some View {
+        CanvasStage {
+            ZStack(alignment: .bottom) {
+                LinearGradient(
+                    colors: [Color(hex: 0x1B2A4A), Color(hex: DesignTokens.Palette.metro)],
+                    startPoint: .top, endPoint: .bottom
+                )
+                // Stars
+                ForEach(0..<18, id: \.self) { i in
+                    Circle()
+                        .fill(Color.white.opacity(0.85))
+                        .frame(width: 3, height: 3)
+                        .offset(x: CGFloat((i * 73) % 1200) - 600,
+                                y: CGFloat((i * 41) % 280) - 280)
+                }
+                // Moon
+                Text("🌙")
+                    .font(.system(size: 42))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(40)
+                // Hills
+                Ellipse()
+                    .fill(Color(hex: DesignTokens.Palette.grass).opacity(0.85))
+                    .frame(height: metrics.u(160))
+                    .offset(y: metrics.u(40))
+                Color(hex: DesignTokens.Palette.sand)
+                    .frame(height: metrics.u(100))
+            }
+        } content: {
+            HStack(alignment: .bottom, spacing: metrics.u(20)) {
+                VectorArtView(artwork: CanvasArt.stampy)
+                    .frame(width: metrics.u(140), height: metrics.u(140))
+                SpeechBubbleButton(prompt: prompt, action: onSpeak)
+                    .scaleEffect(0.85, anchor: .leading)
+            }
+            .canvasPlaced(x: 60, y: 80)
+
+            SleepingGarage(ticket: ticket)
+                .canvasPlaced(x: 420, y: 180)
+
+            Button(action: onNewMission) {
+                HStack(spacing: metrics.u(12)) {
+                    Image(systemName: "ticket.fill")
+                        .font(.system(size: metrics.u(26), weight: .bold))
+                    VStack(spacing: 0) {
+                        CanvasText("再揀車票", size: 28, weight: 900)
+                        CanvasText("New mission", size: 16, weight: 800)
+                    }
+                }
+                .foregroundStyle(Color.ink)
+                .padding(.horizontal, metrics.u(40))
+                .padding(.vertical, metrics.u(18))
+            }
+            .buttonStyle(ChunkyButtonStyle(fill: Color(hex: DesignTokens.Palette.sand),
+                                           cornerRadius: 40, shadowDepth: 10))
+            .canvasPlaced(x: 430, y: 560)
+            .accessibilityLabel("再揀車票 New mission")
+        }
+        .onAppear(perform: onSpeak)
+    }
+}
+
+private struct SleepingGarage: View {
+    let ticket: MissionTicket
+    @Environment(\.canvasMetrics) private var metrics
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            // Building
+            VStack(spacing: 0) {
+                Path { path in
+                    path.move(to: CGPoint(x: 0, y: metrics.u(40)))
+                    path.addLine(to: CGPoint(x: metrics.u(160), y: 0))
+                    path.addLine(to: CGPoint(x: metrics.u(320), y: metrics.u(40)))
+                    path.closeSubpath()
+                }
+                .fill(Color(hex: DesignTokens.Palette.tomato))
+                .frame(width: metrics.u(320), height: metrics.u(40))
+                ZStack {
+                    Rectangle().fill(Color(hex: DesignTokens.Palette.sand))
+                    // Door
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color(hex: DesignTokens.Palette.sunnyPale))
+                        .overlay(
+                            VStack(spacing: 4) {
+                                ForEach(0..<5, id: \.self) { _ in
+                                    Rectangle().fill(Color.ink.opacity(0.25)).frame(height: 3)
+                                }
+                            }.padding(8)
+                        )
+                        .padding(.horizontal, metrics.u(40))
+                        .padding(.vertical, metrics.u(20))
+                    VectorArtView(artwork: ticket.artwork)
+                        .frame(width: metrics.u(180), height: metrics.u(110))
+                        .opacity(0.95)
+                }
+                .frame(width: metrics.u(320), height: metrics.u(200))
+                .overlay(Rectangle().strokeBorder(Color.ink, lineWidth: metrics.u(5)))
+            }
+            Text("z  z  Z")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.white.opacity(0.9))
+                .offset(x: metrics.u(180), y: -metrics.u(160))
+        }
+    }
+}
+
+// MARK: - Empty allowlist sister screen
+
+struct EmptyAllowlistView: View {
+    let onReturn: () -> Void
+    let onSpeak: () -> Void
+    @Environment(\.canvasMetrics) private var metrics
+
+    var body: some View {
+        CanvasStage {
+            ZStack(alignment: .bottom) {
+                Color(hex: DesignTokens.Palette.sky)
+                Color(hex: DesignTokens.Palette.sand).frame(height: metrics.u(120))
+            }
+        } content: {
+            HStack(spacing: metrics.u(16)) {
+                VectorArtView(artwork: CanvasArt.stampy)
+                    .frame(width: metrics.u(150), height: metrics.u(150))
+                SpeechBubbleButton(prompt: .emptyAllowlist, action: onSpeak)
+            }
+            .canvasPlaced(x: 80, y: 120)
+
+            // Empty garage vibe
+            RoundedRectangle(cornerRadius: metrics.u(24), style: .continuous)
+                .fill(Color(hex: DesignTokens.Palette.paper))
+                .overlay(
+                    RoundedRectangle(cornerRadius: metrics.u(24), style: .continuous)
+                        .strokeBorder(Color.ink, lineWidth: metrics.u(5))
+                )
+                .overlay(
+                    CanvasText("空車房 / Empty bay", size: 28, weight: 800)
+                )
+                .frame(width: metrics.u(420), height: metrics.u(200))
+                .canvasPlaced(x: 430, y: 280)
+
+            Button(action: onReturn) {
+                VStack(spacing: 0) {
+                    CanvasText("返回車廠", size: 28, weight: 900)
+                    CanvasText("Back to depot", size: 16, weight: 800)
+                }
+                .foregroundStyle(Color.ink)
+                .padding(.horizontal, metrics.u(40))
+                .padding(.vertical, metrics.u(16))
+            }
+            .buttonStyle(ChunkyButtonStyle(fill: Color(hex: DesignTokens.Palette.sunny),
+                                           cornerRadius: 36, shadowDepth: 10))
+            .canvasPlaced(x: 480, y: 540)
+            .accessibilityLabel("返回車廠 Back to depot")
+        }
+        .onAppear(perform: onSpeak)
+    }
+}
