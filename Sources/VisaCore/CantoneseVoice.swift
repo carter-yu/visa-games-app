@@ -68,9 +68,22 @@ public struct SpeechVoiceInfo: Equatable, Sendable {
 
 /// Interim voice choice (ADR 0007): Hong Kong Cantonese only. A Mandarin voice reading
 /// Traditional Chinese would be the wrong language, so there is no fallback.
+///
+/// On recent macOS, Sinji’s BCP-47 tag is often `yue-HK` (Yue/Cantonese) rather than
+/// legacy `zh-HK`. Both mean HK Cantonese; `zh-CN` / `zh-TW` / `cmn-*` stay rejected.
 public enum CantoneseVoicePicker {
+    /// Normalized BCP-47 / Apple language tag (`zh_HK` → `zh-hk`).
+    public static func normalizedLanguage(_ language: String) -> String {
+        language.lowercased().replacingOccurrences(of: "_", with: "-")
+    }
+
     public static func isHongKongCantonese(_ language: String) -> Bool {
-        language.lowercased().replacingOccurrences(of: "_", with: "-") == "zh-hk"
+        switch normalizedLanguage(language) {
+        case "zh-hk", "yue-hk":
+            return true
+        default:
+            return false
+        }
     }
 
     public static func pick(from voices: [SpeechVoiceInfo]) -> SpeechVoiceInfo? {

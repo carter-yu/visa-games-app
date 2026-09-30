@@ -1,5 +1,14 @@
 # Progress
 
+- 2026-10-01: PR #10 PATCH **v0.11.4 / build 31** — picker Stampy voice silent: accept `yue-HK` Sinji. Branch `feat/ux-p2-p3-activity-watch`. Do not merge.
+  - **Bug (Carter):** Stampy bubble 「揀片睇！」 on VideoPicker had no sound (tap + auto-speak).
+  - **Root cause:** macOS reports Sinji as BCP-47 `yue-HK`, not `zh-HK`. `CantoneseVoicePicker` only matched `zh-hk` → `picked=none` → `speak` no-op. `say -v ?` still listed Sinji; AVSpeech `speechVoices()` zh-HK filter was empty; `AVSpeechSynthesisVoice(language: "zh-HK")` returns Sinji with `lang=yue-HK`.
+  - **Fix:** treat `yue-hk` as HK Cantonese (still reject zh-CN/zh-TW/cmn); language-tag fallback in `SystemSpeechPrompt`; log `voice speak` / `voice skip`; utterance volume 1.0. No Mandarin fallback (ADR 0007).
+  - Also on tip: v0.11.3 mid-visa `legacyShell` fix (8769a07).
+  - Version: Info.plist **0.11.4 / 31**, parent footer **v0.11.4**.
+  - **Launch path:** `/Users/carteryu/my-ai-projects/visa-games-app/.build/Visa Games.app` only (no /Applications copy). Parent footer must read **v0.11.4**. Expect log `voice — … picked=Sinji lang=yue-HK` then `voice speak — … key=play.pickVideo`.
+
+
 - 2026-10-01: PR #10 PATCH **v0.11.3 / build 30** — mid-visa / cold-start no longer falls through to ADR 0006 `legacyShell`. Branch `feat/ux-p2-p3-activity-watch`. Do not merge; Mac mini + TV UAT pending.
   - **Bug (Carter UAT):** after launching tip `.build` v0.11.2/29 he saw wooden 「簽證車廠 / Visa Depot」, 「簽證時間 … 秒」, yellow 「播放准許影片」, desert + parade — legacy play, not canvas Depot/Stampy/tickets.
   - **Root cause (not wrong binary):** running PID was tip `.build` @ 69698cb. Persisted `endsAt` resumes `Session` into `.play` while in-memory `selectedStars` / `awaitingDeparture` / `activePlayVideoID` are nil. `childOrLegacy` required `selectedMissionTicket` for stamp/picker/watch → **else → legacyShell**. Logs: relaunch `shellAppear` with `branch=play-ready` while visa still running.

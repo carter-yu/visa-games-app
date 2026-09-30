@@ -174,16 +174,22 @@ final class CantoneseVoiceTests {
         let voices = [voice("tingting", "zh-CN"), voice("meijia", "zh-TW"), voice("sinji", "zh-HK"), voice("samantha", "en-US")]
         expectEqual(CantoneseVoicePicker.pick(from: voices)?.identifier, "sinji")
         expectEqual(CantoneseVoicePicker.pick(from: [voice("x", "zh_HK")])?.identifier, "x")
+        // Recent macOS reports Sinji as yue-HK (Yue Cantonese), not zh-HK.
+        expectTrue(CantoneseVoicePicker.isHongKongCantonese("yue-HK"))
+        expectTrue(CantoneseVoicePicker.isHongKongCantonese("yue_HK"))
+        expectEqual(CantoneseVoicePicker.pick(from: [voice("sinji-yue", "yue-HK")])?.identifier, "sinji-yue")
     }
 
     func testNeverFallsBackToMandarin() {
-        let voices = [voice("tingting", "zh-CN"), voice("meijia", "zh-TW")]
+        let voices = [voice("tingting", "zh-CN"), voice("meijia", "zh-TW"), voice("li-mu", "cmn-CN")]
         expectNil(CantoneseVoicePicker.pick(from: voices))
         expectNil(CantoneseVoicePicker.pick(from: []))
+        expectFalse(CantoneseVoicePicker.isHongKongCantonese("zh-CN"))
+        expectFalse(CantoneseVoicePicker.isHongKongCantonese("zh-TW"))
     }
 
     func testPrefersHigherQualityVoice() {
-        let voices = [voice("compact", "zh-HK", quality: 1), voice("premium", "zh-HK", quality: 3), voice("enhanced", "zh-HK", quality: 2)]
+        let voices = [voice("compact", "zh-HK", quality: 1), voice("premium", "yue-HK", quality: 3), voice("enhanced", "zh-HK", quality: 2)]
         expectEqual(CantoneseVoicePicker.pick(from: voices)?.identifier, "premium")
     }
 
