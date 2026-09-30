@@ -1,13 +1,13 @@
 import SwiftUI
 import VisaCore
 
-// MARK: - Board 4 prelude — pick a video (Holiday P0, v0.11.1)
+// MARK: - Board 4 prelude — pick a video (Holiday P0, v0.11.2)
 
 /// After the stamp gate's 「出發！」, the child picks one allowlisted video from large preview
 /// cards. One video still shows its card so the child feels the choice. Every pick goes through
 /// the existing D8 allowlist gate (`AppModel.playAllowlisted`).
 ///
-/// Layout (v0.11.1): 3×2 page grid so up to six cards fit fully on the 1280×720 safe canvas —
+/// Layout (v0.11.2): 3×2 page grid so up to six cards fit fully on the 1280×720 safe canvas —
 /// no mid-card clip and no dead blue gutter. More than six videos page with chunky arrows.
 struct VideoPickerView: View {
     let ticket: MissionTicket
@@ -77,7 +77,9 @@ struct VideoPickerView: View {
             pendingSpeech = work
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
         }
-        .onChange(of: videos.count) { _, _ in
+        // macOS 13-compatible onChange (single-arg form). The two-parameter
+        // onChange(of:initial:_:) requires macOS 14+ and broke the Release bundle.
+        .onChange(of: videos.count) { _ in
             clampPageIndex()
         }
         .onDisappear {

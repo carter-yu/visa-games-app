@@ -1,5 +1,16 @@
 # Progress
 
+- 2026-10-01: PR #10 PATCH **v0.11.2 / build 29** — macOS 13–compatible `onChange` so Release bundle builds on Mac mini (deployment target stays 13.0). Branch `feat/ux-p2-p3-activity-watch`. Do not merge; Mac mini + TV UAT pending.
+  - **Blocker (Mac mini Release):** `VideoPickerView.swift` used `.onChange(of:initial:_:)` (two-parameter closure) which requires macOS 14.0+; product targets arm64-apple-macos13.0. Tests passed; Release bundle failed; stale app left at 0.11.0/27.
+  - **Fix:** replace with single-arg `.onChange(of:perform:)` / `{ _ in … }` form (macOS 12+/13). Grep of holiday tip: other `onChange` sites in `StampWatchTimesUpViews` / `ChildFeedback` already use the single-arg form; no other macOS 14+ only APIs found in recent holiday commits. Deployment target unchanged (`Package.swift` `.macOS(.v13)`, Info.plist `LSMinimumSystemVersion` 13.0).
+  - Version: Info.plist **0.11.2 / 29**, parent footer **v0.11.2**. Linux box: `swift: not found` → no compile or test claim here; Mac mini test+bundle is the verification.
+  - **Mac mini UAT tip for Carter:**
+    1. `git fetch && git checkout feat/ux-p2-p3-activity-watch && git pull`
+    2. `sh scripts/test.sh`; `sh scripts/bundle.sh` → expect fresh `.build/Visa Games.app` at **0.11.2 / 29**
+    3. Parent footer **v0.11.2**; stamp → 「出發！」 → picker still 3×2 full cards
+    4. PR stays unmerged until Carter OKs the TV check.
+
+
 - 2026-10-01: PR #10 PATCH **v0.11.1 / build 28** — Video picker shows the full allowlist on TV (no mid-card clip). Branch `feat/ux-p2-p3-activity-watch`. Do not merge; Mac mini + TV UAT pending.
   - **Bug (Carter UAT screenshot):** horizontal one-row picker showed ~2 full cards + a third cut mid-frame with empty blue sky beside it; `showsIndicators: false` gave no scroll affordance for a ~4yo + Wacom.
   - **Fix:** `VideoPickerView` is now a **3×2 page grid** of chunky cards (thumb ~248×132) inside the 1280×720 safe canvas so **up to six videos are fully visible**. More than six → chunky sunny prev/next arrows + page dots; never clip a card mid-frame with dead space beside it. 「揀片睇！」 / thumbnails / D8 pick path unchanged.
