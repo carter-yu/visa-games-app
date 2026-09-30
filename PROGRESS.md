@@ -1,5 +1,138 @@
 # Progress
 
+- 2026-10-01: PR #10 PATCH **v0.11.6 / build 33** — VideoPicker board truly centered on TV (no left/down cyan cluster). Branch `feat/ux-p2-p3-activity-watch`. Do not merge.
+  - **Bug (Carter UAT Mac mini v0.11.5 / 14aa1a3):** 3×2 grid still shifted LEFT and DOWN — large cyan empty on the right, content low. Screenshot confirmed. Prior fix only added `maxWidth: .infinity` around `LazyVGrid` + `canvasPlaced(x:60,y:168)`; LazyVGrid still shrink-wrapped to intrinsic card width and offset placement pinned the board top-left of the remaining band.
+  - **Fix:** drop `LazyVGrid` + `canvasPlaced` offsets for the picker. Full 1280×720 artboard `VStack`: Stampy/ticket header → `Spacer` → equal-width 3×2 `HStack` rows (cards `aspectRatio` fill columns) → `Spacer` → dots/message. Horizontally fills; vertically centers under Stampy in remaining space.
+  - Version: Info.plist **0.11.6 / 33**, parent footer **v0.11.6**. Linux box: no Swift — Mac mini test+bundle verifies.
+  - **Launch path:** `/Users/carteryu/my-ai-projects/visa-games-app/.build/Visa Games.app` only. Parent footer must read **v0.11.6**. Stamp → 「出發！」 → picker 3×2 centered (no big cyan gutter right / low cluster).
+  - Mac mini UAT checklist:
+    1. `git fetch && git checkout feat/ux-p2-p3-activity-watch && git pull --ff-only`
+    2. `sh scripts/test.sh`; `sh scripts/bundle.sh` → expect **0.11.6 / 33**
+    3. Parent footer **v0.11.6**; stamp → Go → picker board centered under Stampy, columns fill width evenly
+
+
+- 2026-10-01: PR #10 PATCH **v0.11.5 / build 32** — VideoPicker cards centered / fill safe canvas (no left-cluster cyan gutter). Branch `feat/ux-p2-p3-activity-watch`. Do not merge.
+  - **Bug (Carter UAT Mac mini v0.11.4):** 3×2 card grid clustered/shrunk to the LEFT with large empty cyan sky on the right; page arrows + dots visible on 1280×720 TV.
+  - **Fix:** `pickerBoard` HStack + `LazyVGrid` use `frame(maxWidth: .infinity, alignment: .center)` inside a 1160-wide board placed at x:60; each `VideoPreviewCard` also `maxWidth: .infinity` so flexible columns evenly fill. No more intrinsic-width left cluster.
+  - Version: Info.plist **0.11.5 / 32**, parent footer **v0.11.5**. Linux box: no Swift — Mac mini test+bundle verifies.
+  - **Launch path:** `/Users/carteryu/my-ai-projects/visa-games-app/.build/Visa Games.app` only. Parent footer must read **v0.11.5**. Stamp → 「出發！」 → picker cards centered across the board (no big cyan gutter on the right).
+  - Mac mini UAT checklist:
+    1. `git fetch && git checkout feat/ux-p2-p3-activity-watch && git pull --ff-only`
+    2. `sh scripts/test.sh`; `sh scripts/bundle.sh` → expect **0.11.5 / 32**
+    3. Parent footer **v0.11.5**; stamp → Go → picker 3×2 fills/centers on TV
+
+- 2026-10-01: PR #10 PATCH **v0.11.4 / build 31** — picker Stampy voice silent: accept `yue-HK` Sinji. Branch `feat/ux-p2-p3-activity-watch`. Do not merge.
+  - **Bug (Carter):** Stampy bubble 「揀片睇！」 on VideoPicker had no sound (tap + auto-speak).
+  - **Root cause:** macOS reports Sinji as BCP-47 `yue-HK`, not `zh-HK`. `CantoneseVoicePicker` only matched `zh-hk` → `picked=none` → `speak` no-op. `say -v ?` still listed Sinji; AVSpeech `speechVoices()` zh-HK filter was empty; `AVSpeechSynthesisVoice(language: "zh-HK")` returns Sinji with `lang=yue-HK`.
+  - **Fix:** treat `yue-hk` as HK Cantonese (still reject zh-CN/zh-TW/cmn); language-tag fallback in `SystemSpeechPrompt`; log `voice speak` / `voice skip`; utterance volume 1.0. No Mandarin fallback (ADR 0007).
+  - Also on tip: v0.11.3 mid-visa `legacyShell` fix (8769a07).
+  - Version: Info.plist **0.11.4 / 31**, parent footer **v0.11.4**.
+  - **Launch path:** `/Users/carteryu/my-ai-projects/visa-games-app/.build/Visa Games.app` only (no /Applications copy). Parent footer must read **v0.11.4**. Expect log `voice — … picked=Sinji lang=yue-HK` then `voice speak — … key=play.pickVideo`.
+
+
+- 2026-10-01: PR #10 PATCH **v0.11.3 / build 30** — mid-visa / cold-start no longer falls through to ADR 0006 `legacyShell`. Branch `feat/ux-p2-p3-activity-watch`. Do not merge; Mac mini + TV UAT pending.
+  - **Bug (Carter UAT):** after launching tip `.build` v0.11.2/29 he saw wooden 「簽證車廠 / Visa Depot」, 「簽證時間 … 秒」, yellow 「播放准許影片」, desert + parade — legacy play, not canvas Depot/Stampy/tickets.
+  - **Root cause (not wrong binary):** running PID was tip `.build` @ 69698cb. Persisted `endsAt` resumes `Session` into `.play` while in-memory `selectedStars` / `awaitingDeparture` / `activePlayVideoID` are nil. `childOrLegacy` required `selectedMissionTicket` for stamp/picker/watch → **else → legacyShell**. Logs: relaunch `shellAppear` with `branch=play-ready` while visa still running.
+  - **Fix:** `PlayPresentation.ticket` / stars-from-award helpers; `recoverPlayPresentationAfterLaunch` restores stars from last 10/20/30 award (else easy) and skips stamp gate; `playCanvasBoard` routes **all** `.play` to canvas Stamp/Picker/Watch/Empty; TimesUp uses resolved ticket; parent 「測試一分鐘簽證」 seeds canvas presentation. `legacyShell` remains for setup/parent only.
+  - Version: Info.plist **0.11.3 / 30**, parent footer **v0.11.3**. Linux box: no Swift — Mac mini test+bundle verifies.
+  - **Mac mini UAT tip for Carter:**
+    1. Quit any running Visa Games
+    2. Launch **only** `/Users/carteryu/my-ai-projects/visa-games-app/.build/Visa Games.app` (no /Applications copy found)
+    3. Parent footer **v0.11.3**; if mid-visa still in `state.json` → expect **VideoPicker** (canvas), not wooden legacy; after visa ends → TimesUp → Depot (Stampy + tickets)
+    4. Fresh path: Depot → game → stamp → 「出發！」 → picker → watch
+    5. PR stays unmerged until Carter OKs.
+
+
+- 2026-10-01: PR #10 PATCH **v0.11.2 / build 29** — macOS 13–compatible `onChange` so Release bundle builds on Mac mini (deployment target stays 13.0). Branch `feat/ux-p2-p3-activity-watch`. Do not merge; Mac mini + TV UAT pending.
+  - **Blocker (Mac mini Release):** `VideoPickerView.swift` used `.onChange(of:initial:_:)` (two-parameter closure) which requires macOS 14.0+; product targets arm64-apple-macos13.0. Tests passed; Release bundle failed; stale app left at 0.11.0/27.
+  - **Fix:** replace with single-arg `.onChange(of:perform:)` / `{ _ in … }` form (macOS 12+/13). Grep of holiday tip: other `onChange` sites in `StampWatchTimesUpViews` / `ChildFeedback` already use the single-arg form; no other macOS 14+ only APIs found in recent holiday commits. Deployment target unchanged (`Package.swift` `.macOS(.v13)`, Info.plist `LSMinimumSystemVersion` 13.0).
+  - Version: Info.plist **0.11.2 / 29**, parent footer **v0.11.2**. Linux box: `swift: not found` → no compile or test claim here; Mac mini test+bundle is the verification.
+  - **Mac mini UAT tip for Carter:**
+    1. `git fetch && git checkout feat/ux-p2-p3-activity-watch && git pull`
+    2. `sh scripts/test.sh`; `sh scripts/bundle.sh` → expect fresh `.build/Visa Games.app` at **0.11.2 / 29**
+    3. Parent footer **v0.11.2**; stamp → 「出發！」 → picker still 3×2 full cards
+    4. PR stays unmerged until Carter OKs the TV check.
+
+
+- 2026-10-01: PR #10 PATCH **v0.11.1 / build 28** — Video picker shows the full allowlist on TV (no mid-card clip). Branch `feat/ux-p2-p3-activity-watch`. Do not merge; Mac mini + TV UAT pending.
+  - **Bug (Carter UAT screenshot):** horizontal one-row picker showed ~2 full cards + a third cut mid-frame with empty blue sky beside it; `showsIndicators: false` gave no scroll affordance for a ~4yo + Wacom.
+  - **Fix:** `VideoPickerView` is now a **3×2 page grid** of chunky cards (thumb ~248×132) inside the 1280×720 safe canvas so **up to six videos are fully visible**. More than six → chunky sunny prev/next arrows + page dots; never clip a card mid-frame with dead space beside it. 「揀片睇！」 / thumbnails / D8 pick path unchanged.
+  - Version: Info.plist **0.11.1 / 28**, parent footer **v0.11.1**. Linux box: `swift: not found` → no compile or test claim.
+  - **Mac mini UAT tip for Carter:**
+    1. `git fetch && git checkout feat/ux-p2-p3-activity-watch && git pull`
+    2. `sh scripts/test.sh`; `sh scripts/bundle.sh`; parent footer **v0.11.1**
+    3. Stamp → 「出發！」 → picker: with ≤6 allowlisted videos, **every card fully on screen** (no half card, no empty blue strip)
+    4. Titles readable (… OK); Stampy still says 「揀片睇！」; tap card → watch that video
+    5. With >6 videos: big yellow arrows + dots page through the rest; each page still shows whole cards only
+    6. PR stays unmerged until Carter OKs the TV check.
+
+
+- 2026-09-30: PR #10 MINOR **v0.11.0 / build 27** — Holiday P0 on branch `feat/ux-p2-p3-activity-watch` (on top of `f06ae06`). Do not merge; Mac mini + TV UAT pending.
+  - **Carter locks (2026-09-30):**
+    1. **Parent on garage (Watch only):** `RoadTimerStrip` stacks an invisible `ParentCornerEntry` (72-unit hit target, `showsMark: false`) on the `GarageGlyph`; 3-second hold → `model.unlock` (unchanged auth); tap does nothing. `ShellView` hides the faint `ParentCornerLayer` only while `WatchPlaybackView` shows; all other child screens keep it.
+    2. **Last-minute red glow:** when `progress.almostHome` (≤60s) the road bar gets a tomato/stamp-red border + pulsing glow, the garage glows too; Reduce Motion → steady glow. 「仲有 N 分鐘」 and the almost-home voice unchanged.
+    3. **Child picks the video:** `applyEntrySuccess` no longer preselects a shuffled video. New `PlayStageRoute` (VisaCore) drives the play branch: stamp → (Go) → empty allowlist | `VideoPickerView` (allowlist non-empty and nothing picked; one video still shows one card) | `WatchPlaybackView`. Card tap → `AppModel.pickVideo` → existing `playAllowlisted` (D8 gate). Thumbnails via `ApprovedVideo.thumbnailURL` + `AsyncImage`; loading/failure → ticket vehicle art. `SpokenPrompt.pickVideo` 「揀片睇！ / Pick a video!」 spoken 1.2s after picker opens. Logs: `videoPicker open`, `videoPicker pick`, `videoPicker pick rejected`.
+  - Behaviour note: if a started video is stopped (navigation rejected) the child returns to the picker instead of an empty watch frame. Shuffle helper remains for the legacy shell only.
+  - Tests: +1 check (`testPlayStageRoutesPickerBeforeWatch`) and `pickVideo` in the Traditional-only check → expect PASS **10+10+7+6+12+18+9+4+4+5**. Linux box: `swift: not found` → no compile or test claim here.
+  - Version: Info.plist **0.11.0 / 27**, parent footer **v0.11.0**. ADR 0007 §5 amended + two decision rows. Prompt: `prompts/pr-0010-holiday-p0-picker-glow.md`.
+  - **Mac mini UAT checklist:**
+    1. `git fetch && git checkout feat/ux-p2-p3-activity-watch && git pull`
+    2. `sh scripts/test.sh` → expect PASS **10+10+7+6+12+18+9+4+4+5**; `swift build` clean
+    3. `sh scripts/bundle.sh`; parent footer **v0.11.0**
+    4. Correct answer → stamp → 「出發！」 → picker with one card per allowlisted video (thumbnails online; vehicle art offline); Stampy says 「揀片睇！」
+    5. With exactly one allowlisted video the picker still shows its card; with none → empty stage + 「返回車廠」
+    6. Tap a card → watch screen plays that video; visa minutes unchanged (10/20/30)
+    7. Watch: no faint bottom-right corner; tap on garage does nothing; 3s hold on garage → macOS password prompt
+    8. At ≤1 min: road bar + garage glow red and pulse; Reduce Motion on → steady glow; almost-home voice still plays
+    9. Parent corner still works on Depot, Activity, Stamp, Picker, Time's up, Empty allowlist; Escape / Cmd-Q blocked
+    10. PR stays unmerged until Carter OKs the TV check.
+- 2026-09-30: PR #10 MINOR **v0.10.0 / build 26** — UX Phases 2+3: voice-first activities + stamp / road timer / Time's up. Branch `feat/ux-p2-p3-activity-watch` from `feat/ux-p1-canvas-depot` @ `4037f93` (includes Depot P1). Do not merge; Mac mini + TV UAT pending. Opus Pro session limit hit mid-build (~00:58 HKT, reset 02:10); implementation continued on the workshop box against Carter's uploaded canvas boards.
+  - **Carter locks used:** auto-hint after 2 misses → assisted (D7); Stampy placeholder kept; reward 10/20/30 + kiosk + parent auth + allowlist/visa accounting unchanged; visa clock still starts on correct answer (presentation-only 「出發！」); HK Trad + English only; Phase 4 passport unlocks / rounds / daily-cap skipped (no invented policy).
+  - **P2 Activity (board 2) + feedback (board 7):** `ActivityBoardView` + `ChoiceCardChrome` (hop / wiggle / hint glow, Reduce Motion) + `ConeProgressView`; `CanvasActivityHost` rebuilds all 10 kinds as stimulus panel + ≤3 text-free cards; Stampy bubble auto-plays zh-HK prompt via `SystemSpeechPrompt` (no D9 stub toast); miss counter auto-hints at 2.
+  - **P2 empty allowlist:** `EmptyAllowlistView` + return to depot (ends visa, skips Time's up).
+  - **P3 Stamp (board 3):** `StampSuccessView` passport spread + confetti + mint 「出發！ Go!」 gate before watch UI.
+  - **P3 Watch (board 4):** `WatchPlaybackView` + `RoadTimerStrip` (flag → vehicle → garage; 「仲有 N 分鐘」; garage lights + `almostHome` speak at ≤60s).
+  - **P3 Time's up (board 5):** `TimesUpView` dusk park-and-sleep + 「再揀車票 New mission」.
+  - VisaCore: `ChildUXProgress` (`ActivityHintPolicy`, `RoadTimerProgress`); SpokenPrompt UX lines (`stamped`, `departGo`, `almostHome`, `timesUpPark`, `emptyAllowlist`, `timesUp(for:)`).
+  - Concept boards copied to `docs/concept-canvas-boards/` (01–07). ADR 0007 open table updated (assisted + visa-clock presentation decided).
+  - Unchanged: D8 scoped player, shuffle, reward minutes, kiosk escape, parent LA, allowlist accounting.
+  - Tests: +4 ux-p2-p3 checks → expect PASS **10+10+7+6+12+18+9+4+4+4**. Linux `swift: not found` → no compile claim here.
+  - Version: Info.plist **0.10.0 / 26**, parent footer **v0.10.0**. Prompt: `prompts/pr-0010-ux-p2-p3-activity-watch.md`.
+  - **Deferred:** passport board 6 (needs Phase 4 decisions); recorded Cantonese clips (D9 / Phase 5); remaining vehicle vector art beyond taxi/fire/metro/bus; daily-cap ending.
+  - **Mac mini UAT checklist:**
+    1. `git fetch && git checkout feat/ux-p2-p3-activity-watch && git pull`
+    2. `sh scripts/test.sh` → expect PASS **10+10+7+6+12+18+9+4+4+4**
+    3. `sh scripts/bundle.sh`; footer **v0.10.0**; fonts still bundled
+    4. Depot → ticket → activity looks like board 2 (Stampy bubble, stimulus, 3 cards, cones); prompt speaks on entry / bubble replay
+    5. Wrong twice → soft wiggle then hint glow + assisted success; no red X
+    6. Correct → stamp passport + 「出發！」; visa already ticking; Go → dark watch + road timer 「仲有 N 分鐘」
+    7. At 1 min left: garage lights + almost-home voice; expiry → dusk sleep + 「再揀車票」
+    8. Empty allowlist after Go → empty stage + 「返回車廠」
+    9. Visas stay 10/20/30; parent corner 3s hold; Escape / Cmd-Q blocked
+    10. PR stays unmerged until Carter OKs TV check.
+- 2026-09-29: PR #9 MINOR **v0.9.0 / build 25** — UX Phase 1: concept-canvas foundation + Depot home (canvas board 1). Branch `feat/ux-p1-canvas-depot` from `main` @ `e77d8ee`. Do not merge; Mac mini + TV UAT pending.
+  - Status correction: PR #8 was squash-merged to `main` on 2026-09-28 16:58 UTC as `e77d8ee`; older entries below that say it "must remain unmerged" predate the merge. No v0.8.0 Mac mini UAT result is recorded here.
+  - Carter decisions (2026-09-29 chat): the concept canvas is the child-look source of truth (ADR 0007); base branch `main`; go-ahead for UX Phase 1; font download approved.
+  - Phase 0 audit (report only, from source): Easy / Medium / Challenge change only visa minutes. The game comes from a random round seed, each game has one fixed question, and each ticket is one question. The app consumed no hover or tablet-proximity events. Child screens showed a one-tap Parent button and the version.
+  - VisaCore: `DesignTokens` (canvas palette; 1280×720 stage fitted inside a 5% TV safe area, backdrop full-bleed), `SVGPathData` (path parser incl. arcs), `CanvasArt` (Stampy, taxi, fire engine, metro, bus, depot scene, star, speaker, parent mark, pen spark), `MissionTicket`, `SpokenPrompt` + `CantoneseVoicePicker` (zh-HK only, no Mandarin fallback), `PenSparkState`.
+  - VisaGames: `DesignSystem` (colour tokens, `CanvasStage`, `CanvasFont`, `CanvasText`, `ChunkyButtonStyle`), `VectorArtView`, `DepotHomeView` (board 1 without the passport button), `ParentCornerEntry` (3-second hold → existing parent authentication), `SystemSpeechPrompt` (zh-HK system voice; logs installed zh-HK voices), `PenSparkOverlay` (observe-only monitor; logs proximity and first hover per approach). Removed `DifficultyCardsView`. Legacy activity/play screens lost the Parent button and version and gained the parent corner. Version shown in Parent controls.
+  - Fonts: Baloo 2 + Noto Sans HK (SIL OFL 1.1) in `Resources/Fonts/` (+12.6 MB); `bundle.sh` copies them with their licences.
+  - Unchanged: kiosk key blocking and presentation, parent authentication, allowlist playback, visa accounting, reward policy (10 / 20 / 30), activity content.
+  - Tests: +17 checks → PASS **10+10+7+6+12+18+9+4+4**. The new checks failed to compile before implementation.
+  - Verification on the dev MacBook Air (M4, macOS 15.5, Swift 6.1.2, Command Line Tools): `sh scripts/test.sh` PASS; `swift build` without warnings; `sh scripts/bundle.sh` built the app with fonts. The depot was rendered offscreen (ImageRenderer) at 1280×720, 1920×1080 and 1440×900 and compared with canvas board 1. The app was not launched on the MacBook (kiosk). No Mac mini, TV, Wacom or voice result is claimed.
+  - ADR `docs/decisions/0007-concept-canvas-child-ux.md`; phase file `phases/phase-5-canvas-ux-rebuild.md`; kiosk checklist N8 + two new rows; brief committed at `docs/ux-rebuild-brief.md`. Prompt: `prompts/pr-0009-ux-p1-canvas-depot.md`.
+  - **Mac mini UAT checklist:**
+    1. `git fetch && git checkout feat/ux-p1-canvas-depot && git pull`
+    2. `sh scripts/test.sh` → expect PASS **10+10+7+6+12+18+9+4+4**
+    3. `sh scripts/bundle.sh`; `ls ".build/Visa Games.app/Contents/Resources/Fonts"` → two `.ttf` + two `OFL-*.txt`
+    4. Depot on the TV looks like canvas board 1 (sign, Stampy, bubble, three tickets with stars and road tiles); nothing is cut off at the TV edges, including the faint bottom-right corner
+    5. Voice: Stampy says 「揀一張車票！」 in Cantonese on arrival; tapping the bubble repeats it. If silent, the log shows `voice — 語音 zh-HK picked=none`: add a Cantonese (Hong Kong) voice in System Settings → Accessibility → Spoken Content
+    6. Tickets push down when pressed and start a game; visas stay 10 / 20 / 30
+    7. Parent: a tap on the corner does nothing; a 3-second hold opens the macOS password prompt; Parent controls show `Visa Games v0.9.0`; no Parent button or version on child screens
+    8. Pen: the glow ring follows the pen while hovering or appears on touch. Logs show `pen proximity` lines and, if hover works, `pen hover observed`. Escape / Cmd-Q / Cmd-Tab stay blocked
+    9. Games and video playback still work (legacy look until UX Phases 2–3)
+    10. PR #9 stays unmerged until Carter OKs the TV check.
+
 - 2026-09-29: PR #8 MINOR **v0.8.0 / build 24** — Visa Depot workbook-mechanic pack (6 new ActivityKinds). Do not merge; Mac mini UAT pending.
   - Inspiration ONLY from Carter's 6 uploaded preschool workbook pages (half-match, shape cousin, capacity, collage count/more/shadow, inside/outside, empty plate) — **mechanics mapped into original Visa Depot vehicles + props**. No squirrels/bears/fruit art, no Gakken/Play Smart pages/characters/layout IP, no Tomica/Thomas/Tayo.
   - **New playable kinds** (rotate with existing two-picture / find-same / count / sequence → **10** total):

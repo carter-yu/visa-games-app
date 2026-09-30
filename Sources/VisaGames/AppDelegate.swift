@@ -25,6 +25,20 @@ final class AppModel: ObservableObject {
     @Published private(set) var playbackMessage: String?
     @Published private(set) var entryRetryMessage: String?
     @Published private(set) var entryHintUsed = false
+    /// Incorrect taps this round; auto-hint at 2 (D7 assisted).
+    @Published private(set) var entryMissCount = 0
+    @Published private(set) var lastIncorrectChoiceID: String? = nil
+    @Published private(set) var lastCorrectChoiceID: String? = nil
+    @Published private(set) var activityJustCompleted = false
+    /// Board 3 stamp gate — visa already running; Go reveals watch UI.
+    @Published private(set) var awaitingDeparture = false
+    /// Board 5 park-and-sleep after visa expiry.
+    @Published private(set) var showTimesUp = false
+    @Published private(set) var timesUpTicket: MissionTicket? = nil
+    /// Skip board 5 when the child leaves play early (empty allowlist return).
+    private var suppressNextTimesUp = false
+    private var almostHomeSpoken = false
+    private var playVisaTotalSeconds: TimeInterval = 0
     @Published private(set) var taskRoundOpen = false
     @Published private(set) var selectedStars: Int?
     @Published private(set) var activeActivityKind: ActivityKind?
@@ -42,7 +56,9 @@ final class AppModel: ObservableObject {
     private var emptyBayQuestion = ActivityCatalog.emptyBayQuestion()
     @Published private(set) var sequenceTappedAssetIDs: [String] = []
     private let activityEvaluator = ActivityEvaluator()
-    private let activityAudio: ActivityAudioPrompting = StubActivityAudioPrompt()
+    /// Canvas guide voice (interim zh-HK system voice, ADR 0007). Also drives activity prompts.
+    private let guideVoice = SystemSpeechPrompt()
+    private var activityAudio: ActivityAudioPrompting { guideVoice }
     private let store: SnapshotStore
     private let themeStore = ThemePreferenceStore()
     private let allowlistStore = VideoAllowlistStore()
@@ -69,6 +85,28 @@ final class AppModel: ObservableObject {
             message = "儲存資料有問題，請家長處理。 / Storage needs parent attention."
             VisaGamesLog.append("storage load FAILED — 載入失敗 storageFailed=true")
         }
+        // Durable endsAt can resume into .play while selectedStars is still nil → legacyShell.
+        recoverPlayPresentationAfterLaunch()
+    }
+
+    /// Cold start mid-visa: restore stars/timer so canvas Picker/Watch/TimesUp can show.
+    private func recoverPlayPresentationAfterLaunch() {
+        guard session.mode == .play else { return }
+        if selectedStars == nil {
+            let records = session.snapshot.reward?.successRecords ?? []
+            let inferred = records.reversed()
+                .compactMap { PlayPresentation.stars(fromAwardedSeconds: $0.awardedSeconds) }
+                .first
+            selectedStars = inferred ?? ChildDifficulty.easy.rawValue
+        }
+        if playVisaTotalSeconds <= 0 {
+            playVisaTotalSeconds = ChildDifficulty(rawValue: selectedStars ?? 1)?.seconds ?? 600
+        }
+        // Stamp gate is in-memory; resume past it so the child picks (or watches) again.
+        awaitingDeparture = false
+        VisaGamesLog.append(
+            "recoverPlayPresentation — 恢復遊玩 stars=\(selectedStars ?? -1) total=\(playVisaTotalSeconds) allowlist=\(allowlist.videos.count)"
+        )
     }
 
     func update(_ action: (inout Session) -> Void) {
@@ -88,7 +126,22 @@ final class AppModel: ObservableObject {
         }
         let visaEnded = session.snapshot.endsAt != nil && next.snapshot.endsAt == nil
         session = next
-        if visaEnded { resetTaskRound() }
+        if visaEnded {
+            awaitingDeparture = false
+            almostHomeSpoken = false
+            activePlayVideoID = nil
+            let ticket = resolvedPlayTicket
+            if suppressNextTimesUp {
+                suppressNextTimesUp = false
+                showTimesUp = false
+                timesUpTicket = nil
+            } else {
+                timesUpTicket = ticket
+                showTimesUp = true
+                guideVoice.speak(.timesUp(for: ticket))
+            }
+            resetTaskRound()
+        }
         changed?()
     }
 
@@ -102,6 +155,13 @@ final class AppModel: ObservableObject {
             logShellBranch(context: "tick")
         }
         if let parentDeadline, current >= parentDeadline { returnToChild() }
+        if session.mode == .play, !awaitingDeparture, let endsAt = session.snapshot.endsAt {
+            let progress = RoadTimerProgress.from(endsAt: endsAt, totalSeconds: playVisaTotalSeconds, now: current)
+            if progress.almostHome, !almostHomeSpoken {
+                almostHomeSpoken = true
+                guideVoice.speak(.almostHome)
+            }
+        }
         if let id = activePlayVideoID {
             let decision = PlaybackPolicy().evaluateContinue(
                 remainingViewingBudgetSeconds: remainingViewingBudget(at: current),
@@ -138,6 +198,7 @@ final class AppModel: ObservableObject {
             }
             parentDeadline = Date().addingTimeInterval(parentAccessSeconds)
             if !storageFailed { message = nil }
+            guideVoice.stop()
             update { $0.enterParent(authenticated: true, now: Date()) }
             VisaGamesLog.append("mode → parent — 進入家長模式")
             logShellBranch(context: "enterParent")
@@ -179,6 +240,17 @@ final class AppModel: ObservableObject {
     func grant() {
         guard !storageFailed else { return }
         update { $0.grant(seconds: 60, now: Date()) }
+        guard session.mode == .play else { return }
+        // Parent test visa has no activity ticket — keep canvas (picker), never legacyShell.
+        if selectedStars == nil {
+            selectedStars = ChildDifficulty.easy.rawValue
+        }
+        playVisaTotalSeconds = 60
+        awaitingDeparture = false
+        activePlayVideoID = nil
+        showTimesUp = false
+        VisaGamesLog.append("grant — 測試一分鐘簽證 canvasPlay stars=\(selectedStars ?? -1)")
+        logShellBranch(context: "grant")
     }
 
     func selectTheme(_ palette: ThemePaletteID) {
@@ -216,6 +288,41 @@ final class AppModel: ObservableObject {
         session.snapshot.reward?.entryActivityCompleted == true
     }
 
+    /// Storage needs a parent: child screens then show a visible Parent button, not only the corner.
+    var needsParentAttention: Bool { storageFailed }
+
+    /// Board 1 bubble: speak (or replay) the depot line in Cantonese.
+    func speakDepotPrompt() {
+        guard session.mode == .lock, !taskRoundOpen else { return }
+        guideVoice.speak(.depotPickTicket)
+    }
+
+    func guideSpeakStamped() { guideVoice.speak(.stamped) }
+    func guideSpeakEmptyAllowlist() { guideVoice.speak(.emptyAllowlist) }
+    func guideSpeakPickVideo() { guideVoice.speak(.pickVideo) }
+
+    /// Board 4 prelude: child sees preview cards of allowlisted videos (Holiday P0).
+    func videoPickerOpened() {
+        VisaGamesLog.append("videoPicker open — 揀片 allowlistCount=\(allowlist.videos.count) viewing=\(remainingViewingBudget(at: Date()))")
+    }
+
+    /// Child tapped a preview card. Same D8 allowlist gate as every other start.
+    func pickVideo(id: String) {
+        guard session.mode == .play, !awaitingDeparture else { return }
+        VisaGamesLog.append("videoPicker pick — 揀咗 id=\(id)")
+        playAllowlisted(id: id)
+        if activePlayVideoID == nil {
+            VisaGamesLog.append("videoPicker pick rejected — 未能播放 id=\(id) message=\(playbackMessage ?? "nil")")
+        }
+    }
+    func guideSpeakTimesUp() {
+        if let ticket = timesUpTicket {
+            guideVoice.speak(.timesUp(for: ticket))
+        } else {
+            guideVoice.speak(.timesUpPark)
+        }
+    }
+
     var currentTwoPictureQuestion: TwoPictureQuestion { twoPictureQuestion }
     var currentFindSameQuestion: FindSameQuestion { findSameQuestion }
     var currentCountQuestion: CountQuestion { countQuestion }
@@ -230,6 +337,7 @@ final class AppModel: ObservableObject {
     func selectDifficulty(stars: Int) {
         guard !storageFailed, session.mode == .lock, !taskRoundOpen,
               ChildDifficulty(rawValue: stars) != nil else { return }
+        guideVoice.stop()
         resetTaskRound()
         selectedStars = stars
         let seed = UUID().uuidString
@@ -258,8 +366,12 @@ final class AppModel: ObservableObject {
         roundCompletionID = nil
         activeActivityKind = nil
         entryHintUsed = false
+        entryMissCount = 0
+        lastIncorrectChoiceID = nil
+        lastCorrectChoiceID = nil
+        activityJustCompleted = false
         entryRetryMessage = nil
-        activePlayVideoID = nil
+        // Keep activePlayVideoID / awaitingDeparture under caller's control during play.
         playbackMessage = nil
         successFeedbackID = nil
         sequenceTappedAssetIDs = []
@@ -273,7 +385,7 @@ final class AppModel: ObservableObject {
 
     func speakEntryPrompt() {
         guard session.mode == .lock, taskRoundOpen, let kind = activeActivityKind else { return }
-        // Scaffold only — StubActivityAudioPrompt; reviewed Cantonese pack waits on D9.
+        // Interim zh-HK system voice (ADR 0007). Recorded clips wait on D9 / UX Phase 5.
         let zh: String
         let en: String
         switch kind {
@@ -308,8 +420,11 @@ final class AppModel: ObservableObject {
             zh = emptyBayQuestion.promptTraditionalChinese
             en = emptyBayQuestion.promptEnglish
         }
-        activityAudio.speakPrompt(traditionalChinese: zh, english: en)
-        entryRetryMessage = "粵語錄音稍後加入（等 D9）。 / Cantonese audio later (waiting on D9)."
+        guideVoice.speak(SpokenPrompt(
+            key: "activity.\(kind.rawValue)",
+            traditionalChinese: zh,
+            english: en
+        ))
     }
 
     func selectEntryOption(id: String) {
@@ -367,7 +482,7 @@ final class AppModel: ObservableObject {
         )
         if expected != assetID {
             sequenceTappedAssetIDs = []
-            handleEvaluation(.incorrect, selectionLabel: "seq-\(assetID)")
+            handleEvaluation(.incorrect, selectionLabel: assetID)
             return
         }
         sequenceTappedAssetIDs.append(assetID)
@@ -471,9 +586,26 @@ final class AppModel: ObservableObject {
     private func handleEvaluation(_ evaluation: ActivityEvaluation, selectionLabel: String) {
         switch evaluation {
         case .incorrect:
-            entryRetryMessage = "再試一次，得嘅。 / Try again — you can do it."
-            VisaGamesLog.append("activity incorrect — 答錯 selection=\(selectionLabel) kind=\(activeActivityKind?.rawValue ?? "nil") hintUsed=\(entryHintUsed)")
+            entryMissCount += 1
+            lastIncorrectChoiceID = selectionLabel
+            lastCorrectChoiceID = nil
+            entryRetryMessage = nil // no fail text — soft wiggle only (board 7)
+            VisaGamesLog.append("activity incorrect — 答錯 selection=\(selectionLabel) kind=\(activeActivityKind?.rawValue ?? "nil") misses=\(entryMissCount) hintUsed=\(entryHintUsed)")
+            if ActivityHintPolicy.shouldAutoHint(afterMissCount: entryMissCount), !entryHintUsed {
+                useEntryHint()
+                speakEntryPrompt()
+                VisaGamesLog.append("auto-hint — 自動提示 after misses=\(entryMissCount) → assisted")
+            }
+            let flashed = selectionLabel
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+                if self?.lastIncorrectChoiceID == flashed {
+                    self?.lastIncorrectChoiceID = nil
+                }
+            }
         case .correct(let assisted):
+            lastCorrectChoiceID = selectionLabel
+            lastIncorrectChoiceID = nil
+            activityJustCompleted = true
             VisaGamesLog.append("activity correct — 答對 selection=\(selectionLabel) kind=\(activeActivityKind?.rawValue ?? "nil") assisted=\(assisted)")
             applyEntrySuccess(assisted: assisted)
         }
@@ -512,17 +644,78 @@ final class AppModel: ObservableObject {
         guard !storageFailed, session.mode == .play else { return }
         taskRoundOpen = false
         entryRetryMessage = nil
+        playVisaTotalSeconds = ChildDifficulty(rawValue: selectedStars ?? 1)?.seconds
+            ?? TimeInterval((selectedStars ?? 1) * 600)
+        almostHomeSpoken = false
+        awaitingDeparture = true
+        showTimesUp = false
         triggerSuccessFeedback()
+        guideVoice.speak(.stamped)
         VisaGamesLog.append(
-            "applyEntrySuccess — 入口成功 assisted=\(assisted) entryCompleted=\(isEntryActivityCompleted) viewing=\(remainingViewingBudget(at: Date())) mode=\(session.mode)"
+            "applyEntrySuccess — 入口成功 assisted=\(assisted) entryCompleted=\(isEntryActivityCompleted) viewing=\(remainingViewingBudget(at: Date())) mode=\(session.mode) stampGate=true"
         )
         logShellBranch(context: "applyEntrySuccess")
-        // Play path: active visa + shuffled allowlisted video via existing PlaybackPolicy.
-        if session.mode == .play, remainingViewingBudget(at: Date()) > 0,
-           let id = nextShuffledAllowlistedVideoID() {
-            playAllowlisted(id: id)
-        }
+        // v0.11.0: no pre-selected video. Stamp 「出發！」 → VideoPickerView lets the child choose
+        // (visa already ticking). `nextShuffledAllowlistedVideoID` stays for the legacy shell.
+        activePlayVideoID = nil
+        playbackMessage = nil
     }
+
+    /// Board 3 Go button — reveal watch / empty-allowlist presentation.
+    func confirmDeparture() {
+        guard session.mode == .play, awaitingDeparture else { return }
+        awaitingDeparture = false
+        guideVoice.speak(.departGo)
+        VisaGamesLog.append("confirmDeparture — 出發 watchUI allowlistCount=\(allowlist.videos.count)")
+        logShellBranch(context: "confirmDeparture")
+    }
+
+    func dismissTimesUp() {
+        showTimesUp = false
+        timesUpTicket = nil
+        guideVoice.stop()
+        VisaGamesLog.append("dismissTimesUp — 再揀車票 → depot")
+    }
+
+    func returnFromEmptyAllowlist() {
+        guard session.mode == .play else { return }
+        guideVoice.stop()
+        activePlayVideoID = nil
+        awaitingDeparture = false
+        suppressNextTimesUp = true
+        // End the active visa (child left play); skip park-and-sleep and return to depot.
+        update { session in
+            session.tick(now: Date().addingTimeInterval(10_000))
+        }
+        VisaGamesLog.append("returnFromEmptyAllowlist — 返回車廠")
+    }
+
+    var selectedMissionTicket: MissionTicket? {
+        guard let stars = selectedStars,
+              let difficulty = ChildDifficulty(rawValue: stars) else { return nil }
+        return MissionTicket.all.first { $0.difficulty == difficulty }
+    }
+
+    /// Always a ticket for canvas play boards (easy fallback when stars were lost).
+    var resolvedPlayTicket: MissionTicket {
+        PlayPresentation.ticket(selectedStars: selectedStars)
+    }
+
+    var sequenceHintAssetID: String? {
+        activityEvaluator.nextExpectedAssetID(
+            question: sequenceQuestion,
+            tappedSoFar: sequenceTappedAssetIDs
+        )
+    }
+
+    var roadTimerProgress: RoadTimerProgress {
+        let total = playVisaTotalSeconds > 0 ? playVisaTotalSeconds : TimeInterval((selectedStars ?? 1) * 600)
+        guard let endsAt = session.snapshot.endsAt else {
+            return RoadTimerProgress(elapsed: total, total: total, remaining: 0)
+        }
+        return RoadTimerProgress.from(endsAt: endsAt, totalSeconds: total, now: now)
+    }
+
 
     func addAllowlistedVideo() {
         guard session.mode == .parent else { return }
@@ -713,10 +906,24 @@ final class AppModel: ObservableObject {
         case .lock:
             branch = taskRoundOpen ? "lock-task" : "lock-cards"
         case .play:
-            branch = "play-ready"
+            if showTimesUp {
+                branch = "play-timesUp"
+            } else {
+                switch PlayStageRoute.route(
+                    awaitingDeparture: awaitingDeparture,
+                    allowlistCount: allowlist.videos.count,
+                    activeVideoID: activePlayVideoID
+                ) {
+                case .stamp: branch = "play-stamp"
+                case .emptyAllowlist: branch = "play-emptyAllowlist"
+                case .videoPicker: branch = "play-videoPicker"
+                case .watch: branch = "play-watch"
+                }
+            }
         }
+        let starsLabel = selectedStars.map(String.init) ?? "nil"
         VisaGamesLog.append(
-            "shell branch=\(branch) — 介面分支 mode=\(session.mode) entryCompleted=\(isEntryActivityCompleted) rewardNil=\(session.snapshot.reward == nil) storageFailed=\(storageFailed) ctx=\(context)"
+            "shell branch=\(branch) — 介面分支 mode=\(session.mode) stars=\(starsLabel) entryCompleted=\(isEntryActivityCompleted) rewardNil=\(session.snapshot.reward == nil) storageFailed=\(storageFailed) ctx=\(context)"
         )
     }
 
@@ -812,20 +1019,24 @@ final class KioskWindow: NSWindow {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let model = AppModel()
+    private let penSpark = PenSparkModel()
     private var window: KioskWindow!
     private var timer: Timer?
     private var keyMonitor: Any?
+    private var pointerMonitor: Any?
     private var isChildPresentation: Bool?
     private var parentWindowFrame: NSRect?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        VisaGamesLog.append("fonts — 字型 canvas=\(CanvasFont.isAvailable)")
         window = KioskWindow(contentRect: NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1280, height: 720),
                              styleMask: [.borderless], backing: .buffered, defer: false)
         window.title = "Visa Games / 簽證遊戲"
         window.delegate = self
         window.isReleasedWhenClosed = false
         window.collectionBehavior = [.fullScreenDisallowsTiling]
-        window.contentView = NSHostingView(rootView: ShellView(model: model))
+        window.acceptsMouseMovedEvents = true
+        window.contentView = NSHostingView(rootView: ShellView(model: model, penSpark: penSpark))
         model.changed = { [weak self] in self?.applyPresentation() }
         applyPresentation()
         window.makeKeyAndOrderFront(nil)
@@ -836,8 +1047,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                                             hasCommand: event.modifierFlags.contains(.command)) { return nil }
             return event
         }
+        // Observe-only: feeds the pen glow and always passes the event on unchanged.
+        pointerMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp, .tabletProximity]
+        ) { [weak self] event in
+            self?.penSpark.handle(event)
+            return event
+        }
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.model.tick() }
+            Task { @MainActor in
+                self?.model.tick()
+                self?.penSpark.tick(now: Date())
+            }
         }
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(willSleep),
             name: NSWorkspace.willSleepNotification, object: nil)
@@ -893,13 +1114,141 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
 struct ShellView: View {
     @ObservedObject var model: AppModel
+    /// Not observed here, so only `PenSparkOverlay` re-renders while the pen moves.
+    let penSpark: PenSparkModel
 
     /// Child content needs room for large task targets and the scoped player.
     private var usesCompactShell: Bool {
         model.session.mode == .lock || model.session.mode == .play
     }
 
+    private var isChildMode: Bool {
+        model.session.mode == .lock || model.session.mode == .play
+    }
+
+    private var playRoute: PlayStageRoute {
+        PlayStageRoute.route(
+            awaitingDeparture: model.awaitingDeparture,
+            allowlistCount: model.allowlist.videos.count,
+            activeVideoID: model.activePlayVideoID
+        )
+    }
+
+    /// True when `childOrLegacy` shows `WatchPlaybackView`.
+    private var isWatching: Bool {
+        !model.showTimesUp && model.session.mode == .play && playRoute == .watch
+    }
+
     var body: some View {
+        ZStack {
+            childOrLegacy
+            if isChildMode {
+                // On Watch the parent hold lives on the garage glyph (ADR 0007 §5); no second corner.
+                if !isWatching {
+                    ParentCornerLayer(onUnlock: model.unlock)
+                        .ignoresSafeArea()
+                }
+                PenSparkOverlay(model: penSpark)
+                    .ignoresSafeArea()
+            }
+        }
+        .onAppear {
+            model.logShellBranch(context: "shellAppear")
+        }
+    }
+
+    @ViewBuilder
+    private var childOrLegacy: some View {
+        if model.showTimesUp {
+            TimesUpView(
+                ticket: model.timesUpTicket ?? model.resolvedPlayTicket,
+                onNewMission: model.dismissTimesUp,
+                onSpeak: { model.guideSpeakTimesUp() }
+            )
+            .ignoresSafeArea()
+        } else if model.session.mode == .lock && !model.taskRoundOpen {
+            DepotHomeView(
+                onSelect: { model.selectDifficulty(stars: $0.rawValue) },
+                onSpeakPrompt: model.speakDepotPrompt,
+                onParentUnlock: model.unlock
+            )
+            .ignoresSafeArea()
+            parentNotice
+        } else if model.session.mode == .lock && model.taskRoundOpen {
+            CanvasActivityHost(model: model)
+                .ignoresSafeArea()
+        } else if model.session.mode == .play {
+            // Active visa never uses ADR 0006 legacyShell (cold start / grant without stars).
+            playCanvasBoard(ticket: model.resolvedPlayTicket)
+        } else {
+            legacyShell
+        }
+    }
+
+    @ViewBuilder
+    private func playCanvasBoard(ticket: MissionTicket) -> some View {
+        switch playRoute {
+        case .stamp:
+            StampSuccessView(
+                ticket: ticket,
+                onGo: model.confirmDeparture,
+                onSpeak: { model.guideSpeakStamped() }
+            )
+            .ignoresSafeArea()
+        case .emptyAllowlist:
+            EmptyAllowlistView(
+                onReturn: model.returnFromEmptyAllowlist,
+                onSpeak: { model.guideSpeakEmptyAllowlist() }
+            )
+            .ignoresSafeArea()
+        case .videoPicker:
+            VideoPickerView(
+                ticket: ticket,
+                videos: model.allowlist.videos,
+                message: model.playbackMessage,
+                onPick: { model.pickVideo(id: $0) },
+                onSpeak: { model.guideSpeakPickVideo() },
+                onAppearLog: model.videoPickerOpened
+            )
+            .ignoresSafeArea()
+        case .watch:
+            WatchPlaybackView(
+                ticket: ticket,
+                videoID: model.activePlayVideoID,
+                progress: model.roadTimerProgress,
+                onNavigationRejected: { model.stopScopedPlayback(reason: .navigationRejected) },
+                onParentUnlock: model.unlock
+            )
+            .ignoresSafeArea()
+        }
+    }
+
+    /// Parent-facing notice on the depot (storage or authentication messages).
+    @ViewBuilder
+    private var parentNotice: some View {
+        if let message = model.message {
+            VStack(spacing: 10) {
+                Text(message)
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.ink)
+                    .multilineTextAlignment(.center)
+                if model.needsParentAttention {
+                    Button("家長 / Parent", action: model.unlock)
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .disabled(model.authenticating)
+                }
+            }
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.9)))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .padding(.bottom, 40)
+        }
+    }
+
+    /// Setup + parent only. Child lock/play must never reach here (ADR 0007 canvas).
+    @ViewBuilder
+    private var legacyShell: some View {
         let theme = ThemePack.forID(model.themePaletteID)
         let accent = Color(rgb: theme.accent)
         let yellow = Color(rgb: theme.yellow)
@@ -940,29 +1289,28 @@ struct ShellView: View {
                 if !usesCompactShell {
                     Spacer(minLength: 8)
                 }
-                if model.session.mode != .parent {
+                // Child screens use the 3-second parent corner; setup and storage failures keep a visible button.
+                if model.session.mode == .setup || (model.session.mode != .parent && model.needsParentAttention) {
                     Button("家長 / Parent", action: model.unlock)
                         .disabled(model.authenticating)
                         .tint(accent)
                 }
-                Text("v0.8.0").font(.system(size: 16, design: .rounded))
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .padding(usesCompactShell ? 24 : 48)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .foregroundStyle(Color(rgb: theme.foreground))
+            // Legacy celebration only — canvas stamp (board 3) replaces this on the play path.
             if let id = model.successFeedbackID,
-               model.session.mode == .lock || model.session.mode == .play {
+               model.session.mode == .lock,
+               !model.awaitingDeparture {
                 SuccessParkAnimation(color: accent, yellow: yellow)
                     .id(id)
                     .frame(maxHeight: .infinity, alignment: .bottom)
                     .padding(.bottom, 24)
                     .allowsHitTesting(false)
             }
-        }
-        .onAppear {
-            model.logShellBranch(context: "shellAppear")
         }
     }
 
@@ -973,16 +1321,9 @@ struct ShellView: View {
             Text("請家長設定 / Parent setup required")
                 .font(.system(size: 34, weight: .semibold, design: .rounded))
         case .lock:
+            // Without an open round the canvas depot (DepotHomeView) is shown instead of this shell.
             if model.taskRoundOpen {
                 entryGateContent(theme: theme, accent: accent, yellow: yellow, sand: sand)
-            } else {
-                DifficultyCardsView(
-                    accent: accent,
-                    yellow: yellow,
-                    foreground: Color(rgb: theme.foreground),
-                    sand: sand,
-                    onSelect: model.selectDifficulty
-                )
             }
         case .play:
             VStack(spacing: 12) {
@@ -1016,6 +1357,10 @@ struct ShellView: View {
                 VStack(spacing: 20) {
                     Text("家長設定 / Parent controls")
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    // Version lives here since v0.9.0; child screens no longer show it (ADR 0007, checklist N8).
+                    Text("Visa Games v0.11.6")
+                        .font(.system(size: 16, design: .rounded))
+                        .foregroundStyle(.secondary)
                     Text("十分鐘後自動鎖定 / Locks automatically after ten minutes")
                         .font(.system(size: 22, design: .rounded))
                     Text("入口遊戲已開（兩圖／搵相同／數車／車隊排序）。YouTube 內容包仍待家長 D9 審核。 / Entry games live (two-picture / find-same / count / convoy order). YouTube pack still parent D9.")
