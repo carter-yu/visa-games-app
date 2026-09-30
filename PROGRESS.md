@@ -1,5 +1,24 @@
 # Progress
 
+- 2026-09-30: PR #10 MINOR **v0.11.0 / build 27** — Holiday P0 on branch `feat/ux-p2-p3-activity-watch` (on top of `f06ae06`). Do not merge; Mac mini + TV UAT pending.
+  - **Carter locks (2026-09-30):**
+    1. **Parent on garage (Watch only):** `RoadTimerStrip` stacks an invisible `ParentCornerEntry` (72-unit hit target, `showsMark: false`) on the `GarageGlyph`; 3-second hold → `model.unlock` (unchanged auth); tap does nothing. `ShellView` hides the faint `ParentCornerLayer` only while `WatchPlaybackView` shows; all other child screens keep it.
+    2. **Last-minute red glow:** when `progress.almostHome` (≤60s) the road bar gets a tomato/stamp-red border + pulsing glow, the garage glows too; Reduce Motion → steady glow. 「仲有 N 分鐘」 and the almost-home voice unchanged.
+    3. **Child picks the video:** `applyEntrySuccess` no longer preselects a shuffled video. New `PlayStageRoute` (VisaCore) drives the play branch: stamp → (Go) → empty allowlist | `VideoPickerView` (allowlist non-empty and nothing picked; one video still shows one card) | `WatchPlaybackView`. Card tap → `AppModel.pickVideo` → existing `playAllowlisted` (D8 gate). Thumbnails via `ApprovedVideo.thumbnailURL` + `AsyncImage`; loading/failure → ticket vehicle art. `SpokenPrompt.pickVideo` 「揀片睇！ / Pick a video!」 spoken 1.2s after picker opens. Logs: `videoPicker open`, `videoPicker pick`, `videoPicker pick rejected`.
+  - Behaviour note: if a started video is stopped (navigation rejected) the child returns to the picker instead of an empty watch frame. Shuffle helper remains for the legacy shell only.
+  - Tests: +1 check (`testPlayStageRoutesPickerBeforeWatch`) and `pickVideo` in the Traditional-only check → expect PASS **10+10+7+6+12+18+9+4+4+5**. Linux box: `swift: not found` → no compile or test claim here.
+  - Version: Info.plist **0.11.0 / 27**, parent footer **v0.11.0**. ADR 0007 §5 amended + two decision rows. Prompt: `prompts/pr-0010-holiday-p0-picker-glow.md`.
+  - **Mac mini UAT checklist:**
+    1. `git fetch && git checkout feat/ux-p2-p3-activity-watch && git pull`
+    2. `sh scripts/test.sh` → expect PASS **10+10+7+6+12+18+9+4+4+5**; `swift build` clean
+    3. `sh scripts/bundle.sh`; parent footer **v0.11.0**
+    4. Correct answer → stamp → 「出發！」 → picker with one card per allowlisted video (thumbnails online; vehicle art offline); Stampy says 「揀片睇！」
+    5. With exactly one allowlisted video the picker still shows its card; with none → empty stage + 「返回車廠」
+    6. Tap a card → watch screen plays that video; visa minutes unchanged (10/20/30)
+    7. Watch: no faint bottom-right corner; tap on garage does nothing; 3s hold on garage → macOS password prompt
+    8. At ≤1 min: road bar + garage glow red and pulse; Reduce Motion on → steady glow; almost-home voice still plays
+    9. Parent corner still works on Depot, Activity, Stamp, Picker, Time's up, Empty allowlist; Escape / Cmd-Q blocked
+    10. PR stays unmerged until Carter OKs the TV check.
 - 2026-09-30: PR #10 MINOR **v0.10.0 / build 26** — UX Phases 2+3: voice-first activities + stamp / road timer / Time's up. Branch `feat/ux-p2-p3-activity-watch` from `feat/ux-p1-canvas-depot` @ `4037f93` (includes Depot P1). Do not merge; Mac mini + TV UAT pending. Opus Pro session limit hit mid-build (~00:58 HKT, reset 02:10); implementation continued on the workshop box against Carter's uploaded canvas boards.
   - **Carter locks used:** auto-hint after 2 misses → assisted (D7); Stampy placeholder kept; reward 10/20/30 + kiosk + parent auth + allowlist/visa accounting unchanged; visa clock still starts on correct answer (presentation-only 「出發！」); HK Trad + English only; Phase 4 passport unlocks / rounds / daily-cap skipped (no invented policy).
   - **P2 Activity (board 2) + feedback (board 7):** `ActivityBoardView` + `ChoiceCardChrome` (hop / wiggle / hint glow, Reduce Motion) + `ConeProgressView`; `CanvasActivityHost` rebuilds all 10 kinds as stimulus panel + ≤3 text-free cards; Stampy bubble auto-plays zh-HK prompt via `SystemSpeechPrompt` (no D9 stub toast); miss counter auto-hints at 2.

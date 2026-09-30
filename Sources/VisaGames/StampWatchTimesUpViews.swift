@@ -191,6 +191,8 @@ struct WatchPlaybackView: View {
     let videoID: String?
     let progress: RoadTimerProgress
     let onNavigationRejected: () -> Void
+    /// 3-second hold on the garage glyph (ADR 0007 §5, Carter 2026-09-30).
+    let onParentUnlock: () -> Void
 
     var body: some View {
         GeometryReader { proxy in
@@ -237,7 +239,7 @@ struct WatchPlaybackView: View {
                 .padding(.horizontal, metrics.u(48))
                 .padding(.top, metrics.u(36))
 
-                RoadTimerStrip(ticket: ticket, progress: progress)
+                RoadTimerStrip(ticket: ticket, progress: progress, onParentUnlock: onParentUnlock)
                     .padding(.horizontal, metrics.u(40))
                     .padding(.bottom, metrics.u(28))
             }
@@ -248,7 +250,12 @@ struct WatchPlaybackView: View {
 struct RoadTimerStrip: View {
     let ticket: MissionTicket
     let progress: RoadTimerProgress
+    let onParentUnlock: () -> Void
     @Environment(\.canvasMetrics) private var metrics
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulse = false
+
+    private var glowColor: Color { Color(hex: DesignTokens.Palette.tomato) }
 
     var body: some View {
         GeometryReader { geo in
@@ -259,8 +266,12 @@ struct RoadTimerStrip: View {
                     .fill(Color(hex: DesignTokens.Palette.road))
                     .overlay(
                         RoundedRectangle(cornerRadius: metrics.u(18), style: .continuous)
-                            .strokeBorder(Color.ink, lineWidth: metrics.u(4))
+                            .strokeBorder(progress.almostHome ? Color(hex: DesignTokens.Palette.stampRed) : Color.ink,
+                                          lineWidth: metrics.u(progress.almostHome ? 6 : 4))
                     )
+                    // Last minute: soft red glow so a ~4yo notices home is near (no red X).
+                    .shadow(color: glowColor.opacity(almostHomeGlowOpacity), radius: metrics.u(18))
+                    .shadow(color: glowColor.opacity(almostHomeGlowOpacity * 0.8), radius: metrics.u(6))
                 // Dashed center line
                 Path { path in
                     path.move(to: CGPoint(x: metrics.u(50), y: roadHeight / 2))
@@ -284,16 +295,41 @@ struct RoadTimerStrip: View {
                            color: Color(hex: DesignTokens.Palette.paper))
                     .offset(x: geo.size.width * 0.55)
 
-                // Garage destination
-                GarageGlyph(lit: progress.almostHome)
-                    .frame(width: metrics.u(56), height: metrics.u(56))
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .padding(.trailing, metrics.u(8))
+                // Garage destination; the parent 3s hold sits above the house art (v0.11.0).
+                ZStack {
+                    GarageGlyph(lit: progress.almostHome)
+                        .frame(width: metrics.u(56), height: metrics.u(56))
+                        .shadow(color: glowColor.opacity(almostHomeGlowOpacity), radius: metrics.u(12))
+                    ParentCornerEntry(onUnlock: onParentUnlock, size: 72, showsMark: false)
+                }
+                .frame(width: metrics.u(72), height: metrics.u(72))
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .frame(height: roadHeight)
         }
         .frame(height: metrics.u(78))
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("仲有 \(progress.remainingMinutesCeil) 分鐘 / \(progress.remainingMinutesCeil) minutes left")
+        .onAppear { updatePulse(progress.almostHome) }
+        .onChange(of: progress.almostHome) { updatePulse($0) }
+        .onChange(of: reduceMotion) { _ in updatePulse(progress.almostHome) }
+    }
+
+    /// Reduce Motion: steady bright glow. Otherwise a soft opacity pulse.
+    private var almostHomeGlowOpacity: Double {
+        guard progress.almostHome else { return 0 }
+        if reduceMotion { return 0.9 }
+        return pulse ? 0.95 : 0.35
+    }
+
+    private func updatePulse(_ almostHome: Bool) {
+        guard almostHome, !reduceMotion else {
+            withAnimation(nil) { pulse = false }
+            return
+        }
+        withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+            pulse = true
+        }
     }
 }
 

@@ -268,6 +268,22 @@ final class AppModel: ObservableObject {
 
     func guideSpeakStamped() { guideVoice.speak(.stamped) }
     func guideSpeakEmptyAllowlist() { guideVoice.speak(.emptyAllowlist) }
+    func guideSpeakPickVideo() { guideVoice.speak(.pickVideo) }
+
+    /// Board 4 prelude: child sees preview cards of allowlisted videos (Holiday P0).
+    func videoPickerOpened() {
+        VisaGamesLog.append("videoPicker open — 揀片 allowlistCount=\(allowlist.videos.count) viewing=\(remainingViewingBudget(at: Date()))")
+    }
+
+    /// Child tapped a preview card. Same D8 allowlist gate as every other start.
+    func pickVideo(id: String) {
+        guard session.mode == .play, !awaitingDeparture else { return }
+        VisaGamesLog.append("videoPicker pick — 揀咗 id=\(id)")
+        playAllowlisted(id: id)
+        if activePlayVideoID == nil {
+            VisaGamesLog.append("videoPicker pick rejected — 未能播放 id=\(id) message=\(playbackMessage ?? "nil")")
+        }
+    }
     func guideSpeakTimesUp() {
         if let ticket = timesUpTicket {
             guideVoice.speak(.timesUp(for: ticket))
@@ -608,11 +624,10 @@ final class AppModel: ObservableObject {
             "applyEntrySuccess — 入口成功 assisted=\(assisted) entryCompleted=\(isEntryActivityCompleted) viewing=\(remainingViewingBudget(at: Date())) mode=\(session.mode) stampGate=true"
         )
         logShellBranch(context: "applyEntrySuccess")
-        // Pre-select shuffled video; stamp 「出發！」 reveals the watch UI (visa already ticking).
-        if remainingViewingBudget(at: Date()) > 0,
-           let id = nextShuffledAllowlistedVideoID() {
-            playAllowlisted(id: id)
-        }
+        // v0.11.0: no pre-selected video. Stamp 「出發！」 → VideoPickerView lets the child choose
+        // (visa already ticking). `nextShuffledAllowlistedVideoID` stays for the legacy shell.
+        activePlayVideoID = nil
+        playbackMessage = nil
     }
 
     /// Board 3 Go button — reveal watch / empty-allowlist presentation.
@@ -1061,12 +1076,29 @@ struct ShellView: View {
         model.session.mode == .lock || model.session.mode == .play
     }
 
+    private var playRoute: PlayStageRoute {
+        PlayStageRoute.route(
+            awaitingDeparture: model.awaitingDeparture,
+            allowlistCount: model.allowlist.videos.count,
+            activeVideoID: model.activePlayVideoID
+        )
+    }
+
+    /// True when `childOrLegacy` shows `WatchPlaybackView`.
+    private var isWatching: Bool {
+        !model.showTimesUp && model.session.mode == .play
+            && model.selectedMissionTicket != nil && playRoute == .watch
+    }
+
     var body: some View {
         ZStack {
             childOrLegacy
             if isChildMode {
-                ParentCornerLayer(onUnlock: model.unlock)
-                    .ignoresSafeArea()
+                // On Watch the parent hold lives on the garage glyph (ADR 0007 §5); no second corner.
+                if !isWatching {
+                    ParentCornerLayer(onUnlock: model.unlock)
+                        .ignoresSafeArea()
+                }
                 PenSparkOverlay(model: penSpark)
                     .ignoresSafeArea()
             }
@@ -1096,25 +1128,36 @@ struct ShellView: View {
         } else if model.session.mode == .lock && model.taskRoundOpen {
             CanvasActivityHost(model: model)
                 .ignoresSafeArea()
-        } else if model.session.mode == .play, model.awaitingDeparture, let ticket = model.selectedMissionTicket {
+        } else if model.session.mode == .play, playRoute == .stamp, let ticket = model.selectedMissionTicket {
             StampSuccessView(
                 ticket: ticket,
                 onGo: model.confirmDeparture,
                 onSpeak: { model.guideSpeakStamped() }
             )
             .ignoresSafeArea()
-        } else if model.session.mode == .play, !model.awaitingDeparture, model.allowlist.videos.isEmpty {
+        } else if model.session.mode == .play, playRoute == .emptyAllowlist {
             EmptyAllowlistView(
                 onReturn: model.returnFromEmptyAllowlist,
                 onSpeak: { model.guideSpeakEmptyAllowlist() }
             )
             .ignoresSafeArea()
-        } else if model.session.mode == .play, !model.awaitingDeparture, let ticket = model.selectedMissionTicket {
+        } else if model.session.mode == .play, playRoute == .videoPicker, let ticket = model.selectedMissionTicket {
+            VideoPickerView(
+                ticket: ticket,
+                videos: model.allowlist.videos,
+                message: model.playbackMessage,
+                onPick: { model.pickVideo(id: $0) },
+                onSpeak: { model.guideSpeakPickVideo() },
+                onAppearLog: model.videoPickerOpened
+            )
+            .ignoresSafeArea()
+        } else if model.session.mode == .play, playRoute == .watch, let ticket = model.selectedMissionTicket {
             WatchPlaybackView(
                 ticket: ticket,
                 videoID: model.activePlayVideoID,
                 progress: model.roadTimerProgress,
-                onNavigationRejected: { model.stopScopedPlayback(reason: .navigationRejected) }
+                onNavigationRejected: { model.stopScopedPlayback(reason: .navigationRejected) },
+                onParentUnlock: model.unlock
             )
             .ignoresSafeArea()
         } else {
@@ -1257,7 +1300,7 @@ struct ShellView: View {
                     Text("家長設定 / Parent controls")
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
                     // Version lives here since v0.9.0; child screens no longer show it (ADR 0007, checklist N8).
-                    Text("Visa Games v0.10.0")
+                    Text("Visa Games v0.11.0")
                         .font(.system(size: 16, design: .rounded))
                         .foregroundStyle(.secondary)
                     Text("十分鐘後自動鎖定 / Locks automatically after ten minutes")

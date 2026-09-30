@@ -31,11 +31,14 @@ public struct SpokenPrompt: Equatable, Sendable {
     public static let emptyAllowlist = SpokenPrompt(
         key: "play.emptyAllowlist", traditionalChinese: "未有片睇，返車廠啦！", english: "No video yet — back to the depot!")
 
+    public static let pickVideo = SpokenPrompt(
+        key: "play.pickVideo", traditionalChinese: "揀片睇！", english: "Pick a video!")
+
     public static let allDepotLines: [SpokenPrompt] = [depotPickTicket]
 
     /// All interim spoken lines (Depot + UX P2/P3). Extended in UX Phase 5 with recorded clips.
     public static let allUXLines: [SpokenPrompt] = [
-        depotPickTicket, stamped, departGo, almostHome, timesUpPark, emptyAllowlist
+        depotPickTicket, stamped, departGo, pickVideo, almostHome, timesUpPark, emptyAllowlist
     ]
 
     public static func timesUp(for ticket: MissionTicket) -> SpokenPrompt {

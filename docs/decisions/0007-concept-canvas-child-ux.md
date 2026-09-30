@@ -38,6 +38,11 @@ Carter chose the canvas over the repo's existing look and approved downloading i
    macOS parent authentication (unchanged). A visible Parent button remains only for setup and
    storage failures. The version moves from child screens to Parent controls
    (kiosk checklist N8 updated).
+   **Amended v0.11.0 (Carter 2026-09-30):** on the Watch screen the parent entry is the same
+   3-second hold layered on top of the road timer's garage glyph (invisible hit target above the
+   house art; a tap does nothing; auth path unchanged). The faint corner is hidden on Watch only,
+   so there is never a second corner there. Every other child screen (Depot, Activity, Stamp,
+   Video picker, Time's up, Empty allowlist) keeps the faint bottom-right corner.
 6. **Voice (interim).** Cantonese from the Mac's installed zh-HK system voice via
    `AVSpeechSynthesizer`, as ADR 0004's optional-system-speech clause allows. There is no
    Mandarin fallback: without a zh-HK voice the guide is silent and the log says so. Recorded
@@ -54,6 +59,8 @@ Carter chose the canvas over the repo's existing look and approved downloading i
 | --- | --- |
 | Auto-hint after 2 misses → assisted (D7) | **Yes.** Two incorrect taps auto-hint (`entryHintUsed`); evaluator records `.correct(assisted: true)`. Reward minutes unchanged. |
 | Visa clock start | **Keep current accounting** (`startPlayVisa` on correct answer). 「出發！」 is presentation-only before the watch UI. |
+| Video choice after the stamp (v0.11.0) | **Child picks.** 「出發！」 → `VideoPickerView` preview cards of the allowlist (one video still shows its card; empty → empty stage). No auto-shuffled preselect; each pick passes the D8 gate. |
+| Last-minute cue (v0.11.0) | **Soft red glow / pulse** on the road timer + garage at ≤60s (`almostHome`); steady glow under Reduce Motion. No red X. |
 
 ## Open decisions (before UX Phases 4–5)
 

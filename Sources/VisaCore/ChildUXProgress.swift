@@ -35,3 +35,19 @@ public struct RoadTimerProgress: Equatable, Sendable {
         return RoadTimerProgress(elapsed: elapsed, total: totalSeconds, remaining: remaining)
     }
 }
+
+/// Which child board shows while a play visa runs (Holiday P0, v0.11.0).
+/// Stamp gate → (Go) → empty stage | video picker | watch.
+public enum PlayStageRoute: Equatable, Sendable {
+    case stamp
+    case emptyAllowlist
+    case videoPicker
+    case watch
+
+    public static func route(awaitingDeparture: Bool, allowlistCount: Int, activeVideoID: String?) -> PlayStageRoute {
+        if awaitingDeparture { return .stamp }
+        if allowlistCount == 0 { return .emptyAllowlist }
+        if activeVideoID == nil { return .videoPicker }
+        return .watch
+    }
+}

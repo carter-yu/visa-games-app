@@ -46,10 +46,26 @@ final class ChildUXProgressTests {
         }
         expectEqual(SpokenPrompt.stamped.traditionalChinese, "蓋印！")
         expectEqual(SpokenPrompt.almostHome.traditionalChinese, "快到屋企喇！")
+        expectEqual(SpokenPrompt.pickVideo.traditionalChinese, "揀片睇！")
+        expectEqual(SpokenPrompt.pickVideo.english, "Pick a video!")
+        expectTrue(SpokenPrompt.allUXLines.contains(.pickVideo))
         let fire = SpokenPrompt.timesUp(for: MissionTicket.all[1])
         expectTrue(fire.traditionalChinese.contains("消防車"))
         expectTrue(fire.traditionalChinese.contains("瞓覺"))
         expectTrue(isTraditionalChineseOnly(fire.traditionalChinese))
+    }
+
+    func testPlayStageRoutesPickerBeforeWatch() {
+        // Stamp gate always wins while awaiting 「出發！」.
+        expectEqual(PlayStageRoute.route(awaitingDeparture: true, allowlistCount: 3, activeVideoID: nil), .stamp)
+        expectEqual(PlayStageRoute.route(awaitingDeparture: true, allowlistCount: 0, activeVideoID: nil), .stamp)
+        // After Go: empty allowlist keeps the empty stage.
+        expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 0, activeVideoID: nil), .emptyAllowlist)
+        // Non-empty, nothing picked yet → picker (one video still shows the picker).
+        expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 1, activeVideoID: nil), .videoPicker)
+        expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 4, activeVideoID: nil), .videoPicker)
+        // Picked → watch.
+        expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 4, activeVideoID: "abc"), .watch)
     }
 }
 
