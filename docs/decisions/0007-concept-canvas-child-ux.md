@@ -59,7 +59,7 @@ Carter chose the canvas over the repo's existing look and approved downloading i
 | --- | --- |
 | Auto-hint after 2 misses → assisted (D7) | **Yes.** Two incorrect taps auto-hint (`entryHintUsed`); evaluator records `.correct(assisted: true)`. Reward minutes unchanged. |
 | Visa clock start | **Keep current accounting** (`startPlayVisa` on correct answer). 「出發！」 is presentation-only before the watch UI. |
-| Video choice after the stamp (v0.11.0; layout v0.11.1) | **Child picks.** 「出發！」 → `VideoPickerView` 3×2 page grid of allowlist preview cards (one video still shows its card; empty → empty stage; >6 pages with chunky arrows). No mid-card clip. No auto-shuffled preselect; each pick passes the D8 gate. |
+| Video choice after the stamp (v0.11.0; layout v0.11.5) | **Child picks.** 「出發！」 → `VideoPickerView` 3×2 page grid of allowlist preview cards centered / filling the safe canvas (one video still shows its card; empty → empty stage; >6 pages with chunky arrows). No mid-card clip; no left-cluster cyan gutter. No auto-shuffled preselect; each pick passes the D8 gate. |
 | Last-minute cue (v0.11.0) | **Soft red glow / pulse** on the road timer + garage at ≤60s (`almostHome`); steady glow under Reduce Motion. No red X. |
 
 ## Open decisions (before UX Phases 4–5)

@@ -1,5 +1,15 @@
 # Progress
 
+- 2026-10-01: PR #10 PATCH **v0.11.5 / build 32** — VideoPicker cards centered / fill safe canvas (no left-cluster cyan gutter). Branch `feat/ux-p2-p3-activity-watch`. Do not merge.
+  - **Bug (Carter UAT Mac mini v0.11.4):** 3×2 card grid clustered/shrunk to the LEFT with large empty cyan sky on the right; page arrows + dots visible on 1280×720 TV.
+  - **Fix:** `pickerBoard` HStack + `LazyVGrid` use `frame(maxWidth: .infinity, alignment: .center)` inside a 1160-wide board placed at x:60; each `VideoPreviewCard` also `maxWidth: .infinity` so flexible columns evenly fill. No more intrinsic-width left cluster.
+  - Version: Info.plist **0.11.5 / 32**, parent footer **v0.11.5**. Linux box: no Swift — Mac mini test+bundle verifies.
+  - **Launch path:** `/Users/carteryu/my-ai-projects/visa-games-app/.build/Visa Games.app` only. Parent footer must read **v0.11.5**. Stamp → 「出發！」 → picker cards centered across the board (no big cyan gutter on the right).
+  - Mac mini UAT checklist:
+    1. `git fetch && git checkout feat/ux-p2-p3-activity-watch && git pull --ff-only`
+    2. `sh scripts/test.sh`; `sh scripts/bundle.sh` → expect **0.11.5 / 32**
+    3. Parent footer **v0.11.5**; stamp → Go → picker 3×2 fills/centers on TV
+
 - 2026-10-01: PR #10 PATCH **v0.11.4 / build 31** — picker Stampy voice silent: accept `yue-HK` Sinji. Branch `feat/ux-p2-p3-activity-watch`. Do not merge.
   - **Bug (Carter):** Stampy bubble 「揀片睇！」 on VideoPicker had no sound (tap + auto-speak).
   - **Root cause:** macOS reports Sinji as BCP-47 `yue-HK`, not `zh-HK`. `CantoneseVoicePicker` only matched `zh-hk` → `picked=none` → `speak` no-op. `say -v ?` still listed Sinji; AVSpeech `speechVoices()` zh-HK filter was empty; `AVSpeechSynthesisVoice(language: "zh-HK")` returns Sinji with `lang=yue-HK`.

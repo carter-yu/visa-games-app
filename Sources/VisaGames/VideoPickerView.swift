@@ -1,14 +1,15 @@
 import SwiftUI
 import VisaCore
 
-// MARK: - Board 4 prelude — pick a video (Holiday P0, v0.11.2)
+// MARK: - Board 4 prelude — pick a video (Holiday P0, v0.11.5)
 
 /// After the stamp gate's 「出發！」, the child picks one allowlisted video from large preview
 /// cards. One video still shows its card so the child feels the choice. Every pick goes through
 /// the existing D8 allowlist gate (`AppModel.playAllowlisted`).
 ///
-/// Layout (v0.11.2): 3×2 page grid so up to six cards fit fully on the 1280×720 safe canvas —
-/// no mid-card clip and no dead blue gutter. More than six videos page with chunky arrows.
+/// Layout (v0.11.5): 3×2 page grid fills the 1280×720 safe canvas (HStack + LazyVGrid
+/// maxWidth infinity, centered) — no left-cluster / cyan gutter. More than six videos page
+/// with chunky arrows.
 struct VideoPickerView: View {
     let ticket: MissionTicket
     let videos: [ApprovedVideo]
@@ -56,7 +57,8 @@ struct VideoPickerView: View {
                 .canvasPlaced(x: 1060, y: 40)
 
             pickerBoard
-                .canvasPlaced(x: showsPager ? 36 : 60, y: 168)
+                .frame(width: metrics.u(1160), alignment: .center)
+                .canvasPlaced(x: 60, y: 168)
 
             if showsPager {
                 pageDots
@@ -101,11 +103,7 @@ struct VideoPickerView: View {
             }
 
             videoGrid(pageVideos)
-                .frame(
-                    width: metrics.u(showsPager ? 1000 : 1160),
-                    height: metrics.u(430),
-                    alignment: .top
-                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 
             if showsPager {
                 pageArrow(
@@ -117,6 +115,7 @@ struct VideoPickerView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, minHeight: metrics.u(430), alignment: .center)
     }
 
     private func videoGrid(_ page: [ApprovedVideo]) -> some View {
@@ -127,11 +126,12 @@ struct VideoPickerView: View {
         return LazyVGrid(columns: columns, alignment: .center, spacing: metrics.u(18)) {
             ForEach(page) { video in
                 VideoPreviewCard(video: video, ticket: ticket) { onPick(video.id) }
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
         }
         .padding(.horizontal, metrics.u(8))
         .padding(.top, metrics.u(4))
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         // Clip only at page edges so a card never draws half-off into empty sky.
         .clipped()
     }
@@ -182,7 +182,7 @@ private struct VideoPreviewCard: View {
     let action: () -> Void
     @Environment(\.canvasMetrics) private var metrics
 
-    /// Thumbnail width sized so three cards + gaps fit inside the 1160 / 1000 board.
+    /// Thumbnail width sized so three cards + gaps fit inside the centered 1160 board.
     private let thumbWidth: CGFloat = 248
     private let thumbHeight: CGFloat = 132
 
@@ -233,9 +233,11 @@ private struct VideoPreviewCard: View {
                 }
             }
             .padding(metrics.u(14))
+            .frame(maxWidth: .infinity, alignment: .center)
         }
         .buttonStyle(ChunkyButtonStyle(fill: Color(hex: DesignTokens.Palette.paper),
                                        cornerRadius: 24, shadowDepth: 8))
+        .frame(maxWidth: .infinity, alignment: .center)
         .accessibilityLabel("揀呢條片 / Pick this video: \(title ?? video.id)")
     }
 }
