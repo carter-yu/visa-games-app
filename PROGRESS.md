@@ -1,5 +1,18 @@
 # Progress
 
+- 2026-10-01: PR #10 PATCH **v0.11.3 / build 30** — mid-visa / cold-start no longer falls through to ADR 0006 `legacyShell`. Branch `feat/ux-p2-p3-activity-watch`. Do not merge; Mac mini + TV UAT pending.
+  - **Bug (Carter UAT):** after launching tip `.build` v0.11.2/29 he saw wooden 「簽證車廠 / Visa Depot」, 「簽證時間 … 秒」, yellow 「播放准許影片」, desert + parade — legacy play, not canvas Depot/Stampy/tickets.
+  - **Root cause (not wrong binary):** running PID was tip `.build` @ 69698cb. Persisted `endsAt` resumes `Session` into `.play` while in-memory `selectedStars` / `awaitingDeparture` / `activePlayVideoID` are nil. `childOrLegacy` required `selectedMissionTicket` for stamp/picker/watch → **else → legacyShell**. Logs: relaunch `shellAppear` with `branch=play-ready` while visa still running.
+  - **Fix:** `PlayPresentation.ticket` / stars-from-award helpers; `recoverPlayPresentationAfterLaunch` restores stars from last 10/20/30 award (else easy) and skips stamp gate; `playCanvasBoard` routes **all** `.play` to canvas Stamp/Picker/Watch/Empty; TimesUp uses resolved ticket; parent 「測試一分鐘簽證」 seeds canvas presentation. `legacyShell` remains for setup/parent only.
+  - Version: Info.plist **0.11.3 / 30**, parent footer **v0.11.3**. Linux box: no Swift — Mac mini test+bundle verifies.
+  - **Mac mini UAT tip for Carter:**
+    1. Quit any running Visa Games
+    2. Launch **only** `/Users/carteryu/my-ai-projects/visa-games-app/.build/Visa Games.app` (no /Applications copy found)
+    3. Parent footer **v0.11.3**; if mid-visa still in `state.json` → expect **VideoPicker** (canvas), not wooden legacy; after visa ends → TimesUp → Depot (Stampy + tickets)
+    4. Fresh path: Depot → game → stamp → 「出發！」 → picker → watch
+    5. PR stays unmerged until Carter OKs.
+
+
 - 2026-10-01: PR #10 PATCH **v0.11.2 / build 29** — macOS 13–compatible `onChange` so Release bundle builds on Mac mini (deployment target stays 13.0). Branch `feat/ux-p2-p3-activity-watch`. Do not merge; Mac mini + TV UAT pending.
   - **Blocker (Mac mini Release):** `VideoPickerView.swift` used `.onChange(of:initial:_:)` (two-parameter closure) which requires macOS 14.0+; product targets arm64-apple-macos13.0. Tests passed; Release bundle failed; stale app left at 0.11.0/27.
   - **Fix:** replace with single-arg `.onChange(of:perform:)` / `{ _ in … }` form (macOS 12+/13). Grep of holiday tip: other `onChange` sites in `StampWatchTimesUpViews` / `ChildFeedback` already use the single-arg form; no other macOS 14+ only APIs found in recent holiday commits. Deployment target unchanged (`Package.swift` `.macOS(.v13)`, Info.plist `LSMinimumSystemVersion` 13.0).

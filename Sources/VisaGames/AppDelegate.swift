@@ -85,6 +85,28 @@ final class AppModel: ObservableObject {
             message = "儲存資料有問題，請家長處理。 / Storage needs parent attention."
             VisaGamesLog.append("storage load FAILED — 載入失敗 storageFailed=true")
         }
+        // Durable endsAt can resume into .play while selectedStars is still nil → legacyShell.
+        recoverPlayPresentationAfterLaunch()
+    }
+
+    /// Cold start mid-visa: restore stars/timer so canvas Picker/Watch/TimesUp can show.
+    private func recoverPlayPresentationAfterLaunch() {
+        guard session.mode == .play else { return }
+        if selectedStars == nil {
+            let records = session.snapshot.reward?.successRecords ?? []
+            let inferred = records.reversed()
+                .compactMap { PlayPresentation.stars(fromAwardedSeconds: $0.awardedSeconds) }
+                .first
+            selectedStars = inferred ?? ChildDifficulty.easy.rawValue
+        }
+        if playVisaTotalSeconds <= 0 {
+            playVisaTotalSeconds = ChildDifficulty(rawValue: selectedStars ?? 1)?.seconds ?? 600
+        }
+        // Stamp gate is in-memory; resume past it so the child picks (or watches) again.
+        awaitingDeparture = false
+        VisaGamesLog.append(
+            "recoverPlayPresentation — 恢復遊玩 stars=\(selectedStars ?? -1) total=\(playVisaTotalSeconds) allowlist=\(allowlist.videos.count)"
+        )
     }
 
     func update(_ action: (inout Session) -> Void) {
@@ -108,7 +130,7 @@ final class AppModel: ObservableObject {
             awaitingDeparture = false
             almostHomeSpoken = false
             activePlayVideoID = nil
-            let ticket = selectedMissionTicket
+            let ticket = resolvedPlayTicket
             if suppressNextTimesUp {
                 suppressNextTimesUp = false
                 showTimesUp = false
@@ -116,9 +138,7 @@ final class AppModel: ObservableObject {
             } else {
                 timesUpTicket = ticket
                 showTimesUp = true
-                if let ticket {
-                    guideVoice.speak(.timesUp(for: ticket))
-                }
+                guideVoice.speak(.timesUp(for: ticket))
             }
             resetTaskRound()
         }
@@ -220,6 +240,17 @@ final class AppModel: ObservableObject {
     func grant() {
         guard !storageFailed else { return }
         update { $0.grant(seconds: 60, now: Date()) }
+        guard session.mode == .play else { return }
+        // Parent test visa has no activity ticket — keep canvas (picker), never legacyShell.
+        if selectedStars == nil {
+            selectedStars = ChildDifficulty.easy.rawValue
+        }
+        playVisaTotalSeconds = 60
+        awaitingDeparture = false
+        activePlayVideoID = nil
+        showTimesUp = false
+        VisaGamesLog.append("grant — 測試一分鐘簽證 canvasPlay stars=\(selectedStars ?? -1)")
+        logShellBranch(context: "grant")
     }
 
     func selectTheme(_ palette: ThemePaletteID) {
@@ -665,6 +696,11 @@ final class AppModel: ObservableObject {
         return MissionTicket.all.first { $0.difficulty == difficulty }
     }
 
+    /// Always a ticket for canvas play boards (easy fallback when stars were lost).
+    var resolvedPlayTicket: MissionTicket {
+        PlayPresentation.ticket(selectedStars: selectedStars)
+    }
+
     var sequenceHintAssetID: String? {
         activityEvaluator.nextExpectedAssetID(
             question: sequenceQuestion,
@@ -870,10 +906,24 @@ final class AppModel: ObservableObject {
         case .lock:
             branch = taskRoundOpen ? "lock-task" : "lock-cards"
         case .play:
-            branch = "play-ready"
+            if showTimesUp {
+                branch = "play-timesUp"
+            } else {
+                switch PlayStageRoute.route(
+                    awaitingDeparture: awaitingDeparture,
+                    allowlistCount: allowlist.videos.count,
+                    activeVideoID: activePlayVideoID
+                ) {
+                case .stamp: branch = "play-stamp"
+                case .emptyAllowlist: branch = "play-emptyAllowlist"
+                case .videoPicker: branch = "play-videoPicker"
+                case .watch: branch = "play-watch"
+                }
+            }
         }
+        let starsLabel = selectedStars.map(String.init) ?? "nil"
         VisaGamesLog.append(
-            "shell branch=\(branch) — 介面分支 mode=\(session.mode) entryCompleted=\(isEntryActivityCompleted) rewardNil=\(session.snapshot.reward == nil) storageFailed=\(storageFailed) ctx=\(context)"
+            "shell branch=\(branch) — 介面分支 mode=\(session.mode) stars=\(starsLabel) entryCompleted=\(isEntryActivityCompleted) rewardNil=\(session.snapshot.reward == nil) storageFailed=\(storageFailed) ctx=\(context)"
         )
     }
 
@@ -1086,8 +1136,7 @@ struct ShellView: View {
 
     /// True when `childOrLegacy` shows `WatchPlaybackView`.
     private var isWatching: Bool {
-        !model.showTimesUp && model.session.mode == .play
-            && model.selectedMissionTicket != nil && playRoute == .watch
+        !model.showTimesUp && model.session.mode == .play && playRoute == .watch
     }
 
     var body: some View {
@@ -1110,9 +1159,9 @@ struct ShellView: View {
 
     @ViewBuilder
     private var childOrLegacy: some View {
-        if model.showTimesUp, let ticket = model.timesUpTicket {
+        if model.showTimesUp {
             TimesUpView(
-                ticket: ticket,
+                ticket: model.timesUpTicket ?? model.resolvedPlayTicket,
                 onNewMission: model.dismissTimesUp,
                 onSpeak: { model.guideSpeakTimesUp() }
             )
@@ -1128,20 +1177,31 @@ struct ShellView: View {
         } else if model.session.mode == .lock && model.taskRoundOpen {
             CanvasActivityHost(model: model)
                 .ignoresSafeArea()
-        } else if model.session.mode == .play, playRoute == .stamp, let ticket = model.selectedMissionTicket {
+        } else if model.session.mode == .play {
+            // Active visa never uses ADR 0006 legacyShell (cold start / grant without stars).
+            playCanvasBoard(ticket: model.resolvedPlayTicket)
+        } else {
+            legacyShell
+        }
+    }
+
+    @ViewBuilder
+    private func playCanvasBoard(ticket: MissionTicket) -> some View {
+        switch playRoute {
+        case .stamp:
             StampSuccessView(
                 ticket: ticket,
                 onGo: model.confirmDeparture,
                 onSpeak: { model.guideSpeakStamped() }
             )
             .ignoresSafeArea()
-        } else if model.session.mode == .play, playRoute == .emptyAllowlist {
+        case .emptyAllowlist:
             EmptyAllowlistView(
                 onReturn: model.returnFromEmptyAllowlist,
                 onSpeak: { model.guideSpeakEmptyAllowlist() }
             )
             .ignoresSafeArea()
-        } else if model.session.mode == .play, playRoute == .videoPicker, let ticket = model.selectedMissionTicket {
+        case .videoPicker:
             VideoPickerView(
                 ticket: ticket,
                 videos: model.allowlist.videos,
@@ -1151,7 +1211,7 @@ struct ShellView: View {
                 onAppearLog: model.videoPickerOpened
             )
             .ignoresSafeArea()
-        } else if model.session.mode == .play, playRoute == .watch, let ticket = model.selectedMissionTicket {
+        case .watch:
             WatchPlaybackView(
                 ticket: ticket,
                 videoID: model.activePlayVideoID,
@@ -1160,8 +1220,6 @@ struct ShellView: View {
                 onParentUnlock: model.unlock
             )
             .ignoresSafeArea()
-        } else {
-            legacyShell
         }
     }
 
@@ -1188,7 +1246,7 @@ struct ShellView: View {
         }
     }
 
-    /// Screens not yet rebuilt to the canvas (activities, play, setup, parent).
+    /// Setup + parent only. Child lock/play must never reach here (ADR 0007 canvas).
     @ViewBuilder
     private var legacyShell: some View {
         let theme = ThemePack.forID(model.themePaletteID)
@@ -1300,7 +1358,7 @@ struct ShellView: View {
                     Text("家長設定 / Parent controls")
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
                     // Version lives here since v0.9.0; child screens no longer show it (ADR 0007, checklist N8).
-                    Text("Visa Games v0.11.2")
+                    Text("Visa Games v0.11.3")
                         .font(.system(size: 16, design: .rounded))
                         .foregroundStyle(.secondary)
                     Text("十分鐘後自動鎖定 / Locks automatically after ten minutes")

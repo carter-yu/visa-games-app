@@ -67,6 +67,22 @@ final class ChildUXProgressTests {
         // Picked → watch.
         expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 4, activeVideoID: "abc"), .watch)
     }
+
+    func testPlayPresentationResolvesTicket() {
+        expectEqual(PlayPresentation.ticket(selectedStars: nil).difficulty, .easy)
+        expectEqual(PlayPresentation.ticket(selectedStars: 1).difficulty, .easy)
+        expectEqual(PlayPresentation.ticket(selectedStars: 2).difficulty, .medium)
+        expectEqual(PlayPresentation.ticket(selectedStars: 3).difficulty, .challenge)
+        expectEqual(PlayPresentation.ticket(selectedStars: 99).difficulty, .easy)
+        expectEqual(PlayPresentation.stars(fromAwardedSeconds: 600), 1)
+        expectEqual(PlayPresentation.stars(fromAwardedSeconds: 1_200), 2)
+        expectEqual(PlayPresentation.stars(fromAwardedSeconds: 1_800), 3)
+        expectTrue(PlayPresentation.stars(fromAwardedSeconds: 0) == nil)
+        expectTrue(PlayPresentation.stars(fromAwardedSeconds: 60) == nil)
+        // Cold-start mid-visa with allowlist → picker (not stamp); empty → emptyAllowlist.
+        expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 2, activeVideoID: nil), .videoPicker)
+        expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 0, activeVideoID: nil), .emptyAllowlist)
+    }
 }
 
 private func expectClose(_ actual: Double, _ expected: Double, file: StaticString = #file, line: UInt = #line) {

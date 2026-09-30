@@ -314,7 +314,8 @@ struct TestRunner {
         ux.testRoadTimerFromEndsAt()
         ux.testSpokenUXLinesAreTraditional()
         ux.testPlayStageRoutesPickerBeforeWatch()
+        ux.testPlayPresentationResolvesTicket()
 
-        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 12 scoped-playback + 18 activity + 9 canvas + 4 voice + 4 pen-spark + 5 ux-p2-p3 checks")
+        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 12 scoped-playback + 18 activity + 9 canvas + 4 voice + 4 pen-spark + 6 ux-p2-p3 checks")
     }
 }

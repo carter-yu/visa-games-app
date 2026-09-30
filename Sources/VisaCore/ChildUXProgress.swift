@@ -51,3 +51,30 @@ public enum PlayStageRoute: Equatable, Sendable {
         return .watch
     }
 }
+
+/// Canvas play boards need a mission ticket. `selectedStars` is in-memory only, so a cold
+/// start mid-visa (durable `endsAt`) or parent 「測試一分鐘簽證」 used to leave ticket nil and
+/// `ShellView.childOrLegacy` fell through to ADR 0006 `legacyShell` (wooden sign + visa
+/// seconds + yellow 「播放准許影片」). Always resolve a ticket so play stays on canvas.
+public enum PlayPresentation: Sendable {
+    /// Ticket for stamp / picker / watch / Time's up. Falls back to easy (的士短程).
+    public static func ticket(selectedStars: Int?) -> MissionTicket {
+        if let stars = selectedStars,
+           let difficulty = ChildDifficulty(rawValue: stars),
+           let match = MissionTicket.all.first(where: { $0.difficulty == difficulty }) {
+            return match
+        }
+        return MissionTicket.all[0]
+    }
+
+    /// Map banked Confirmed reward seconds (10 / 20 / 30 min) back to stars. Nil otherwise.
+    public static func stars(fromAwardedSeconds seconds: TimeInterval) -> Int? {
+        guard seconds.isFinite, seconds > 0 else { return nil }
+        switch Int(seconds.rounded()) {
+        case 600: return ChildDifficulty.easy.rawValue
+        case 1_200: return ChildDifficulty.medium.rawValue
+        case 1_800: return ChildDifficulty.challenge.rawValue
+        default: return nil
+        }
+    }
+}
