@@ -1,15 +1,15 @@
 import SwiftUI
 import VisaCore
 
-// MARK: - Board 4 prelude — pick a video (Holiday P0, v0.11.5)
+// MARK: - Board 4 prelude — pick a video (Holiday P0, v0.11.6)
 
 /// After the stamp gate's 「出發！」, the child picks one allowlisted video from large preview
 /// cards. One video still shows its card so the child feels the choice. Every pick goes through
 /// the existing D8 allowlist gate (`AppModel.playAllowlisted`).
 ///
-/// Layout (v0.11.5): 3×2 page grid fills the 1280×720 safe canvas (HStack + LazyVGrid
-/// maxWidth infinity, centered) — no left-cluster / cyan gutter. More than six videos page
-/// with chunky arrows.
+/// Layout (v0.11.6): full 1280×720 artboard `VStack` (not `canvasPlaced` offsets + `LazyVGrid`).
+/// Stampy header on top; 3×2 equal-width `HStack` rows centered in the remaining space; cards
+/// stretch to fill columns. Fixes TV UAT left/down cluster with cyan gutter on the right.
 struct VideoPickerView: View {
     let ticket: MissionTicket
     let videos: [ApprovedVideo]
@@ -44,32 +44,31 @@ struct VideoPickerView: View {
                 Color(hex: DesignTokens.Palette.road).frame(height: metrics.u(44))
             }
         } content: {
-            HStack(spacing: metrics.u(16)) {
-                VectorArtView(artwork: CanvasArt.stampy)
-                    .frame(width: metrics.u(130), height: metrics.u(130))
-                SpeechBubbleButton(prompt: .pickVideo, action: onSpeak)
-                    .scaleEffect(0.85, anchor: .leading)
+            // One full-artboard tree: Spacers vertically center the board under Stampy;
+            // equal-width columns fill horizontally. Avoids LazyVGrid shrink-wrap + offset drift.
+            VStack(spacing: 0) {
+                headerBar
+                    .padding(.horizontal, metrics.u(60))
+                    .padding(.top, metrics.u(20))
+                    .frame(height: metrics.u(156), alignment: .top)
+
+                Spacer(minLength: metrics.u(8))
+
+                pickerBoard
+                    .padding(.horizontal, metrics.u(48))
+
+                Spacer(minLength: metrics.u(8))
+
+                footerBar
+                    .padding(.horizontal, metrics.u(60))
+                    .padding(.bottom, metrics.u(20))
+                    .frame(minHeight: metrics.u(36))
             }
-            .canvasPlaced(x: 60, y: 24)
-
-            VectorArtView(artwork: ticket.artwork)
-                .frame(width: metrics.u(150), height: metrics.u(94))
-                .canvasPlaced(x: 1060, y: 40)
-
-            pickerBoard
-                .frame(width: metrics.u(1160), alignment: .center)
-                .canvasPlaced(x: 60, y: 168)
-
-            if showsPager {
-                pageDots
-                    .frame(width: metrics.u(1160), alignment: .center)
-                    .canvasPlaced(x: 60, y: 608)
-            }
-
-            if let message {
-                CanvasText(message, size: 16, weight: 700, color: .inkSoft)
-                    .canvasPlaced(x: 80, y: 640)
-            }
+            .frame(
+                width: metrics.u(CGFloat(DesignTokens.referenceWidth)),
+                height: metrics.u(CGFloat(DesignTokens.referenceHeight)),
+                alignment: .top
+            )
         }
         .onAppear {
             clampPageIndex()
@@ -90,6 +89,31 @@ struct VideoPickerView: View {
         }
     }
 
+    private var headerBar: some View {
+        HStack(alignment: .center, spacing: metrics.u(16)) {
+            VectorArtView(artwork: CanvasArt.stampy)
+                .frame(width: metrics.u(130), height: metrics.u(130))
+            SpeechBubbleButton(prompt: .pickVideo, action: onSpeak)
+                .scaleEffect(0.85, anchor: .leading)
+            Spacer(minLength: 0)
+            VectorArtView(artwork: ticket.artwork)
+                .frame(width: metrics.u(150), height: metrics.u(94))
+        }
+    }
+
+    @ViewBuilder
+    private var footerBar: some View {
+        VStack(spacing: metrics.u(8)) {
+            if showsPager {
+                pageDots
+            }
+            if let message {
+                CanvasText(message, size: 16, weight: 700, color: .inkSoft)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
     private var pickerBoard: some View {
         HStack(spacing: metrics.u(12)) {
             if showsPager {
@@ -103,7 +127,7 @@ struct VideoPickerView: View {
             }
 
             videoGrid(pageVideos)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .frame(maxWidth: .infinity, alignment: .center)
 
             if showsPager {
                 pageArrow(
@@ -115,25 +139,32 @@ struct VideoPickerView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, minHeight: metrics.u(430), alignment: .center)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
+    /// Deterministic 3×2 equal-width rows (not LazyVGrid — avoids intrinsic-width left cluster).
     private func videoGrid(_ page: [ApprovedVideo]) -> some View {
-        let columns = Array(
-            repeating: GridItem(.flexible(minimum: metrics.u(200)), spacing: metrics.u(20)),
-            count: columnsPerPage
-        )
-        return LazyVGrid(columns: columns, alignment: .center, spacing: metrics.u(18)) {
-            ForEach(page) { video in
-                VideoPreviewCard(video: video, ticket: ticket) { onPick(video.id) }
-                    .frame(maxWidth: .infinity, alignment: .center)
+        let gap = metrics.u(20)
+        return VStack(spacing: metrics.u(18)) {
+            ForEach(0..<rowsPerPage, id: \.self) { row in
+                HStack(spacing: gap) {
+                    ForEach(0..<columnsPerPage, id: \.self) { col in
+                        let index = row * columnsPerPage + col
+                        Group {
+                            if index < page.count {
+                                VideoPreviewCard(video: page[index], ticket: ticket) {
+                                    onPick(page[index].id)
+                                }
+                            } else {
+                                Color.clear
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                }
             }
         }
-        .padding(.horizontal, metrics.u(8))
-        .padding(.top, metrics.u(4))
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        // Clip only at page edges so a card never draws half-off into empty sky.
-        .clipped()
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 
     private func pageArrow(systemName: String, label: String, enabled: Bool,
@@ -182,9 +213,8 @@ private struct VideoPreviewCard: View {
     let action: () -> Void
     @Environment(\.canvasMetrics) private var metrics
 
-    /// Thumbnail width sized so three cards + gaps fit inside the centered 1160 board.
-    private let thumbWidth: CGFloat = 248
-    private let thumbHeight: CGFloat = 132
+    /// Thumbnail aspect from the original 248×132 TV preview (fills column width).
+    private let thumbAspect: CGFloat = 248.0 / 132.0
 
     private var title: String? {
         let cantonese = video.titleCantonese?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -209,7 +239,10 @@ private struct VideoPreviewCard: View {
                     }
                     .frame(width: metrics.u(64), height: metrics.u(64))
                 }
-                .frame(width: metrics.u(thumbWidth), height: metrics.u(thumbHeight))
+                .aspectRatio(thumbAspect, contentMode: .fit)
+                // Cap so 2 rows + header/footer still leave Spacer room to vertical-center on 720.
+                .frame(maxWidth: metrics.u(300))
+                .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: metrics.u(14), style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: metrics.u(14), style: .continuous)
@@ -221,7 +254,7 @@ private struct VideoPreviewCard: View {
                         .foregroundStyle(Color.ink)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .frame(width: metrics.u(thumbWidth))
+                        .frame(maxWidth: .infinity)
                 } else {
                     HStack(spacing: metrics.u(4)) {
                         ForEach(0..<ticket.stars, id: \.self) { _ in
@@ -230,6 +263,7 @@ private struct VideoPreviewCard: View {
                         }
                     }
                     .frame(height: metrics.u(22))
+                    .frame(maxWidth: .infinity)
                 }
             }
             .padding(metrics.u(14))

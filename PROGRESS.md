@@ -1,5 +1,16 @@
 # Progress
 
+- 2026-10-01: PR #10 PATCH **v0.11.6 / build 33** — VideoPicker board truly centered on TV (no left/down cyan cluster). Branch `feat/ux-p2-p3-activity-watch`. Do not merge.
+  - **Bug (Carter UAT Mac mini v0.11.5 / 14aa1a3):** 3×2 grid still shifted LEFT and DOWN — large cyan empty on the right, content low. Screenshot confirmed. Prior fix only added `maxWidth: .infinity` around `LazyVGrid` + `canvasPlaced(x:60,y:168)`; LazyVGrid still shrink-wrapped to intrinsic card width and offset placement pinned the board top-left of the remaining band.
+  - **Fix:** drop `LazyVGrid` + `canvasPlaced` offsets for the picker. Full 1280×720 artboard `VStack`: Stampy/ticket header → `Spacer` → equal-width 3×2 `HStack` rows (cards `aspectRatio` fill columns) → `Spacer` → dots/message. Horizontally fills; vertically centers under Stampy in remaining space.
+  - Version: Info.plist **0.11.6 / 33**, parent footer **v0.11.6**. Linux box: no Swift — Mac mini test+bundle verifies.
+  - **Launch path:** `/Users/carteryu/my-ai-projects/visa-games-app/.build/Visa Games.app` only. Parent footer must read **v0.11.6**. Stamp → 「出發！」 → picker 3×2 centered (no big cyan gutter right / low cluster).
+  - Mac mini UAT checklist:
+    1. `git fetch && git checkout feat/ux-p2-p3-activity-watch && git pull --ff-only`
+    2. `sh scripts/test.sh`; `sh scripts/bundle.sh` → expect **0.11.6 / 33**
+    3. Parent footer **v0.11.6**; stamp → Go → picker board centered under Stampy, columns fill width evenly
+
+
 - 2026-10-01: PR #10 PATCH **v0.11.5 / build 32** — VideoPicker cards centered / fill safe canvas (no left-cluster cyan gutter). Branch `feat/ux-p2-p3-activity-watch`. Do not merge.
   - **Bug (Carter UAT Mac mini v0.11.4):** 3×2 card grid clustered/shrunk to the LEFT with large empty cyan sky on the right; page arrows + dots visible on 1280×720 TV.
   - **Fix:** `pickerBoard` HStack + `LazyVGrid` use `frame(maxWidth: .infinity, alignment: .center)` inside a 1160-wide board placed at x:60; each `VideoPreviewCard` also `maxWidth: .infinity` so flexible columns evenly fill. No more intrinsic-width left cluster.
