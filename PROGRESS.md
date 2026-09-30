@@ -1,5 +1,18 @@
 # Progress
 
+- 2026-10-01: PR #10 PATCH **v0.11.1 / build 28** — Video picker shows the full allowlist on TV (no mid-card clip). Branch `feat/ux-p2-p3-activity-watch`. Do not merge; Mac mini + TV UAT pending.
+  - **Bug (Carter UAT screenshot):** horizontal one-row picker showed ~2 full cards + a third cut mid-frame with empty blue sky beside it; `showsIndicators: false` gave no scroll affordance for a ~4yo + Wacom.
+  - **Fix:** `VideoPickerView` is now a **3×2 page grid** of chunky cards (thumb ~248×132) inside the 1280×720 safe canvas so **up to six videos are fully visible**. More than six → chunky sunny prev/next arrows + page dots; never clip a card mid-frame with dead space beside it. 「揀片睇！」 / thumbnails / D8 pick path unchanged.
+  - Version: Info.plist **0.11.1 / 28**, parent footer **v0.11.1**. Linux box: `swift: not found` → no compile or test claim.
+  - **Mac mini UAT tip for Carter:**
+    1. `git fetch && git checkout feat/ux-p2-p3-activity-watch && git pull`
+    2. `sh scripts/test.sh`; `sh scripts/bundle.sh`; parent footer **v0.11.1**
+    3. Stamp → 「出發！」 → picker: with ≤6 allowlisted videos, **every card fully on screen** (no half card, no empty blue strip)
+    4. Titles readable (… OK); Stampy still says 「揀片睇！」; tap card → watch that video
+    5. With >6 videos: big yellow arrows + dots page through the rest; each page still shows whole cards only
+    6. PR stays unmerged until Carter OKs the TV check.
+
+
 - 2026-09-30: PR #10 MINOR **v0.11.0 / build 27** — Holiday P0 on branch `feat/ux-p2-p3-activity-watch` (on top of `f06ae06`). Do not merge; Mac mini + TV UAT pending.
   - **Carter locks (2026-09-30):**
     1. **Parent on garage (Watch only):** `RoadTimerStrip` stacks an invisible `ParentCornerEntry` (72-unit hit target, `showsMark: false`) on the `GarageGlyph`; 3-second hold → `model.unlock` (unchanged auth); tap does nothing. `ShellView` hides the faint `ParentCornerLayer` only while `WatchPlaybackView` shows; all other child screens keep it.

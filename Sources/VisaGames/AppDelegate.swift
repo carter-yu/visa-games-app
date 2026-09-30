@@ -1300,7 +1300,7 @@ struct ShellView: View {
                     Text("家長設定 / Parent controls")
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
                     // Version lives here since v0.9.0; child screens no longer show it (ADR 0007, checklist N8).
-                    Text("Visa Games v0.11.0")
+                    Text("Visa Games v0.11.1")
                         .font(.system(size: 16, design: .rounded))
                         .foregroundStyle(.secondary)
                     Text("十分鐘後自動鎖定 / Locks automatically after ten minutes")
