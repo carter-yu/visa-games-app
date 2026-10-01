@@ -1009,6 +1009,19 @@ final class AppModel: ObservableObject {
             changed?()
         } catch { message = "仍未能儲存。 / Storage is still unavailable." }
     }
+
+    /// Tear down play/voice before NSHostingView/WKWebView die on quit (crash on terminate).
+    func prepareForTerminate() {
+        changed = nil
+        guideVoice.stop()
+        activePlayVideoID = nil
+        playbackMessage = nil
+        authentication?.invalidate()
+        authentication = nil
+        authenticating = false
+        parentDeadline = nil
+        VisaGamesLog.append("prepareForTerminate — 離開前清播放／語音")
+    }
 }
 
 final class KioskWindow: NSWindow {
@@ -1026,6 +1039,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var pointerMonitor: Any?
     private var isChildPresentation: Bool?
     private var parentWindowFrame: NSRect?
+    private var didPrepareTerminate = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         VisaGamesLog.append("fonts — 字型 canvas=\(CanvasFont.isAvailable)")
@@ -1106,10 +1120,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        model.session.allowsExit ? .terminateNow : .terminateCancel
+        guard model.session.allowsExit else { return .terminateCancel }
+        prepareForTerminate()
+        return .terminateNow
     }
     func windowShouldClose(_ sender: NSWindow) -> Bool { false }
-    func applicationWillTerminate(_ notification: Notification) { NSApp.presentationOptions = [] }
+    func applicationWillTerminate(_ notification: Notification) {
+        prepareForTerminate()
+        NSApp.presentationOptions = []
+    }
+
+    /// Stop timers/monitors and drop hosting view before further SwiftUI layout on quit.
+    /// IPS VisaGames-2026-10-01-084331 (v0.11.6/33): EXC_BAD_ACCESS in ShellView.body MainActor check
+    /// during NSHostingView.layout while quitting from parent with live ScopedPlayer.
+    private func prepareForTerminate() {
+        guard !didPrepareTerminate else { return }
+        didPrepareTerminate = true
+        VisaGamesLog.append("terminate — 準備離開 teardown timer/monitors/hosting")
+        timer?.invalidate()
+        timer = nil
+        if let keyMonitor {
+            NSEvent.removeMonitor(keyMonitor)
+            self.keyMonitor = nil
+        }
+        if let pointerMonitor {
+            NSEvent.removeMonitor(pointerMonitor)
+            self.pointerMonitor = nil
+        }
+        NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        model.prepareForTerminate()
+        // Dismantle SwiftUI + WKWebView before AppKit continues terminate layout.
+        window?.contentView = nil
+        window?.delegate = nil
+    }
 }
 
 struct ShellView: View {
@@ -1140,12 +1184,14 @@ struct ShellView: View {
     }
 
     var body: some View {
-        ZStack {
+        let childMode = isChildMode
+        let watching = isWatching
+        return ZStack {
             childOrLegacy
-            if isChildMode {
+            if childMode {
                 // On Watch the parent hold lives on the garage glyph (ADR 0007 §5); no second corner.
-                if !isWatching {
-                    ParentCornerLayer(onUnlock: model.unlock)
+                if !watching {
+                    ParentCornerLayer(onUnlock: { model.unlock() })
                         .ignoresSafeArea()
                 }
                 PenSparkOverlay(model: penSpark)

@@ -39,6 +39,14 @@ struct ScopedPlayerView: NSViewRepresentable {
         }
     }
 
+    static func dismantleNSView(_ nsView: WKWebView, coordinator: Coordinator) {
+        coordinator.detach()
+        nsView.stopLoading()
+        nsView.navigationDelegate = nil
+        nsView.uiDelegate = nil
+        nsView.configuration.userContentController.removeAllScriptMessageHandlers()
+    }
+
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         var videoID: String
         var onNavigationRejected: (() -> Void)?
@@ -54,6 +62,14 @@ struct ScopedPlayerView: NSViewRepresentable {
             webView = view
             view.navigationDelegate = self
             view.uiDelegate = self
+        }
+
+        func detach() {
+            webView?.navigationDelegate = nil
+            webView?.uiDelegate = nil
+            webView = nil
+            onNavigationRejected = nil
+            loadedVideoID = nil
         }
 
         func loadEmbedIfPossible() {
