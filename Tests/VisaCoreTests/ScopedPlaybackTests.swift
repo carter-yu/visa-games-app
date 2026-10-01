@@ -402,4 +402,151 @@ final class ScopedPlaybackTests {
         }
     }
 
+
+    // MARK: - v0.12.0 end-of-video bridge (IFrame API → WKScriptMessageHandler)
+
+    func testEmbedHTMLUsesIFrameAPIBridge() {
+        // Constructed embed keeps the same nocookie /embed/<id> path; adds JS API params only.
+        let made = YouTubeEmbedURL.make(videoID: sampleID)
+        expectTrue(made != nil)
+        if let made {
+            expectTrue(YouTubeEmbedURL.isAllowedEmbedURL(made))
+            expectTrue(YouTubeEmbedURL.isAllowedEmbedMainFrameURL(made, videoID: sampleID))
+            let items = URLComponents(url: made, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            expectEqual(items.first(where: { $0.name == "enablejsapi" })?.value, "1")
+            expectEqual(items.first(where: { $0.name == "origin" })?.value, "https://www.youtube-nocookie.com")
+            expectEqual(items.first(where: { $0.name == "rel" })?.value, "0")
+            expectEqual(made.path, "/embed/\(sampleID)")
+        }
+        expectEqual(YouTubeEmbedURL.embedOrigin, "https://www.youtube-nocookie.com")
+        expectEqual(YouTubeEmbedURL.iframeAPIScriptURL.absoluteString, "https://www.youtube.com/iframe_api")
+        // The API script is not a main-frame navigation grant.
+        expectFalse(YouTubeEmbedURL.isAllowedEmbedMainFrameURL(YouTubeEmbedURL.iframeAPIScriptURL, videoID: sampleID))
+        expectTrue(YouTubeEmbedURL.isClearEscapeURL(YouTubeEmbedURL.iframeAPIScriptURL, videoID: sampleID))
+
+        guard let html = YouTubeEmbedURL.embedHTMLString(videoID: sampleID) else {
+            preconditionFailure("embed HTML missing")
+        }
+        expectTrue(html.contains("id=\"\(YouTubeEmbedURL.playerElementID)\""))
+        expectTrue(html.contains("enablejsapi=1"))
+        expectTrue(html.contains("https://www.youtube.com/iframe_api"))
+        expectTrue(html.contains("onYouTubeIframeAPIReady"))
+        expectTrue(html.contains("onStateChange"))
+        expectTrue(html.contains("messageHandlers.\(ScopedPlayerEvent.messageHandlerName)"))
+        expectTrue(html.contains("\"ended\""))
+        expectTrue(html.contains("var videoID = \"\(sampleID)\""))
+        // Iframe src stays the constructed URL (HTML-escaped ampersands).
+        if let made {
+            expectTrue(html.contains("src=\"" + made.absoluteString.replacingOccurrences(of: "&", with: "&amp;") + "\""))
+        }
+        // Still no watch page / no window.open / no top navigation in the shell script.
+        expectFalse(html.contains("youtube.com/watch"))
+        expectFalse(html.contains("window.open"))
+        expectFalse(html.contains("location.href"))
+        expectEqual(ScopedPlayerEvent.messageHandlerName, "visaPlayer")
+    }
+
+    func testScopedPlayerEventParsing() {
+        let body: [String: Any] = ["event": "ended", "videoID": sampleID]
+        expectEqual(ScopedPlayerEvent.parse(body, expectedVideoID: sampleID), .ended)
+        // Stale page for another id is ignored (never routes the current player).
+        expectNil(ScopedPlayerEvent.parse(body, expectedVideoID: otherID))
+        expectNil(ScopedPlayerEvent.parse(["event": "ended"], expectedVideoID: sampleID))
+        expectNil(ScopedPlayerEvent.parse("ended", expectedVideoID: sampleID))
+        expectNil(ScopedPlayerEvent.parse(["event": "navigate", "videoID": sampleID], expectedVideoID: sampleID))
+
+        let state0 = ScopedPlayerEvent.parse(["event": "state", "videoID": sampleID, "state": 0], expectedVideoID: sampleID)
+        expectEqual(state0, .stateChanged(0))
+        expectTrue(state0?.indicatesEnded == true)
+        let playing = ScopedPlayerEvent.parse(["event": "state", "videoID": sampleID, "state": 1.0], expectedVideoID: sampleID)
+        expectEqual(playing, .stateChanged(1))
+        expectTrue(playing?.indicatesEnded == false)
+        expectEqual(YouTubePlayerState.label(0), "ended")
+        expectEqual(YouTubePlayerState.label(1), "playing")
+        expectEqual(YouTubePlayerState.label(42), "unknown(42)")
+
+        expectEqual(
+            ScopedPlayerEvent.parse(["event": "ready", "videoID": sampleID, "duration": 312.4], expectedVideoID: sampleID),
+            .ready(durationSeconds: 312.4)
+        )
+        expectEqual(
+            ScopedPlayerEvent.parse(["event": "ready", "videoID": sampleID, "duration": 0], expectedVideoID: sampleID),
+            .ready(durationSeconds: nil)
+        )
+        expectEqual(
+            ScopedPlayerEvent.parse(["event": "duration", "videoID": sampleID, "seconds": 300], expectedVideoID: sampleID),
+            .duration(300)
+        )
+        expectNil(ScopedPlayerEvent.parse(["event": "duration", "videoID": sampleID, "seconds": -3], expectedVideoID: sampleID))
+        expectEqual(
+            ScopedPlayerEvent.parse(["event": "apiError", "videoID": sampleID, "detail": "timeout"], expectedVideoID: sampleID),
+            .apiUnavailable("timeout")
+        )
+
+        // Debounce: one ended per load; a new load re-arms.
+        var latch = PlaybackEndLatch()
+        expectTrue(latch.shouldReportEnd(videoID: sampleID, loadedVideoID: sampleID))
+        expectFalse(latch.shouldReportEnd(videoID: sampleID, loadedVideoID: sampleID))
+        expectFalse(latch.shouldReportEnd(videoID: otherID, loadedVideoID: sampleID))
+        latch.reset()
+        expectTrue(latch.shouldReportEnd(videoID: sampleID, loadedVideoID: sampleID))
+        var unloaded = PlaybackEndLatch()
+        expectFalse(unloaded.shouldReportEnd(videoID: sampleID, loadedVideoID: nil))
+    }
+
+    func testParentAllowlistDraftStatus() {
+        let list = allowlist(with: sampleID)
+        expectEqual(ParentAllowlistDraft.evaluate("", allowlist: list), .empty)
+        expectEqual(ParentAllowlistDraft.evaluate("   ", allowlist: list), .empty)
+        expectEqual(ParentAllowlistDraft.evaluate("not a video", allowlist: list), .invalid)
+        expectEqual(ParentAllowlistDraft.evaluate("https://example.com/watch?v=\(otherID)", allowlist: list), .invalid)
+        expectEqual(ParentAllowlistDraft.evaluate("https://youtu.be/\(otherID)", allowlist: list), .ready(videoID: otherID))
+        expectEqual(ParentAllowlistDraft.evaluate(" \(otherID) ", allowlist: list), .ready(videoID: otherID))
+        expectEqual(
+            ParentAllowlistDraft.evaluate("https://www.youtube.com/watch?v=\(sampleID)", allowlist: list),
+            .alreadyAllowlisted(videoID: sampleID)
+        )
+        expectEqual(ParentAllowlistDraft.ready(videoID: otherID).videoID, otherID)
+        expectNil(ParentAllowlistDraft.invalid.videoID)
+        expectTrue(ParentAllowlistDraft.ready(videoID: otherID).canAdd)
+        expectFalse(ParentAllowlistDraft.alreadyAllowlisted(videoID: sampleID).canAdd)
+        expectFalse(ParentAllowlistDraft.invalid.canAdd)
+    }
+
+    func testApprovedVideoDurationLabelAndLegacyDecode() throws {
+        expectEqual(ApprovedVideo.clockLabel(seconds: 0), "0:00")
+        expectEqual(ApprovedVideo.clockLabel(seconds: 65), "1:05")
+        expectEqual(ApprovedVideo.clockLabel(seconds: 312.6), "5:13")
+        expectEqual(ApprovedVideo.clockLabel(seconds: 3_725), "1:02:05")
+        expectEqual(ApprovedVideo.clockLabel(seconds: .nan), "0:00")
+
+        // Nominal budget duration is marked approximate until the player reports a real length.
+        var video = ApprovedVideo(id: sampleID, durationSeconds: 120)
+        expectEqual(video.parentDurationLabel, "~2:00")
+        expectFalse(video.hasPlayerDuration)
+        video.playerDurationSeconds = 301
+        expectEqual(video.parentDurationLabel, "5:01")
+        expectTrue(video.hasPlayerDuration)
+
+        var list = allowlist(with: sampleID)
+        expectTrue(list.recordPlayerDuration(id: sampleID, seconds: 301))
+        expectEqual(list.video(id: sampleID)?.playerDurationSeconds, 301)
+        // Sub-second jitter does not churn storage; unknown ids and bad values are ignored.
+        expectFalse(list.recordPlayerDuration(id: sampleID, seconds: 301.4))
+        expectFalse(list.recordPlayerDuration(id: otherID, seconds: 50))
+        expectFalse(list.recordPlayerDuration(id: sampleID, seconds: 0))
+        expectFalse(list.recordPlayerDuration(id: sampleID, seconds: .infinity))
+        // D4 budget-fit duration untouched.
+        expectEqual(list.video(id: sampleID)?.durationSeconds, 120)
+
+        // Pre-v0.12.0 allowlist JSON (no playerDurationSeconds) still decodes.
+        let legacy = Data(#"{"videos":[{"id":"\#(sampleID)","titleEnglish":"Old","durationSeconds":120}]}"#.utf8)
+        let decoded = try JSONDecoder().decode(VideoAllowlist.self, from: legacy)
+        expectEqual(decoded.videos.count, 1)
+        expectNil(decoded.videos[0].playerDurationSeconds)
+        expectEqual(decoded.videos[0].parentDurationLabel, "~2:00")
+        // Round-trip keeps the measured duration.
+        let again = try JSONDecoder().decode(VideoAllowlist.self, from: JSONEncoder().encode(list))
+        expectEqual(again.video(id: sampleID)?.playerDurationSeconds, 301)
+    }
 }

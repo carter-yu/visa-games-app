@@ -31,3 +31,10 @@ phases. Each UX phase is one PR that ends with Mac mini + TV UAT before the next
 - Canvas board PNGs archived under `docs/concept-canvas-boards/`.
 - `sh scripts/test.sh` on Mac mini → expect PASS banner including `+ 4 ux-p2-p3 checks`.
 - Mac mini + TV UAT checklist in the v0.10.0 `PROGRESS.md` entry.
+
+## v0.12.0 — end-of-video flow + parent UX (PR #11)
+
+- Branch `feat/parent-ux-end-video-flow` from `main` @ 511a9b6 (+ quit-crash fix 7af69db).
+- Ended video → picker (time left) or Time's up (no time left); budget/visa stop mid-video → Time's up.
+- Parent controls rebuilt as `ParentSettingsView` (allowlist cards, paste preview, Advanced fold).
+- Mac mini + TV UAT checklist in the v0.12.0 `PROGRESS.md` entry.
