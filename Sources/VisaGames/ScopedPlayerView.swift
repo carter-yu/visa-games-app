@@ -7,12 +7,25 @@ import WebKit
 /// points ONLY at a constructed youtube-nocookie embed URL (Error 153 Referer fix).
 /// Main-frame navigation is limited to the HTML shell host-root and the official
 /// `/embed/<id>` family for that id. This is not a general browser (ADR 0003 D8).
+///
+/// v0.12.0: the shell reports YouTube IFrame API state through a read-only
+/// `WKScriptMessageHandler` (`visaPlayer`). `onPlaybackEnded` fires once per load when the
+/// allowlisted video reaches the ended state, so the app can leave the YouTube end card.
 struct ScopedPlayerView: NSViewRepresentable {
     let videoID: String
     var onNavigationRejected: (() -> Void)?
+    /// Main thread, at most once per loaded video id. Argument is that id.
+    var onPlaybackEnded: ((String) -> Void)? = nil
+    /// Real video length from the player (display-only metadata for parent cards).
+    var onDurationKnown: ((String, TimeInterval) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(videoID: videoID, onNavigationRejected: onNavigationRejected)
+        Coordinator(
+            videoID: videoID,
+            onNavigationRejected: onNavigationRejected,
+            onPlaybackEnded: onPlaybackEnded,
+            onDurationKnown: onDurationKnown
+        )
     }
 
     func makeNSView(context: Context) -> WKWebView {
@@ -20,6 +33,11 @@ struct ScopedPlayerView: NSViewRepresentable {
         config.preferences.isElementFullscreenEnabled = false
         // macOS: allow media without an extra gesture when parent/child already pressed Play.
         config.mediaTypesRequiringUserActionForPlayback = []
+        // Weak proxy: WKUserContentController retains handlers strongly (avoid a cycle).
+        config.userContentController.add(
+            ScopedPlayerMessageProxy(target: context.coordinator),
+            name: ScopedPlayerEvent.messageHandlerName
+        )
         let view = WKWebView(frame: .zero, configuration: config)
         view.navigationDelegate = context.coordinator
         view.uiDelegate = context.coordinator
@@ -33,6 +51,8 @@ struct ScopedPlayerView: NSViewRepresentable {
     func updateNSView(_ nsView: WKWebView, context: Context) {
         context.coordinator.videoID = videoID
         context.coordinator.onNavigationRejected = onNavigationRejected
+        context.coordinator.onPlaybackEnded = onPlaybackEnded
+        context.coordinator.onDurationKnown = onDurationKnown
         context.coordinator.attach(nsView)
         if context.coordinator.loadedVideoID != videoID {
             context.coordinator.loadEmbedIfPossible()
@@ -44,18 +64,31 @@ struct ScopedPlayerView: NSViewRepresentable {
         nsView.stopLoading()
         nsView.navigationDelegate = nil
         nsView.uiDelegate = nil
+        // Drops the `visaPlayer` bridge so no late JS message reaches a dead coordinator.
         nsView.configuration.userContentController.removeAllScriptMessageHandlers()
+        // Silence audio right away (ended → picker, stop → TimesUp) instead of waiting for dealloc.
+        nsView.pauseAllMediaPlayback(completionHandler: nil)
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         var videoID: String
         var onNavigationRejected: (() -> Void)?
+        var onPlaybackEnded: ((String) -> Void)?
+        var onDurationKnown: ((String, TimeInterval) -> Void)?
         private(set) var loadedVideoID: String?
+        private var endLatch = PlaybackEndLatch()
         private weak var webView: WKWebView?
 
-        init(videoID: String, onNavigationRejected: (() -> Void)?) {
+        init(
+            videoID: String,
+            onNavigationRejected: (() -> Void)?,
+            onPlaybackEnded: ((String) -> Void)?,
+            onDurationKnown: ((String, TimeInterval) -> Void)?
+        ) {
             self.videoID = videoID
             self.onNavigationRejected = onNavigationRejected
+            self.onPlaybackEnded = onPlaybackEnded
+            self.onDurationKnown = onDurationKnown
         }
 
         func attach(_ view: WKWebView) {
@@ -69,7 +102,46 @@ struct ScopedPlayerView: NSViewRepresentable {
             webView?.uiDelegate = nil
             webView = nil
             onNavigationRejected = nil
+            onPlaybackEnded = nil
+            onDurationKnown = nil
             loadedVideoID = nil
+            endLatch.reset()
+        }
+
+        /// IFrame API bridge (read-only). Called on the main thread by WebKit.
+        func handleScriptMessage(_ message: WKScriptMessage) {
+            guard message.name == ScopedPlayerEvent.messageHandlerName,
+                  message.frameInfo.isMainFrame,
+                  let current = loadedVideoID,
+                  let event = ScopedPlayerEvent.parse(message.body, expectedVideoID: current) else {
+                return
+            }
+            switch event {
+            case .stateChanged(let state):
+                ScopedPlayerLog.append("player state=\(YouTubePlayerState.label(state)) videoID=\(current)")
+            case .ready(let duration):
+                ScopedPlayerLog.append("player ready duration=\(duration.map { String(Int($0.rounded())) } ?? "?") videoID=\(current)")
+            case .duration(let seconds):
+                ScopedPlayerLog.append("player duration=\(Int(seconds.rounded()))s videoID=\(current)")
+                onDurationKnown?(current, seconds)
+            case .apiUnavailable(let detail):
+                // Video still plays; only end detection is degraded (see PROGRESS UAT).
+                ScopedPlayerLog.append("player api-unavailable detail=\(detail) videoID=\(current)")
+            case .ended:
+                break
+            }
+            guard event.indicatesEnded else { return }
+            guard endLatch.shouldReportEnd(videoID: current, loadedVideoID: loadedVideoID) else {
+                ScopedPlayerLog.append("player ended duplicate-ignored videoID=\(current)")
+                return
+            }
+            ScopedPlayerLog.append("player ended → app videoID=\(current)")
+            // Next main-loop turn: routing away dismantles this WKWebView and removes the
+            // message handler, which must not happen while WebKit is still inside this call.
+            guard let callback = onPlaybackEnded else { return }
+            DispatchQueue.main.async {
+                callback(current)
+            }
         }
 
         func loadEmbedIfPossible() {
@@ -80,6 +152,7 @@ struct ScopedPlayerView: NSViewRepresentable {
             }
             let baseURL = YouTubeEmbedURL.embedHTMLBaseURL()
             loadedVideoID = videoID
+            endLatch.reset()
             ScopedPlayerLog.append(
                 "load mode=htmlString videoID=\(videoID) embed=\(embedURL.host ?? "")\(embedURL.path) base=\(baseURL.host ?? "")\(baseURL.path)"
             )
@@ -201,6 +274,20 @@ struct ScopedPlayerView: NSViewRepresentable {
                 ScopedPlayerLog.append("wk didFinish title=\(title.isEmpty ? "(empty)" : title) videoID=\(videoID)")
             }
         }
+    }
+}
+
+/// Weak trampoline so `WKUserContentController` (strong owner) does not retain the coordinator.
+private final class ScopedPlayerMessageProxy: NSObject, WKScriptMessageHandler {
+    private weak var target: ScopedPlayerView.Coordinator?
+
+    init(target: ScopedPlayerView.Coordinator) {
+        self.target = target
+    }
+
+    func userContentController(_ userContentController: WKUserContentController,
+                               didReceive message: WKScriptMessage) {
+        target?.handleScriptMessage(message)
     }
 }
 

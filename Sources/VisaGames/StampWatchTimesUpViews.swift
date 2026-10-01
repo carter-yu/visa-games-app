@@ -191,6 +191,9 @@ struct WatchPlaybackView: View {
     let videoID: String?
     let progress: RoadTimerProgress
     let onNavigationRejected: () -> Void
+    /// v0.12.0: YouTube ended → AppModel routes to picker (time left) or Time's up.
+    let onPlaybackEnded: (String) -> Void
+    let onDurationKnown: (String, TimeInterval) -> Void
     /// 3-second hold on the garage glyph (ADR 0007 §5, Carter 2026-09-30).
     let onParentUnlock: () -> Void
 
@@ -219,7 +222,12 @@ struct WatchPlaybackView: View {
                                 .strokeBorder(Color(hex: DesignTokens.Palette.metro), lineWidth: metrics.u(5))
                         )
                     if let videoID {
-                        ScopedPlayerView(videoID: videoID, onNavigationRejected: onNavigationRejected)
+                        ScopedPlayerView(
+                            videoID: videoID,
+                            onNavigationRejected: onNavigationRejected,
+                            onPlaybackEnded: onPlaybackEnded,
+                            onDurationKnown: onDurationKnown
+                        )
                             .clipShape(RoundedRectangle(cornerRadius: metrics.u(20), style: .continuous))
                             .padding(metrics.u(10))
                     } else {

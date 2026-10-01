@@ -14,7 +14,19 @@ final class AppModel: ObservableObject {
     @Published private(set) var successFeedbackID: Int? = nil
     @Published private(set) var allowlist = VideoAllowlist()
     /// Parent-only draft for the allowlist text field (never shown on child path).
-    @Published var parentVideoIDDraft = ""
+    @Published var parentVideoIDDraft = "" {
+        didSet {
+            if parentVideoIDDraft != oldValue { refreshParentDraftPreview() }
+        }
+    }
+    /// Live paste status → preview card before Add (v0.12.0).
+    @Published private(set) var parentDraftStatus: ParentAllowlistDraft = .empty
+    /// oEmbed title for the pasted id (nil while fetching / unavailable).
+    @Published private(set) var parentDraftTitle: String?
+    @Published private(set) var isFetchingDraftTitle = false
+    /// Parent-session cache so Add reuses the preview fetch instead of a second request.
+    private var oEmbedTitleCache: [String: String] = [:]
+    private var draftTitleTask: Task<Void, Never>?
     /// Optional advanced override — happy path uses oEmbed title (not required).
     @Published var parentVideoTitleDraft = ""
     /// Optional advanced override for D4 budget-fit seconds. Default 120 when empty/invalid.
@@ -310,9 +322,14 @@ final class AppModel: ObservableObject {
     func pickVideo(id: String) {
         guard session.mode == .play, !awaitingDeparture else { return }
         VisaGamesLog.append("videoPicker pick — 揀咗 id=\(id)")
-        playAllowlisted(id: id)
+        let decision = playAllowlisted(id: id)
         if activePlayVideoID == nil {
             VisaGamesLog.append("videoPicker pick rejected — 未能播放 id=\(id) message=\(playbackMessage ?? "nil")")
+            // Dead budget on the picker (e.g. day rollover) → Time's up, not a stuck picker.
+            if let reason = decision.stopReason,
+               VideoEndRouting.afterPlaybackStopped(reason: reason, isChildPlay: true) == .timesUp {
+                finishPlayVisaToTimesUp(reason: "pickRejected-\(reason.rawValue)")
+            }
         }
     }
     func guideSpeakTimesUp() {
@@ -684,9 +701,7 @@ final class AppModel: ObservableObject {
         awaitingDeparture = false
         suppressNextTimesUp = true
         // End the active visa (child left play); skip park-and-sleep and return to depot.
-        update { session in
-            session.tick(now: Date().addingTimeInterval(10_000))
-        }
+        update { $0.endPlayVisa(now: Date()) }
         VisaGamesLog.append("returnFromEmptyAllowlist — 返回車廠")
     }
 
@@ -739,19 +754,18 @@ final class AppModel: ObservableObject {
             var titleCantonese = overrideFields.1
             let hasOverride = titleEnglish != nil || titleCantonese != nil
 
-            if !hasOverride, let oembedURL = YouTubeOEmbed.requestURL(videoID: id) {
-                do {
-                    let (data, response) = try await URLSession.shared.data(from: oembedURL)
-                    let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-                    if (200..<300).contains(status),
-                       let parsed = YouTubeOEmbed.parse(data),
-                       let fetched = parsed.title {
-                        let fields = Self.parentTitleFields(from: fetched)
-                        titleEnglish = fields.0
-                        titleCantonese = fields.1
-                    }
-                } catch {
-                    // oEmbed failed — still allow add with id + optional override + thumb from id.
+            if !hasOverride {
+                // Reuse the paste-preview title when we already have it; else fetch now.
+                // oEmbed failure still allows add with id + optional override + thumb from id.
+                var fetched = self.oEmbedTitleCache[id]
+                if fetched == nil {
+                    fetched = await Self.fetchOEmbedTitle(videoID: id)
+                    if let fetched { self.oEmbedTitleCache[id] = fetched }
+                }
+                if let fetched {
+                    let fields = Self.parentTitleFields(from: fetched)
+                    titleEnglish = fields.0
+                    titleCantonese = fields.1
                 }
             }
 
@@ -760,7 +774,8 @@ final class AppModel: ObservableObject {
                 id: id,
                 titleEnglish: titleEnglish,
                 titleCantonese: titleCantonese,
-                durationSeconds: durationSeconds
+                durationSeconds: durationSeconds,
+                playerDurationSeconds: next.video(id: id)?.playerDurationSeconds
             ))
             guard ok else {
                 self.playbackMessage = "影片編號無效。 / Invalid video ID."
@@ -779,6 +794,61 @@ final class AppModel: ObservableObject {
             } else {
                 self.playbackMessage = "已加入准許清單（未能取得片名，可於進階手動填）。 / Added (title unavailable — optional Advanced edit)."
             }
+        }
+    }
+
+    /// Public oEmbed title for an id (no API key). Nil on any failure.
+    private static func fetchOEmbedTitle(videoID: String) async -> String? {
+        guard let url = YouTubeOEmbed.requestURL(videoID: videoID) else { return nil }
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard (200..<300).contains(status) else { return nil }
+            return YouTubeOEmbed.parse(data)?.title
+        } catch {
+            return nil
+        }
+    }
+
+    /// Paste field changed: recompute status and fetch the title for a new valid id
+    /// (debounced) so the parent sees thumbnail + title before pressing Add.
+    private func refreshParentDraftPreview() {
+        let previousID = parentDraftStatus.videoID
+        let status = ParentAllowlistDraft.evaluate(parentVideoIDDraft, allowlist: allowlist)
+        parentDraftStatus = status
+        guard let id = status.videoID else {
+            draftTitleTask?.cancel()
+            draftTitleTask = nil
+            parentDraftTitle = nil
+            isFetchingDraftTitle = false
+            return
+        }
+        guard id != previousID else { return }
+        draftTitleTask?.cancel()
+        draftTitleTask = nil
+        if let known = allowlist.video(id: id), known.hasParentTitle {
+            parentDraftTitle = known.parentLabel
+            isFetchingDraftTitle = false
+            return
+        }
+        if let cached = oEmbedTitleCache[id] {
+            parentDraftTitle = cached
+            isFetchingDraftTitle = false
+            return
+        }
+        parentDraftTitle = nil
+        isFetchingDraftTitle = true
+        draftTitleTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard !Task.isCancelled else { return }
+            let title = await Self.fetchOEmbedTitle(videoID: id)
+            guard let self, !Task.isCancelled, self.parentDraftStatus.videoID == id else { return }
+            self.isFetchingDraftTitle = false
+            if let title {
+                self.oEmbedTitleCache[id] = title
+                self.parentDraftTitle = title
+            }
+            VisaGamesLog.append("allowlist preview — 預覽 id=\(id) title=\(title == nil ? "unavailable" : "ok")")
         }
     }
 
@@ -813,6 +883,8 @@ final class AppModel: ObservableObject {
         if activePlayVideoID == id {
             activePlayVideoID = nil
         }
+        refreshParentDraftPreview()
+        VisaGamesLog.append("allowlist remove — 移除 id=\(id) count=\(next.videos.count)")
     }
 
     /// Parent-only scaffold: ensure a small viewing budget exists for play-stub demos.
@@ -939,19 +1011,22 @@ final class AppModel: ObservableObject {
         return picked
     }
 
-    func playAllowlisted(id: String) {
-        guard !storageFailed else { return }
-        guard session.mode == .parent || session.mode == .play else { return }
+    @discardableResult
+    func playAllowlisted(id: String) -> PlaybackDecision {
+        // Not a policy verdict (storage / wrong mode): no stop reason, so callers never route it.
+        let refused = PlaybackDecision(allowed: false, stopReason: nil)
+        guard !storageFailed else { return refused }
+        guard session.mode == .parent || session.mode == .play else { return refused }
         let now = Date()
         let isParentPreview = session.mode == .parent
         if isParentPreview {
             if remainingViewingBudget(at: now) <= 0 {
                 seedTestViewingBudget()
-                guard !storageFailed else { return }
+                guard !storageFailed else { return refused }
             }
             if session.snapshot.endsAt.map({ $0 <= now }) ?? true {
                 update { $0.extendVisaKeepingParent(seconds: 600, now: now) }
-                guard !storageFailed else { return }
+                guard !storageFailed else { return refused }
             }
         }
         let decision = PlaybackPolicy().evaluateStart(
@@ -971,14 +1046,19 @@ final class AppModel: ObservableObject {
             case .navigationRejected: playbackMessage = "禁止導向。 / Navigation blocked."
             case .none: playbackMessage = "未能播放。 / Cannot play."
             }
-            return
+            return decision
         }
         activePlayVideoID = id
         playbackMessage = nil
         if isParentPreview { parentDeadline = Date().addingTimeInterval(parentAccessSeconds) }
+        return decision
     }
 
+    /// Policy (tick) or D8 navigation stop. v0.12.0: in child play, no time left → Time's up
+    /// (was: clear id → picker with a dead budget while the road kept ticking).
     func stopScopedPlayback(reason: PlaybackStopReason) {
+        let stoppedID = activePlayVideoID
+        let route = VideoEndRouting.afterPlaybackStopped(reason: reason, isChildPlay: session.mode == .play)
         activePlayVideoID = nil
         switch reason {
         case .budgetExhausted: playbackMessage = "觀看時間用完，已停止。 / Stopped: budget empty."
@@ -986,6 +1066,73 @@ final class AppModel: ObservableObject {
         case .navigationRejected: playbackMessage = "已阻擋連結。 / Link blocked (D8)."
         default: playbackMessage = "已停止播放。 / Playback stopped."
         }
+        VisaGamesLog.append(
+            "playback stop — 停止播放 id=\(stoppedID ?? "nil") reason=\(reason.rawValue) route=\(route) mode=\(session.mode)"
+        )
+        if route == .timesUp {
+            finishPlayVisaToTimesUp(reason: "stop-\(reason.rawValue)")
+        }
+    }
+
+    /// ScopedPlayer reported YouTube ended (state 0) for the current allowlisted video.
+    /// Time left → same visa back to `VideoPickerView`; no time left → Time's up board.
+    func handleScopedPlaybackEnded(videoID: String) {
+        let now = Date()
+        let budget = remainingViewingBudget(at: now)
+        let route = VideoEndRouting.afterVideoEnded(
+            isChildPlay: session.mode == .play,
+            hasActiveVideo: activePlayVideoID == videoID,
+            remainingViewingBudgetSeconds: budget,
+            sessionEndsAt: session.snapshot.endsAt,
+            now: now
+        )
+        VisaGamesLog.append(
+            "video ended — 片播完 id=\(videoID) route=\(route) mode=\(session.mode) viewing=\(Int(budget)) visaLeft=\(session.remaining(at: now))s"
+        )
+        switch route {
+        case .videoPicker:
+            activePlayVideoID = nil
+            playbackMessage = nil
+            VisaGamesLog.append("video ended → picker — 返揀片 visaLeft=\(session.remaining(at: now))s")
+            logShellBranch(context: "videoEnded")
+        case .timesUp:
+            finishPlayVisaToTimesUp(reason: "videoEnded")
+        case .stopPreview:
+            activePlayVideoID = nil
+            playbackMessage = "影片播完。 / Video finished."
+        case .ignore:
+            break
+        }
+    }
+
+    /// No viewing time left during child play: end the play visa so the existing visa-ended
+    /// seam in `update` shows Time's up (park and sleep). Never used for parent preview.
+    private func finishPlayVisaToTimesUp(reason: String) {
+        activePlayVideoID = nil
+        guard session.mode == .play else { return }
+        let now = Date()
+        VisaGamesLog.append(
+            "visa end → timesUp — 冇時間喇 reason=\(reason) viewing=\(Int(remainingViewingBudget(at: now))) visaLeft=\(session.remaining(at: now))s"
+        )
+        guideVoice.stop()
+        update { $0.endPlayVisa(now: now) }
+        logShellBranch(context: "timesUp-\(reason)")
+    }
+
+    /// Real length from the player → parent card chip only (D4 `durationSeconds` unchanged).
+    func recordPlayerDuration(videoID: String, seconds: TimeInterval) {
+        var next = allowlist
+        guard next.recordPlayerDuration(id: videoID, seconds: seconds) else { return }
+        allowlist = next
+        allowlistStore.save(next)
+        VisaGamesLog.append("allowlist duration — 片長 id=\(videoID) seconds=\(Int(seconds.rounded()))")
+    }
+
+    /// Parent card: stop the inline preview player.
+    func stopParentPreview() {
+        guard session.mode == .parent else { return }
+        activePlayVideoID = nil
+        playbackMessage = nil
     }
 
     /// Parent-only: reveal the active ScopedPlayer log directory in Finder.
@@ -1010,9 +1157,23 @@ final class AppModel: ObservableObject {
         } catch { message = "仍未能儲存。 / Storage is still unavailable." }
     }
 
+    /// Parent 「離開程式」. Terminate on the next main-loop turn so the SwiftUI button action
+    /// returns before `AppDelegate.prepareForTerminate` drops the hosting view (quit crash IPS
+    /// 2026-10-01: layout re-entered ShellView.body during teardown).
+    func quitFromParent() {
+        guard session.mode == .parent else { return }
+        VisaGamesLog.append("quit requested — 家長離開程式 activeVideo=\(activePlayVideoID ?? "nil")")
+        activePlayVideoID = nil
+        DispatchQueue.main.async {
+            NSApp.terminate(nil)
+        }
+    }
+
     /// Tear down play/voice before NSHostingView/WKWebView die on quit (crash on terminate).
     func prepareForTerminate() {
         changed = nil
+        draftTitleTask?.cancel()
+        draftTitleTask = nil
         guideVoice.stop()
         activePlayVideoID = nil
         playbackMessage = nil
@@ -1205,7 +1366,10 @@ struct ShellView: View {
 
     @ViewBuilder
     private var childOrLegacy: some View {
-        if model.showTimesUp {
+        if model.session.mode == .parent {
+            // v0.12.0: parent controls win over a pending Time's up board (shown again on Return).
+            ParentSettingsView(model: model)
+        } else if model.showTimesUp {
             TimesUpView(
                 ticket: model.timesUpTicket ?? model.resolvedPlayTicket,
                 onNewMission: model.dismissTimesUp,
@@ -1263,7 +1427,9 @@ struct ShellView: View {
                 videoID: model.activePlayVideoID,
                 progress: model.roadTimerProgress,
                 onNavigationRejected: { model.stopScopedPlayback(reason: .navigationRejected) },
-                onParentUnlock: model.unlock
+                onPlaybackEnded: { model.handleScopedPlaybackEnded(videoID: $0) },
+                onDurationKnown: { model.recordPlayerDuration(videoID: $0, seconds: $1) },
+                onParentUnlock: { model.unlock() }
             )
             .ignoresSafeArea()
         }
@@ -1377,9 +1543,11 @@ struct ShellView: View {
                     .font(.system(size: 28, weight: .bold, design: .rounded)).monospacedDigit()
                     .foregroundStyle(yellow)
                 if let videoID = model.activePlayVideoID {
-                    ScopedPlayerView(videoID: videoID) {
-                        model.stopScopedPlayback(reason: .navigationRejected)
-                    }
+                    ScopedPlayerView(
+                        videoID: videoID,
+                        onNavigationRejected: { model.stopScopedPlayback(reason: .navigationRejected) },
+                        onPlaybackEnded: { model.handleScopedPlaybackEnded(videoID: $0) }
+                    )
                     .frame(minHeight: 360, maxHeight: 900)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 } else if !model.allowlist.videos.isEmpty {
@@ -1399,137 +1567,8 @@ struct ShellView: View {
                 }
             }
         case .parent:
-            ScrollView {
-                VStack(spacing: 20) {
-                    Text("家長設定 / Parent controls")
-                        .font(.system(size: 34, weight: .semibold, design: .rounded))
-                    // Version lives here since v0.9.0; child screens no longer show it (ADR 0007, checklist N8).
-                    Text("Visa Games v0.11.6")
-                        .font(.system(size: 16, design: .rounded))
-                        .foregroundStyle(.secondary)
-                    Text("十分鐘後自動鎖定 / Locks automatically after ten minutes")
-                        .font(.system(size: 22, design: .rounded))
-                    Text("入口遊戲已開（兩圖／搵相同／數車／車隊排序）。YouTube 內容包仍待家長 D9 審核。 / Entry games live (two-picture / find-same / count / convoy order). YouTube pack still parent D9.")
-                        .font(.system(size: 18, design: .rounded))
-                        .foregroundStyle(accent)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: 640)
-                    ParentLicenseFooter()
-                        .frame(maxWidth: 720)
-                    Button("重設入口活動（兒童 UAT）/ Reset entry activity (child UAT)", action: model.resetEntryActivityForChildUAT)
-                        .tint(yellow)
-                    // Immediate confirmation under Reset so parent UAT does not require scrolling.
-                    if let playbackMessage = model.playbackMessage {
-                        Text(playbackMessage)
-                            .font(.system(size: 20, weight: .semibold, design: .rounded))
-                            .foregroundStyle(yellow)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: 640)
-                    }
-                    Picker("主題 / Theme", selection: Binding(
-                        get: { model.themePaletteID },
-                        set: { model.selectTheme($0) }
-                    )) {
-                        ForEach(ThemePaletteID.allCases, id: \.self) { palette in
-                            Text(ThemePack.forID(palette).parentLabel).tag(palette)
-                        }
-                    }
-                    .frame(maxWidth: 520)
-                    if !model.session.snapshot.configured {
-                        Button("完成設定 / Finish setup", action: model.setup)
-                            .tint(yellow)
-                    } else {
-                        Button("測試一分鐘簽證 / Test 1-minute visa", action: model.grant)
-                            .tint(yellow)
-                        Button("測試觀看時間 / Test viewing budget", action: model.seedTestViewingBudget)
-                            .tint(yellow)
-                    }
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("准許影片清單（僅家長） / Allowlist (parent only)")
-                            .font(.system(size: 22, weight: .semibold, design: .rounded))
-                        Text("貼上網址或編號即可加入；片名與預覽圖會自動取得。 / Paste URL or ID to add — title and preview auto-fill.")
-                            .font(.system(size: 15, design: .rounded))
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: 640, alignment: .leading)
-                        TextField("YouTube 網址或影片編號 / YouTube URL or video ID", text: $model.parentVideoIDDraft)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: 520)
-                            .disabled(model.isFetchingAllowlistMetadata)
-                        HStack(spacing: 16) {
-                            Button("加入准許清單 / Add to allowlist", action: model.addAllowlistedVideo)
-                                .tint(yellow)
-                                .disabled(model.isFetchingAllowlistMetadata)
-                            if let first = model.allowlist.videos.first {
-                                Button("試播准許影片 / Preview allowlisted") {
-                                    model.playAllowlisted(id: first.id)
-                                }
-                                .tint(yellow)
-                            }
-                        }
-                        DisclosureGroup(isExpanded: $model.showAllowlistAdvanced) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                TextField("標題覆寫（可選） / Title override (optional)", text: $model.parentVideoTitleDraft)
-                                    .textFieldStyle(.roundedBorder)
-                                    .frame(maxWidth: 520)
-                                    .disabled(model.isFetchingAllowlistMetadata)
-                                TextField("片長秒數（觀看預算） / Duration seconds (viewing budget)", text: $model.parentVideoDurationDraft)
-                                    .textFieldStyle(.roundedBorder)
-                                    .frame(maxWidth: 320)
-                                    .disabled(model.isFetchingAllowlistMetadata)
-                                Text("片長用於觀看預算；預設 120 秒；可手動改／YouTube oEmbed 無提供時長。 / Duration is for viewing-budget fit (not live player length); default 120s; editable — oEmbed has no duration.")
-                                    .font(.system(size: 13, design: .rounded))
-                                    .foregroundStyle(.secondary)
-                                    .frame(maxWidth: 640, alignment: .leading)
-                            }
-                            .padding(.top, 4)
-                        } label: {
-                            Text("進階（可選） / Advanced (optional)")
-                                .font(.system(size: 16, design: .rounded))
-                        }
-                        .frame(maxWidth: 640)
-                        ForEach(model.allowlist.videos) { video in
-                            HStack(alignment: .center, spacing: 12) {
-                                AllowlistVideoThumbnail(videoID: video.id)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(video.parentListTitle)
-                                        .font(.system(size: 18, design: .rounded))
-                                    Text(video.id)
-                                        .font(.system(size: 14, design: .monospaced))
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Button("播放 / Play") { model.playAllowlisted(id: video.id) }
-                                    .tint(yellow)
-                                Button("移除 / Remove") { model.removeAllowlistedVideo(id: video.id) }
-                                    .tint(accent)
-                            }
-                            .frame(maxWidth: 640)
-                        }
-                        if model.allowlist.videos.isEmpty {
-                            Text("尚未加入影片。 / No videos yet.")
-                                .font(.system(size: 18, design: .rounded))
-                        }
-                        if let videoID = model.activePlayVideoID {
-                            ScopedPlayerView(videoID: videoID) {
-                                model.stopScopedPlayback(reason: .navigationRejected)
-                            }
-                            .frame(minHeight: 420, maxHeight: 720)
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        }
-                    }
-                    Button("開啟日誌資料夾 / Open logs folder", action: model.openScopedPlayerLogsFolder)
-                        .tint(yellow)
-                    Button("返回 / Return", action: model.returnToChild)
-                        .tint(accent)
-                    if model.message != nil {
-                        Button("清除簽證及重設儲存 / Clear visa and reset storage", action: model.resetStorage)
-                            .tint(accent)
-                    }
-                    Button("離開程式 / Quit app") { NSApp.terminate(nil) }
-                        .tint(accent)
-                }
-                .frame(maxWidth: .infinity)
-            }
+            // v0.12.0: `ParentSettingsView` (routed directly from `childOrLegacy`).
+            EmptyView()
         }
     }
 
@@ -1674,85 +1713,5 @@ struct ShellView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 480, alignment: .top)
         .layoutPriority(1)
-    }
-}
-
-
-/// Parent-visible home-use + original-art license note (HK Trad + English).
-/// Names third-party companies only here for non-affiliation clarity — never on the child path.
-private struct ParentLicenseFooter: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("關於插圖／版權說明 / About artwork & license")
-                .font(.system(size: 18, weight: .bold, design: .rounded))
-            Text("本應用程式僅作家中教育用途。畫面上嘅插圖同友善車輛角色均為原創作品，並非任何第三方商標角色。本應用程式與 Takara Tomy、HIT Entertainment、Mattel 或其他玩具／動畫品牌無關，亦無授權關係。家中免責聲明並不授予使用第三方角色肖像嘅權利。")
-                .font(.system(size: 14, design: .rounded))
-                .fixedSize(horizontal: false, vertical: true)
-            Text("This app is for home educational use. On-screen art and friendly vehicle characters are original works, not third-party trademark characters. Visa Games is not affiliated with Takara Tomy, HIT Entertainment, Mattel, or other toy/animation brands. A home-use disclaimer does not grant rights to use third-party character likenesses.")
-                .font(.system(size: 13, design: .rounded))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.primary.opacity(0.06))
-        )
-        .accessibilityLabel("Artwork and license notice")
-    }
-}
-
-
-
-/// Parent allowlist row preview: YouTube thumbnail CDN via AsyncImage.
-/// Network failure / invalid id → placeholder (never crash). Not child playback.
-private struct AllowlistVideoThumbnail: View {
-    let videoID: String
-    private let width: CGFloat = 96
-    private let height: CGFloat = 54
-
-    var body: some View {
-        Group {
-            if let url = YouTubeEmbedURL.thumbnailURL(videoID: videoID) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    case .failure:
-                        placeholder
-                    case .empty:
-                        ZStack {
-                            placeholderBackground
-                            ProgressView()
-                                .controlSize(.small)
-                        }
-                    @unknown default:
-                        placeholder
-                    }
-                }
-            } else {
-                placeholder
-            }
-        }
-        .frame(width: width, height: height)
-        .clipped()
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .accessibilityLabel("預覽圖 / Preview")
-    }
-
-    private var placeholder: some View {
-        ZStack {
-            placeholderBackground
-            Image(systemName: "play.rectangle.fill")
-                .font(.system(size: 22))
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var placeholderBackground: some View {
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(Color.secondary.opacity(0.18))
     }
 }
