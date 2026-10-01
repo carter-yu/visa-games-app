@@ -83,6 +83,71 @@ final class ChildUXProgressTests {
         expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 2, activeVideoID: nil), .videoPicker)
         expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 0, activeVideoID: nil), .emptyAllowlist)
     }
+
+    // MARK: - v0.12.0 end-of-video flow (Carter UAT: stuck on YouTube end card with time left)
+
+    func testVideoEndedRoutesPickerWhenTimeLeft() {
+        let now = Date(timeIntervalSince1970: 50_000)
+        // ~5 min video ended inside a 20 min visa with 12 min left → back to the picker.
+        expectEqual(VideoEndRouting.afterVideoEnded(
+            isChildPlay: true, hasActiveVideo: true,
+            remainingViewingBudgetSeconds: 1_200, sessionEndsAt: now.addingTimeInterval(720), now: now
+        ), .videoPicker)
+        // One second left still counts as time left.
+        expectEqual(VideoEndRouting.afterVideoEnded(
+            isChildPlay: true, hasActiveVideo: true,
+            remainingViewingBudgetSeconds: 1, sessionEndsAt: now.addingTimeInterval(1), now: now
+        ), .videoPicker)
+        // Parent preview: just stop (never TimesUp / never ends a visa).
+        expectEqual(VideoEndRouting.afterVideoEnded(
+            isChildPlay: false, hasActiveVideo: true,
+            remainingViewingBudgetSeconds: 0, sessionEndsAt: nil, now: now
+        ), .stopPreview)
+        // Stale / duplicate ended after the player was already cleared → ignore.
+        expectEqual(VideoEndRouting.afterVideoEnded(
+            isChildPlay: true, hasActiveVideo: false,
+            remainingViewingBudgetSeconds: 600, sessionEndsAt: now.addingTimeInterval(600), now: now
+        ), .ignore)
+    }
+
+    func testVideoEndedRoutesTimesUpWhenNoTimeLeft() {
+        let now = Date(timeIntervalSince1970: 50_000)
+        // Viewing budget empty while the road still has minutes → TimesUp, not a dead picker.
+        expectEqual(VideoEndRouting.afterVideoEnded(
+            isChildPlay: true, hasActiveVideo: true,
+            remainingViewingBudgetSeconds: 0, sessionEndsAt: now.addingTimeInterval(720), now: now
+        ), .timesUp)
+        // Visa already over (or exactly now).
+        expectEqual(VideoEndRouting.afterVideoEnded(
+            isChildPlay: true, hasActiveVideo: true,
+            remainingViewingBudgetSeconds: 600, sessionEndsAt: now, now: now
+        ), .timesUp)
+        expectEqual(VideoEndRouting.afterVideoEnded(
+            isChildPlay: true, hasActiveVideo: true,
+            remainingViewingBudgetSeconds: 600, sessionEndsAt: nil, now: now
+        ), .timesUp)
+        // Non-finite budget fails closed.
+        expectEqual(VideoEndRouting.afterVideoEnded(
+            isChildPlay: true, hasActiveVideo: true,
+            remainingViewingBudgetSeconds: .nan, sessionEndsAt: now.addingTimeInterval(60), now: now
+        ), .timesUp)
+    }
+
+    func testPlaybackStopRouting() {
+        // Mid-video tick stop for no time left → TimesUp in child play.
+        expectEqual(VideoEndRouting.afterPlaybackStopped(reason: .budgetExhausted, isChildPlay: true), .timesUp)
+        expectEqual(VideoEndRouting.afterPlaybackStopped(reason: .sessionExpired, isChildPlay: true), .timesUp)
+        // D8 navigation reject keeps the existing behaviour: back to the picker.
+        expectEqual(VideoEndRouting.afterPlaybackStopped(reason: .navigationRejected, isChildPlay: true), .videoPicker)
+        expectEqual(VideoEndRouting.afterPlaybackStopped(reason: .notAllowlisted, isChildPlay: true), .videoPicker)
+        expectEqual(VideoEndRouting.afterPlaybackStopped(reason: .invalidVideoID, isChildPlay: true), .videoPicker)
+        // Parent preview never ends a visa.
+        for reason in [PlaybackStopReason.budgetExhausted, .sessionExpired, .navigationRejected] {
+            expectEqual(VideoEndRouting.afterPlaybackStopped(reason: reason, isChildPlay: false), .stopPreview)
+        }
+        // Picker → watch → (ended, time left) → picker again.
+        expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 3, activeVideoID: nil), .videoPicker)
+    }
 }
 
 private func expectClose(_ actual: Double, _ expected: Double, file: StaticString = #file, line: UInt = #line) {

@@ -78,10 +78,24 @@ public enum YouTubeEmbedURL: Sendable {
             URLQueryItem(name: "playsinline", value: "1"),
             URLQueryItem(name: "rel", value: "0"),
             URLQueryItem(name: "modestbranding", value: "1"),
-            URLQueryItem(name: "controls", value: "1")
+            URLQueryItem(name: "controls", value: "1"),
+            // v0.12.0: IFrame API state events (ended → picker / Time's up). `origin` is the
+            // HTML shell origin so the player only posts state back to our own page.
+            URLQueryItem(name: "enablejsapi", value: "1"),
+            URLQueryItem(name: "origin", value: embedOrigin)
         ]
         return components.url
     }
+
+    /// Origin of the `loadHTMLString` shell (`embedHTMLBaseURL()` without the trailing slash).
+    public static var embedOrigin: String { "https://\(embedHost)" }
+
+    /// DOM id of the scoped iframe that the IFrame API attaches to.
+    public static let playerElementID = "visa-player"
+
+    /// Official YouTube IFrame API loader. Loaded as a `<script>` subresource of the shell —
+    /// never a main-frame navigation target (main-frame policy is unchanged).
+    public static let iframeAPIScriptURL = URL(string: "https://www.youtube.com/iframe_api")!
 
     /// True only for our constructed nocookie embed path for a valid id (ignoring benign query differences).
     public static func isAllowedEmbedURL(_ url: URL) -> Bool {
@@ -175,11 +189,21 @@ public enum YouTubeEmbedURL: Sendable {
 
     /// Minimal parent HTML wrapping the official nocookie iframe with referrerpolicy.
     /// Returns nil when the id is invalid. Iframe `src` is always `make(videoID:)`.
+    ///
+    /// v0.12.0: the shell also loads the official YouTube IFrame API and attaches it to that
+    /// same iframe, so `onStateChange` (ended = 0) reaches Swift through the
+    /// `ScopedPlayerEvent.messageHandlerName` script handler. Raw widget messages from the
+    /// official embed origin are a backup path. The script only *reports* state: it never
+    /// navigates, opens windows, or loads another video id (ADR 0003 D8).
     public static func embedHTMLString(videoID: String) -> String? {
         guard let embedURL = make(videoID: videoID) else { return nil }
-        let src = embedURL.absoluteString
+        let id = videoID.trimmingCharacters(in: .whitespacesAndNewlines)
         // Escape only what we interpolate; id was validated by make(videoID:).
-        return """
+        let src = embedURL.absoluteString.replacingOccurrences(of: "&", with: "&amp;")
+        let handler = ScopedPlayerEvent.messageHandlerName
+        let elementID = playerElementID
+        let apiURL = iframeAPIScriptURL.absoluteString
+        return #"""
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -194,14 +218,86 @@ public enum YouTubeEmbedURL: Sendable {
         </head>
         <body>
         <iframe
-          src="\(src)"
+          id="\#(elementID)"
+          src="\#(src)"
           title="Scoped YouTube embed"
           referrerpolicy="strict-origin-when-cross-origin"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowfullscreen
         ></iframe>
+        <script>
+        (function () {
+          "use strict";
+          var videoID = "\#(id)";
+          var endedSent = false;
+          var durationSent = false;
+          var lastState = null;
+          var player = null;
+          function post(name, extra) {
+            try {
+              var handlers = window.webkit && window.webkit.messageHandlers;
+              if (!handlers || !handlers.\#(handler)) { return; }
+              var message = { event: name, videoID: videoID };
+              if (extra) { for (var key in extra) { message[key] = extra[key]; } }
+              window.webkit.messageHandlers.\#(handler).postMessage(message);
+            } catch (e) {}
+          }
+          function reportDuration(seconds) {
+            if (durationSent || typeof seconds !== "number" || !(seconds > 0)) { return; }
+            durationSent = true;
+            post("duration", { seconds: seconds });
+          }
+          function reportState(state) {
+            if (typeof state !== "number" || state === lastState) { return; }
+            lastState = state;
+            post("state", { state: state });
+            if (state === 0 && !endedSent) {
+              endedSent = true;
+              post("ended");
+            }
+            if (state === 1 && player && typeof player.getDuration === "function") {
+              try { reportDuration(player.getDuration()); } catch (e) {}
+            }
+          }
+          window.onYouTubeIframeAPIReady = function () {
+            try {
+              player = new YT.Player("\#(elementID)", {
+                events: {
+                  onReady: function (event) {
+                    var seconds = 0;
+                    try { seconds = event.target.getDuration(); } catch (e) {}
+                    post("ready", { duration: seconds });
+                    reportDuration(seconds);
+                  },
+                  onStateChange: function (event) { reportState(event.data); }
+                }
+              });
+            } catch (e) {
+              post("apiError", { detail: "player-init" });
+            }
+          };
+          window.addEventListener("message", function (event) {
+            if (!/^https:\/\/(www\.)?youtube(-nocookie)?\.com$/.test(event.origin)) { return; }
+            var data = event.data;
+            if (typeof data === "string") {
+              try { data = JSON.parse(data); } catch (e) { return; }
+            }
+            if (!data || typeof data !== "object") { return; }
+            if (data.event === "onStateChange") {
+              reportState(data.info);
+            } else if (data.event === "infoDelivery" && data.info && typeof data.info === "object") {
+              if (typeof data.info.playerState === "number") { reportState(data.info.playerState); }
+              if (typeof data.info.duration === "number") { reportDuration(data.info.duration); }
+            }
+          });
+          var tag = document.createElement("script");
+          tag.src = "\#(apiURL)";
+          tag.onerror = function () { post("apiError", { detail: "script-load" }); };
+          document.head.appendChild(tag);
+        })();
+        </script>
         </body>
         </html>
-        """
+        """#
     }
 }

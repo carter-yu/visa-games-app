@@ -166,6 +166,33 @@ final class SessionTests {
         expectFalse(session.allowsExit)
     }
 
+    /// v0.12.0: child play visa can end early (budget empty / empty allowlist) and persist as lock.
+    func testEndPlayVisaEndsOnlyChildPlay() {
+        var session = Session(snapshot: .init(configured: true), now: now)
+        // Lock: nothing to end.
+        session.endPlayVisa(now: now)
+        expectEqual(session.mode, .lock)
+        expectNil(session.snapshot.endsAt)
+
+        session.startPlayVisa(seconds: 600, now: now)
+        expectEqual(session.mode, .play)
+        session.endPlayVisa(now: now.addingTimeInterval(30))
+        expectEqual(session.mode, .lock)
+        expectNil(session.snapshot.endsAt)
+        // Relaunch after an early end stays locked (endsAt cleared on disk too).
+        let relaunched = Session(snapshot: session.snapshot, now: now.addingTimeInterval(31))
+        expectEqual(relaunched.mode, .lock)
+
+        // Parent preview visa is not ended by the child seam.
+        var parent = Session(snapshot: .init(configured: true), now: now)
+        parent.enterParent(authenticated: true, now: now)
+        parent.extendVisaKeepingParent(seconds: 600, now: now)
+        parent.endPlayVisa(now: now)
+        expectEqual(parent.mode, .parent)
+        expectEqual(parent.snapshot.endsAt, now.addingTimeInterval(600))
+        expectTrue(parent.allowsExit)
+    }
+
     func testAtomicPersistenceRoundTripAndCorruptFile() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -221,6 +248,7 @@ struct TestRunner {
         session.testParentPreviewVisaKeepsParentWhileGrantStartsPlay()
         session.testEscapePolicyInEveryMode()
         try session.testAtomicPersistenceRoundTripAndCorruptFile()
+        session.testEndPlayVisaEndsOnlyChildPlay()
 
         let reward = RewardLedgerTests()
         reward.testEntryActivityUnlocksConfiguredInitialAllowance()
@@ -264,6 +292,10 @@ struct TestRunner {
         scoped.testPlaybackShuffleAvoidsImmediateRepeatAndReshuffles()
         scoped.testPlaybackShuffleSingleAndEmpty()
         scoped.testShuffledDeckAvoidsImmediateFirstRepeat()
+        scoped.testEmbedHTMLUsesIFrameAPIBridge()
+        scoped.testScopedPlayerEventParsing()
+        scoped.testParentAllowlistDraftStatus()
+        try scoped.testApprovedVideoDurationLabelAndLegacyDecode()
 
         let activity = ActivityTests()
         activity.testFirstEntryQuestionIsWellFormed()
@@ -315,7 +347,10 @@ struct TestRunner {
         ux.testSpokenUXLinesAreTraditional()
         ux.testPlayStageRoutesPickerBeforeWatch()
         ux.testPlayPresentationResolvesTicket()
+        ux.testVideoEndedRoutesPickerWhenTimeLeft()
+        ux.testVideoEndedRoutesTimesUpWhenNoTimeLeft()
+        ux.testPlaybackStopRouting()
 
-        print("PASS: 10 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 12 scoped-playback + 18 activity + 9 canvas + 4 voice + 4 pen-spark + 6 ux-p2-p3 checks")
+        print("PASS: 11 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 16 scoped-playback + 18 activity + 9 canvas + 4 voice + 4 pen-spark + 9 ux-p2-p3 checks")
     }
 }

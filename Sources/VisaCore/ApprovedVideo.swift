@@ -13,17 +13,55 @@ public struct ApprovedVideo: Sendable, Equatable, Codable, Identifiable {
     /// when the parent only pasted an id (upsert requires duration > 0). YouTube oEmbed does not
     /// return duration; without a Data API key, parents may override via Advanced, else 120 remains.
     public var durationSeconds: TimeInterval
+    /// Real length reported by the scoped player (IFrame API `getDuration`, v0.12.0).
+    /// Display-only for parent cards; never replaces the D4 `durationSeconds` above.
+    /// Optional so pre-v0.12.0 allowlist JSON still decodes.
+    public var playerDurationSeconds: TimeInterval?
 
     public init(
         id: String,
         titleEnglish: String? = nil,
         titleCantonese: String? = nil,
-        durationSeconds: TimeInterval
+        durationSeconds: TimeInterval,
+        playerDurationSeconds: TimeInterval? = nil
     ) {
         self.id = id
         self.titleEnglish = titleEnglish
         self.titleCantonese = titleCantonese
         self.durationSeconds = durationSeconds
+        self.playerDurationSeconds = playerDurationSeconds
+    }
+
+    /// True once the player has reported a real length for this video.
+    public var hasPlayerDuration: Bool {
+        guard let seconds = playerDurationSeconds else { return false }
+        return seconds.isFinite && seconds > 0
+    }
+
+    /// Parent card chip: real length (`5:01`) when known, else the nominal budget-fit
+    /// duration marked approximate (`~2:00`).
+    public var parentDurationLabel: String {
+        if hasPlayerDuration, let seconds = playerDurationSeconds {
+            return Self.clockLabel(seconds: seconds)
+        }
+        return "~" + Self.clockLabel(seconds: durationSeconds)
+    }
+
+    /// `m:ss` or `h:mm:ss`, rounded to the nearest second. Non-finite / negative → `0:00`.
+    public static func clockLabel(seconds: TimeInterval) -> String {
+        guard seconds.isFinite, seconds > 0 else { return "0:00" }
+        let total = Int(seconds.rounded())
+        let hours = total / 3_600
+        let minutes = (total % 3_600) / 60
+        let secs = total % 60
+        if hours > 0 {
+            return "\(hours):" + twoDigits(minutes) + ":" + twoDigits(secs)
+        }
+        return "\(minutes):" + twoDigits(secs)
+    }
+
+    private static func twoDigits(_ value: Int) -> String {
+        value < 10 ? "0\(value)" : "\(value)"
     }
 
     /// Bilingual label for parent lists; falls back to the raw id.
@@ -95,6 +133,19 @@ public struct VideoAllowlist: Sendable, Equatable, Codable {
         videos.removeAll { $0.id == id }
     }
 
+    /// Store the player-reported length for an allowlisted id. Returns true when it changed
+    /// by at least one second (avoids rewriting storage on jitter). Bad values are ignored.
+    @discardableResult
+    public mutating func recordPlayerDuration(id: String, seconds: TimeInterval) -> Bool {
+        guard seconds.isFinite, seconds > 0,
+              let index = videos.firstIndex(where: { $0.id == id }) else { return false }
+        if let existing = videos[index].playerDurationSeconds, abs(existing - seconds) < 1 {
+            return false
+        }
+        videos[index].playerDurationSeconds = seconds
+        return true
+    }
+
     private static func dedupe(_ videos: [ApprovedVideo]) -> [ApprovedVideo] {
         var seen = Set<String>()
         var result: [ApprovedVideo] = []
@@ -107,6 +158,35 @@ public struct VideoAllowlist: Sendable, Equatable, Codable {
             result.append(copy)
         }
         return result
+    }
+}
+
+/// Live status of the parent paste field (v0.12.0 preview-before-add).
+public enum ParentAllowlistDraft: Equatable, Sendable {
+    case empty
+    case invalid
+    case ready(videoID: String)
+    case alreadyAllowlisted(videoID: String)
+
+    /// Parse the pasted URL / id with the same D8 extractor as `addAllowlistedVideo`.
+    public static func evaluate(_ input: String, allowlist: VideoAllowlist) -> ParentAllowlistDraft {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return .empty }
+        guard let id = YouTubeEmbedURL.extractVideoID(from: trimmed) else { return .invalid }
+        return allowlist.contains(id: id) ? .alreadyAllowlisted(videoID: id) : .ready(videoID: id)
+    }
+
+    public var videoID: String? {
+        switch self {
+        case .ready(let id), .alreadyAllowlisted(let id): return id
+        case .empty, .invalid: return nil
+        }
+    }
+
+    /// Only a new valid id enables the Add button.
+    public var canAdd: Bool {
+        if case .ready = self { return true }
+        return false
     }
 }
 

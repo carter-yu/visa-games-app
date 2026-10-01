@@ -76,6 +76,15 @@ public struct Session: Sendable {
         mode = .play
     }
 
+    /// Child play seam (v0.12.0): end the running play visa early and return to lock.
+    /// Used when no viewing time is left mid-visa (Time's up) or the child leaves an empty
+    /// allowlist. Never touches parent mode, reward state, or grants time.
+    public mutating func endPlayVisa(now: Date) {
+        guard mode == .play else { return }
+        snapshot.endsAt = nil
+        normalize(now: now)
+    }
+
     /// Set a visa deadline for an authenticated parent preview without entering child play.
     public mutating func extendVisaKeepingParent(seconds: TimeInterval, now: Date) {
         guard mode == .parent, snapshot.configured, seconds.isFinite,

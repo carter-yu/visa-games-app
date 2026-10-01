@@ -52,6 +52,52 @@ public enum PlayStageRoute: Equatable, Sendable {
     }
 }
 
+/// Where the child goes when the scoped player ends or is stopped (v0.12.0).
+/// Carter UAT: after a ~5 min video ended with 12 min still on the road, the child was left
+/// on the YouTube end card. Ended + time left → picker; no time left → Time's up.
+public enum VideoEndRoute: Equatable, Sendable {
+    /// Clear the active video; the same visa shows `VideoPickerView` again.
+    case videoPicker
+    /// End the play visa so the existing Time's up board (park and sleep) shows.
+    case timesUp
+    /// Parent preview: clear the player only (never ends a visa).
+    case stopPreview
+    /// Nothing playing (stale / duplicate signal).
+    case ignore
+}
+
+public enum VideoEndRouting: Sendable {
+    /// The allowlisted video reached YouTube's ended state.
+    public static func afterVideoEnded(
+        isChildPlay: Bool,
+        hasActiveVideo: Bool,
+        remainingViewingBudgetSeconds: TimeInterval,
+        sessionEndsAt: Date?,
+        now: Date
+    ) -> VideoEndRoute {
+        guard hasActiveVideo else { return .ignore }
+        guard isChildPlay else { return .stopPreview }
+        // Same D4/D5 rule as a running video: both the visa clock and the bank must have time.
+        let decision = PlaybackPolicy().evaluateContinue(
+            remainingViewingBudgetSeconds: remainingViewingBudgetSeconds,
+            sessionEndsAt: sessionEndsAt,
+            now: now
+        )
+        return decision.allowed ? .videoPicker : .timesUp
+    }
+
+    /// Playback was stopped by policy (tick) or by the D8 navigation guard.
+    public static func afterPlaybackStopped(reason: PlaybackStopReason, isChildPlay: Bool) -> VideoEndRoute {
+        guard isChildPlay else { return .stopPreview }
+        switch reason {
+        case .budgetExhausted, .sessionExpired:
+            return .timesUp
+        case .navigationRejected, .notAllowlisted, .invalidVideoID:
+            return .videoPicker
+        }
+    }
+}
+
 /// Canvas play boards need a mission ticket. `selectedStars` is in-memory only, so a cold
 /// start mid-visa (durable `endsAt`) or parent 「測試一分鐘簽證」 used to leave ticket nil and
 /// `ShellView.childOrLegacy` fell through to ADR 0006 `legacyShell` (wooden sign + visa
