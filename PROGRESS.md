@@ -6,7 +6,7 @@
   - Tests: +1 ux route (`testPlayStageRoutesResumeChoiceAfterGoWhenIncomplete`) + Trad copy asserts → PASS banner **11 ux-p2-p3**.
   - Version: Info.plist **0.15.0 / 37**, parent footer **Visa Games v0.15.0**.
   - Design: `docs/designs/mid-video-visa-end-resume-choice.md` (D2 lock override noted).
-  - **Mac mini toolchain:** after push — `git fetch && git checkout feat/resume-choice-board && git pull`; `sh scripts/test.sh`; `sh scripts/bundle.sh` → `.build/Visa Games.app` **0.15.0 / 37**. No kiosk launch. No merge.
+  - **Mac mini toolchain (2026-10-03 00:02 HKT):** tip `cf881a0` — `sh scripts/test.sh` → PASS (**11 ux-p2-p3**); `sh scripts/bundle.sh` → `.build/Visa Games.app` **0.15.0 / 37**. No kiosk launch. No merge. PR https://github.com/carter-yu/visa-games-app/pull/14
 
 
 - 2026-10-02: PR (pending) MINOR **v0.14.0 / build 36** — wrong-answer **pending-award shrink** + Think Pause (always on). Branch `feat/wrong-answer-pending-shrink` from `feat/resume-and-visa-tiers` @ fe2d090 (v0.13.0 PR #12 tip; do not merge #12). Do not merge; Mac mini toolchain UAT after push.
