@@ -222,9 +222,11 @@ struct WatchPlaybackView: View {
 
     @ViewBuilder
     private func watchBody(metrics: CanvasMetrics) -> some View {
+        // v0.16.0: grow the framed player to fill vertical space (less letterbox) while
+        // keeping the road strip as a real bottom band — never overlayed on the video.
         ZStack {
             Color(hex: DesignTokens.Palette.ink)
-            VStack(spacing: metrics.u(18)) {
+            VStack(spacing: metrics.u(12)) {
                 ZStack {
                     RoundedRectangle(cornerRadius: metrics.u(24), style: .continuous)
                         .fill(Color.black.opacity(0.55))
@@ -242,7 +244,7 @@ struct WatchPlaybackView: View {
                             onCurrentTime: onCurrentTime
                         )
                             .clipShape(RoundedRectangle(cornerRadius: metrics.u(20), style: .continuous))
-                            .padding(metrics.u(10))
+                            .padding(metrics.u(8))
                     } else {
                         VStack(spacing: 12) {
                             Image(systemName: "play.circle.fill")
@@ -250,19 +252,16 @@ struct WatchPlaybackView: View {
                                 .foregroundStyle(Color(hex: DesignTokens.Palette.metro))
                             CanvasText("家長准許嘅影片會喺呢度播。", size: 22, weight: 700,
                                        color: Color(hex: DesignTokens.Palette.paper))
-                            CanvasText("Parent-approved video plays here.", size: 16, weight: 600,
-                                       color: Color(hex: DesignTokens.Palette.paper))
                         }
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: metrics.u(480))
-                .padding(.horizontal, metrics.u(48))
-                .padding(.top, metrics.u(36))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, metrics.u(36))
+                .padding(.top, metrics.u(20))
 
                 RoadTimerStrip(ticket: ticket, progress: progress, onParentUnlock: onParentUnlock)
-                    .padding(.horizontal, metrics.u(40))
-                    .padding(.bottom, metrics.u(28))
+                    .padding(.horizontal, metrics.u(36))
+                    .padding(.bottom, metrics.u(20))
             }
         }
     }

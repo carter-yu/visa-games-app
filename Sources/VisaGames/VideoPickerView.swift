@@ -1,15 +1,15 @@
 import SwiftUI
 import VisaCore
 
-// MARK: - Board 4 prelude — pick a video (Holiday P0, v0.11.6)
+// MARK: - Board 4 prelude — pick a video (Holiday P0; layout v0.16.0)
 
 /// After the stamp gate's 「出發！」, the child picks one allowlisted video from large preview
 /// cards. One video still shows its card so the child feels the choice. Every pick goes through
 /// the existing D8 allowlist gate (`AppModel.playAllowlisted`).
 ///
-/// Layout (v0.11.6): full 1280×720 artboard `VStack` (not `canvasPlaced` offsets + `LazyVGrid`).
-/// Stampy header on top; 3×2 equal-width `HStack` rows centered in the remaining space; cards
-/// stretch to fill columns. Fixes TV UAT left/down cluster with cyan gutter on the right.
+/// Layout (v0.16.0): **4×2** page grid filling width (no 300u card cap). Compact floating Stampy
+/// HUD pinned top so the bubble never overlaps cards. Giant kid 「仲有」 arrows (≥96×160) **and**
+/// ~15% next-page peek when more pages exist. Uses the right-side canvas that 3×2 left empty.
 struct VideoPickerView: View {
     let ticket: MissionTicket
     let videos: [ApprovedVideo]
@@ -28,15 +28,29 @@ struct VideoPickerView: View {
     @State private var pendingSpeech: DispatchWorkItem?
     @State private var pageIndex = 0
 
-    /// Three columns × two rows — six chunky TV cards per page, all fully on-canvas.
-    private let columnsPerPage = 3
+    /// Four columns × two rows — eight chunky TV cards per page; fill the artboard width.
+    private let columnsPerPage = 4
     private let rowsPerPage = 2
     private var pageSize: Int { columnsPerPage * rowsPerPage }
     private var pageCount: Int { max(1, Int(ceil(Double(videos.count) / Double(pageSize)))) }
     private var showsPager: Bool { pageCount > 1 }
+    private var hasNextPage: Bool { pageIndex < pageCount - 1 }
+    private var hasPrevPage: Bool { pageIndex > 0 }
+
+    /// Compact HUD band so Stampy + bubble sit above cards (never overlap).
+    private var hudBandHeight: CGFloat { metrics.u(96) }
 
     private var pageVideos: [ApprovedVideo] {
-        let start = pageIndex * pageSize
+        slice(page: pageIndex)
+    }
+
+    private var nextPageVideos: [ApprovedVideo] {
+        guard hasNextPage else { return [] }
+        return slice(page: pageIndex + 1)
+    }
+
+    private func slice(page: Int) -> [ApprovedVideo] {
+        let start = page * pageSize
         guard start < videos.count else { return [] }
         let end = min(start + pageSize, videos.count)
         return Array(videos[start..<end])
@@ -50,37 +64,40 @@ struct VideoPickerView: View {
                 Color(hex: DesignTokens.Palette.road).frame(height: metrics.u(44))
             }
         } content: {
-            // One full-artboard tree: Spacers vertically center the board under Stampy;
-            // equal-width columns fill horizontally. Avoids LazyVGrid shrink-wrap + offset drift.
-            VStack(spacing: 0) {
-                headerBar
-                    .padding(.horizontal, metrics.u(60))
-                    .padding(.top, metrics.u(20))
-                    .frame(height: metrics.u(156), alignment: .top)
+            ZStack(alignment: .top) {
+                VStack(spacing: 0) {
+                    Color.clear.frame(height: hudBandHeight)
 
-                Spacer(minLength: metrics.u(8))
+                    if resumeCandidate != nil, onContinue != nil {
+                        continueBanner
+                            .padding(.horizontal, metrics.u(48))
+                            .padding(.bottom, metrics.u(8))
+                    }
 
-                if resumeCandidate != nil, onContinue != nil {
-                    continueBanner
+                    pickerBoard
+                        .padding(.horizontal, metrics.u(28))
+                        .frame(maxHeight: .infinity)
+
+                    footerBar
                         .padding(.horizontal, metrics.u(60))
-                        .padding(.bottom, metrics.u(12))
+                        .padding(.top, metrics.u(8))
+                        .padding(.bottom, metrics.u(16))
+                        .frame(minHeight: metrics.u(28))
                 }
+                .frame(
+                    width: metrics.u(CGFloat(DesignTokens.referenceWidth)),
+                    height: metrics.u(CGFloat(DesignTokens.referenceHeight)),
+                    alignment: .top
+                )
 
-                pickerBoard
-                    .padding(.horizontal, metrics.u(48))
-
-                Spacer(minLength: metrics.u(8))
-
-                footerBar
-                    .padding(.horizontal, metrics.u(60))
-                    .padding(.bottom, metrics.u(20))
-                    .frame(minHeight: metrics.u(36))
+                floatingStampyHUD
+                    .padding(.horizontal, metrics.u(36))
+                    .padding(.top, metrics.u(12))
+                    .frame(
+                        width: metrics.u(CGFloat(DesignTokens.referenceWidth)),
+                        alignment: .top
+                    )
             }
-            .frame(
-                width: metrics.u(CGFloat(DesignTokens.referenceWidth)),
-                height: metrics.u(CGFloat(DesignTokens.referenceHeight)),
-                alignment: .top
-            )
         }
         .onAppear {
             clampPageIndex()
@@ -101,21 +118,29 @@ struct VideoPickerView: View {
         }
     }
 
-    private var headerBar: some View {
-        HStack(alignment: .center, spacing: metrics.u(16)) {
-            VectorArtView(artwork: CanvasArt.stampy)
-                .frame(width: metrics.u(130), height: metrics.u(130))
-            SpeechBubbleButton(prompt: .pickVideo, action: onSpeak)
-                .scaleEffect(0.85, anchor: .leading)
-            Spacer(minLength: 0)
+    /// Compact floating Stampy + bubble + ticket — pinned top, clear of the card grid.
+    private var floatingStampyHUD: some View {
+        HStack(alignment: .center, spacing: metrics.u(12)) {
+            HStack(alignment: .center, spacing: metrics.u(10)) {
+                VectorArtView(artwork: CanvasArt.stampy)
+                    .frame(width: metrics.u(72), height: metrics.u(72))
+                // scaleEffect does not shrink layout — pin a compact frame so the
+                // bubble stays inside the HUD band and never covers the 4×2 cards.
+                SpeechBubbleButton(prompt: .pickVideo, action: onSpeak)
+                    .scaleEffect(0.58, anchor: .topLeading)
+                    .frame(width: metrics.u(300), height: metrics.u(72), alignment: .topLeading)
+            }
+            Spacer(minLength: metrics.u(8))
             VectorArtView(artwork: ticket.artwork)
-                .frame(width: metrics.u(150), height: metrics.u(94))
+                .frame(width: metrics.u(110), height: metrics.u(70))
         }
+        .frame(height: metrics.u(80), alignment: .center)
+        .allowsHitTesting(true)
     }
 
     @ViewBuilder
     private var footerBar: some View {
-        VStack(spacing: metrics.u(8)) {
+        VStack(spacing: metrics.u(6)) {
             if showsPager {
                 pageDots
             }
@@ -127,37 +152,63 @@ struct VideoPickerView: View {
     }
 
     private var pickerBoard: some View {
-        HStack(spacing: metrics.u(12)) {
+        HStack(alignment: .center, spacing: metrics.u(10)) {
             if showsPager {
-                pageArrow(
-                    systemName: "chevron.left",
-                    label: "上一頁 / Previous videos",
-                    enabled: pageIndex > 0
-                ) {
+                pageArrow(direction: .previous, enabled: hasPrevPage) {
                     pageIndex = max(0, pageIndex - 1)
                 }
             }
 
-            videoGrid(pageVideos)
-                .frame(maxWidth: .infinity, alignment: .center)
+            GeometryReader { geo in
+                let peekFraction: CGFloat = showsPager && hasNextPage ? 0.15 : 0
+                let gap = metrics.u(10)
+                let peekWidth = max(0, (geo.size.width - gap) * peekFraction)
+                let mainWidth = geo.size.width - (peekWidth > 0 ? peekWidth + gap : 0)
+
+                HStack(alignment: .center, spacing: gap) {
+                    videoGrid(pageVideos)
+                        .frame(width: mainWidth, height: geo.size.height)
+
+                    if peekWidth > 0 {
+                        videoGrid(nextPageVideos)
+                            .frame(width: peekWidth * (1.0 / 0.15), height: geo.size.height, alignment: .leading)
+                            .frame(width: peekWidth, alignment: .leading)
+                            .clipped()
+                            .opacity(0.55)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                            .overlay(alignment: .leading) {
+                                // Soft edge so peek reads as “more this way”
+                                LinearGradient(
+                                    colors: [
+                                        Color(hex: DesignTokens.Palette.sky).opacity(0.0),
+                                        Color(hex: DesignTokens.Palette.sky).opacity(0.35)
+                                    ],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                                .frame(width: metrics.u(18))
+                                .allowsHitTesting(false)
+                            }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if showsPager {
-                pageArrow(
-                    systemName: "chevron.right",
-                    label: "下一頁 / More videos",
-                    enabled: pageIndex < pageCount - 1
-                ) {
+                pageArrow(direction: .next, enabled: hasNextPage) {
                     pageIndex = min(pageCount - 1, pageIndex + 1)
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
-    /// Deterministic 3×2 equal-width rows (not LazyVGrid — avoids intrinsic-width left cluster).
+    /// Deterministic 4×2 equal-width rows (no LazyVGrid — avoids intrinsic-width left cluster).
+    /// Cards stretch to column width — **no 300u maxWidth cap** (v0.16.0).
     private func videoGrid(_ page: [ApprovedVideo]) -> some View {
-        let gap = metrics.u(20)
-        return VStack(spacing: metrics.u(18)) {
+        let gap = metrics.u(14)
+        return VStack(spacing: metrics.u(12)) {
             ForEach(0..<rowsPerPage, id: \.self) { row in
                 HStack(spacing: gap) {
                     ForEach(0..<columnsPerPage, id: \.self) { col in
@@ -171,25 +222,34 @@ struct VideoPickerView: View {
                                 Color.clear
                             }
                         }
-                        .frame(maxWidth: .infinity, alignment: .center)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                     }
                 }
+                .frame(maxHeight: .infinity)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
-    private func pageArrow(systemName: String, label: String, enabled: Bool,
+    private enum PageDirection { case previous, next }
+
+    /// Giant kid 「仲有」 affordance — at least 96×160 artboard units.
+    private func pageArrow(direction: PageDirection, enabled: Bool,
                            action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: metrics.u(36), weight: .black))
-                .foregroundStyle(Color.ink)
-                .frame(width: metrics.u(72), height: metrics.u(120))
+        let chevron = direction == .previous ? "chevron.left" : "chevron.right"
+        let label = direction == .previous ? "仲有 · 上一頁" : "仲有 · 下一頁"
+        return Button(action: action) {
+            VStack(spacing: metrics.u(8)) {
+                Image(systemName: chevron)
+                    .font(.system(size: metrics.u(40), weight: .black))
+                    .foregroundStyle(Color.ink)
+                CanvasText("仲有", size: 22, weight: 900)
+            }
+            .frame(width: metrics.u(96), height: metrics.u(160))
         }
         .buttonStyle(ChunkyButtonStyle(
             fill: Color(hex: enabled ? DesignTokens.Palette.sunny : DesignTokens.Palette.sand),
-            cornerRadius: 24,
+            cornerRadius: 28,
             shadowDepth: 8
         ))
         .disabled(!enabled)
@@ -206,38 +266,35 @@ struct VideoPickerView: View {
                           : Color(hex: DesignTokens.Palette.paper))
                     .overlay(Circle().strokeBorder(Color.ink, lineWidth: metrics.u(3)))
                     .frame(width: metrics.u(18), height: metrics.u(18))
-                    .accessibilityLabel("第 \(index + 1) 頁 / Page \(index + 1)")
+                    .accessibilityLabel("第 \(index + 1) 頁")
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("影片頁 \(pageIndex + 1) / \(pageCount) · Video page \(pageIndex + 1) of \(pageCount)")
+        .accessibilityLabel("影片頁 \(pageIndex + 1) / \(pageCount)")
     }
 
     private var continueBanner: some View {
         Button(action: { onContinue?() }) {
             HStack(spacing: metrics.u(16)) {
                 Image(systemName: "arrow.clockwise.circle.fill")
-                    .font(.system(size: metrics.u(36), weight: .bold))
+                    .font(.system(size: metrics.u(32), weight: .bold))
                     .foregroundStyle(Color.ink)
-                VStack(alignment: .leading, spacing: metrics.u(4)) {
-                    CanvasText("繼續睇", size: 28, weight: 800)
-                    CanvasText("Continue watching", size: 16, weight: 600, color: .inkSoft)
-                }
+                CanvasText("繼續睇", size: 26, weight: 800)
                 Spacer(minLength: 0)
                 Image(systemName: "play.fill")
-                    .font(.system(size: metrics.u(28), weight: .bold))
+                    .font(.system(size: metrics.u(24), weight: .bold))
                     .foregroundStyle(Color.ink)
             }
-            .padding(.horizontal, metrics.u(24))
-            .padding(.vertical, metrics.u(16))
+            .padding(.horizontal, metrics.u(20))
+            .padding(.vertical, metrics.u(12))
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(ChunkyButtonStyle(
             fill: Color(hex: DesignTokens.Palette.mint),
-            cornerRadius: 24,
-            shadowDepth: 8
+            cornerRadius: 22,
+            shadowDepth: 6
         ))
-        .accessibilityLabel("繼續睇 / Continue watching")
+        .accessibilityLabel("繼續睇")
     }
 
     private func clampPageIndex() {
@@ -264,54 +321,53 @@ private struct VideoPreviewCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: metrics.u(10)) {
+            VStack(spacing: metrics.u(8)) {
                 ZStack {
                     VideoPreviewThumbnail(video: video, ticket: ticket)
                     // Play badge so the card reads as "watch this" without text.
                     ZStack {
                         Circle().fill(Color(hex: DesignTokens.Palette.mint))
-                        Circle().strokeBorder(Color.ink, lineWidth: metrics.u(4))
+                        Circle().strokeBorder(Color.ink, lineWidth: metrics.u(3))
                         Image(systemName: "play.fill")
-                            .font(.system(size: metrics.u(24), weight: .bold))
+                            .font(.system(size: metrics.u(18), weight: .bold))
                             .foregroundStyle(Color.ink)
-                            .offset(x: metrics.u(2))
+                            .offset(x: metrics.u(1))
                     }
-                    .frame(width: metrics.u(64), height: metrics.u(64))
+                    .frame(width: metrics.u(48), height: metrics.u(48))
                 }
                 .aspectRatio(thumbAspect, contentMode: .fit)
-                // Cap so 2 rows + header/footer still leave Spacer room to vertical-center on 720.
-                .frame(maxWidth: metrics.u(300))
+                // v0.16.0: no 300u cap — stretch to column so 4×2 fills the right gutter.
                 .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: metrics.u(14), style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: metrics.u(12), style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: metrics.u(14), style: .continuous)
-                        .strokeBorder(Color.ink, lineWidth: metrics.u(4))
+                    RoundedRectangle(cornerRadius: metrics.u(12), style: .continuous)
+                        .strokeBorder(Color.ink, lineWidth: metrics.u(3))
                 )
                 if let title {
                     Text(title)
-                        .font(CanvasFont.font(size: metrics.u(20), weight: 800))
+                        .font(CanvasFont.font(size: metrics.u(16), weight: 800))
                         .foregroundStyle(Color.ink)
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .frame(maxWidth: .infinity)
                 } else {
-                    HStack(spacing: metrics.u(4)) {
+                    HStack(spacing: metrics.u(3)) {
                         ForEach(0..<ticket.stars, id: \.self) { _ in
                             VectorArtView(artwork: CanvasArt.star)
-                                .frame(width: metrics.u(22), height: metrics.u(22))
+                                .frame(width: metrics.u(16), height: metrics.u(16))
                         }
                     }
-                    .frame(height: metrics.u(22))
+                    .frame(height: metrics.u(16))
                     .frame(maxWidth: .infinity)
                 }
             }
-            .padding(metrics.u(14))
-            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(metrics.u(10))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
         .buttonStyle(ChunkyButtonStyle(fill: Color(hex: DesignTokens.Palette.paper),
-                                       cornerRadius: 24, shadowDepth: 8))
-        .frame(maxWidth: .infinity, alignment: .center)
-        .accessibilityLabel("揀呢條片 / Pick this video: \(title ?? video.id)")
+                                       cornerRadius: 20, shadowDepth: 6))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .accessibilityLabel("揀呢條片：\(title ?? video.id)")
     }
 }
 
@@ -341,7 +397,7 @@ private struct VideoPreviewThumbnail: View {
         ZStack {
             Color(hex: DesignTokens.Palette.sunnyPale)
             VectorArtView(artwork: ticket.artwork)
-                .frame(width: metrics.u(160), height: metrics.u(100))
+                .frame(width: metrics.u(120), height: metrics.u(76))
                 .opacity(0.9)
         }
     }

@@ -7,6 +7,10 @@ mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources/Vehicles" "$bundle
   "$bundle/Contents/Resources/Fonts"
 cp .build/release/VisaGames "$bundle/Contents/MacOS/VisaGames"
 cp Resources/Info.plist "$bundle/Contents/Info.plist"
+# Stampy app icon (CFBundleIconFile = AppIcon).
+if [ -f Resources/AppIcon.icns ]; then
+  cp Resources/AppIcon.icns "$bundle/Contents/Resources/AppIcon.icns"
+fi
 # Illustrated vehicle heroes (all child-visible kinds) + soft world props.
 if [ -d Resources/Vehicles ]; then
   cp Resources/Vehicles/*.png "$bundle/Contents/Resources/Vehicles/" 2>/dev/null || true
