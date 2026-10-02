@@ -66,15 +66,16 @@ public enum YouTubeEmbedURL: Sendable {
     }
 
     /// Build `https://www.youtube-nocookie.com/embed/<id>` with modest embed params.
+    /// Optional `startSeconds` (≥ 1) adds the official `start=` query for resume (v0.13.0).
     /// Returns nil when the id is not a valid YouTube video id.
-    public static func make(videoID: String) -> URL? {
+    public static func make(videoID: String, startSeconds: TimeInterval? = nil) -> URL? {
         guard isValidVideoID(videoID) else { return nil }
         let id = videoID.trimmingCharacters(in: .whitespacesAndNewlines)
         var components = URLComponents()
         components.scheme = "https"
         components.host = embedHost
         components.path = "/embed/\(id)"
-        components.queryItems = [
+        var items = [
             URLQueryItem(name: "playsinline", value: "1"),
             URLQueryItem(name: "rel", value: "0"),
             URLQueryItem(name: "modestbranding", value: "1"),
@@ -84,6 +85,10 @@ public enum YouTubeEmbedURL: Sendable {
             URLQueryItem(name: "enablejsapi", value: "1"),
             URLQueryItem(name: "origin", value: embedOrigin)
         ]
+        if let startSeconds, startSeconds.isFinite, startSeconds >= 1 {
+            items.append(URLQueryItem(name: "start", value: "\(Int(startSeconds.rounded(.down)))"))
+        }
+        components.queryItems = items
         return components.url
     }
 
@@ -195,14 +200,18 @@ public enum YouTubeEmbedURL: Sendable {
     /// `ScopedPlayerEvent.messageHandlerName` script handler. Raw widget messages from the
     /// official embed origin are a backup path. The script only *reports* state: it never
     /// navigates, opens windows, or loads another video id (ADR 0003 D8).
-    public static func embedHTMLString(videoID: String) -> String? {
-        guard let embedURL = make(videoID: videoID) else { return nil }
+    public static func embedHTMLString(videoID: String, startSeconds: TimeInterval? = nil) -> String? {
+        guard let embedURL = make(videoID: videoID, startSeconds: startSeconds) else { return nil }
         let id = videoID.trimmingCharacters(in: .whitespacesAndNewlines)
         // Escape only what we interpolate; id was validated by make(videoID:).
         let src = embedURL.absoluteString.replacingOccurrences(of: "&", with: "&amp;")
         let handler = ScopedPlayerEvent.messageHandlerName
         let elementID = playerElementID
         let apiURL = iframeAPIScriptURL.absoluteString
+        let resumeStart: Int = {
+            guard let startSeconds, startSeconds.isFinite, startSeconds >= 1 else { return 0 }
+            return Int(startSeconds.rounded(.down))
+        }()
         return #"""
         <!DOCTYPE html>
         <html lang="en">
@@ -229,10 +238,29 @@ public enum YouTubeEmbedURL: Sendable {
         (function () {
           "use strict";
           var videoID = "\#(id)";
+          var resumeStart = \#(resumeStart);
           var endedSent = false;
           var durationSent = false;
           var lastState = null;
           var player = null;
+          var timeTimer = null;
+          function clearTimeTimer() {
+            if (timeTimer) { clearInterval(timeTimer); timeTimer = null; }
+          }
+          function reportCurrentTime() {
+            if (!player || typeof player.getCurrentTime !== "function") { return; }
+            try {
+              var seconds = player.getCurrentTime();
+              if (typeof seconds === "number" && seconds > 0) {
+                post("currentTime", { seconds: seconds });
+              }
+            } catch (e) {}
+          }
+          function startTimeTimer() {
+            clearTimeTimer();
+            timeTimer = setInterval(reportCurrentTime, 1000);
+            reportCurrentTime();
+          }
           function post(name, extra) {
             try {
               var handlers = window.webkit && window.webkit.messageHandlers;
@@ -253,10 +281,16 @@ public enum YouTubeEmbedURL: Sendable {
             post("state", { state: state });
             if (state === 0 && !endedSent) {
               endedSent = true;
+              clearTimeTimer();
               post("ended");
             }
-            if (state === 1 && player && typeof player.getDuration === "function") {
-              try { reportDuration(player.getDuration()); } catch (e) {}
+            if (state === 1) {
+              startTimeTimer();
+              if (player && typeof player.getDuration === "function") {
+                try { reportDuration(player.getDuration()); } catch (e) {}
+              }
+            } else if (state === 2 || state === 3) {
+              reportCurrentTime();
             }
           }
           window.onYouTubeIframeAPIReady = function () {
@@ -268,6 +302,9 @@ public enum YouTubeEmbedURL: Sendable {
                     try { seconds = event.target.getDuration(); } catch (e) {}
                     post("ready", { duration: seconds });
                     reportDuration(seconds);
+                    if (resumeStart > 0 && typeof event.target.seekTo === "function") {
+                      try { event.target.seekTo(resumeStart, true); } catch (e) {}
+                    }
                   },
                   onStateChange: function (event) { reportState(event.data); }
                 }

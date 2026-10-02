@@ -74,11 +74,14 @@ final class ChildUXProgressTests {
         expectEqual(PlayPresentation.ticket(selectedStars: 2).difficulty, .medium)
         expectEqual(PlayPresentation.ticket(selectedStars: 3).difficulty, .challenge)
         expectEqual(PlayPresentation.ticket(selectedStars: 99).difficulty, .easy)
-        expectEqual(PlayPresentation.stars(fromAwardedSeconds: 600), 1)
-        expectEqual(PlayPresentation.stars(fromAwardedSeconds: 1_200), 2)
-        expectEqual(PlayPresentation.stars(fromAwardedSeconds: 1_800), 3)
+        expectEqual(PlayPresentation.stars(fromAwardedSeconds: 300), 1)
+        expectEqual(PlayPresentation.stars(fromAwardedSeconds: 600), 2)
+        expectEqual(PlayPresentation.stars(fromAwardedSeconds: 900), 3)
         expectTrue(PlayPresentation.stars(fromAwardedSeconds: 0) == nil)
         expectTrue(PlayPresentation.stars(fromAwardedSeconds: 60) == nil)
+        // Legacy 10/20/30 awards no longer map (tiers superseded 2026-10-02).
+        expectTrue(PlayPresentation.stars(fromAwardedSeconds: 1_200) == nil)
+        expectTrue(PlayPresentation.stars(fromAwardedSeconds: 1_800) == nil)
         // Cold-start mid-visa with allowlist → picker (not stamp); empty → emptyAllowlist.
         expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 2, activeVideoID: nil), .videoPicker)
         expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 0, activeVideoID: nil), .emptyAllowlist)
@@ -148,7 +151,18 @@ final class ChildUXProgressTests {
         // Picker → watch → (ended, time left) → picker again.
         expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 3, activeVideoID: nil), .videoPicker)
     }
+
+    func testIncompletePlaybackPolicyMatchesProductLock() {
+        // Parent never saves; child time-out with position does.
+        expectFalse(IncompletePlaybackPolicy.shouldSaveOnStop(
+            isChildPlay: false, reason: .sessionExpired, positionSeconds: 20
+        ))
+        expectTrue(IncompletePlaybackPolicy.shouldSaveOnStop(
+            isChildPlay: true, reason: .sessionExpired, positionSeconds: 20
+        ))
+    }
 }
+
 
 private func expectClose(_ actual: Double, _ expected: Double, file: StaticString = #file, line: UInt = #line) {
     precondition(abs(actual - expected) < 0.0001, "Expected \(expected), got \(actual)", file: file, line: line)

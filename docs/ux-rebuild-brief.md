@@ -55,7 +55,7 @@ Reference canvas is 1280×720. Scale proportionally to the TV resolution.
 
 1. **Depot home / ticket picker**
    - Guide character with speech bubble. **The bubble is the replay-voice button.**
-   - 3 physical-ticket cards, each showing: the vehicle, stars (1/2/3), road tiles (1/2/3), and a small "10/20/30 分鐘" parent label.
+   - 3 physical-ticket cards, each showing: the vehicle, stars (1/2/3), road tiles (1/2/3), and a small "5/10/15 分鐘" parent label (Carter 2026-10-02).
    - Passport button top-right with a stamp count.
    - Version number removed from child view. Parent entry becomes a faint, long-press-only corner that keeps the existing authentication.
 2. **Activity**
@@ -116,7 +116,7 @@ Map every current child-facing view to screens 1–7 above. List the gaps, and a
 
 1. Base branch for the rebuild.
 2. Guide character name and design.
-3. Rounds = stars (1/2/3 rounds for 10/20/30 min)? This changes reward policy.
+3. Rounds = stars (1/2/3 rounds for 5/10/15 min)? This changes reward policy.
 4. Passport collection unlocking vehicles: yes or no.
 5. Time's-up screen when the daily limit is reached: offer a new mission, or show "see you tomorrow"?
 6. Whose voice records the Cantonese prompts.

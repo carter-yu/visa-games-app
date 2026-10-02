@@ -10,8 +10,8 @@ final class SessionTests {
         var session = Session(snapshot: .init(configured: true), now: now)
         for stars in 1...3 {
             let difficulty = ChildDifficulty(rawValue: stars)!
-            expectEqual(difficulty.minutes, stars * 10)
-            expectEqual(difficulty.seconds, Double(stars * 600))
+            expectEqual(difficulty.minutes, stars * 5)
+            expectEqual(difficulty.seconds, Double(stars * 300))
             ledger.completeEntryActivity(now: now, calendar: calendar)
             let id = "round-\(stars)"
             ledger.applyCompletion(id: id, rewardSeconds: difficulty.seconds,
@@ -270,6 +270,7 @@ struct TestRunner {
         try persistence.testSchemaV1MigratesWithoutInventingReward()
         try persistence.testInvalidRewardStateFailsClosed()
         try persistence.testAnsweringStillDoesNotSpendBudgetAfterReload()
+        try persistence.testLastIncompleteRoundTripAndRejectsCorrupt()
 
         let theme = ThemePreferenceTests()
         theme.testDefaultPalette()
@@ -296,6 +297,8 @@ struct TestRunner {
         scoped.testScopedPlayerEventParsing()
         scoped.testParentAllowlistDraftStatus()
         try scoped.testApprovedVideoDurationLabelAndLegacyDecode()
+        scoped.testEmbedStartSecondsQuery()
+        scoped.testIncompletePlaybackValidationAndPolicy()
 
         let activity = ActivityTests()
         activity.testFirstEntryQuestionIsWellFormed()
@@ -350,7 +353,8 @@ struct TestRunner {
         ux.testVideoEndedRoutesPickerWhenTimeLeft()
         ux.testVideoEndedRoutesTimesUpWhenNoTimeLeft()
         ux.testPlaybackStopRouting()
+        ux.testIncompletePlaybackPolicyMatchesProductLock()
 
-        print("PASS: 11 session + 10 reward-ledger + 7 reward-persistence + 6 theme-preference + 16 scoped-playback + 18 activity + 9 canvas + 4 voice + 4 pen-spark + 9 ux-p2-p3 checks")
+        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 18 activity + 9 canvas + 4 voice + 4 pen-spark + 10 ux-p2-p3 checks")
     }
 }

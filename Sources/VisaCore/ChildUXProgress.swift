@@ -113,13 +113,13 @@ public enum PlayPresentation: Sendable {
         return MissionTicket.all[0]
     }
 
-    /// Map banked Confirmed reward seconds (10 / 20 / 30 min) back to stars. Nil otherwise.
+    /// Map banked Confirmed reward seconds (5 / 10 / 15 min) back to stars. Nil otherwise.
     public static func stars(fromAwardedSeconds seconds: TimeInterval) -> Int? {
         guard seconds.isFinite, seconds > 0 else { return nil }
         switch Int(seconds.rounded()) {
-        case 600: return ChildDifficulty.easy.rawValue
-        case 1_200: return ChildDifficulty.medium.rawValue
-        case 1_800: return ChildDifficulty.challenge.rawValue
+        case 300: return ChildDifficulty.easy.rawValue
+        case 600: return ChildDifficulty.medium.rawValue
+        case 900: return ChildDifficulty.challenge.rawValue
         default: return nil
         }
     }

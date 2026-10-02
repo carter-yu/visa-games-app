@@ -13,9 +13,13 @@ import VisaCore
 struct VideoPickerView: View {
     let ticket: MissionTicket
     let videos: [ApprovedVideo]
+    /// Last incomplete child-play video still on the allowlist (Continue offer).
+    var resumeCandidate: IncompletePlayback? = nil
     /// Parent-facing playback message (e.g. budget empty) when a pick is refused.
     let message: String?
     let onPick: (String) -> Void
+    /// Resume the incomplete cursor (same id + startSeconds). Nil when no candidate.
+    var onContinue: (() -> Void)? = nil
     let onSpeak: () -> Void
     let onAppearLog: () -> Void
     @Environment(\.canvasMetrics) private var metrics
@@ -53,6 +57,12 @@ struct VideoPickerView: View {
                     .frame(height: metrics.u(156), alignment: .top)
 
                 Spacer(minLength: metrics.u(8))
+
+                if resumeCandidate != nil, onContinue != nil {
+                    continueBanner
+                        .padding(.horizontal, metrics.u(60))
+                        .padding(.bottom, metrics.u(12))
+                }
 
                 pickerBoard
                     .padding(.horizontal, metrics.u(48))
@@ -199,6 +209,33 @@ struct VideoPickerView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("影片頁 \(pageIndex + 1) / \(pageCount) · Video page \(pageIndex + 1) of \(pageCount)")
+    }
+
+    private var continueBanner: some View {
+        Button(action: { onContinue?() }) {
+            HStack(spacing: metrics.u(16)) {
+                Image(systemName: "arrow.clockwise.circle.fill")
+                    .font(.system(size: metrics.u(36), weight: .bold))
+                    .foregroundStyle(Color.ink)
+                VStack(alignment: .leading, spacing: metrics.u(4)) {
+                    CanvasText("繼續睇", size: 28, weight: 800)
+                    CanvasText("Continue watching", size: 16, weight: 600, color: .inkSoft)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "play.fill")
+                    .font(.system(size: metrics.u(28), weight: .bold))
+                    .foregroundStyle(Color.ink)
+            }
+            .padding(.horizontal, metrics.u(24))
+            .padding(.vertical, metrics.u(16))
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(ChunkyButtonStyle(
+            fill: Color(hex: DesignTokens.Palette.mint),
+            cornerRadius: 24,
+            shadowDepth: 8
+        ))
+        .accessibilityLabel("繼續睇 / Continue watching")
     }
 
     private func clampPageIndex() {

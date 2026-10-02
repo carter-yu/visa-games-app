@@ -157,8 +157,8 @@ final class CanvasFoundationTests {
         for ticket in MissionTicket.all {
             let stars = ticket.difficulty.rawValue
             expectEqual(ticket.stars, stars)
-            expectEqual(ticket.roadTiles, stars) // one road tile = 10 minutes
-            expectEqual(ticket.minutesLabel, "\(stars * 10) 分鐘")
+            expectEqual(ticket.roadTiles, stars) // one road tile = 5 minutes
+            expectEqual(ticket.minutesLabel, "\(stars * 5) 分鐘")
             expectTrue(ticket.accessibilityLabel.contains(" / "))
             expectTrue(isTraditionalChineseOnly(ticket.titleTraditionalChinese))
         }

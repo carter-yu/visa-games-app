@@ -1,7 +1,7 @@
 import Foundation
 
-/// Board 1 mission tickets. Stars and road tiles restate the Confirmed 10 / 20 / 30 minute
-/// difficulties (one road tile = 10 minutes); no reward policy lives here.
+/// Board 1 mission tickets. Stars and road tiles restate the Confirmed 5 / 10 / 15 minute
+/// difficulties (one road tile = 5 minutes); no reward policy lives here.
 public struct MissionTicket: Equatable, Sendable {
     public let difficulty: ChildDifficulty
     public let titleTraditionalChinese: String
@@ -11,7 +11,7 @@ public struct MissionTicket: Equatable, Sendable {
     public let headerColor: UInt32
 
     public var stars: Int { difficulty.rawValue }
-    public var roadTiles: Int { difficulty.minutes / 10 }
+    public var roadTiles: Int { difficulty.rawValue }
     public var minutesLabel: String { "\(difficulty.minutes) 分鐘" }
     public var accessibilityLabel: String {
         "\(titleTraditionalChinese)：\(difficulty.minutes) 分鐘 / \(titleEnglish): \(difficulty.minutes) minutes"
