@@ -36,19 +36,27 @@ public struct RoadTimerProgress: Equatable, Sendable {
     }
 }
 
-/// Which child board shows while a play visa runs (Holiday P0, v0.11.0).
-/// Stamp gate → (Go) → empty stage | video picker | watch.
+/// Which child board shows while a play visa runs (Holiday P0, v0.11.0; Resume Choice v0.15.0).
+/// Stamp gate → (Go) → empty stage | resume choice | video picker | watch.
 public enum PlayStageRoute: Equatable, Sendable {
     case stamp
     case emptyAllowlist
+    /// Mid-video incomplete cursor + new visa after 「出發！」— continue or pick another.
+    case resumeChoice
     case videoPicker
     case watch
 
-    public static func route(awaitingDeparture: Bool, allowlistCount: Int, activeVideoID: String?) -> PlayStageRoute {
+    public static func route(
+        awaitingDeparture: Bool,
+        allowlistCount: Int,
+        activeVideoID: String?,
+        hasResumeCandidate: Bool = false
+    ) -> PlayStageRoute {
         if awaitingDeparture { return .stamp }
         if allowlistCount == 0 { return .emptyAllowlist }
-        if activeVideoID == nil { return .videoPicker }
-        return .watch
+        if activeVideoID != nil { return .watch }
+        if hasResumeCandidate { return .resumeChoice }
+        return .videoPicker
     }
 }
 

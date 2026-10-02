@@ -360,6 +360,8 @@ final class AppModel: ObservableObject {
     func guideSpeakStamped() { guideVoice.speak(.stamped) }
     func guideSpeakEmptyAllowlist() { guideVoice.speak(.emptyAllowlist) }
     func guideSpeakPickVideo() { guideVoice.speak(.pickVideo) }
+    func guideSpeakResumeChoice() { guideVoice.speak(.resumeChoiceKeepWatching) }
+    func guideSpeakResumeChoiceOrPick() { guideVoice.speak(.resumeChoiceOrPick) }
 
     /// Board 4 prelude: child sees preview cards of allowlisted videos (Holiday P0).
     func videoPickerOpened() {
@@ -382,7 +384,7 @@ final class AppModel: ObservableObject {
         guard session.mode == .play, !awaitingDeparture,
               let candidate = resumeCandidate else { return }
         VisaGamesLog.append(
-            "videoPicker continue — 繼續睇 id=\(candidate.videoID) at=\(Int(candidate.positionSeconds))s"
+            "resume continue — 繼續睇 id=\(candidate.videoID) at=\(Int(candidate.positionSeconds))s"
         )
         activePlayStartSeconds = candidate.positionSeconds
         lastKnownPlaybackSeconds = candidate.positionSeconds
@@ -390,13 +392,33 @@ final class AppModel: ObservableObject {
         if activePlayVideoID == nil {
             activePlayStartSeconds = nil
             VisaGamesLog.append(
-                "videoPicker continue rejected — 未能播放 id=\(candidate.videoID) message=\(playbackMessage ?? "nil")"
+                "resume continue rejected — 未能播放 id=\(candidate.videoID) message=\(playbackMessage ?? "nil")"
             )
             if let reason = decision.stopReason,
                VideoEndRouting.afterPlaybackStopped(reason: reason, isChildPlay: true) == .timesUp {
                 finishPlayVisaToTimesUp(reason: "continueRejected-\(reason.rawValue)")
             }
         }
+    }
+
+    /// Resume Choice Right 「揀片睇」— clear incomplete cursor immediately (Carter 2026-10-02 lock),
+    /// then land on VideoPicker (no mint Continue banner; cursor already gone).
+    func pickOtherFromResumeChoice() {
+        guard session.mode == .play, !awaitingDeparture else { return }
+        VisaGamesLog.append("resumeChoice pickOther — 揀片睇 clearCursor=immediate")
+        clearLastIncomplete(reason: "resumeChoicePickOther")
+        activePlayVideoID = nil
+        activePlayStartSeconds = nil
+        lastKnownPlaybackSeconds = nil
+        playbackMessage = nil
+        logShellBranch(context: "resumeChoicePickOther")
+    }
+
+    func resumeChoiceOpened() {
+        let resume = resumeCandidate.map { "\($0.videoID)@\(Int($0.positionSeconds))s" } ?? "nil"
+        VisaGamesLog.append(
+            "resumeChoice open — 繼續定揀片 resume=\(resume) allowlistCount=\(allowlist.videos.count)"
+        )
     }
 
     func notePlaybackCurrentTime(videoID: String, seconds: TimeInterval) {
@@ -827,8 +849,8 @@ final class AppModel: ObservableObject {
             "applyEntrySuccess — 入口成功 assisted=\(assisted) earnedMin=\(earnedMinutes) entryCompleted=\(isEntryActivityCompleted) viewing=\(remainingViewingBudget(at: Date())) mode=\(session.mode) stampGate=true"
         )
         logShellBranch(context: "applyEntrySuccess")
-        // v0.11.0: no pre-selected video. Stamp 「出發！」 → VideoPickerView lets the child choose
-        // (visa already ticking). `nextShuffledAllowlistedVideoID` stays for the legacy shell.
+        // v0.11.0 / v0.15.0: no pre-selected video. Stamp 「出發！」 → Resume Choice (if incomplete)
+        // or VideoPickerView. `nextShuffledAllowlistedVideoID` stays for the legacy shell.
         activePlayVideoID = nil
         playbackMessage = nil
     }
@@ -1199,10 +1221,12 @@ final class AppModel: ObservableObject {
                 switch PlayStageRoute.route(
                     awaitingDeparture: awaitingDeparture,
                     allowlistCount: allowlist.videos.count,
-                    activeVideoID: activePlayVideoID
+                    activeVideoID: activePlayVideoID,
+                    hasResumeCandidate: resumeCandidate != nil
                 ) {
                 case .stamp: branch = "play-stamp"
                 case .emptyAllowlist: branch = "play-emptyAllowlist"
+                case .resumeChoice: branch = "play-resumeChoice"
                 case .videoPicker: branch = "play-videoPicker"
                 case .watch: branch = "play-watch"
                 }
@@ -1584,7 +1608,8 @@ struct ShellView: View {
         PlayStageRoute.route(
             awaitingDeparture: model.awaitingDeparture,
             allowlistCount: model.allowlist.videos.count,
-            activeVideoID: model.activePlayVideoID
+            activeVideoID: model.activePlayVideoID,
+            hasResumeCandidate: model.resumeCandidate != nil
         )
     }
 
@@ -1663,7 +1688,35 @@ struct ShellView: View {
                 onSpeak: { model.guideSpeakEmptyAllowlist() }
             )
             .ignoresSafeArea()
+        case .resumeChoice:
+            if let incomplete = model.resumeCandidate {
+                ResumeChoiceView(
+                    ticket: ticket,
+                    incomplete: incomplete,
+                    onContinue: model.continueIncompleteVideo,
+                    onPickOther: model.pickOtherFromResumeChoice,
+                    onSpeak: { model.guideSpeakResumeChoice() },
+                    onSpeakOrPick: { model.guideSpeakResumeChoiceOrPick() },
+                    onAppearLog: model.resumeChoiceOpened
+                )
+                .ignoresSafeArea()
+            } else {
+                // Candidate vanished (allowlist remove) — fall through to picker.
+                VideoPickerView(
+                    ticket: ticket,
+                    videos: model.allowlist.videos,
+                    resumeCandidate: nil,
+                    message: model.playbackMessage,
+                    onPick: { model.pickVideo(id: $0) },
+                    onContinue: nil,
+                    onSpeak: { model.guideSpeakPickVideo() },
+                    onAppearLog: model.videoPickerOpened
+                )
+                .ignoresSafeArea()
+            }
         case .videoPicker:
+            // Continue banner is fallback only: primary incomplete path is Resume Choice.
+            // After Right 「揀片睇」the cursor is already cleared, so banner stays hidden.
             VideoPickerView(
                 ticket: ticket,
                 videos: model.allowlist.videos,

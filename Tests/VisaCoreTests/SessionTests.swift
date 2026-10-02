@@ -349,6 +349,7 @@ struct TestRunner {
         ux.testRoadTimerFromEndsAt()
         ux.testSpokenUXLinesAreTraditional()
         ux.testPlayStageRoutesPickerBeforeWatch()
+        ux.testPlayStageRoutesResumeChoiceAfterGoWhenIncomplete()
         ux.testPlayPresentationResolvesTicket()
         ux.testVideoEndedRoutesPickerWhenTimeLeft()
         ux.testVideoEndedRoutesTimesUpWhenNoTimeLeft()
@@ -365,6 +366,6 @@ struct TestRunner {
         wrong.testTraditionalOnlyCopy()
         wrong.testReducedPendingAwardsViaLedgerWithoutBurningBankOnMiss()
 
-        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 18 activity + 9 canvas + 4 voice + 4 pen-spark + 10 ux-p2-p3 + 8 wrong-answer-policy checks")
+        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 18 activity + 9 canvas + 4 voice + 4 pen-spark + 11 ux-p2-p3 + 8 wrong-answer-policy checks")
     }
 }

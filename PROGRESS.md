@@ -1,5 +1,14 @@
 # Progress
 
+- 2026-10-02: PR (pending) MINOR **v0.15.0 / build 37** — **Resume Choice** board after stamp 「出發！」when incomplete cursor exists. Branch `feat/resume-choice-board` from `main` @ ec7574b (v0.14.0 PR #13). Do not merge; Mac mini toolchain UAT after push.
+  - **Carter lock (2026-10-02):** mid-video visa stop still → classic **TimesUp** (unchanged). After next mission + stamp 「出發！」: if `IncompletePlayback` offerable → **Resume Choice** (not immediate VideoPicker). **Left** 「繼續睇」→ `continueIncompleteVideo()` (PR #12 seek/`start=`). **Right** 「揀片睇」→ VideoPicker and **clear cursor immediately**. Natural end + time left → picker; v1 YouTube thumbnail still; demote picker mint Continue banner to fallback only; HK Trad only; canvas split left/right dusk Depot family (not bolted green chrome).
+  - **Code:** `PlayStageRoute.resumeChoice` + `hasResumeCandidate`; `ResumeChoiceView`; AppModel `pickOtherFromResumeChoice` / voice lines; picker Continue banner only when candidate still present (primary path cleared). IncompletePlaybackPolicy / TimesUp / VideoEndRouting unchanged.
+  - Tests: +1 ux route (`testPlayStageRoutesResumeChoiceAfterGoWhenIncomplete`) + Trad copy asserts → PASS banner **11 ux-p2-p3**.
+  - Version: Info.plist **0.15.0 / 37**, parent footer **Visa Games v0.15.0**.
+  - Design: `docs/designs/mid-video-visa-end-resume-choice.md` (D2 lock override noted).
+  - **Mac mini toolchain:** after push — `git fetch && git checkout feat/resume-choice-board && git pull`; `sh scripts/test.sh`; `sh scripts/bundle.sh` → `.build/Visa Games.app` **0.15.0 / 37**. No kiosk launch. No merge.
+
+
 - 2026-10-02: PR (pending) MINOR **v0.14.0 / build 36** — wrong-answer **pending-award shrink** + Think Pause (always on). Branch `feat/wrong-answer-pending-shrink` from `feat/resume-and-visa-tiers` @ fe2d090 (v0.13.0 PR #12 tip; do not merge #12). Do not merge; Mac mini toolchain UAT after push.
   - **Policy (Carter 2026-10-02 lock):** each incorrect → feedback → **halve** pending minutes (whole minutes, floor **0**) → **10s Think Pause** (choices locked; mash ignored). Pending is the chosen 5/10/15 ticket award for this round — **never** banked `viewingSeconds` (D2). When pending hits 0: after pause → Depot (reset round / lock entry), no stamp / no `startPlayVisa`. Correct awards **reduced** pending; ticket stars may stay difficulty-chosen; stamp/watch/road follow earned minutes. Auto-hint after pause when pending > 0 (D7 assisted unchanged). No parent feature flag; parent grant / test-visa bypass untouched.
   - **Code:** `WrongAnswerPolicy` + `WrongAnswerCopy` (VisaCore); AppModel pending / Think Pause / fuel feedback; ActivityBoard fuel gauge + 「停一停，想一想！」 overlay; ADR 0004 gentle-retry → pending shrink; tests for 15/10/5 halve chains, pause duration, 0→depot, reduced award, parent grant, Trad-only copy.

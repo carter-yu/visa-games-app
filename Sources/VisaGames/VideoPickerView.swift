@@ -14,6 +14,8 @@ struct VideoPickerView: View {
     let ticket: MissionTicket
     let videos: [ApprovedVideo]
     /// Last incomplete child-play video still on the allowlist (Continue offer).
+    /// v0.15.0: mint Continue banner is **fallback only** — primary gate is Resume Choice
+    /// after 「出發！」. When Resume Choice Right clears the cursor, this stays nil.
     var resumeCandidate: IncompletePlayback? = nil
     /// Parent-facing playback message (e.g. budget empty) when a pick is refused.
     let message: String?

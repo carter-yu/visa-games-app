@@ -34,6 +34,12 @@ public struct SpokenPrompt: Equatable, Sendable {
     public static let pickVideo = SpokenPrompt(
         key: "play.pickVideo", traditionalChinese: "揀片睇！", english: "Pick a video!")
 
+    /// Resume Choice board (v0.15.0) — paused film + new visa fork.
+    public static let resumeChoiceKeepWatching = SpokenPrompt(
+        key: "resumeChoice.prompt", traditionalChinese: "仲可以繼續睇！", english: "You can keep watching!")
+    public static let resumeChoiceOrPick = SpokenPrompt(
+        key: "resumeChoice.orPick", traditionalChinese: "定係揀第二條？", english: "Or pick another?")
+
     /// Wrong-answer pending-fuel exhausted → Depot (Carter 2026-10-02).
     public static let outOfFuelDepot = SpokenPrompt(
         key: "activity.outOfFuel",
@@ -45,7 +51,7 @@ public struct SpokenPrompt: Equatable, Sendable {
     /// All interim spoken lines (Depot + UX P2/P3). Extended in UX Phase 5 with recorded clips.
     public static let allUXLines: [SpokenPrompt] = [
         depotPickTicket, stamped, departGo, pickVideo, almostHome, timesUpPark, emptyAllowlist,
-        outOfFuelDepot
+        resumeChoiceKeepWatching, resumeChoiceOrPick, outOfFuelDepot
     ]
 
     public static func timesUp(for ticket: MissionTicket) -> SpokenPrompt {
