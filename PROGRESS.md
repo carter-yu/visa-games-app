@@ -4,7 +4,7 @@
   - **Carter lock:** (1) picker 4×2, no 300u card cap, compact floating Stampy HUD (bubble never overlaps cards), use right space; (2) giant kid 「仲有」 arrows ≥96×160 **and** ~15% next-page peek; (3) Watch grow player vertically, keep framed player + bottom road strip (not overlay); (4) `scripts/install-mac-mini.sh` dittos `.build/Visa Games.app` → `/Applications/Visa Games.app` + Desktop Finder alias; (5) Stampy `AppIcon.icns` + `CFBundleIconFile`. HK Trad for new child copy. Prefer Opus for UX.
   - **Code:** `VideoPickerView` redesign; `WatchPlaybackView` maxHeight grow; `bundle.sh` copies icns; new `install-mac-mini.sh`; Info.plist **0.16.0 / 38**; parent footer **Visa Games v0.16.0**; ADR 0007 picker row; design note `docs/designs/ui-polish-v016-picker-watch-install.md`.
   - Tests: layout-only — expect existing PASS banner unchanged (VisaCoreChecks). Linux box: no Swift.
-  - **Mac mini:** pull branch → `sh scripts/test.sh` → `sh scripts/bundle.sh` → `sh scripts/install-mac-mini.sh` (Applications + Desktop alias). No merge.
+  - **Mac mini toolchain (2026-10-03 00:30 HKT):** tip `7c0c8af` — `sh scripts/test.sh` → PASS (**11 ux-p2-p3** + full banner); `sh scripts/bundle.sh` → `.build/Visa Games.app` **0.16.0 / 38** with `AppIcon.icns`; `sh scripts/install-mac-mini.sh` → `/Applications/Visa Games.app` **0.16.0 / 38** + Desktop alias `~/Desktop/Visa Games`. No kiosk launch. No merge. PR https://github.com/carter-yu/visa-games-app/pull/15
 
 
 - 2026-10-02: PR (pending) MINOR **v0.15.0 / build 37** — **Resume Choice** board after stamp 「出發！」when incomplete cursor exists. Branch `feat/resume-choice-board` from `main` @ ec7574b (v0.14.0 PR #13). Do not merge; Mac mini toolchain UAT after push.
