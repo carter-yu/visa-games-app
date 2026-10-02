@@ -49,6 +49,14 @@ final class ChildUXProgressTests {
         expectEqual(SpokenPrompt.pickVideo.traditionalChinese, "揀片睇！")
         expectEqual(SpokenPrompt.pickVideo.english, "Pick a video!")
         expectTrue(SpokenPrompt.allUXLines.contains(.pickVideo))
+        expectEqual(SpokenPrompt.resumeChoiceKeepWatching.traditionalChinese, "仲可以繼續睇！")
+        expectEqual(SpokenPrompt.resumeChoiceKeepWatching.english, "You can keep watching!")
+        expectEqual(SpokenPrompt.resumeChoiceOrPick.traditionalChinese, "定係揀第二條？")
+        expectTrue(SpokenPrompt.allUXLines.contains(.resumeChoiceKeepWatching))
+        expectTrue(SpokenPrompt.allUXLines.contains(.resumeChoiceOrPick))
+        // Never Simplified forms.
+        expectFalse(SpokenPrompt.resumeChoiceKeepWatching.traditionalChinese.contains("继续"))
+        expectFalse(SpokenPrompt.resumeChoiceOrPick.traditionalChinese.contains("选"))
         let fire = SpokenPrompt.timesUp(for: MissionTicket.all[1])
         expectTrue(fire.traditionalChinese.contains("消防車"))
         expectTrue(fire.traditionalChinese.contains("瞓覺"))
@@ -59,13 +67,38 @@ final class ChildUXProgressTests {
         // Stamp gate always wins while awaiting 「出發！」.
         expectEqual(PlayStageRoute.route(awaitingDeparture: true, allowlistCount: 3, activeVideoID: nil), .stamp)
         expectEqual(PlayStageRoute.route(awaitingDeparture: true, allowlistCount: 0, activeVideoID: nil), .stamp)
-        // After Go: empty allowlist keeps the empty stage.
+        // After Go: empty allowlist keeps the empty stage (even with a stale resume flag).
         expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 0, activeVideoID: nil), .emptyAllowlist)
-        // Non-empty, nothing picked yet → picker (one video still shows the picker).
+        expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 0, activeVideoID: nil, hasResumeCandidate: true), .emptyAllowlist)
+        // Non-empty, nothing picked, no incomplete → picker (one video still shows the picker).
         expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 1, activeVideoID: nil), .videoPicker)
         expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 4, activeVideoID: nil), .videoPicker)
-        // Picked → watch.
+        // Picked → watch (watch wins over resume candidate).
         expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 4, activeVideoID: "abc"), .watch)
+        expectEqual(PlayStageRoute.route(awaitingDeparture: false, allowlistCount: 4, activeVideoID: "abc", hasResumeCandidate: true), .watch)
+    }
+
+    /// v0.15.0: after 「出發！」with an incomplete cursor → Resume Choice (not immediate picker).
+    func testPlayStageRoutesResumeChoiceAfterGoWhenIncomplete() {
+        // Stamp still wins while awaiting Go, even with incomplete.
+        expectEqual(PlayStageRoute.route(
+            awaitingDeparture: true, allowlistCount: 3, activeVideoID: nil, hasResumeCandidate: true
+        ), .stamp)
+        // After Go + incomplete → Resume Choice (primary path).
+        expectEqual(PlayStageRoute.route(
+            awaitingDeparture: false, allowlistCount: 3, activeVideoID: nil, hasResumeCandidate: true
+        ), .resumeChoice)
+        expectEqual(PlayStageRoute.route(
+            awaitingDeparture: false, allowlistCount: 1, activeVideoID: nil, hasResumeCandidate: true
+        ), .resumeChoice)
+        // No incomplete → picker (fallback / first trip with no mid-stop).
+        expectEqual(PlayStageRoute.route(
+            awaitingDeparture: false, allowlistCount: 3, activeVideoID: nil, hasResumeCandidate: false
+        ), .videoPicker)
+        // After Right clears cursor, hasResumeCandidate=false → picker (no mint banner needed).
+        expectEqual(PlayStageRoute.route(
+            awaitingDeparture: false, allowlistCount: 6, activeVideoID: nil, hasResumeCandidate: false
+        ), .videoPicker)
     }
 
     func testPlayPresentationResolvesTicket() {
