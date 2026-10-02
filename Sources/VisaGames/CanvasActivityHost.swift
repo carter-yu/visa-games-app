@@ -267,6 +267,11 @@ struct CanvasActivityHost: View {
             coneTotal: 1,
             coneCompleted: model.activityJustCompleted ? 1 : 0,
             stampyOffsetTowardHint: hintToward,
+            pendingMinutes: model.pendingAwardMinutes,
+            startingMinutes: model.roundStartingMinutes,
+            thinkPauseRemaining: model.thinkPauseRemainingSeconds,
+            fuelFeedback: model.fuelFeedbackMessage,
+            choicesLocked: model.choicesLocked,
             onSpeak: model.speakEntryPrompt,
             stimulus: stimulus,
             choices: choices
@@ -291,6 +296,7 @@ struct CanvasActivityHost: View {
                 ChoiceCardChrome(
                     feedback: feedback,
                     isHintTarget: model.entryHintUsed && id == hintID,
+                    isInteractionEnabled: !model.choicesLocked,
                     action: { onSelect(id) }
                 ) {
                     content(id)

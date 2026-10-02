@@ -5,6 +5,8 @@ import VisaCore
 
 struct StampSuccessView: View {
     let ticket: MissionTicket
+    /// Actual pending award at success (minutes/road follow this; stars stay ticket difficulty).
+    let earnedMinutes: Int
     let onGo: () -> Void
     let onSpeak: () -> Void
     @Environment(\.canvasMetrics) private var metrics
@@ -38,7 +40,7 @@ struct StampSuccessView: View {
             }
             .canvasPlaced(x: 36, y: 40)
 
-            PassportSpread(ticket: ticket)
+            PassportSpread(ticket: ticket, earnedMinutes: earnedMinutes)
                 .canvasPlaced(x: 250, y: 120)
 
             HStack(spacing: metrics.u(18)) {
@@ -78,7 +80,12 @@ struct StampSuccessView: View {
 
 private struct PassportSpread: View {
     let ticket: MissionTicket
+    let earnedMinutes: Int
     @Environment(\.canvasMetrics) private var metrics
+
+    private var roadTileCount: Int {
+        WrongAnswerPolicy.roadTiles(forEarnedMinutes: earnedMinutes)
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -108,6 +115,7 @@ private struct PassportSpread: View {
                 VStack(spacing: 2) {
                     CanvasText(ticket.titleTraditionalChinese, size: 22, weight: 800)
                     CanvasText(ticket.titleEnglish, size: 16, weight: 700)
+                    CanvasText("\(earnedMinutes) 分鐘", size: 18, weight: 800)
                 }
             }
             .frame(width: metrics.u(340), height: metrics.u(380))
@@ -121,7 +129,7 @@ private struct PassportSpread: View {
                     VisaStampBadge()
                         .rotationEffect(.degrees(-12))
                     HStack(spacing: metrics.u(6)) {
-                        ForEach(0..<ticket.roadTiles, id: \.self) { _ in RoadTileView() }
+                        ForEach(0..<max(roadTileCount, 0), id: \.self) { _ in RoadTileView() }
                     }
                 }
             }
