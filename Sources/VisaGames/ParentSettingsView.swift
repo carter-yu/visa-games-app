@@ -15,7 +15,7 @@ struct ParentSettingsView: View {
     @State private var showAdvanced = false
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.15.0"
+    static let versionLabel = "Visa Games v0.16.0"
 
     var body: some View {
         VStack(spacing: 0) {
