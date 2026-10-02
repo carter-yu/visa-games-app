@@ -36,7 +36,7 @@ Success may reuse the existing `SuccessParkAnimation` park-in delight. No new me
 | ID | Topic | Scaffold rule |
 |----|--------|----------------|
 | **D9** | Reviewed YouTube / content pack (candidate #7, #9 backup proposed elsewhere) | Candidates are **not** in-repo as approved. Do **not** hardcode unverified YouTube IDs as an “approved pack.” Parent allowlist remains manual. |
-| **D6** | Scaffold difficulty minutes | Carter Confirmed 2026-09-27: 10 / 20 / 30. |
+| **D6** | Scaffold difficulty minutes | Carter Confirmed 2026-10-02: **5 / 10 / 15** (supersedes 2026-09-27 10/20/30 scaffold). |
 | **D10** | Reporting policy | Do not invent. |
 
 D8 remains Confirmed in ADR 0003. D1–D5 / D7 remain Confirmed in ADR 0002.
@@ -53,13 +53,13 @@ D8 remains Confirmed in ADR 0003. D1–D5 / D7 remain Confirmed in ADR 0002.
 
 Evidence: Carter Yu explicitly Confirmed in the 2026-09-27 PR #7 task that the
 visa-games reference flow is cards → task → visa → approved YouTube, with
-Easy / Medium / Challenge at **10 / 20 / 30 minutes** (600 / 1200 / 1800 seconds).
+Easy / Medium / Challenge at **5 / 10 / 15 minutes** (300 / 600 / 900 seconds; Carter 2026-10-02).
 This closes practical D6 for this scaffold. No reference-repository inspection
 or Mac UAT is implied by that evidence label.
 
 The D1 initial allowance still unlocks once. Each successful round independently
 records D7 and requests its selected viewing seconds. The existing default cap
-is 1200 seconds: Challenge has a 1800-second visa but a bank capped at 1200;
+is 1200 seconds: Challenge has a 900-second visa (well under the bank cap);
 Medium can also have its incremental award reduced by existing banked seconds.
 The initial 60-second D1 allowance remains additional subject to the same cap.
 Visa and reward state persist atomically in schema 2; unfinished rounds are

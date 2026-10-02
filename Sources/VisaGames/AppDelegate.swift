@@ -34,6 +34,10 @@ final class AppModel: ObservableObject {
     @Published var showAllowlistAdvanced = false
     @Published private(set) var isFetchingAllowlistMetadata = false
     @Published private(set) var activePlayVideoID: String?
+    /// Resume offset for the active child load (`start=`). Nil for fresh picks / parent preview.
+    @Published private(set) var activePlayStartSeconds: TimeInterval?
+    /// Last reported player position for the active child video (in-memory).
+    private var lastKnownPlaybackSeconds: TimeInterval?
     @Published private(set) var playbackMessage: String?
     @Published private(set) var entryRetryMessage: String?
     @Published private(set) var entryHintUsed = false
@@ -112,7 +116,7 @@ final class AppModel: ObservableObject {
             selectedStars = inferred ?? ChildDifficulty.easy.rawValue
         }
         if playVisaTotalSeconds <= 0 {
-            playVisaTotalSeconds = ChildDifficulty(rawValue: selectedStars ?? 1)?.seconds ?? 600
+            playVisaTotalSeconds = ChildDifficulty(rawValue: selectedStars ?? 1)?.seconds ?? ChildDifficulty.easy.seconds
         }
         // Stamp gate is in-memory; resume past it so the child picks (or watches) again.
         awaitingDeparture = false
@@ -137,11 +141,40 @@ final class AppModel: ObservableObject {
             }
         }
         let visaEnded = session.snapshot.endsAt != nil && next.snapshot.endsAt == nil
+        let incompleteToSave: IncompletePlayback? = {
+            guard visaEnded, session.mode == .play || next.mode == .lock,
+                  let id = activePlayVideoID,
+                  let position = lastKnownPlaybackSeconds,
+                  IncompletePlaybackPolicy.shouldSaveOnStop(
+                    isChildPlay: true,
+                    reason: .sessionExpired,
+                    positionSeconds: position
+                  ) else { return nil }
+            return IncompletePlayback.make(videoID: id, positionSeconds: position)
+        }()
         session = next
+        if let incompleteToSave {
+            // Persist cursor before clearing the in-memory player (visa tick expiry bypasses stopScopedPlayback).
+            var stamped = session
+            stamped.replaceLastIncomplete(incompleteToSave)
+            do {
+                try store.save(stamped.snapshot)
+                session = stamped
+                VisaGamesLog.append(
+                    "resume save — 簽證到期記進度 id=\(incompleteToSave.videoID) at=\(Int(incompleteToSave.positionSeconds))s"
+                )
+            } catch {
+                storageFailed = true
+                message = "未能儲存，請家長處理。 / Could not save. Ask a parent."
+                VisaGamesLog.append("resume save FAILED — 簽證到期儲存失敗")
+            }
+        }
         if visaEnded {
             awaitingDeparture = false
             almostHomeSpoken = false
             activePlayVideoID = nil
+            activePlayStartSeconds = nil
+            lastKnownPlaybackSeconds = nil
             let ticket = resolvedPlayTicket
             if suppressNextTimesUp {
                 suppressNextTimesUp = false
@@ -315,13 +348,72 @@ final class AppModel: ObservableObject {
 
     /// Board 4 prelude: child sees preview cards of allowlisted videos (Holiday P0).
     func videoPickerOpened() {
-        VisaGamesLog.append("videoPicker open — 揀片 allowlistCount=\(allowlist.videos.count) viewing=\(remainingViewingBudget(at: Date()))")
+        let resume = resumeCandidate.map { "\($0.videoID)@\(Int($0.positionSeconds))s" } ?? "nil"
+        VisaGamesLog.append(
+            "videoPicker open — 揀片 allowlistCount=\(allowlist.videos.count) viewing=\(remainingViewingBudget(at: Date())) resume=\(resume)"
+        )
+    }
+
+    /// Incomplete cursor still on the allowlist → show Continue on the picker.
+    var resumeCandidate: IncompletePlayback? {
+        IncompletePlaybackPolicy.shouldOfferContinue(
+            incomplete: session.snapshot.lastIncomplete,
+            allowlistContainsID: { allowlist.contains(id: $0) }
+        )
+    }
+
+    /// Child tapped 繼續睇 — resume same id from saved position (does not clear cursor yet).
+    func continueIncompleteVideo() {
+        guard session.mode == .play, !awaitingDeparture,
+              let candidate = resumeCandidate else { return }
+        VisaGamesLog.append(
+            "videoPicker continue — 繼續睇 id=\(candidate.videoID) at=\(Int(candidate.positionSeconds))s"
+        )
+        activePlayStartSeconds = candidate.positionSeconds
+        lastKnownPlaybackSeconds = candidate.positionSeconds
+        let decision = playAllowlisted(id: candidate.videoID)
+        if activePlayVideoID == nil {
+            activePlayStartSeconds = nil
+            VisaGamesLog.append(
+                "videoPicker continue rejected — 未能播放 id=\(candidate.videoID) message=\(playbackMessage ?? "nil")"
+            )
+            if let reason = decision.stopReason,
+               VideoEndRouting.afterPlaybackStopped(reason: reason, isChildPlay: true) == .timesUp {
+                finishPlayVisaToTimesUp(reason: "continueRejected-\(reason.rawValue)")
+            }
+        }
+    }
+
+    func notePlaybackCurrentTime(videoID: String, seconds: TimeInterval) {
+        guard session.mode == .play, activePlayVideoID == videoID,
+              seconds.isFinite, seconds > 0 else { return }
+        lastKnownPlaybackSeconds = seconds
+    }
+
+    private func clearLastIncomplete(reason: String) {
+        guard session.snapshot.lastIncomplete != nil else { return }
+        update { $0.replaceLastIncomplete(nil) }
+        VisaGamesLog.append("resume clear — 清進度 reason=\(reason)")
+    }
+
+    private func persistLastIncomplete(videoID: String, positionSeconds: TimeInterval, reason: String) {
+        guard let cursor = IncompletePlayback.make(videoID: videoID, positionSeconds: positionSeconds) else {
+            return
+        }
+        update { $0.replaceLastIncomplete(cursor) }
+        VisaGamesLog.append(
+            "resume save — 記進度 id=\(cursor.videoID) at=\(Int(cursor.positionSeconds))s reason=\(reason)"
+        )
     }
 
     /// Child tapped a preview card. Same D8 allowlist gate as every other start.
+    /// Any card pick clears the resume cursor and starts from the beginning.
     func pickVideo(id: String) {
         guard session.mode == .play, !awaitingDeparture else { return }
         VisaGamesLog.append("videoPicker pick — 揀咗 id=\(id)")
+        clearLastIncomplete(reason: "pickOther")
+        activePlayStartSeconds = nil
+        lastKnownPlaybackSeconds = nil
         let decision = playAllowlisted(id: id)
         if activePlayVideoID == nil {
             VisaGamesLog.append("videoPicker pick rejected — 未能播放 id=\(id) message=\(playbackMessage ?? "nil")")
@@ -662,7 +754,7 @@ final class AppModel: ObservableObject {
         taskRoundOpen = false
         entryRetryMessage = nil
         playVisaTotalSeconds = ChildDifficulty(rawValue: selectedStars ?? 1)?.seconds
-            ?? TimeInterval((selectedStars ?? 1) * 600)
+            ?? (ChildDifficulty(rawValue: selectedStars ?? 1)?.seconds ?? ChildDifficulty.easy.seconds)
         almostHomeSpoken = false
         awaitingDeparture = true
         showTimesUp = false
@@ -724,7 +816,7 @@ final class AppModel: ObservableObject {
     }
 
     var roadTimerProgress: RoadTimerProgress {
-        let total = playVisaTotalSeconds > 0 ? playVisaTotalSeconds : TimeInterval((selectedStars ?? 1) * 600)
+        let total = playVisaTotalSeconds > 0 ? playVisaTotalSeconds : (ChildDifficulty(rawValue: selectedStars ?? 1)?.seconds ?? ChildDifficulty.easy.seconds)
         guard let endsAt = session.snapshot.endsAt else {
             return RoadTimerProgress(elapsed: total, total: total, remaining: 0)
         }
@@ -882,6 +974,11 @@ final class AppModel: ObservableObject {
         allowlistStore.save(next)
         if activePlayVideoID == id {
             activePlayVideoID = nil
+            activePlayStartSeconds = nil
+            lastKnownPlaybackSeconds = nil
+        }
+        if session.snapshot.lastIncomplete?.videoID == id {
+            clearLastIncomplete(reason: "allowlistRemove")
         }
         refreshParentDraftPreview()
         VisaGamesLog.append("allowlist remove — 移除 id=\(id) count=\(next.videos.count)")
@@ -1038,6 +1135,7 @@ final class AppModel: ObservableObject {
         )
         guard decision.allowed else {
             activePlayVideoID = nil
+            activePlayStartSeconds = nil
             switch decision.stopReason {
             case .notAllowlisted: playbackMessage = "不在准許清單。 / Not allowlisted."
             case .invalidVideoID: playbackMessage = "影片編號無效。 / Invalid video ID."
@@ -1050,7 +1148,12 @@ final class AppModel: ObservableObject {
         }
         activePlayVideoID = id
         playbackMessage = nil
-        if isParentPreview { parentDeadline = Date().addingTimeInterval(parentAccessSeconds) }
+        if isParentPreview {
+            // Parent preview never resumes and never writes the incomplete cursor.
+            activePlayStartSeconds = nil
+            lastKnownPlaybackSeconds = nil
+            parentDeadline = Date().addingTimeInterval(parentAccessSeconds)
+        }
         return decision
     }
 
@@ -1058,8 +1161,21 @@ final class AppModel: ObservableObject {
     /// (was: clear id → picker with a dead budget while the road kept ticking).
     func stopScopedPlayback(reason: PlaybackStopReason) {
         let stoppedID = activePlayVideoID
-        let route = VideoEndRouting.afterPlaybackStopped(reason: reason, isChildPlay: session.mode == .play)
+        let isChild = session.mode == .play
+        let route = VideoEndRouting.afterPlaybackStopped(reason: reason, isChildPlay: isChild)
+        if isChild,
+           let id = stoppedID,
+           IncompletePlaybackPolicy.shouldSaveOnStop(
+            isChildPlay: true,
+            reason: reason,
+            positionSeconds: lastKnownPlaybackSeconds
+           ),
+           let position = lastKnownPlaybackSeconds {
+            persistLastIncomplete(videoID: id, positionSeconds: position, reason: reason.rawValue)
+        }
         activePlayVideoID = nil
+        activePlayStartSeconds = nil
+        lastKnownPlaybackSeconds = nil
         switch reason {
         case .budgetExhausted: playbackMessage = "觀看時間用完，已停止。 / Stopped: budget empty."
         case .sessionExpired: playbackMessage = "簽證到期，已停止。 / Stopped: visa expired."
@@ -1091,14 +1207,23 @@ final class AppModel: ObservableObject {
         )
         switch route {
         case .videoPicker:
+            clearLastIncomplete(reason: "ended")
             activePlayVideoID = nil
+            activePlayStartSeconds = nil
+            lastKnownPlaybackSeconds = nil
             playbackMessage = nil
             VisaGamesLog.append("video ended → picker — 返揀片 visaLeft=\(session.remaining(at: now))s")
             logShellBranch(context: "videoEnded")
         case .timesUp:
+            // Natural end with no time left: clear cursor (video finished).
+            clearLastIncomplete(reason: "ended")
+            activePlayStartSeconds = nil
+            lastKnownPlaybackSeconds = nil
             finishPlayVisaToTimesUp(reason: "videoEnded")
         case .stopPreview:
             activePlayVideoID = nil
+            activePlayStartSeconds = nil
+            lastKnownPlaybackSeconds = nil
             playbackMessage = "影片播完。 / Video finished."
         case .ignore:
             break
@@ -1109,6 +1234,8 @@ final class AppModel: ObservableObject {
     /// seam in `update` shows Time's up (park and sleep). Never used for parent preview.
     private func finishPlayVisaToTimesUp(reason: String) {
         activePlayVideoID = nil
+        activePlayStartSeconds = nil
+        lastKnownPlaybackSeconds = nil
         guard session.mode == .play else { return }
         let now = Date()
         VisaGamesLog.append(
@@ -1152,8 +1279,12 @@ final class AppModel: ObservableObject {
             storageFailed = false
             message = nil
             resetTaskRound()
+            activePlayVideoID = nil
+            activePlayStartSeconds = nil
+            lastKnownPlaybackSeconds = nil
             session = Session(snapshot: fresh, now: Date())
             changed?()
+            VisaGamesLog.append("resetStorage — 重設儲存 (cleared resume cursor)")
         } catch { message = "仍未能儲存。 / Storage is still unavailable." }
     }
 
@@ -1415,8 +1546,10 @@ struct ShellView: View {
             VideoPickerView(
                 ticket: ticket,
                 videos: model.allowlist.videos,
+                resumeCandidate: model.resumeCandidate,
                 message: model.playbackMessage,
                 onPick: { model.pickVideo(id: $0) },
+                onContinue: model.resumeCandidate == nil ? nil : { model.continueIncompleteVideo() },
                 onSpeak: { model.guideSpeakPickVideo() },
                 onAppearLog: model.videoPickerOpened
             )
@@ -1425,10 +1558,12 @@ struct ShellView: View {
             WatchPlaybackView(
                 ticket: ticket,
                 videoID: model.activePlayVideoID,
+                startSeconds: model.activePlayStartSeconds,
                 progress: model.roadTimerProgress,
                 onNavigationRejected: { model.stopScopedPlayback(reason: .navigationRejected) },
                 onPlaybackEnded: { model.handleScopedPlaybackEnded(videoID: $0) },
                 onDurationKnown: { model.recordPlayerDuration(videoID: $0, seconds: $1) },
+                onCurrentTime: { model.notePlaybackCurrentTime(videoID: $0, seconds: $1) },
                 onParentUnlock: { model.unlock() }
             )
             .ignoresSafeArea()

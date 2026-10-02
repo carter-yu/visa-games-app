@@ -51,7 +51,7 @@ Carter chose the canvas over the repo's existing look and approved downloading i
    tablet reports hover, otherwise it appears on touch-down. Every event passes through
    unchanged. Proximity and first-hover log lines answer whether the target Wacom reports hover.
 8. **Unchanged:** kiosk key blocking and presentation, parent authentication, allowlist
-   playback, visa accounting, reward policy (D1–D7; 10 / 20 / 30 minutes), activity content.
+   playback, visa accounting, reward policy (D1–D7; 5 / 10 / 15 minutes as of 2026-10-02), activity content.
 
 ## Decisions closed for UX Phases 2–3 (Carter 2026-09-30)
 

@@ -189,11 +189,14 @@ private struct ConfettiField: View {
 struct WatchPlaybackView: View {
     let ticket: MissionTicket
     let videoID: String?
+    /// Child Continue resume offset (nil = start from beginning).
+    var startSeconds: TimeInterval? = nil
     let progress: RoadTimerProgress
     let onNavigationRejected: () -> Void
     /// v0.12.0: YouTube ended → AppModel routes to picker (time left) or Time's up.
     let onPlaybackEnded: (String) -> Void
     let onDurationKnown: (String, TimeInterval) -> Void
+    var onCurrentTime: ((String, TimeInterval) -> Void)? = nil
     /// 3-second hold on the garage glyph (ADR 0007 §5, Carter 2026-09-30).
     let onParentUnlock: () -> Void
 
@@ -224,9 +227,11 @@ struct WatchPlaybackView: View {
                     if let videoID {
                         ScopedPlayerView(
                             videoID: videoID,
+                            startSeconds: startSeconds,
                             onNavigationRejected: onNavigationRejected,
                             onPlaybackEnded: onPlaybackEnded,
-                            onDurationKnown: onDurationKnown
+                            onDurationKnown: onDurationKnown,
+                            onCurrentTime: onCurrentTime
                         )
                             .clipShape(RoundedRectangle(cornerRadius: metrics.u(20), style: .continuous))
                             .padding(metrics.u(10))

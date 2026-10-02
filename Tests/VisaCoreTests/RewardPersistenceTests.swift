@@ -239,4 +239,30 @@ final class RewardPersistenceTests {
         restored.noteAnswering(durationSeconds: 60)
         expectEqual(restored.availableViewingSeconds(now: now, calendar: calendar), 300)
     }
+
+    func testLastIncompleteRoundTripAndRejectsCorrupt() throws {
+        let (store, directory) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let cursor = IncompletePlayback(videoID: "dQw4w9WgXcQ", positionSeconds: 87)
+        try store.save(Snapshot(configured: true, lastIncomplete: cursor))
+        let loaded = try store.load()
+        expectEqual(loaded.lastIncomplete?.videoID, "dQw4w9WgXcQ")
+        expectEqual(loaded.lastIncomplete?.positionSeconds, 87)
+
+        // Pre-v0.13.0 JSON without lastIncomplete still loads.
+        let legacy = """
+        {"schemaVersion":2,"configured":true,"endsAt":null,"reward":null}
+        """
+        try Data(legacy.utf8).write(to: store.url)
+        let legacyLoaded = try store.load()
+        expectNil(legacyLoaded.lastIncomplete)
+
+        let corrupt = """
+        {"schemaVersion":2,"configured":true,"endsAt":null,"lastIncomplete":{"videoID":"bad","positionSeconds":10}}
+        """
+        try Data(corrupt.utf8).write(to: store.url)
+        expectThrowsError(try store.load())
+    }
+
 }

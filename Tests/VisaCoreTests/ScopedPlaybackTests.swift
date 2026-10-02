@@ -482,6 +482,12 @@ final class ScopedPlaybackTests {
             ScopedPlayerEvent.parse(["event": "apiError", "videoID": sampleID, "detail": "timeout"], expectedVideoID: sampleID),
             .apiUnavailable("timeout")
         )
+        expectEqual(
+            ScopedPlayerEvent.parse(["event": "currentTime", "videoID": sampleID, "seconds": 42.5], expectedVideoID: sampleID),
+            .currentTime(42.5)
+        )
+        expectNil(ScopedPlayerEvent.parse(["event": "currentTime", "videoID": sampleID, "seconds": 0], expectedVideoID: sampleID))
+        expectNil(ScopedPlayerEvent.parse(["event": "currentTime", "videoID": sampleID, "seconds": -1], expectedVideoID: sampleID))
 
         // Debounce: one ended per load; a new load re-arms.
         var latch = PlaybackEndLatch()
@@ -549,4 +555,82 @@ final class ScopedPlaybackTests {
         let again = try JSONDecoder().decode(VideoAllowlist.self, from: JSONEncoder().encode(list))
         expectEqual(again.video(id: sampleID)?.playerDurationSeconds, 301)
     }
+
+
+    // MARK: - v0.13.0 resume start= + incomplete cursor policy
+
+    func testEmbedStartSecondsQuery() {
+        let plain = YouTubeEmbedURL.make(videoID: sampleID)
+        expectTrue(plain != nil)
+        if let plain {
+            let items = URLComponents(url: plain, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            expectTrue(items.first(where: { $0.name == "start" }) == nil)
+        }
+        expectTrue(YouTubeEmbedURL.make(videoID: sampleID, startSeconds: 0) != nil)
+        if let zero = YouTubeEmbedURL.make(videoID: sampleID, startSeconds: 0) {
+            let items = URLComponents(url: zero, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            expectTrue(items.first(where: { $0.name == "start" }) == nil)
+        }
+        let resumed = YouTubeEmbedURL.make(videoID: sampleID, startSeconds: 65.9)
+        expectTrue(resumed != nil)
+        if let resumed {
+            expectTrue(YouTubeEmbedURL.isAllowedEmbedURL(resumed))
+            let items = URLComponents(url: resumed, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            expectEqual(items.first(where: { $0.name == "start" })?.value, "65")
+        }
+        guard let html = YouTubeEmbedURL.embedHTMLString(videoID: sampleID, startSeconds: 90) else {
+            preconditionFailure("resume HTML missing")
+        }
+        expectTrue(html.contains("start=90"))
+        expectTrue(html.contains("resumeStart = 90"))
+        expectTrue(html.contains("currentTime"))
+        expectTrue(html.contains("getCurrentTime"))
+        expectTrue(html.contains("seekTo"))
+        let noStartHTML = YouTubeEmbedURL.embedHTMLString(videoID: sampleID)!
+        expectTrue(noStartHTML.contains("resumeStart = 0"))
+        expectFalse(noStartHTML.contains("start=0"))
+    }
+
+    func testIncompletePlaybackValidationAndPolicy() {
+        expectTrue(IncompletePlayback.make(videoID: sampleID, positionSeconds: 12)?.isValid == true)
+        expectNil(IncompletePlayback.make(videoID: sampleID, positionSeconds: 0))
+        expectNil(IncompletePlayback.make(videoID: sampleID, positionSeconds: -3))
+        expectNil(IncompletePlayback.make(videoID: sampleID, positionSeconds: .nan))
+        expectNil(IncompletePlayback.make(videoID: "bad", positionSeconds: 10))
+
+        expectTrue(IncompletePlaybackPolicy.shouldSaveOnStop(
+            isChildPlay: true, reason: .budgetExhausted, positionSeconds: 30
+        ))
+        expectTrue(IncompletePlaybackPolicy.shouldSaveOnStop(
+            isChildPlay: true, reason: .sessionExpired, positionSeconds: 1
+        ))
+        expectFalse(IncompletePlaybackPolicy.shouldSaveOnStop(
+            isChildPlay: true, reason: .budgetExhausted, positionSeconds: nil
+        ))
+        expectFalse(IncompletePlaybackPolicy.shouldSaveOnStop(
+            isChildPlay: true, reason: .budgetExhausted, positionSeconds: 0
+        ))
+        expectFalse(IncompletePlaybackPolicy.shouldSaveOnStop(
+            isChildPlay: false, reason: .budgetExhausted, positionSeconds: 30
+        ))
+        expectFalse(IncompletePlaybackPolicy.shouldSaveOnStop(
+            isChildPlay: true, reason: .navigationRejected, positionSeconds: 30
+        ))
+
+        let cursor = IncompletePlayback(videoID: sampleID, positionSeconds: 44)
+        let offered = IncompletePlaybackPolicy.shouldOfferContinue(
+            incomplete: cursor,
+            allowlistContainsID: { $0 == sampleID }
+        )
+        expectEqual(offered?.videoID, sampleID)
+        expectNil(IncompletePlaybackPolicy.shouldOfferContinue(
+            incomplete: cursor,
+            allowlistContainsID: { _ in false }
+        ))
+        expectNil(IncompletePlaybackPolicy.shouldOfferContinue(
+            incomplete: nil,
+            allowlistContainsID: { _ in true }
+        ))
+    }
+
 }

@@ -1,5 +1,17 @@
 # Progress
 
+- 2026-10-02: PR (pending) MINOR **v0.13.0 / build 35** — child-play mid-video **resume** + visa tiers **5 / 10 / 15**. Branch `feat/resume-and-visa-tiers` from `main` @ d83b694 (v0.12.0). Do not merge; Mac mini + TV UAT pending.
+  - **Slice A — resume (child play only):** persist `Snapshot.lastIncomplete { videoID, positionSeconds }` when a mid-video stop is visa/budget time-out (not ended, not parent preview, not D8 nav reject). Picker offers **繼續睇** / Continue when that id is still allowlisted; card picks start from 0 and clear the cursor; ended / allowlist remove / storage reset clear it. Embed gains optional `start=` + seekTo; HTML shell polls `getCurrentTime` (~1s) via read-only `visaPlayer` `currentTime` events. Resume must not invent viewing budget (D4). Same allowlisted id only (D8).
+  - **Slice B — tiers:** `ChildDifficulty` / `MissionTicket` / `PlayPresentation.stars` / AppModel star→seconds fallbacks: 1★→5 min, 2★→10, 3★→15 (300/600/900s). Docs ADR 0004 D6 + 0007 + ux brief live labels updated. Parent auto-lock 10 min and parent preview 600s extend unchanged.
+  - Unchanged: kiosk escape blocking, parent LA, D8 navigation gate, provider viewing-budget metering (still open — positive-budget check + absolute visa expiry only).
+  - Tests: Session/Canvas/UX stars + scoped `start=` / `currentTime` / IncompletePlaybackPolicy + Snapshot lastIncomplete round-trip. Linux box: `swift: not found` → no compile/test claim here.
+  - Version: Info.plist **0.13.0 / 35**, parent footer **Visa Games v0.13.0**.
+  - **Mac mini UAT tip for Carter:**
+    1. `git fetch && git checkout feat/resume-and-visa-tiers && git pull`
+    2. `sh scripts/test.sh`; `sh scripts/bundle.sh` → `.build/Visa Games.app` at **0.13.0 / 35**
+    3. Child: start a video, let visa or budget stop mid-play → TimesUp → new visa → picker shows **繼續睇**; Continue resumes; picking another card clears resume. Parent Preview must not leave a Continue cursor.
+    4. Tickets show **5 / 10 / 15 分鐘**.
+
 - 2026-10-01: PR #11 MINOR **v0.12.0 / build 34** — end-of-video flow + parent UX rebuild + quit-crash teardown. Branch `feat/parent-ux-end-video-flow` from `main` @ 511a9b6 (v0.11.6 merge of PR #10). Do not merge; Mac mini + TV UAT pending. Prompt: `prompts/pr-0011-parent-ux-end-video-flow.md`.
   - **Bug A (Carter UAT):** after a ~20 min visa the child picked a ~5 min video; when it ended the UI stayed on the YouTube end / recommendations card while the road still read 「仲有 12 分鐘」. No way to pick another video and no Time's up.
   - **Fix A — detect end:** `YouTubeEmbedURL.make` adds `enablejsapi=1` + `origin=https://www.youtube-nocookie.com`; `embedHTMLString` loads the official IFrame API (`https://www.youtube.com/iframe_api`) and attaches `YT.Player` to the same constructed iframe (`id="visa-player"`). `onStateChange` 0 (plus raw widget `infoDelivery` / `onStateChange` messages from the official embed origin as backup) posts `{event, videoID}` to the read-only `WKScriptMessageHandler` `visaPlayer` (weak proxy; removed in `dismantleNSView`). `ScopedPlayerEvent.parse` (VisaCore) drops other ids; `PlaybackEndLatch` reports one `ended` per load; callback runs on the next main-loop turn. Main-frame navigation rules unchanged (ADR 0003 consequence added).

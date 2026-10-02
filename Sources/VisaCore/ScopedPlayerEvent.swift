@@ -31,6 +31,8 @@ public enum ScopedPlayerEvent: Equatable, Sendable {
     case stateChanged(Int)
     case ended
     case duration(TimeInterval)
+    /// Periodic player position while playing (v0.13.0 resume cursor).
+    case currentTime(TimeInterval)
     case apiUnavailable(String)
 
     /// `window.webkit.messageHandlers.<name>.postMessage(...)` in the embed shell.
@@ -64,6 +66,9 @@ public enum ScopedPlayerEvent: Equatable, Sendable {
         case "duration":
             guard let seconds = positiveSeconds(dict["seconds"]) else { return nil }
             return .duration(seconds)
+        case "currentTime":
+            guard let seconds = positiveSeconds(dict["seconds"]) else { return nil }
+            return .currentTime(seconds)
         case "apiError":
             let detail = (dict["detail"] as? String) ?? "unknown"
             return .apiUnavailable(String(detail.prefix(80)))

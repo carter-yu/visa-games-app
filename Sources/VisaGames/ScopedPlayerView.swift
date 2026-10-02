@@ -13,18 +13,24 @@ import WebKit
 /// allowlisted video reaches the ended state, so the app can leave the YouTube end card.
 struct ScopedPlayerView: NSViewRepresentable {
     let videoID: String
+    /// Resume offset for child Continue (embed `start=` + seekTo). Nil/0 = from beginning.
+    var startSeconds: TimeInterval? = nil
     var onNavigationRejected: (() -> Void)?
     /// Main thread, at most once per loaded video id. Argument is that id.
     var onPlaybackEnded: ((String) -> Void)? = nil
     /// Real video length from the player (display-only metadata for parent cards).
     var onDurationKnown: ((String, TimeInterval) -> Void)? = nil
+    /// Periodic currentTime while playing (child resume cursor). Parent preview may ignore.
+    var onCurrentTime: ((String, TimeInterval) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
             videoID: videoID,
+            startSeconds: startSeconds,
             onNavigationRejected: onNavigationRejected,
             onPlaybackEnded: onPlaybackEnded,
-            onDurationKnown: onDurationKnown
+            onDurationKnown: onDurationKnown,
+            onCurrentTime: onCurrentTime
         )
     }
 
@@ -50,13 +56,21 @@ struct ScopedPlayerView: NSViewRepresentable {
 
     func updateNSView(_ nsView: WKWebView, context: Context) {
         context.coordinator.videoID = videoID
+        context.coordinator.startSeconds = startSeconds
         context.coordinator.onNavigationRejected = onNavigationRejected
         context.coordinator.onPlaybackEnded = onPlaybackEnded
         context.coordinator.onDurationKnown = onDurationKnown
+        context.coordinator.onCurrentTime = onCurrentTime
         context.coordinator.attach(nsView)
-        if context.coordinator.loadedVideoID != videoID {
+        let startChanged = context.coordinator.loadedStartSeconds != normalizedStart(startSeconds)
+        if context.coordinator.loadedVideoID != videoID || startChanged {
             context.coordinator.loadEmbedIfPossible()
         }
+    }
+
+    private func normalizedStart(_ value: TimeInterval?) -> TimeInterval {
+        guard let value, value.isFinite, value >= 1 else { return 0 }
+        return value.rounded(.down)
     }
 
     static func dismantleNSView(_ nsView: WKWebView, coordinator: Coordinator) {
@@ -72,23 +86,30 @@ struct ScopedPlayerView: NSViewRepresentable {
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         var videoID: String
+        var startSeconds: TimeInterval?
         var onNavigationRejected: (() -> Void)?
         var onPlaybackEnded: ((String) -> Void)?
         var onDurationKnown: ((String, TimeInterval) -> Void)?
+        var onCurrentTime: ((String, TimeInterval) -> Void)?
         private(set) var loadedVideoID: String?
+        private(set) var loadedStartSeconds: TimeInterval = 0
         private var endLatch = PlaybackEndLatch()
         private weak var webView: WKWebView?
 
         init(
             videoID: String,
+            startSeconds: TimeInterval?,
             onNavigationRejected: (() -> Void)?,
             onPlaybackEnded: ((String) -> Void)?,
-            onDurationKnown: ((String, TimeInterval) -> Void)?
+            onDurationKnown: ((String, TimeInterval) -> Void)?,
+            onCurrentTime: ((String, TimeInterval) -> Void)?
         ) {
             self.videoID = videoID
+            self.startSeconds = startSeconds
             self.onNavigationRejected = onNavigationRejected
             self.onPlaybackEnded = onPlaybackEnded
             self.onDurationKnown = onDurationKnown
+            self.onCurrentTime = onCurrentTime
         }
 
         func attach(_ view: WKWebView) {
@@ -104,7 +125,9 @@ struct ScopedPlayerView: NSViewRepresentable {
             onNavigationRejected = nil
             onPlaybackEnded = nil
             onDurationKnown = nil
+            onCurrentTime = nil
             loadedVideoID = nil
+            loadedStartSeconds = 0
             endLatch.reset()
         }
 
@@ -124,6 +147,8 @@ struct ScopedPlayerView: NSViewRepresentable {
             case .duration(let seconds):
                 ScopedPlayerLog.append("player duration=\(Int(seconds.rounded()))s videoID=\(current)")
                 onDurationKnown?(current, seconds)
+            case .currentTime(let seconds):
+                onCurrentTime?(current, seconds)
             case .apiUnavailable(let detail):
                 // Video still plays; only end detection is degraded (see PROGRESS UAT).
                 ScopedPlayerLog.append("player api-unavailable detail=\(detail) videoID=\(current)")
@@ -145,16 +170,19 @@ struct ScopedPlayerView: NSViewRepresentable {
         }
 
         func loadEmbedIfPossible() {
-            guard let html = YouTubeEmbedURL.embedHTMLString(videoID: videoID),
-                  let embedURL = YouTubeEmbedURL.make(videoID: videoID) else {
+            let start = (startSeconds?.isFinite == true && (startSeconds ?? 0) >= 1)
+                ? startSeconds!.rounded(.down) : 0
+            guard let html = YouTubeEmbedURL.embedHTMLString(videoID: videoID, startSeconds: start > 0 ? start : nil),
+                  let embedURL = YouTubeEmbedURL.make(videoID: videoID, startSeconds: start > 0 ? start : nil) else {
                 ScopedPlayerLog.append("load skip invalid videoID=\(videoID)")
                 return
             }
             let baseURL = YouTubeEmbedURL.embedHTMLBaseURL()
             loadedVideoID = videoID
+            loadedStartSeconds = start
             endLatch.reset()
             ScopedPlayerLog.append(
-                "load mode=htmlString videoID=\(videoID) embed=\(embedURL.host ?? "")\(embedURL.path) base=\(baseURL.host ?? "")\(baseURL.path)"
+                "load mode=htmlString videoID=\(videoID) start=\(Int(start))s embed=\(embedURL.host ?? "")\(embedURL.path) base=\(baseURL.host ?? "")\(baseURL.path)"
             )
             webView?.loadHTMLString(html, baseURL: baseURL)
         }

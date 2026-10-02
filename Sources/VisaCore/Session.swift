@@ -2,17 +2,26 @@ import Foundation
 
 public struct Snapshot: Codable, Equatable, Sendable {
     /// Current on-disk schema. v1 had configured + endsAt only; v2 adds optional reward state.
+    /// `lastIncomplete` is an additive optional (v0.13.0); old v2 JSON still decodes.
     public var schemaVersion = 2
     public var configured: Bool
     public var endsAt: Date?
     /// Durable reward/allowance state (ADR 0002). Nil means no reward ledger has been recorded yet.
     public var reward: RewardState?
+    /// Last unfinished child-play video cursor (Carter 2026-10-02). Parent preview never writes this.
+    public var lastIncomplete: IncompletePlayback?
 
-    public init(configured: Bool = false, endsAt: Date? = nil, reward: RewardState? = nil) {
+    public init(
+        configured: Bool = false,
+        endsAt: Date? = nil,
+        reward: RewardState? = nil,
+        lastIncomplete: IncompletePlayback? = nil
+    ) {
         self.schemaVersion = 2
         self.configured = configured
         self.endsAt = endsAt
         self.reward = reward
+        self.lastIncomplete = lastIncomplete
     }
 }
 
@@ -97,6 +106,15 @@ public struct Session: Sendable {
         snapshot.reward = reward
     }
 
+    /// Child-play resume cursor. Pass nil to clear. Does not invent viewing time.
+    public mutating func replaceLastIncomplete(_ incomplete: IncompletePlayback?) {
+        if let incomplete {
+            snapshot.lastIncomplete = incomplete.isValid ? incomplete : nil
+        } else {
+            snapshot.lastIncomplete = nil
+        }
+    }
+
     public func remaining(at now: Date) -> Int {
         guard let endsAt = snapshot.endsAt else { return 0 }
         return Int(min(3600, max(0, ceil(endsAt.timeIntervalSince(now)))))
@@ -122,6 +140,9 @@ public struct SnapshotStore: Sendable {
             if let reward = snapshot.reward {
                 try Self.validateRewardState(reward)
             }
+            if let incomplete = snapshot.lastIncomplete, !incomplete.isValid {
+                throw StoreError.corruptState
+            }
             return snapshot
         default:
             throw StoreError.unsupportedSchema
@@ -133,6 +154,9 @@ public struct SnapshotStore: Sendable {
         toSave.schemaVersion = 2
         if let reward = toSave.reward {
             try Self.validateRewardState(reward)
+        }
+        if let incomplete = toSave.lastIncomplete {
+            guard incomplete.isValid else { throw StoreError.corruptState }
         }
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(),
