@@ -54,7 +54,7 @@ final class ActivityTests {
             hintUsed: false
         )
         expectEqual(outcome, .incorrect)
-        // Unknown option also incorrect (gentle retry path in UI).
+        // Unknown option also incorrect (UI applies WrongAnswerPolicy on .incorrect).
         expectEqual(
             evaluator.evaluate(question: question, selectedOptionID: "missing", hintUsed: false),
             .incorrect

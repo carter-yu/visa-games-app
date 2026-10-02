@@ -19,9 +19,9 @@ The first child-path activity is a **two-picture choice** entry gate with large 
 On correct selection:
 
 1. Call existing `RewardLedger.completeEntryActivity` so the configured initial allowance unlocks once (ADR 0002 D1).
-2. Record assisted vs unassisted via `applyCompletion` with a round-unique UUID completion ID and **selected minutes × 60 reward seconds**, subject to the existing viewing cap. Hint used ⇒ assisted.
-3. Wrong answers are a gentle retry only — no invented penalty beyond D7’s recording model.
-4. Viewing budget remains separate from answering time and from absolute visa `endsAt`. Play / allowlisted video still requires existing `PlaybackPolicy` (visa + budget + parent allowlist). The child starts the selected visa through `Session.startPlayVisa`; parent-only `grant` remains separate.
+2. Record assisted vs unassisted via `applyCompletion` with a round-unique UUID completion ID and **earned pending minutes × 60** reward seconds (after any wrong-answer shrinks), subject to the existing viewing cap. Hint used ⇒ assisted.
+3. Wrong answers shrink the **pending award** for this round (Carter 2026-10-02): each incorrect answer halves pending minutes (whole minutes, floor **0**) and starts a **10s Think Pause** (choices locked). When pending hits 0, after the pause the child returns to Depot with no stamp / no visa. Mash taps during pause do not skip or re-penalize. Auto-hint (D7 assisted) remains available after pause when pending > 0. **D2:** answering never burns banked `viewingSeconds` — only pending award shrinks. No parent feature flag.
+4. Viewing budget remains separate from answering time and from absolute visa `endsAt`. Stamp / watch / road bind to **earned** pending at success (ticket stars may stay as difficulty chosen). Play / allowlisted video still requires existing `PlaybackPolicy` (visa + budget + parent allowlist). The child starts the earned visa through `Session.startPlayVisa`; parent-only `grant` remains separate (bypass activity).
 
 ### Cantonese audio
 

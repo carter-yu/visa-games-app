@@ -355,6 +355,16 @@ struct TestRunner {
         ux.testPlaybackStopRouting()
         ux.testIncompletePlaybackPolicyMatchesProductLock()
 
-        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 18 activity + 9 canvas + 4 voice + 4 pen-spark + 10 ux-p2-p3 checks")
+        let wrong = WrongAnswerPolicyTests()
+        wrong.testHalveChainsFifteenTenFiveToZero()
+        wrong.testTapsIgnoredDuringPause()
+        wrong.testEveryMissStartsPauseDurationAndDepotAtZero()
+        wrong.testCorrectAwardsReducedPendingSeconds()
+        wrong.testRoadTilesFollowEarnedMinutesStarsIndependent()
+        wrong.testParentGrantPathUntouchedByPolicy()
+        wrong.testTraditionalOnlyCopy()
+        wrong.testReducedPendingAwardsViaLedgerWithoutBurningBankOnMiss()
+
+        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 18 activity + 9 canvas + 4 voice + 4 pen-spark + 10 ux-p2-p3 + 8 wrong-answer-policy checks")
     }
 }

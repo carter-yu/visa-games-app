@@ -13,6 +13,7 @@ enum ChoiceFeedback: Equatable {
 struct ChoiceCardChrome<Content: View>: View {
     let feedback: ChoiceFeedback
     let isHintTarget: Bool
+    var isInteractionEnabled: Bool = true
     let action: () -> Void
     @ViewBuilder let content: () -> Content
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -43,6 +44,8 @@ struct ChoiceCardChrome<Content: View>: View {
             .shadow(color: Color.ink.opacity(0.18), radius: 0, x: 0, y: metrics.u(8))
         }
         .buttonStyle(BouncyChildButtonStyle())
+        .disabled(!isInteractionEnabled)
+        .allowsHitTesting(isInteractionEnabled)
         .onChange(of: feedback) { newValue in
             applyFeedback(newValue)
         }

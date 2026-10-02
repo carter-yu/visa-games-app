@@ -34,11 +34,18 @@ public struct SpokenPrompt: Equatable, Sendable {
     public static let pickVideo = SpokenPrompt(
         key: "play.pickVideo", traditionalChinese: "揀片睇！", english: "Pick a video!")
 
+    /// Wrong-answer pending-fuel exhausted → Depot (Carter 2026-10-02).
+    public static let outOfFuelDepot = SpokenPrompt(
+        key: "activity.outOfFuel",
+        traditionalChinese: WrongAnswerCopy.returnDepotTraditionalChinese,
+        english: WrongAnswerCopy.returnDepotEnglish)
+
     public static let allDepotLines: [SpokenPrompt] = [depotPickTicket]
 
     /// All interim spoken lines (Depot + UX P2/P3). Extended in UX Phase 5 with recorded clips.
     public static let allUXLines: [SpokenPrompt] = [
-        depotPickTicket, stamped, departGo, pickVideo, almostHome, timesUpPark, emptyAllowlist
+        depotPickTicket, stamped, departGo, pickVideo, almostHome, timesUpPark, emptyAllowlist,
+        outOfFuelDepot
     ]
 
     public static func timesUp(for ticket: MissionTicket) -> SpokenPrompt {

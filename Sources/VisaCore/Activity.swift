@@ -435,7 +435,7 @@ public enum ActivityEvaluation: Sendable, Equatable {
     case incorrect
 }
 
-/// Pure evaluators for entry activities. Wrong answers are gentle retries (no invented penalty).
+/// Pure evaluators for entry activities. Incorrect → UI applies WrongAnswerPolicy (pending shrink + Think Pause).
 public struct ActivityEvaluator: Sendable {
     public init() {}
 

@@ -41,11 +41,25 @@ final class AppModel: ObservableObject {
     @Published private(set) var playbackMessage: String?
     @Published private(set) var entryRetryMessage: String?
     @Published private(set) var entryHintUsed = false
-    /// Incorrect taps this round; auto-hint at 2 (D7 assisted).
+    /// Incorrect taps this round; auto-hint at 2 (D7 assisted) after Think Pause when pending > 0.
     @Published private(set) var entryMissCount = 0
     @Published private(set) var lastIncorrectChoiceID: String? = nil
     @Published private(set) var lastCorrectChoiceID: String? = nil
     @Published private(set) var activityJustCompleted = false
+    /// Pending visa minutes for this round (starts at chosen 5/10/15; halved on each miss; floor 0).
+    @Published private(set) var pendingAwardMinutes = 0
+    /// Ticket minutes when the round opened (fuel gauge denominator).
+    @Published private(set) var roundStartingMinutes = 0
+    /// Absolute end of the current Think Pause; nil when choices are unlocked.
+    private var thinkPauseEndsAt: Date? = nil
+    /// Whole seconds remaining on Think Pause (UI countdown). 0 = unlocked.
+    @Published private(set) var thinkPauseRemainingSeconds = 0
+    /// Earned minutes frozen at success (stamp/watch/road). Stars stay as difficulty chosen.
+    @Published private(set) var earnedAwardMinutes = 0
+    /// Soft status line after fuel-halve (cleared when pause ends or round resets).
+    @Published private(set) var fuelFeedbackMessage: String? = nil
+    /// Choices locked during Think Pause (mash ignored).
+    var choicesLocked: Bool { thinkPauseEndsAt != nil }
     /// Board 3 stamp gate — visa already running; Go reveals watch UI.
     @Published private(set) var awaitingDeparture = false
     /// Board 5 park-and-sleep after visa expiry.
@@ -193,6 +207,7 @@ final class AppModel: ObservableObject {
     func tick() {
         now = Date()
         let current = now
+        advanceThinkPauseIfNeeded(now: current)
         let modeBefore = session.mode
         update { $0.tick(now: current) }
         if session.mode != modeBefore {
@@ -465,8 +480,18 @@ final class AppModel: ObservableObject {
         shadowMatchQuestion = ActivityCatalog.shadowMatchQuestion()
         emptyBayQuestion = ActivityCatalog.emptyBayQuestion()
         sequenceTappedAssetIDs = []
+        if let difficulty = ChildDifficulty(rawValue: stars) {
+            pendingAwardMinutes = difficulty.minutes
+            roundStartingMinutes = difficulty.minutes
+        } else {
+            pendingAwardMinutes = 0
+            roundStartingMinutes = 0
+        }
+        earnedAwardMinutes = 0
+        fuelFeedbackMessage = nil
+        clearThinkPause()
         taskRoundOpen = true
-        VisaGamesLog.append("selectDifficulty — 選擇難度 stars=\(stars) kind=\(kind.rawValue) seed=\(seed)")
+        VisaGamesLog.append("selectDifficulty — 選擇難度 stars=\(stars) kind=\(kind.rawValue) seed=\(seed) pendingMin=\(pendingAwardMinutes)")
     }
 
     private func resetTaskRound() {
@@ -480,6 +505,11 @@ final class AppModel: ObservableObject {
         lastCorrectChoiceID = nil
         activityJustCompleted = false
         entryRetryMessage = nil
+        pendingAwardMinutes = 0
+        roundStartingMinutes = 0
+        earnedAwardMinutes = 0
+        fuelFeedbackMessage = nil
+        clearThinkPause()
         // Keep activePlayVideoID / awaitingDeparture under caller's control during play.
         playbackMessage = nil
         successFeedbackID = nil
@@ -488,6 +518,7 @@ final class AppModel: ObservableObject {
 
     func useEntryHint() {
         guard session.mode == .lock, taskRoundOpen, let kind = activeActivityKind else { return }
+        guard !choicesLocked else { return }
         entryHintUsed = true
         entryRetryMessage = ActivityCatalog.hintTraditionalChinese(for: kind)
     }
@@ -538,6 +569,7 @@ final class AppModel: ObservableObject {
 
     func selectEntryOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .twoPictureChoose else { return }
+        guard !choicesLocked else { return }
         guard !storageFailed else {
             VisaGamesLog.append("selectEntryOption blocked — 已封鎖 storageFailed=true id=\(id)")
             return
@@ -552,6 +584,7 @@ final class AppModel: ObservableObject {
 
     func selectFindSameOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .findTheSame else { return }
+        guard !choicesLocked else { return }
         guard !storageFailed else {
             VisaGamesLog.append("selectFindSameOption blocked — 已封鎖 storageFailed=true id=\(id)")
             return
@@ -566,6 +599,7 @@ final class AppModel: ObservableObject {
 
     func selectCountChoice(_ count: Int) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .countVehicles else { return }
+        guard !choicesLocked else { return }
         guard !storageFailed else {
             VisaGamesLog.append("selectCountChoice blocked — 已封鎖 storageFailed=true count=\(count)")
             return
@@ -580,6 +614,7 @@ final class AppModel: ObservableObject {
 
     func selectSequenceAsset(id assetID: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .sequenceShortToLong else { return }
+        guard !choicesLocked else { return }
         guard !storageFailed else {
             VisaGamesLog.append("selectSequenceAsset blocked — 已封鎖 storageFailed=true asset=\(assetID)")
             return
@@ -610,6 +645,7 @@ final class AppModel: ObservableObject {
 
     func selectHalfMatchOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .halfMatch else { return }
+        guard !choicesLocked else { return }
         guard !storageFailed else {
             VisaGamesLog.append("selectHalfMatchOption blocked — 已封鎖 storageFailed=true id=\(id)")
             return
@@ -624,6 +660,7 @@ final class AppModel: ObservableObject {
 
     func selectShapeCousinOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .shapeCousin else { return }
+        guard !choicesLocked else { return }
         guard !storageFailed else {
             VisaGamesLog.append("selectShapeCousinOption blocked — 已封鎖 storageFailed=true id=\(id)")
             return
@@ -638,6 +675,7 @@ final class AppModel: ObservableObject {
 
     func selectCapacityOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .capacityCompare else { return }
+        guard !choicesLocked else { return }
         guard !storageFailed else {
             VisaGamesLog.append("selectCapacityOption blocked — 已封鎖 storageFailed=true id=\(id)")
             return
@@ -652,6 +690,7 @@ final class AppModel: ObservableObject {
 
     func selectMoreFewerSide(_ side: ParkingLotSide) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .moreFewer else { return }
+        guard !choicesLocked else { return }
         guard !storageFailed else {
             VisaGamesLog.append("selectMoreFewerSide blocked — 已封鎖 storageFailed=true side=\(side.rawValue)")
             return
@@ -666,6 +705,7 @@ final class AppModel: ObservableObject {
 
     func selectShadowMatchOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .shadowMatch else { return }
+        guard !choicesLocked else { return }
         guard !storageFailed else {
             VisaGamesLog.append("selectShadowMatchOption blocked — 已封鎖 storageFailed=true id=\(id)")
             return
@@ -680,6 +720,7 @@ final class AppModel: ObservableObject {
 
     func selectEmptyBay(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .emptyBay else { return }
+        guard !choicesLocked else { return }
         guard !storageFailed else {
             VisaGamesLog.append("selectEmptyBay blocked — 已封鎖 storageFailed=true id=\(id)")
             return
@@ -693,29 +734,43 @@ final class AppModel: ObservableObject {
     }
 
     private func handleEvaluation(_ evaluation: ActivityEvaluation, selectionLabel: String) {
+        guard WrongAnswerPolicy.shouldAcceptChoiceInput(choicesLocked: choicesLocked) else {
+            VisaGamesLog.append("activity input ignored — Think Pause mash selection=\(selectionLabel)")
+            return
+        }
         switch evaluation {
         case .incorrect:
+            // Order: feedback → halve pending → 10s Think Pause → (0 after pause) Depot else unlock (+ hint).
             entryMissCount += 1
             lastIncorrectChoiceID = selectionLabel
             lastCorrectChoiceID = nil
-            entryRetryMessage = nil // no fail text — soft wiggle only (board 7)
-            VisaGamesLog.append("activity incorrect — 答錯 selection=\(selectionLabel) kind=\(activeActivityKind?.rawValue ?? "nil") misses=\(entryMissCount) hintUsed=\(entryHintUsed)")
-            if ActivityHintPolicy.shouldAutoHint(afterMissCount: entryMissCount), !entryHintUsed {
-                useEntryHint()
-                speakEntryPrompt()
-                VisaGamesLog.append("auto-hint — 自動提示 after misses=\(entryMissCount) → assisted")
-            }
+            entryRetryMessage = nil
+            let before = pendingAwardMinutes
+            pendingAwardMinutes = WrongAnswerPolicy.halvedPendingMinutes(pendingAwardMinutes)
+            fuelFeedbackMessage = WrongAnswerCopy.fuelHalvedTraditionalChinese
+            VisaGamesLog.append(
+                "activity incorrect — 答錯 selection=\(selectionLabel) kind=\(activeActivityKind?.rawValue ?? "nil") misses=\(entryMissCount) pending \(before)→\(pendingAwardMinutes) hintUsed=\(entryHintUsed)"
+            )
             let flashed = selectionLabel
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
                 if self?.lastIncorrectChoiceID == flashed {
                     self?.lastIncorrectChoiceID = nil
                 }
             }
+            beginThinkPause(now: Date())
         case .correct(let assisted):
+            guard pendingAwardMinutes > 0 else {
+                // Should not reach stamp with 0 fuel; send to Depot safely.
+                VisaGamesLog.append("activity correct blocked — pending=0 → depot")
+                returnToDepotOutOfFuel()
+                return
+            }
             lastCorrectChoiceID = selectionLabel
             lastIncorrectChoiceID = nil
             activityJustCompleted = true
-            VisaGamesLog.append("activity correct — 答對 selection=\(selectionLabel) kind=\(activeActivityKind?.rawValue ?? "nil") assisted=\(assisted)")
+            VisaGamesLog.append(
+                "activity correct — 答對 selection=\(selectionLabel) kind=\(activeActivityKind?.rawValue ?? "nil") assisted=\(assisted) earnedMin=\(pendingAwardMinutes)"
+            )
             applyEntrySuccess(assisted: assisted)
         }
     }
@@ -724,8 +779,14 @@ final class AppModel: ObservableObject {
         let now = Date()
         let calendar = budgetCalendar
         guard taskRoundOpen, session.mode == .lock,
-              let stars = selectedStars, let difficulty = ChildDifficulty(rawValue: stars),
+              let stars = selectedStars, ChildDifficulty(rawValue: stars) != nil,
               let completionID = roundCompletionID else { return }
+        let earnedMinutes = pendingAwardMinutes
+        let awardSeconds = WrongAnswerPolicy.awardSeconds(fromPendingMinutes: earnedMinutes)
+        guard earnedMinutes > 0, awardSeconds > 0 else {
+            returnToDepotOutOfFuel()
+            return
+        }
         let kind: SuccessKind = assisted ? .assisted : .unassisted
         update { session in
             var ledger: RewardLedger
@@ -739,29 +800,31 @@ final class AppModel: ObservableObject {
                 ))
             }
             _ = ledger.completeEntryActivity(now: now, calendar: calendar)
-            // Each round records D7 and banks viewing time subject to the existing cap.
+            // Bank earned pending (may be reduced by wrongs); D7 kind still assisted/unassisted.
             _ = ledger.applyCompletion(
                 id: completionID,
-                rewardSeconds: difficulty.seconds,
+                rewardSeconds: awardSeconds,
                 kind: kind,
                 now: now,
                 calendar: calendar
             )
             session.replaceRewardState(ledger.exportState())
-            session.startPlayVisa(seconds: difficulty.seconds, now: now)
+            session.startPlayVisa(seconds: awardSeconds, now: now)
         }
         guard !storageFailed, session.mode == .play else { return }
         taskRoundOpen = false
         entryRetryMessage = nil
-        playVisaTotalSeconds = ChildDifficulty(rawValue: selectedStars ?? 1)?.seconds
-            ?? (ChildDifficulty(rawValue: selectedStars ?? 1)?.seconds ?? ChildDifficulty.easy.seconds)
+        fuelFeedbackMessage = nil
+        clearThinkPause()
+        earnedAwardMinutes = earnedMinutes
+        playVisaTotalSeconds = awardSeconds
         almostHomeSpoken = false
         awaitingDeparture = true
         showTimesUp = false
         triggerSuccessFeedback()
         guideVoice.speak(.stamped)
         VisaGamesLog.append(
-            "applyEntrySuccess — 入口成功 assisted=\(assisted) entryCompleted=\(isEntryActivityCompleted) viewing=\(remainingViewingBudget(at: Date())) mode=\(session.mode) stampGate=true"
+            "applyEntrySuccess — 入口成功 assisted=\(assisted) earnedMin=\(earnedMinutes) entryCompleted=\(isEntryActivityCompleted) viewing=\(remainingViewingBudget(at: Date())) mode=\(session.mode) stampGate=true"
         )
         logShellBranch(context: "applyEntrySuccess")
         // v0.11.0: no pre-selected video. Stamp 「出發！」 → VideoPickerView lets the child choose
@@ -795,6 +858,61 @@ final class AppModel: ObservableObject {
         // End the active visa (child left play); skip park-and-sleep and return to depot.
         update { $0.endPlayVisa(now: Date()) }
         VisaGamesLog.append("returnFromEmptyAllowlist — 返回車廠")
+    }
+
+    // MARK: - Wrong-answer Think Pause (pending shrink)
+
+    private func clearThinkPause() {
+        thinkPauseEndsAt = nil
+        thinkPauseRemainingSeconds = 0
+    }
+
+    private func beginThinkPause(now: Date) {
+        thinkPauseEndsAt = now.addingTimeInterval(TimeInterval(WrongAnswerPolicy.thinkPauseSeconds))
+        thinkPauseRemainingSeconds = WrongAnswerPolicy.thinkPauseSeconds
+        VisaGamesLog.append(
+            "think-pause start — 停一停 pendingMin=\(pendingAwardMinutes) secs=\(WrongAnswerPolicy.thinkPauseSeconds)"
+        )
+        changed?()
+    }
+
+    private func advanceThinkPauseIfNeeded(now: Date) {
+        guard let ends = thinkPauseEndsAt else { return }
+        let remaining = max(0, Int(ceil(ends.timeIntervalSince(now))))
+        if remaining != thinkPauseRemainingSeconds {
+            thinkPauseRemainingSeconds = remaining
+        }
+        if remaining == 0 {
+            thinkPauseEndsAt = nil
+            finishThinkPause()
+        }
+    }
+
+    private func finishThinkPause() {
+        thinkPauseRemainingSeconds = 0
+        fuelFeedbackMessage = nil
+        if WrongAnswerPolicy.shouldReturnToDepot(pendingMinutes: pendingAwardMinutes) {
+            VisaGamesLog.append("think-pause end — pending=0 → depot")
+            returnToDepotOutOfFuel()
+            return
+        }
+        VisaGamesLog.append(
+            "think-pause end — unlock pendingMin=\(pendingAwardMinutes) misses=\(entryMissCount)"
+        )
+        // Existing assisted/hint rescue still helps when fuel remains.
+        if ActivityHintPolicy.shouldAutoHint(afterMissCount: entryMissCount), !entryHintUsed {
+            useEntryHint()
+            speakEntryPrompt()
+            VisaGamesLog.append("auto-hint — 自動提示 after pause misses=\(entryMissCount) → assisted")
+        }
+        changed?()
+    }
+
+    private func returnToDepotOutOfFuel() {
+        guideVoice.speak(.outOfFuelDepot)
+        VisaGamesLog.append("returnToDepotOutOfFuel — 油用晒 返車廠")
+        resetTaskRound()
+        changed?()
     }
 
     var selectedMissionTicket: MissionTicket? {
@@ -1532,6 +1650,9 @@ struct ShellView: View {
         case .stamp:
             StampSuccessView(
                 ticket: ticket,
+                earnedMinutes: model.earnedAwardMinutes > 0
+                    ? model.earnedAwardMinutes
+                    : (model.targetVisaMinutes ?? ticket.difficulty.minutes),
                 onGo: model.confirmDeparture,
                 onSpeak: { model.guideSpeakStamped() }
             )
