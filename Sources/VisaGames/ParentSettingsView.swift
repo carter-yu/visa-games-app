@@ -17,7 +17,7 @@ struct ParentSettingsView: View {
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.18.0"
+    static let versionLabel = "Visa Games v0.19.0"
 
     private enum ParentLibrary { case videos, games }
 

@@ -194,6 +194,84 @@ final class ChildUXProgressTests {
             isChildPlay: true, reason: .sessionExpired, positionSeconds: 20
         ))
     }
+
+    /// v0.19.0: one Fisher–Yates of the full allowlist per visit seed. Pages are slices.
+    func testVideoPickerDeckIsStableAndNotAlwaysCatalogOrder() {
+        let catalog = (0..<11).map { "id-\($0)" }
+        var differed = false
+        var sample = catalog
+        for index in 0..<48 {
+            let seed = "visit-\(index)"
+            let once = VideoPickerDeck.ordered(catalog, seed: seed)
+            let twice = VideoPickerDeck.ordered(catalog, seed: seed)
+            expectEqual(once, twice)
+            expectEqual(Set(once), Set(catalog))
+            if once != catalog {
+                differed = true
+                sample = once
+                // Page 1 is the first 8 of that deck, not a shuffle of a page.
+                expectEqual(VideoPickerDeck.page(once, index: 0), Array(once.prefix(8)))
+                expectEqual(VideoPickerDeck.page(once, index: 1), Array(once.dropFirst(8)))
+                expectEqual(VideoPickerDeck.page(once, index: 1).count, 3)
+                break
+            }
+        }
+        expectTrue(differed)
+        expectEqual(sample.count, 11)
+
+        // 0 videos: not a picker page. 1 video: one card, no pager. 2–8: one page. 9+: pager.
+        expectEqual(VideoPickerDeck.pageCount(itemCount: 0), 0)
+        expectFalse(VideoPickerDeck.showsPager(itemCount: 0))
+        expectEqual(VideoPickerDeck.ordered(["only"], seed: "solo"), ["only"])
+        expectEqual(VideoPickerDeck.pageCount(itemCount: 1), 1)
+        expectFalse(VideoPickerDeck.showsPager(itemCount: 1))
+        expectEqual(VideoPickerDeck.pageCount(itemCount: 8), 1)
+        expectFalse(VideoPickerDeck.showsPager(itemCount: 8))
+        let eight = (0..<8).map { "e\($0)" }
+        var eightDiffered = false
+        for index in 0..<24 {
+            let seed = "page-\(index)"
+            let eightDeck = VideoPickerDeck.ordered(eight, seed: seed)
+            expectEqual(eightDeck, VideoPickerDeck.ordered(eight, seed: seed))
+            expectEqual(Set(eightDeck), Set(eight))
+            expectEqual(VideoPickerDeck.page(eightDeck, index: 0), eightDeck)
+            expectTrue(VideoPickerDeck.page(eightDeck, index: 1).isEmpty)
+            if eightDeck != eight { eightDiffered = true }
+        }
+        expectTrue(eightDiffered)
+        expectEqual(VideoPickerDeck.pageCount(itemCount: 9), 2)
+        expectTrue(VideoPickerDeck.showsPager(itemCount: 9))
+        // Same items, different visit seed, can differ. A refresh of one seed cannot.
+        let other = VideoPickerDeck.ordered(catalog, seed: "visit-other")
+        expectEqual(other, VideoPickerDeck.ordered(catalog, seed: "visit-other"))
+    }
+
+    /// v0.19.0: dock is a pure function of the visit seed, one of three x positions, y fixed.
+    func testBayDockIsStableAcrossRefreshAndUsesThreeBays() {
+        let seed = "stamp-gate"
+        let dock = BayDock.chosen(seed: seed)
+        expectEqual(dock, BayDock.chosen(seed: seed))
+        expectEqual(BayDock.canvasY, 560)
+        let allowed = [BayDock.left.leadingX, BayDock.center.leadingX, BayDock.right.leadingX]
+        expectEqual(allowed, [72, 400, 760])
+        expectTrue(allowed.contains(dock.leadingX))
+        for bay in BayDock.allCases {
+            expectTrue(bay.leadingX + BayDock.pairBudget <= BayDock.clearLeadingEdge)
+            expectEqual(BayDock.canvasY, 560)
+        }
+        var seen = Set<Int>()
+        for index in 0..<80 {
+            let bay = BayDock.chosen(seed: "dock-\(index)")
+            expectEqual(bay, BayDock.chosen(seed: "dock-\(index)"))
+            expectTrue(allowed.contains(bay.leadingX))
+            seen.insert(bay.leadingX)
+        }
+        expectEqual(seen, Set(allowed))
+        // Time's up uses its own seed string; a stamp seed and a times-up seed are independent calls.
+        let timesUp = BayDock.chosen(seed: "times-up-visit")
+        expectEqual(timesUp, BayDock.chosen(seed: "times-up-visit"))
+        expectTrue(allowed.contains(timesUp.leadingX))
+    }
 }
 
 

@@ -1,5 +1,14 @@
 # Progress
 
+- 2026-10-04: PR (pending) MINOR **v0.19.0 / build 41** — Shuffle the video picker once per visit, and dock 「出發！」 / 「再揀車票」 in one of three parking bays. Branch `feat/shuffle-picker-and-docks` from `main` @ 4058370 (same tree as v0.18.0 `47a8541`). Do not merge. No kiosk launch.
+
+  - **Picker:** `VideoPickerDeck` Fisher–Yates via `ActivityChoiceOrder.shuffled(_:seed:)` on the full allowlist. Pages are 8-card slices (4×2). Empty slots stay at the end of the last page. Seed is in-memory, minted when the route becomes the picker (「出發！」, Resume Choice 「揀片睇」, clip ended with time left, or a child stop that returns to the picker). Not minted in `onAppear` or `body`. A refused pick does not roll the seed. Not `VideoPlaybackShuffle`. Not UserDefaults. 0 videos stays on the empty bay.
+  - **Docks:** `BayDock` leading x 72 / 400 / 760, y 560. Departure seed minted in `applyEntrySuccess` when `awaitingDeparture` becomes true. Time's up seed minted when `showTimesUp` becomes true, not from `choiceDealSeed` (cleared by `resetTaskRound()`). First frame is already in the bay. Optional 0.12s scale settle; Reduce Motion skips it. Vehicle still drives off locally (+160). No decoy. Button size unchanged. Right bay + ~380 pair budget ends by x 1140.
+  - Version: Info.plist **0.19.0 / 41**, parent footer **Visa Games v0.19.0**.
+  - Tests: +2 ux (`testVideoPickerDeckIsStableAndNotAlwaysCatalogOrder`, `testBayDockIsStableAcrossRefreshAndUsesThreeBays`) → PASS banner **13 ux-p2-p3**.
+  - **Mac mini toolchain (2026-10-04 00:12 HKT):** `sh scripts/test.sh` → PASS (**13 ux-p2-p3** + full banner); `sh scripts/bundle.sh` → `.build/Visa Games.app` **0.19.0 / 41**; `sh scripts/install-mac-mini.sh` → `/Applications/Visa Games.app` **0.19.0 / 41** + Desktop alias. Not running. No kiosk launch. No merge.
+
+
 - 2026-10-03: PR (pending) MINOR **v0.18.0 / build 40** — Shuffle choice slots so a position is not the answer. Same branch `feat/parent-settings-games-catalog` (open PR #16). Do not merge. No kiosk launch.
   - **Deal:** `choiceDealSeed` (child round UUID) and `playtestChoiceDealSeed` (new UUID per playtest) are the only stored order state. `ActivityChoiceOrder` / `presented*` is a pure Fisher–Yates of that seed via `SeededGenerator`, so a wrong tap or SwiftUI refresh does not reshuffle. Catalog correct ids / short→long tap order / count value / fuller lot / empty bay id are unchanged.
   - **Kinds:** twoPicture, findSame, count (numeral buttons, not a number line), sequence (all vehicles stay in dealt slots; stimulus is a short→long cue, not the answer row), halfMatch, shapeCousin, capacity (preview uses the same order), moreFewer (lots swap screens; side label follows the screen), shadow, emptyBay (preview uses the same order). Legacy boards take the same seed. Live path is `CanvasActivityHost`, including parent playtest.
