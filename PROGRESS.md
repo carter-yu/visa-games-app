@@ -1,5 +1,12 @@
 # Progress
 
+- 2026-10-03: PR (pending) MINOR **v0.18.0 / build 40** — Shuffle choice slots so a position is not the answer. Same branch `feat/parent-settings-games-catalog` (open PR #16). Do not merge. No kiosk launch.
+  - **Deal:** `choiceDealSeed` (child round UUID) and `playtestChoiceDealSeed` (new UUID per playtest) are the only stored order state. `ActivityChoiceOrder` / `presented*` is a pure Fisher–Yates of that seed via `SeededGenerator`, so a wrong tap or SwiftUI refresh does not reshuffle. Catalog correct ids / short→long tap order / count value / fuller lot / empty bay id are unchanged.
+  - **Kinds:** twoPicture, findSame, count (numeral buttons, not a number line), sequence (all vehicles stay in dealt slots; stimulus is a short→long cue, not the answer row), halfMatch, shapeCousin, capacity (preview uses the same order), moreFewer (lots swap screens; side label follows the screen), shadow, emptyBay (preview uses the same order). Legacy boards take the same seed. Live path is `CanvasActivityHost`, including parent playtest.
+  - Version: Info.plist **0.18.0 / 40**, parent footer **Visa Games v0.18.0**.
+  - Tests: +1 activity (`testChoiceOrderIsStableAndNotAlwaysCatalog`) → PASS banner **19 activity**.
+
+
 - 2026-10-03: PR (pending) MINOR **v0.17.0 / build 39** — Parent settings game catalog. Branch `feat/parent-settings-games-catalog` from `main` @ 7547988 (v0.16.0 PR #15). Do not merge; Mac mini toolchain after push. No kiosk launch.
   - **Carter lock (2026-10-03):** chunky segment **影片 | 遊戲** under the test row (test/theme stay pinned; Advanced at the bottom; stale four-game sentence deleted). One card per built `ActivityKind` (10): static art, HK title, ★1/★2/★3 toggles (multi-star). All-off hides the game from missions but it stays playtestable. Last star on a tier cannot turn off (banner「每個星級至少要有一個遊戲」). Unbuilt ADR genres are one muted「未做好」row, not fake cards. Playtest cover keeps `session.mode == .parent`, same child board + zh-HK prompt, no visa/stamp/ledger, **返回家長**, wrong answers local only. Child `selectDifficulty` deals from that star's on-set. UserDefaults beside the allowlist; `resetStorage` does not clear it; missing store = all on.
   - **Code:** `MissionGameAssignment` + store; parent names on `ActivityKind`; `ParentSettingsView` segment + grid; `ParentGameCard`; `ParentPlaytestCover`; `CanvasActivityHost` playtest path does not use `.lock` selectors. Info.plist **0.17.0 / 39**; footer **Visa Games v0.17.0**. Design: `docs/designs/parent-settings-games-catalog.md`.

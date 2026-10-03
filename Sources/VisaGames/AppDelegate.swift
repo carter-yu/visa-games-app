@@ -32,6 +32,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var playtestThinkRemaining = 0
     @Published private(set) var playtestFuelMessage: String?
     @Published private(set) var playtestSequenceTaps: [String] = []
+    /// New UUID each playtest. Choice order is a function of this, not the catalog id.
+    @Published private(set) var playtestChoiceDealSeed = ""
     private var playtestThinkEndsAt: Date?
     var isParentPlaytest: Bool { playtestKind != nil && session.mode == .parent }
     var playtestChoicesLocked: Bool { playtestThinkEndsAt != nil || playtestCompleted }
@@ -113,6 +115,8 @@ final class AppModel: ObservableObject {
     private var shadowMatchQuestion = ActivityCatalog.shadowMatchQuestion()
     private var emptyBayQuestion = ActivityCatalog.emptyBayQuestion()
     @Published private(set) var sequenceTappedAssetIDs: [String] = []
+    /// New UUID each child round (`selectDifficulty`). Not the catalog completion id.
+    @Published private(set) var choiceDealSeed = ""
     private let activityEvaluator = ActivityEvaluator()
     /// Canvas guide voice (interim zh-HK system voice, ADR 0007). Also drives activity prompts.
     private let guideVoice = SystemSpeechPrompt()
@@ -522,6 +526,7 @@ final class AppModel: ObservableObject {
         selectedStars = stars
         let seed = UUID().uuidString
         roundCompletionID = seed
+        choiceDealSeed = seed
         let pool = gameAssignment.pool(for: difficulty)
         let kind = ActivityCatalog.kind(forRoundSeed: seed, pool: pool)
         activeActivityKind = kind
@@ -566,6 +571,7 @@ final class AppModel: ObservableObject {
         playbackMessage = nil
         successFeedbackID = nil
         sequenceTappedAssetIDs = []
+        choiceDealSeed = ""
     }
 
     func useEntryHint() {
@@ -1478,6 +1484,7 @@ final class AppModel: ObservableObject {
         playtestStartingMinutes = 5
         playtestFuelMessage = nil
         playtestSequenceTaps = []
+        playtestChoiceDealSeed = UUID().uuidString
         clearPlaytestThinkPause()
         VisaGamesLog.append("playtest start — 試玩 kind=\(kind.rawValue) mode=parent visa=false")
     }
@@ -1735,6 +1742,7 @@ final class AppModel: ObservableObject {
         playtestStartingMinutes = 5
         playtestFuelMessage = nil
         playtestSequenceTaps = []
+        playtestChoiceDealSeed = ""
         clearPlaytestThinkPause()
         VisaGamesLog.append("playtest discard — 試玩收起 reason=\(reason)")
     }
@@ -2218,6 +2226,7 @@ struct ShellView: View {
             case .findTheSame:
                 FindSameActivityView(
                     question: model.currentFindSameQuestion,
+                    dealSeed: model.choiceDealSeed,
                     accent: accent,
                     yellow: yellow,
                     foreground: Color(rgb: theme.foreground),
@@ -2231,6 +2240,7 @@ struct ShellView: View {
             case .countVehicles:
                 CountActivityView(
                     question: model.currentCountQuestion,
+                    dealSeed: model.choiceDealSeed,
                     accent: accent,
                     yellow: yellow,
                     foreground: Color(rgb: theme.foreground),
@@ -2244,6 +2254,7 @@ struct ShellView: View {
             case .sequenceShortToLong:
                 SequenceActivityView(
                     question: model.currentSequenceQuestion,
+                    dealSeed: model.choiceDealSeed,
                     accent: accent,
                     yellow: yellow,
                     foreground: Color(rgb: theme.foreground),
@@ -2258,6 +2269,7 @@ struct ShellView: View {
             case .halfMatch:
                 HalfMatchActivityView(
                     question: model.currentHalfMatchQuestion,
+                    dealSeed: model.choiceDealSeed,
                     accent: accent,
                     yellow: yellow,
                     foreground: Color(rgb: theme.foreground),
@@ -2271,6 +2283,7 @@ struct ShellView: View {
             case .shapeCousin:
                 ShapeCousinActivityView(
                     question: model.currentShapeCousinQuestion,
+                    dealSeed: model.choiceDealSeed,
                     accent: accent,
                     yellow: yellow,
                     foreground: Color(rgb: theme.foreground),
@@ -2284,6 +2297,7 @@ struct ShellView: View {
             case .capacityCompare:
                 CapacityCompareActivityView(
                     question: model.currentCapacityCompareQuestion,
+                    dealSeed: model.choiceDealSeed,
                     accent: accent,
                     yellow: yellow,
                     foreground: Color(rgb: theme.foreground),
@@ -2297,6 +2311,7 @@ struct ShellView: View {
             case .moreFewer:
                 MoreFewerActivityView(
                     question: model.currentMoreFewerQuestion,
+                    dealSeed: model.choiceDealSeed,
                     accent: accent,
                     yellow: yellow,
                     foreground: Color(rgb: theme.foreground),
@@ -2310,6 +2325,7 @@ struct ShellView: View {
             case .shadowMatch:
                 ShadowMatchActivityView(
                     question: model.currentShadowMatchQuestion,
+                    dealSeed: model.choiceDealSeed,
                     accent: accent,
                     yellow: yellow,
                     foreground: Color(rgb: theme.foreground),
@@ -2323,6 +2339,7 @@ struct ShellView: View {
             case .emptyBay:
                 EmptyBayActivityView(
                     question: model.currentEmptyBayQuestion,
+                    dealSeed: model.choiceDealSeed,
                     accent: accent,
                     yellow: yellow,
                     foreground: Color(rgb: theme.foreground),
@@ -2336,6 +2353,7 @@ struct ShellView: View {
             case .twoPictureChoose, .none:
                 EntryActivityView(
                     question: model.currentTwoPictureQuestion,
+                    dealSeed: model.choiceDealSeed,
                     accent: accent,
                     yellow: yellow,
                     foreground: Color(rgb: theme.foreground),

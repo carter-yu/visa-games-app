@@ -319,6 +319,7 @@ struct TestRunner {
         activity.testMoreFewerWellFormedAndEvaluation()
         activity.testShadowMatchWellFormedAndEvaluation()
         activity.testEmptyBayWellFormedAndEvaluation()
+        activity.testChoiceOrderIsStableAndNotAlwaysCatalog()
 
         let games = MissionGameAssignmentTests()
         games.testDefaultsAllStarsOn()
@@ -378,6 +379,6 @@ struct TestRunner {
         wrong.testTraditionalOnlyCopy()
         wrong.testReducedPendingAwardsViaLedgerWithoutBurningBankOnMiss()
 
-        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 18 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 11 ux-p2-p3 + 8 wrong-answer-policy checks")
+        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 11 ux-p2-p3 + 8 wrong-answer-policy checks")
     }
 }
