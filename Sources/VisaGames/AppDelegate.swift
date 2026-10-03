@@ -117,6 +117,14 @@ final class AppModel: ObservableObject {
     @Published private(set) var sequenceTappedAssetIDs: [String] = []
     /// New UUID each child round (`selectDifficulty`). Not the catalog completion id.
     @Published private(set) var choiceDealSeed = ""
+    /// Video-picker visit. Minted when the picker is entered, not in `body` or `onAppear`
+    /// (those can run again on the 0.5s `tick()` refresh). Not UserDefaults.
+    @Published private(set) var videoPickerOrderSeed = ""
+    /// 「出發！」 bay. Minted when the stamp gate opens. Stable until the child taps.
+    @Published private(set) var departureDockSeed = ""
+    /// 「再揀車票」 bay. Minted when Time's up is shown. Not `choiceDealSeed`
+    /// (`resetTaskRound()` clears that seed on the same transition).
+    @Published private(set) var timesUpDockSeed = ""
     private let activityEvaluator = ActivityEvaluator()
     /// Canvas guide voice (interim zh-HK system voice, ADR 0007). Also drives activity prompts.
     private let guideVoice = SystemSpeechPrompt()
@@ -168,6 +176,7 @@ final class AppModel: ObservableObject {
         }
         // Stamp gate is in-memory; resume past it so the child picks (or watches) again.
         awaitingDeparture = false
+        mintVideoPickerOrderIfRouteIsPicker()
         VisaGamesLog.append(
             "recoverPlayPresentation — 恢復遊玩 stars=\(selectedStars ?? -1) total=\(playVisaTotalSeconds) allowlist=\(allowlist.videos.count)"
         )
@@ -230,6 +239,10 @@ final class AppModel: ObservableObject {
                 timesUpTicket = nil
             } else {
                 timesUpTicket = ticket
+                // New bay only when Time's up appears. A later tick must not move it.
+                if !showTimesUp {
+                    timesUpDockSeed = UUID().uuidString
+                }
                 showTimesUp = true
                 guideVoice.speak(.timesUp(for: ticket))
             }
@@ -401,6 +414,29 @@ final class AppModel: ObservableObject {
     func guideSpeakResumeChoice() { guideVoice.speak(.resumeChoiceKeepWatching) }
     func guideSpeakResumeChoiceOrPick() { guideVoice.speak(.resumeChoiceOrPick) }
 
+    /// Full allowlist in this visit's order. Pure function of `videoPickerOrderSeed`,
+    /// so a shell refresh does not roll the cards.
+    var pickerVideosInVisitOrder: [ApprovedVideo] {
+        VideoPickerDeck.ordered(allowlist.videos, seed: videoPickerOrderSeed)
+    }
+
+    private func mintVideoPickerOrderSeed() {
+        videoPickerOrderSeed = UUID().uuidString
+    }
+
+    /// New deck only when the route actually lands on the picker.
+    private func mintVideoPickerOrderIfRouteIsPicker() {
+        let route = PlayStageRoute.route(
+            awaitingDeparture: awaitingDeparture,
+            allowlistCount: allowlist.videos.count,
+            activeVideoID: activePlayVideoID,
+            hasResumeCandidate: resumeCandidate != nil
+        )
+        if route == .videoPicker {
+            mintVideoPickerOrderSeed()
+        }
+    }
+
     /// Board 4 prelude: child sees preview cards of allowlisted videos (Holiday P0).
     func videoPickerOpened() {
         let resume = resumeCandidate.map { "\($0.videoID)@\(Int($0.positionSeconds))s" } ?? "nil"
@@ -449,6 +485,8 @@ final class AppModel: ObservableObject {
         activePlayStartSeconds = nil
         lastKnownPlaybackSeconds = nil
         playbackMessage = nil
+        // 「揀片睇」enters the picker. Mint here, not in the view's onAppear.
+        mintVideoPickerOrderIfRouteIsPicker()
         logShellBranch(context: "resumeChoicePickOther")
     }
 
@@ -877,6 +915,8 @@ final class AppModel: ObservableObject {
         earnedAwardMinutes = earnedMinutes
         playVisaTotalSeconds = awardSeconds
         almostHomeSpoken = false
+        // Dock is chosen when the gate opens, before the stamp view's first frame.
+        departureDockSeed = UUID().uuidString
         awaitingDeparture = true
         showTimesUp = false
         triggerSuccessFeedback()
@@ -896,6 +936,8 @@ final class AppModel: ObservableObject {
         guard session.mode == .play, awaitingDeparture else { return }
         awaitingDeparture = false
         guideVoice.speak(.departGo)
+        // 「出發！」 enters the picker only when there is no Resume Choice and the bay is not empty.
+        mintVideoPickerOrderIfRouteIsPicker()
         VisaGamesLog.append("confirmDeparture — 出發 watchUI allowlistCount=\(allowlist.videos.count)")
         logShellBranch(context: "confirmDeparture")
     }
@@ -1365,6 +1407,8 @@ final class AppModel: ObservableObject {
         )
         if route == .timesUp {
             finishPlayVisaToTimesUp(reason: "stop-\(reason.rawValue)")
+        } else if route == .videoPicker {
+            mintVideoPickerOrderSeed()
         }
     }
 
@@ -1390,6 +1434,8 @@ final class AppModel: ObservableObject {
             activePlayStartSeconds = nil
             lastKnownPlaybackSeconds = nil
             playbackMessage = nil
+            // Clip ended with time left: a new visit, a new deck. Refused picks do not come through here.
+            mintVideoPickerOrderSeed()
             VisaGamesLog.append("video ended → picker — 返揀片 visaLeft=\(session.remaining(at: now))s")
             logShellBranch(context: "videoEnded")
         case .timesUp:
@@ -1982,6 +2028,7 @@ struct ShellView: View {
         } else if model.showTimesUp {
             TimesUpView(
                 ticket: model.timesUpTicket ?? model.resolvedPlayTicket,
+                dockLeadingX: CGFloat(BayDock.chosen(seed: model.timesUpDockSeed).leadingX),
                 onNewMission: model.dismissTimesUp,
                 onSpeak: { model.guideSpeakTimesUp() }
             )
@@ -2014,6 +2061,7 @@ struct ShellView: View {
                 earnedMinutes: model.earnedAwardMinutes > 0
                     ? model.earnedAwardMinutes
                     : (model.targetVisaMinutes ?? ticket.difficulty.minutes),
+                dockLeadingX: CGFloat(BayDock.chosen(seed: model.departureDockSeed).leadingX),
                 onGo: model.confirmDeparture,
                 onSpeak: { model.guideSpeakStamped() }
             )
@@ -2040,7 +2088,7 @@ struct ShellView: View {
                 // Candidate vanished (allowlist remove) — fall through to picker.
                 VideoPickerView(
                     ticket: ticket,
-                    videos: model.allowlist.videos,
+                    videos: model.pickerVideosInVisitOrder,
                     resumeCandidate: nil,
                     message: model.playbackMessage,
                     onPick: { model.pickVideo(id: $0) },
@@ -2055,7 +2103,7 @@ struct ShellView: View {
             // After Right 「揀片睇」the cursor is already cleared, so banner stays hidden.
             VideoPickerView(
                 ticket: ticket,
-                videos: model.allowlist.videos,
+                videos: model.pickerVideosInVisitOrder,
                 resumeCandidate: model.resumeCandidate,
                 message: model.playbackMessage,
                 onPick: { model.pickVideo(id: $0) },

@@ -10,6 +10,9 @@ import VisaCore
 /// Layout (v0.16.0): **4×2** page grid filling width (no 300u card cap). Compact floating Stampy
 /// HUD pinned top so the bubble never overlaps cards. Giant kid 「仲有」 arrows (≥96×160) **and**
 /// ~15% next-page peek when more pages exist. Uses the right-side canvas that 3×2 left empty.
+///
+/// v0.19.0: `videos` is the full allowlist already shuffled for this visit. This view only
+/// pages that array (8 per page). It does not shuffle, including inside a page or on refresh.
 struct VideoPickerView: View {
     let ticket: MissionTicket
     let videos: [ApprovedVideo]
@@ -29,11 +32,12 @@ struct VideoPickerView: View {
     @State private var pageIndex = 0
 
     /// Four columns × two rows — eight chunky TV cards per page; fill the artboard width.
+    /// `columnsPerPage * rowsPerPage` must stay equal to `VideoPickerDeck.pageSize`.
     private let columnsPerPage = 4
     private let rowsPerPage = 2
-    private var pageSize: Int { columnsPerPage * rowsPerPage }
-    private var pageCount: Int { max(1, Int(ceil(Double(videos.count) / Double(pageSize)))) }
-    private var showsPager: Bool { pageCount > 1 }
+    private var pageSize: Int { VideoPickerDeck.pageSize }
+    private var pageCount: Int { max(1, VideoPickerDeck.pageCount(itemCount: videos.count)) }
+    private var showsPager: Bool { VideoPickerDeck.showsPager(itemCount: videos.count) }
     private var hasNextPage: Bool { pageIndex < pageCount - 1 }
     private var hasPrevPage: Bool { pageIndex > 0 }
 
@@ -50,10 +54,8 @@ struct VideoPickerView: View {
     }
 
     private func slice(page: Int) -> [ApprovedVideo] {
-        let start = page * pageSize
-        guard start < videos.count else { return [] }
-        let end = min(start + pageSize, videos.count)
-        return Array(videos[start..<end])
+        // Slice the visit deck. Do not shuffle this page.
+        VideoPickerDeck.page(videos, index: page, pageSize: pageSize)
     }
 
     var body: some View {
