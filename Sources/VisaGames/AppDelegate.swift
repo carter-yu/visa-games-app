@@ -13,6 +13,34 @@ final class AppModel: ObservableObject {
     @Published private(set) var themePaletteID: ThemePaletteID
     @Published private(set) var successFeedbackID: Int? = nil
     @Published private(set) var allowlist = VideoAllowlist()
+    /// Which games each star may deal. UserDefaults, not the reward snapshot.
+    @Published private(set) var gameAssignment = MissionGameAssignment.allOn
+    /// Shown when the parent tries to turn off the last game on a star.
+    @Published private(set) var gameAssignmentBanner: String?
+    /// Playtest cover. Nil unless a parent is reviewing a game. Never a child round.
+    @Published private(set) var playtestKind: ActivityKind?
+    /// Card to mark sunny after 返回家長.
+    @Published private(set) var playtestHighlightedKind: ActivityKind?
+    @Published private(set) var playtestHintUsed = false
+    @Published private(set) var playtestMissCount = 0
+    @Published private(set) var playtestLastIncorrectID: String?
+    @Published private(set) var playtestLastCorrectID: String?
+    @Published private(set) var playtestCompleted = false
+    /// Local fuel copy so the board gauge can be reviewed. Discarded. Starts at 5.
+    @Published private(set) var playtestPendingMinutes = 5
+    @Published private(set) var playtestStartingMinutes = 5
+    @Published private(set) var playtestThinkRemaining = 0
+    @Published private(set) var playtestFuelMessage: String?
+    @Published private(set) var playtestSequenceTaps: [String] = []
+    private var playtestThinkEndsAt: Date?
+    var isParentPlaytest: Bool { playtestKind != nil && session.mode == .parent }
+    var playtestChoicesLocked: Bool { playtestThinkEndsAt != nil || playtestCompleted }
+    var playtestSequenceHintAssetID: String? {
+        activityEvaluator.nextExpectedAssetID(
+            question: sequenceQuestion,
+            tappedSoFar: playtestSequenceTaps
+        )
+    }
     /// Parent-only draft for the allowlist text field (never shown on child path).
     @Published var parentVideoIDDraft = "" {
         didSet {
@@ -92,6 +120,7 @@ final class AppModel: ObservableObject {
     private let store: SnapshotStore
     private let themeStore = ThemePreferenceStore()
     private let allowlistStore = VideoAllowlistStore()
+    private let gameAssignmentStore = MissionGameAssignmentStore()
     private let shuffleStore = VideoPlaybackShuffleStore()
     private var playbackShuffle = VideoPlaybackShuffle()
     private var nextFeedbackID = 0
@@ -104,6 +133,7 @@ final class AppModel: ObservableObject {
     init() {
         themePaletteID = ThemePreferenceStore().load()
         allowlist = VideoAllowlistStore().load()
+        gameAssignment = MissionGameAssignmentStore().load()
         playbackShuffle = VideoPlaybackShuffleStore().load()
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         store = SnapshotStore(url: directory.appendingPathComponent("VisaGames/state.json"))
@@ -208,6 +238,7 @@ final class AppModel: ObservableObject {
         now = Date()
         let current = now
         advanceThinkPauseIfNeeded(now: current)
+        advancePlaytestThinkPauseIfNeeded(now: current)
         let modeBefore = session.mode
         update { $0.tick(now: current) }
         if session.mode != modeBefore {
@@ -266,6 +297,9 @@ final class AppModel: ObservableObject {
     }
 
     func returnToChild() {
+        // Auto-lock, sleep, and Return all come through here. Drop a playtest
+        // before leaveParent so it cannot resume as a child round.
+        discardPlaytestCover(reason: "leaveParent")
         let beforeMode = session.mode
         let beforeEntry = isEntryActivityCompleted
         authentication?.invalidate()
@@ -482,13 +516,14 @@ final class AppModel: ObservableObject {
 
     func selectDifficulty(stars: Int) {
         guard !storageFailed, session.mode == .lock, !taskRoundOpen,
-              ChildDifficulty(rawValue: stars) != nil else { return }
+              let difficulty = ChildDifficulty(rawValue: stars) else { return }
         guideVoice.stop()
         resetTaskRound()
         selectedStars = stars
         let seed = UUID().uuidString
         roundCompletionID = seed
-        let kind = ActivityCatalog.kind(forRoundSeed: seed)
+        let pool = gameAssignment.pool(for: difficulty)
+        let kind = ActivityCatalog.kind(forRoundSeed: seed, pool: pool)
         activeActivityKind = kind
         // Refresh catalog payloads each round (stable templates today; seam for future variants).
         twoPictureQuestion = ActivityCatalog.twoPictureQuestion()
@@ -502,18 +537,13 @@ final class AppModel: ObservableObject {
         shadowMatchQuestion = ActivityCatalog.shadowMatchQuestion()
         emptyBayQuestion = ActivityCatalog.emptyBayQuestion()
         sequenceTappedAssetIDs = []
-        if let difficulty = ChildDifficulty(rawValue: stars) {
-            pendingAwardMinutes = difficulty.minutes
-            roundStartingMinutes = difficulty.minutes
-        } else {
-            pendingAwardMinutes = 0
-            roundStartingMinutes = 0
-        }
+        pendingAwardMinutes = difficulty.minutes
+        roundStartingMinutes = difficulty.minutes
         earnedAwardMinutes = 0
         fuelFeedbackMessage = nil
         clearThinkPause()
         taskRoundOpen = true
-        VisaGamesLog.append("selectDifficulty — 選擇難度 stars=\(stars) kind=\(kind.rawValue) seed=\(seed) pendingMin=\(pendingAwardMinutes)")
+        VisaGamesLog.append("selectDifficulty — 選擇難度 stars=\(stars) kind=\(kind.rawValue) seed=\(seed) pendingMin=\(pendingAwardMinutes) pool=\(pool.count)")
     }
 
     private func resetTaskRound() {
@@ -1413,8 +1443,305 @@ final class AppModel: ObservableObject {
         VisaGamesLog.append("openLogsFolder — 開啟日誌 path=\(path)")
     }
 
+    // MARK: - Parent game catalog + playtest (no visa)
+
+    func toggleMissionStar(kind: ActivityKind, star: ChildDifficulty) {
+        guard session.mode == .parent else { return }
+        switch gameAssignment.toggling(kind, star: star) {
+        case .updated(let next):
+            gameAssignment = next
+            gameAssignmentStore.save(next)
+            gameAssignmentBanner = nil
+            VisaGamesLog.append(
+                "game assignment — 星級 kind=\(kind.rawValue) star=\(star.rawValue) on=\(next.isEnabled(kind, star: star))"
+            )
+        case .rejectedLastStar:
+            gameAssignmentBanner = MissionGameAssignment.emptyTierBanner
+            VisaGamesLog.append("game assignment rejected — 最後一個星級 star=\(star.rawValue)")
+        }
+    }
+
+    /// Cover on parent settings. Does not call selectDifficulty, grant, or the ledger.
+    func startPlaytest(kind: ActivityKind) {
+        guard session.mode == .parent else { return }
+        guard ActivityCatalog.playableKinds.contains(kind) else { return }
+        stopParentPreview()
+        discardPlaytestCover(reason: "restart")
+        playtestHighlightedKind = nil
+        playtestKind = kind
+        playtestHintUsed = false
+        playtestMissCount = 0
+        playtestLastIncorrectID = nil
+        playtestLastCorrectID = nil
+        playtestCompleted = false
+        playtestPendingMinutes = 5
+        playtestStartingMinutes = 5
+        playtestFuelMessage = nil
+        playtestSequenceTaps = []
+        clearPlaytestThinkPause()
+        VisaGamesLog.append("playtest start — 試玩 kind=\(kind.rawValue) mode=parent visa=false")
+    }
+
+    /// 返回家長. Mode stays `.parent` until the settings bar Return / auto-lock says otherwise.
+    func endPlaytestToParent() {
+        guard session.mode == .parent, let kind = playtestKind else { return }
+        discardPlaytestCover(reason: "backToParent")
+        playtestHighlightedKind = kind
+    }
+
+    func speakPlaytestPrompt() {
+        guard isParentPlaytest, let kind = playtestKind else { return }
+        let zh: String
+        let en: String
+        switch kind {
+        case .twoPictureChoose:
+            zh = twoPictureQuestion.promptTraditionalChinese
+            en = twoPictureQuestion.promptEnglish
+        case .findTheSame:
+            zh = findSameQuestion.promptTraditionalChinese
+            en = findSameQuestion.promptEnglish
+        case .countVehicles:
+            zh = countQuestion.promptTraditionalChinese
+            en = countQuestion.promptEnglish
+        case .sequenceShortToLong:
+            zh = sequenceQuestion.promptTraditionalChinese
+            en = sequenceQuestion.promptEnglish
+        case .halfMatch:
+            zh = halfMatchQuestion.promptTraditionalChinese
+            en = halfMatchQuestion.promptEnglish
+        case .shapeCousin:
+            zh = shapeCousinQuestion.promptTraditionalChinese
+            en = shapeCousinQuestion.promptEnglish
+        case .capacityCompare:
+            zh = capacityCompareQuestion.promptTraditionalChinese
+            en = capacityCompareQuestion.promptEnglish
+        case .moreFewer:
+            zh = moreFewerQuestion.promptTraditionalChinese
+            en = moreFewerQuestion.promptEnglish
+        case .shadowMatch:
+            zh = shadowMatchQuestion.promptTraditionalChinese
+            en = shadowMatchQuestion.promptEnglish
+        case .emptyBay:
+            zh = emptyBayQuestion.promptTraditionalChinese
+            en = emptyBayQuestion.promptEnglish
+        }
+        guideVoice.speak(SpokenPrompt(
+            key: "playtest.\(kind.rawValue)",
+            traditionalChinese: zh,
+            english: en
+        ))
+    }
+
+    func playtestSelectEntry(id: String) {
+        guard isParentPlaytest, playtestKind == .twoPictureChoose, !playtestChoicesLocked else { return }
+        let evaluation = activityEvaluator.evaluate(
+            question: twoPictureQuestion,
+            selectedOptionID: id,
+            hintUsed: playtestHintUsed
+        )
+        playtestHandle(evaluation, selectionLabel: id)
+    }
+
+    func playtestSelectFindSame(id: String) {
+        guard isParentPlaytest, playtestKind == .findTheSame, !playtestChoicesLocked else { return }
+        let evaluation = activityEvaluator.evaluate(
+            question: findSameQuestion,
+            selectedOptionID: id,
+            hintUsed: playtestHintUsed
+        )
+        playtestHandle(evaluation, selectionLabel: id)
+    }
+
+    func playtestSelectCount(_ count: Int) {
+        guard isParentPlaytest, playtestKind == .countVehicles, !playtestChoicesLocked else { return }
+        let evaluation = activityEvaluator.evaluate(
+            question: countQuestion,
+            selectedCount: count,
+            hintUsed: playtestHintUsed
+        )
+        playtestHandle(evaluation, selectionLabel: "count-\(count)")
+    }
+
+    func playtestSelectSequence(id assetID: String) {
+        guard isParentPlaytest, playtestKind == .sequenceShortToLong else { return }
+        guard playtestThinkEndsAt == nil, !playtestCompleted else { return }
+        guard !playtestSequenceTaps.contains(assetID) else { return }
+        let expected = activityEvaluator.nextExpectedAssetID(
+            question: sequenceQuestion,
+            tappedSoFar: playtestSequenceTaps
+        )
+        if expected != assetID {
+            playtestSequenceTaps = []
+            playtestHandle(.incorrect, selectionLabel: assetID)
+            return
+        }
+        playtestSequenceTaps.append(assetID)
+        if playtestSequenceTaps.count == sequenceQuestion.orderedAssetIDs.count {
+            let evaluation = activityEvaluator.evaluate(
+                question: sequenceQuestion,
+                orderedSelectionIDs: playtestSequenceTaps,
+                hintUsed: playtestHintUsed
+            )
+            playtestHandle(evaluation, selectionLabel: "seq-complete")
+        } else {
+            VisaGamesLog.append("playtest sequence — 試玩車隊 local count=\(playtestSequenceTaps.count)")
+        }
+    }
+
+    func playtestSelectHalfMatch(id: String) {
+        guard isParentPlaytest, playtestKind == .halfMatch, !playtestChoicesLocked else { return }
+        let evaluation = activityEvaluator.evaluate(
+            question: halfMatchQuestion,
+            selectedOptionID: id,
+            hintUsed: playtestHintUsed
+        )
+        playtestHandle(evaluation, selectionLabel: id)
+    }
+
+    func playtestSelectShapeCousin(id: String) {
+        guard isParentPlaytest, playtestKind == .shapeCousin, !playtestChoicesLocked else { return }
+        let evaluation = activityEvaluator.evaluate(
+            question: shapeCousinQuestion,
+            selectedOptionID: id,
+            hintUsed: playtestHintUsed
+        )
+        playtestHandle(evaluation, selectionLabel: id)
+    }
+
+    func playtestSelectCapacity(id: String) {
+        guard isParentPlaytest, playtestKind == .capacityCompare, !playtestChoicesLocked else { return }
+        let evaluation = activityEvaluator.evaluate(
+            question: capacityCompareQuestion,
+            selectedOptionID: id,
+            hintUsed: playtestHintUsed
+        )
+        playtestHandle(evaluation, selectionLabel: id)
+    }
+
+    func playtestSelectMoreFewer(_ side: ParkingLotSide) {
+        guard isParentPlaytest, playtestKind == .moreFewer, !playtestChoicesLocked else { return }
+        let evaluation = activityEvaluator.evaluate(
+            question: moreFewerQuestion,
+            selectedSide: side,
+            hintUsed: playtestHintUsed
+        )
+        playtestHandle(evaluation, selectionLabel: "lot-\(side.rawValue)")
+    }
+
+    func playtestSelectShadow(id: String) {
+        guard isParentPlaytest, playtestKind == .shadowMatch, !playtestChoicesLocked else { return }
+        let evaluation = activityEvaluator.evaluate(
+            question: shadowMatchQuestion,
+            selectedOptionID: id,
+            hintUsed: playtestHintUsed
+        )
+        playtestHandle(evaluation, selectionLabel: id)
+    }
+
+    func playtestSelectEmptyBay(id: String) {
+        guard isParentPlaytest, playtestKind == .emptyBay, !playtestChoicesLocked else { return }
+        let evaluation = activityEvaluator.evaluate(
+            question: emptyBayQuestion,
+            selectedBayID: id,
+            hintUsed: playtestHintUsed
+        )
+        playtestHandle(evaluation, selectionLabel: id)
+    }
+
+    /// Local miss / hint / fuel only. Never `applyEntrySuccess`, visa extend, or depot speech.
+    private func playtestHandle(_ evaluation: ActivityEvaluation, selectionLabel: String) {
+        guard WrongAnswerPolicy.shouldAcceptChoiceInput(choicesLocked: playtestThinkEndsAt != nil) else {
+            return
+        }
+        guard !playtestCompleted else { return }
+        switch evaluation {
+        case .incorrect:
+            playtestMissCount += 1
+            playtestLastIncorrectID = selectionLabel
+            playtestLastCorrectID = nil
+            let before = playtestPendingMinutes
+            playtestPendingMinutes = WrongAnswerPolicy.halvedPendingMinutes(playtestPendingMinutes)
+            playtestFuelMessage = WrongAnswerCopy.fuelHalvedTraditionalChinese
+            VisaGamesLog.append(
+                "playtest incorrect — 試玩答錯 local selection=\(selectionLabel) pending \(before)→\(playtestPendingMinutes) misses=\(playtestMissCount)"
+            )
+            let flashed = selectionLabel
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+                if self?.playtestLastIncorrectID == flashed {
+                    self?.playtestLastIncorrectID = nil
+                }
+            }
+            beginPlaytestThinkPause(now: Date())
+        case .correct:
+            playtestLastCorrectID = selectionLabel
+            playtestLastIncorrectID = nil
+            playtestCompleted = true
+            playtestFuelMessage = nil
+            clearPlaytestThinkPause()
+            guideVoice.stop()
+            VisaGamesLog.append("playtest correct — 試玩完成 local no visa selection=\(selectionLabel)")
+        }
+    }
+
+    private func beginPlaytestThinkPause(now: Date) {
+        playtestThinkEndsAt = now.addingTimeInterval(TimeInterval(WrongAnswerPolicy.thinkPauseSeconds))
+        playtestThinkRemaining = WrongAnswerPolicy.thinkPauseSeconds
+    }
+
+    private func advancePlaytestThinkPauseIfNeeded(now: Date) {
+        guard let ends = playtestThinkEndsAt else { return }
+        guard playtestKind != nil, session.mode == .parent else {
+            clearPlaytestThinkPause()
+            return
+        }
+        let remaining = max(0, Int(ceil(ends.timeIntervalSince(now))))
+        if remaining != playtestThinkRemaining {
+            playtestThinkRemaining = remaining
+        }
+        if remaining == 0 {
+            playtestThinkEndsAt = nil
+            finishPlaytestThinkPause()
+        }
+    }
+
+    private func finishPlaytestThinkPause() {
+        playtestThinkRemaining = 0
+        playtestFuelMessage = nil
+        guard playtestKind != nil, !playtestCompleted else { return }
+        // Fuel may hit 0. Stay on the cover — do not speak the depot line or end the visa.
+        if ActivityHintPolicy.shouldAutoHint(afterMissCount: playtestMissCount), !playtestHintUsed {
+            playtestHintUsed = true
+            speakPlaytestPrompt()
+            VisaGamesLog.append("playtest auto-hint — 試玩提示 local misses=\(playtestMissCount)")
+        }
+    }
+
+    private func clearPlaytestThinkPause() {
+        playtestThinkEndsAt = nil
+        playtestThinkRemaining = 0
+    }
+
+    /// Drops local playtest state. Does not write the ledger or change `session.mode`.
+    private func discardPlaytestCover(reason: String) {
+        guard playtestKind != nil || playtestThinkEndsAt != nil else { return }
+        guideVoice.stop()
+        playtestKind = nil
+        playtestHintUsed = false
+        playtestMissCount = 0
+        playtestLastIncorrectID = nil
+        playtestLastCorrectID = nil
+        playtestCompleted = false
+        playtestPendingMinutes = 5
+        playtestStartingMinutes = 5
+        playtestFuelMessage = nil
+        playtestSequenceTaps = []
+        clearPlaytestThinkPause()
+        VisaGamesLog.append("playtest discard — 試玩收起 reason=\(reason)")
+    }
+
     func resetStorage() {
         guard session.mode == .parent else { return }
+        // Visa / ledger only. Mission-game star assignment stays in UserDefaults.
         do {
             let fresh = Snapshot(configured: true)
             try store.save(fresh)
@@ -1426,7 +1753,7 @@ final class AppModel: ObservableObject {
             lastKnownPlaybackSeconds = nil
             session = Session(snapshot: fresh, now: Date())
             changed?()
-            VisaGamesLog.append("resetStorage — 重設儲存 (cleared resume cursor)")
+            VisaGamesLog.append("resetStorage — 重設儲存 (cleared resume cursor, game assignment kept)")
         } catch { message = "仍未能儲存。 / Storage is still unavailable." }
     }
 
@@ -1444,6 +1771,7 @@ final class AppModel: ObservableObject {
 
     /// Tear down play/voice before NSHostingView/WKWebView die on quit (crash on terminate).
     func prepareForTerminate() {
+        discardPlaytestCover(reason: "terminate")
         changed = nil
         draftTitleTask?.cancel()
         draftTitleTask = nil

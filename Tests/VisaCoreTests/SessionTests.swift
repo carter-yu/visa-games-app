@@ -320,6 +320,18 @@ struct TestRunner {
         activity.testShadowMatchWellFormedAndEvaluation()
         activity.testEmptyBayWellFormedAndEvaluation()
 
+        let games = MissionGameAssignmentTests()
+        games.testDefaultsAllStarsOn()
+        games.testMultiStarDoesNotClearOthers()
+        games.testRejectsEmptyTier()
+        games.testHiddenKindLeavesOtherStarsIntact()
+        games.testCorruptOrMissingStoreFallsBackAllOn()
+        games.testUnseenKindOptsIntoAllStars()
+        games.testEmptyStarFallsBackToAllPlayable()
+        games.testRotationStaysInsidePool()
+        games.testParentCardNamesAreTraditionalAndUnbuiltAreNotKinds()
+        games.testStoreRoundTripDoesNotUseRewardSnapshot()
+
         let canvas = CanvasFoundationTests()
         canvas.testPaletteMatchesCanvasTokens()
         canvas.testTargetsAndTimingTokens()
@@ -366,6 +378,6 @@ struct TestRunner {
         wrong.testTraditionalOnlyCopy()
         wrong.testReducedPendingAwardsViaLedgerWithoutBurningBankOnMiss()
 
-        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 18 activity + 9 canvas + 4 voice + 4 pen-spark + 11 ux-p2-p3 + 8 wrong-answer-policy checks")
+        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 18 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 11 ux-p2-p3 + 8 wrong-answer-policy checks")
     }
 }

@@ -5,9 +5,63 @@ import VisaCore
 struct CanvasActivityHost: View {
     @ObservedObject var model: AppModel
 
+    /// Parent playtest reuses this board but never the `.lock` selectors.
+    private var usingPlaytest: Bool { model.isParentPlaytest }
+
+    private var shownKind: ActivityKind? {
+        usingPlaytest ? model.playtestKind : model.activeActivityKind
+    }
+    private var hintUsed: Bool { usingPlaytest ? model.playtestHintUsed : model.entryHintUsed }
+    private var lastCorrectID: String? { usingPlaytest ? model.playtestLastCorrectID : model.lastCorrectChoiceID }
+    private var lastIncorrectID: String? { usingPlaytest ? model.playtestLastIncorrectID : model.lastIncorrectChoiceID }
+    private var justCompleted: Bool { usingPlaytest ? model.playtestCompleted : model.activityJustCompleted }
+    private var pendingMinutes: Int { usingPlaytest ? model.playtestPendingMinutes : model.pendingAwardMinutes }
+    private var startingMinutes: Int { usingPlaytest ? model.playtestStartingMinutes : model.roundStartingMinutes }
+    private var thinkRemaining: Int { usingPlaytest ? model.playtestThinkRemaining : model.thinkPauseRemainingSeconds }
+    private var fuelFeedback: String? { usingPlaytest ? model.playtestFuelMessage : model.fuelFeedbackMessage }
+    private var choicesAreLocked: Bool { usingPlaytest ? model.playtestChoicesLocked : model.choicesLocked }
+    private var sequenceTaps: [String] { usingPlaytest ? model.playtestSequenceTaps : model.sequenceTappedAssetIDs }
+    private var sequenceHint: String? {
+        usingPlaytest ? model.playtestSequenceHintAssetID : model.sequenceHintAssetID
+    }
+
+    private func speakPrompt() {
+        if usingPlaytest { model.speakPlaytestPrompt() } else { model.speakEntryPrompt() }
+    }
+    private func selectTwoPicture(_ id: String) {
+        if usingPlaytest { model.playtestSelectEntry(id: id) } else { model.selectEntryOption(id: id) }
+    }
+    private func selectFindSame(_ id: String) {
+        if usingPlaytest { model.playtestSelectFindSame(id: id) } else { model.selectFindSameOption(id: id) }
+    }
+    private func selectCount(_ count: Int) {
+        if usingPlaytest { model.playtestSelectCount(count) } else { model.selectCountChoice(count) }
+    }
+    private func selectSequence(_ id: String) {
+        if usingPlaytest { model.playtestSelectSequence(id: id) } else { model.selectSequenceAsset(id: id) }
+    }
+    private func selectHalf(_ id: String) {
+        if usingPlaytest { model.playtestSelectHalfMatch(id: id) } else { model.selectHalfMatchOption(id: id) }
+    }
+    private func selectShape(_ id: String) {
+        if usingPlaytest { model.playtestSelectShapeCousin(id: id) } else { model.selectShapeCousinOption(id: id) }
+    }
+    private func selectCapacity(_ id: String) {
+        if usingPlaytest { model.playtestSelectCapacity(id: id) } else { model.selectCapacityOption(id: id) }
+    }
+    private func selectMoreFewer(_ side: ParkingLotSide) {
+        if usingPlaytest { model.playtestSelectMoreFewer(side) } else { model.selectMoreFewerSide(side) }
+    }
+    private func selectShadow(_ id: String) {
+        if usingPlaytest { model.playtestSelectShadow(id: id) } else { model.selectShadowMatchOption(id: id) }
+    }
+    private func selectBay(_ id: String) {
+        if usingPlaytest { model.playtestSelectEmptyBay(id: id) } else { model.selectEmptyBay(id: id) }
+    }
+
     var body: some View {
         Group {
-            switch model.activeActivityKind {
+            switch shownKind {
             case .twoPictureChoose:
                 twoPicture
             case .findTheSame:
@@ -49,7 +103,7 @@ struct CanvasActivityHost: View {
                     ActivityAssetView(assetID: opt.assetID, mood: .happy)
                         .accessibilityLabel("\(opt.labelTraditionalChinese), \(opt.labelEnglish)")
                 }
-            } onSelect: { model.selectEntryOption(id: $0) }
+            } onSelect: { selectTwoPicture($0) }
         }
     }
 
@@ -66,7 +120,7 @@ struct CanvasActivityHost: View {
                     ActivityAssetView(assetID: opt.assetID, mood: .happy)
                         .accessibilityLabel("\(opt.labelTraditionalChinese), \(opt.labelEnglish)")
                 }
-            } onSelect: { model.selectFindSameOption(id: $0) }
+            } onSelect: { selectFindSame($0) }
         }
     }
 
@@ -89,7 +143,7 @@ struct CanvasActivityHost: View {
                     .accessibilityLabel("\(n)")
             } onSelect: { id in
                 if let n = Int(id.replacingOccurrences(of: "count-", with: "")) {
-                    model.selectCountChoice(n)
+                    selectCount(n)
                 }
             }
         }
@@ -97,13 +151,13 @@ struct CanvasActivityHost: View {
 
     private var sequence: some View {
         let q = model.currentSequenceQuestion
-        let nextID = model.sequenceHintAssetID
+        let nextID = sequenceHint
         return board(promptZH: q.promptTraditionalChinese, promptEN: q.promptEnglish,
                      hintID: nextID ?? "", choiceCount: q.orderedAssetIDs.count) {
             StimulusPanel {
                 HStack(spacing: 10) {
                     ForEach(q.orderedAssetIDs, id: \.self) { assetID in
-                        let tapped = model.sequenceTappedAssetIDs.contains(assetID)
+                        let tapped = sequenceTaps.contains(assetID)
                         ActivityAssetView(assetID: assetID, mood: tapped ? .happy : .calm)
                             .opacity(tapped ? 0.35 : 1)
                     }
@@ -111,12 +165,12 @@ struct CanvasActivityHost: View {
             }
         } choices: {
             // Show up to 3 remaining (or all if ≤3) as text-free cards.
-            let remaining = q.orderedAssetIDs.filter { !model.sequenceTappedAssetIDs.contains($0) }
+            let remaining = q.orderedAssetIDs.filter { !sequenceTaps.contains($0) }
             let shown = Array(remaining.prefix(3))
             choiceRow(ids: shown, hintID: nextID ?? "") { assetID in
                 ActivityAssetView(assetID: assetID, mood: .happy)
                     .accessibilityLabel(assetID)
-            } onSelect: { model.selectSequenceAsset(id: $0) }
+            } onSelect: { selectSequence($0) }
         }
     }
 
@@ -133,7 +187,7 @@ struct CanvasActivityHost: View {
                     HalfVehicleClip(assetID: opt.assetID, side: .right, mood: .happy)
                         .accessibilityLabel("\(opt.labelTraditionalChinese), \(opt.labelEnglish)")
                 }
-            } onSelect: { model.selectHalfMatchOption(id: $0) }
+            } onSelect: { selectHalf($0) }
         }
     }
 
@@ -150,7 +204,7 @@ struct CanvasActivityHost: View {
                     ActivityAssetView(assetID: opt.assetID, mood: .happy)
                         .accessibilityLabel("\(opt.labelTraditionalChinese), \(opt.labelEnglish)")
                 }
-            } onSelect: { model.selectShapeCousinOption(id: $0) }
+            } onSelect: { selectShape($0) }
         }
     }
 
@@ -171,7 +225,7 @@ struct CanvasActivityHost: View {
                     ActivityAssetView(assetID: opt.assetID, mood: .happy)
                         .accessibilityLabel("\(opt.labelTraditionalChinese), \(opt.labelEnglish)")
                 }
-            } onSelect: { model.selectCapacityOption(id: $0) }
+            } onSelect: { selectCapacity($0) }
         }
     }
 
@@ -193,7 +247,7 @@ struct CanvasActivityHost: View {
                 }
                 .accessibilityLabel(id == "lot-left" ? "左邊 / Left lot" : "右邊 / Right lot")
             } onSelect: { id in
-                model.selectMoreFewerSide(id == "lot-left" ? .left : .right)
+                selectMoreFewer(id == "lot-left" ? .left : .right)
             }
         }
     }
@@ -211,7 +265,7 @@ struct CanvasActivityHost: View {
                     ActivityAssetView(assetID: opt.assetID, mood: .happy)
                         .accessibilityLabel("\(opt.labelTraditionalChinese), \(opt.labelEnglish)")
                 }
-            } onSelect: { model.selectShadowMatchOption(id: $0) }
+            } onSelect: { selectShadow($0) }
         }
     }
 
@@ -245,7 +299,7 @@ struct CanvasActivityHost: View {
                     }
                     .accessibilityLabel(bay.vehicleAssetID == nil ? "空車位 / Empty bay" : "有車 / Occupied")
                 }
-            } onSelect: { model.selectEmptyBay(id: $0) }
+            } onSelect: { selectBay($0) }
         }
     }
 
@@ -259,20 +313,20 @@ struct CanvasActivityHost: View {
         @ViewBuilder stimulus: @escaping () -> S,
         @ViewBuilder choices: @escaping () -> C
     ) -> some View {
-        let prompt = SpokenPrompt(key: "activity.\(model.activeActivityKind?.rawValue ?? "x")",
+        let prompt = SpokenPrompt(key: "activity.\(shownKind?.rawValue ?? "x")",
                                   traditionalChinese: promptZH, english: promptEN)
-        let hintToward: CGFloat = (model.entryHintUsed && !hintID.isEmpty) ? 36 : 0
+        let hintToward: CGFloat = (hintUsed && !hintID.isEmpty) ? 36 : 0
         return ActivityBoardView(
             prompt: prompt,
             coneTotal: 1,
-            coneCompleted: model.activityJustCompleted ? 1 : 0,
+            coneCompleted: justCompleted ? 1 : 0,
             stampyOffsetTowardHint: hintToward,
-            pendingMinutes: model.pendingAwardMinutes,
-            startingMinutes: model.roundStartingMinutes,
-            thinkPauseRemaining: model.thinkPauseRemainingSeconds,
-            fuelFeedback: model.fuelFeedbackMessage,
-            choicesLocked: model.choicesLocked,
-            onSpeak: model.speakEntryPrompt,
+            pendingMinutes: pendingMinutes,
+            startingMinutes: startingMinutes,
+            thinkPauseRemaining: thinkRemaining,
+            fuelFeedback: fuelFeedback,
+            choicesLocked: choicesAreLocked,
+            onSpeak: speakPrompt,
             stimulus: stimulus,
             choices: choices
         )
@@ -288,15 +342,15 @@ struct CanvasActivityHost: View {
         HStack(spacing: 24) {
             ForEach(ids, id: \.self) { id in
                 let feedback: ChoiceFeedback = {
-                    if model.lastCorrectChoiceID == id { return .correct }
-                    if model.lastIncorrectChoiceID == id { return .incorrect }
-                    if model.entryHintUsed && id == hintID { return .hint }
+                    if lastCorrectID == id { return .correct }
+                    if lastIncorrectID == id { return .incorrect }
+                    if hintUsed && id == hintID { return .hint }
                     return .idle
                 }()
                 ChoiceCardChrome(
                     feedback: feedback,
-                    isHintTarget: model.entryHintUsed && id == hintID,
-                    isInteractionEnabled: !model.choicesLocked,
+                    isHintTarget: hintUsed && id == hintID,
+                    isInteractionEnabled: !choicesAreLocked,
                     action: { onSelect(id) }
                 ) {
                     content(id)
