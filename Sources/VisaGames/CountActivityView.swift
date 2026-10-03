@@ -4,6 +4,7 @@ import VisaCore
 /// Count-to-N entry gate with faced convoy row + big number pads.
 struct CountActivityView: View {
     let question: CountQuestion
+    let dealSeed: String
     let accent: Color
     let yellow: Color
     let foreground: Color
@@ -48,7 +49,7 @@ struct CountActivityView: View {
             }
 
             HStack(spacing: 28) {
-                ForEach(question.choiceCounts, id: \.self) { count in
+                ForEach(question.presentedChoiceCounts(seed: dealSeed), id: \.self) { count in
                     Button {
                         onSelectCount(count)
                     } label: {

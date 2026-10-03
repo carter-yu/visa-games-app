@@ -5,6 +5,7 @@ import VisaCore
 
 struct HalfMatchActivityView: View {
     let question: HalfMatchQuestion
+    let dealSeed: String
     let accent: Color
     let yellow: Color
     let foreground: Color
@@ -40,7 +41,7 @@ struct HalfMatchActivityView: View {
             .accessibilityLabel("左半邊目標 / Left-half target")
 
             HStack(spacing: 20) {
-                ForEach(question.options, id: \.id) { option in
+                ForEach(question.presentedOptions(seed: dealSeed), id: \.id) { option in
                     Button { onSelect(option.id) } label: {
                         VStack(spacing: 10) {
                             ZStack {
@@ -91,6 +92,7 @@ struct HalfMatchActivityView: View {
 
 struct ShapeCousinActivityView: View {
     let question: ShapeCousinQuestion
+    let dealSeed: String
     let accent: Color
     let yellow: Color
     let foreground: Color
@@ -125,7 +127,7 @@ struct ShapeCousinActivityView: View {
             .accessibilityLabel("圓形參考 / Round reference")
 
             HStack(spacing: 22) {
-                ForEach(question.options, id: \.id) { option in
+                ForEach(question.presentedOptions(seed: dealSeed), id: \.id) { option in
                     Button { onSelect(option.id) } label: {
                         VStack(spacing: 10) {
                             ZStack {
@@ -176,6 +178,7 @@ struct ShapeCousinActivityView: View {
 
 struct CapacityCompareActivityView: View {
     let question: CapacityCompareQuestion
+    let dealSeed: String
     let accent: Color
     let yellow: Color
     let foreground: Color
@@ -199,7 +202,7 @@ struct CapacityCompareActivityView: View {
                 .font(.system(size: 20, weight: .medium, design: .rounded))
 
             HStack(spacing: 36) {
-                ForEach(question.options, id: \.id) { option in
+                ForEach(question.presentedOptions(seed: dealSeed), id: \.id) { option in
                     Button { onSelect(option.id) } label: {
                         VStack(spacing: 14) {
                             ZStack {
@@ -248,6 +251,7 @@ struct CapacityCompareActivityView: View {
 
 struct MoreFewerActivityView: View {
     let question: MoreFewerQuestion
+    let dealSeed: String
     let accent: Color
     let yellow: Color
     let foreground: Color
@@ -271,18 +275,18 @@ struct MoreFewerActivityView: View {
                 .font(.system(size: 18, weight: .medium, design: .rounded))
 
             HStack(spacing: 28) {
-                lotButton(
-                    side: .left,
-                    titleZH: "左邊車場",
-                    titleEN: "Left lot",
-                    assets: question.leftLotAssetIDs
-                )
-                lotButton(
-                    side: .right,
-                    titleZH: "右邊車場",
-                    titleEN: "Right lot",
-                    assets: question.rightLotAssetIDs
-                )
+                // Titles follow the screen slot. The lot underneath is the deal order,
+                // so the fuller lot is not always on the right.
+                let sides = question.presentedSides(seed: dealSeed)
+                ForEach(Array(sides.enumerated()), id: \.element.rawValue) { index, side in
+                    let assets = side == .left ? question.leftLotAssetIDs : question.rightLotAssetIDs
+                    lotButton(
+                        side: side,
+                        titleZH: index == 0 ? "左邊車場" : "右邊車場",
+                        titleEN: index == 0 ? "Left lot" : "Right lot",
+                        assets: assets
+                    )
+                }
             }
 
             if let retryMessage {
@@ -343,6 +347,7 @@ struct MoreFewerActivityView: View {
 
 struct ShadowMatchActivityView: View {
     let question: ShadowMatchQuestion
+    let dealSeed: String
     let accent: Color
     let yellow: Color
     let foreground: Color
@@ -378,7 +383,7 @@ struct ShadowMatchActivityView: View {
             .accessibilityLabel("影子目標 / Shadow target")
 
             HStack(spacing: 22) {
-                ForEach(question.options, id: \.id) { option in
+                ForEach(question.presentedOptions(seed: dealSeed), id: \.id) { option in
                     Button { onSelect(option.id) } label: {
                         VStack(spacing: 10) {
                             ZStack {
@@ -425,6 +430,7 @@ struct ShadowMatchActivityView: View {
 
 struct EmptyBayActivityView: View {
     let question: EmptyBayQuestion
+    let dealSeed: String
     let accent: Color
     let yellow: Color
     let foreground: Color
@@ -448,7 +454,7 @@ struct EmptyBayActivityView: View {
                 .font(.system(size: 18, weight: .medium, design: .rounded))
 
             HStack(spacing: 24) {
-                ForEach(Array(question.bays.enumerated()), id: \.element.id) { index, bay in
+                ForEach(Array(question.presentedBays(seed: dealSeed).enumerated()), id: \.element.id) { index, bay in
                     Button { onSelectBay(bay.id) } label: {
                         VStack(spacing: 10) {
                             Text("車位 \(index + 1) / Bay \(index + 1)")

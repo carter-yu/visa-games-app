@@ -14,6 +14,7 @@ struct ChoiceCardChrome<Content: View>: View {
     let feedback: ChoiceFeedback
     let isHintTarget: Bool
     var isInteractionEnabled: Bool = true
+    var cardWidth: Double = DesignTokens.choiceCardWidth
     let action: () -> Void
     @ViewBuilder let content: () -> Content
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -36,7 +37,7 @@ struct ChoiceCardChrome<Content: View>: View {
                         .allowsHitTesting(false)
                 }
             }
-            .frame(width: metrics.u(DesignTokens.choiceCardWidth),
+            .frame(width: metrics.u(cardWidth),
                    height: metrics.u(DesignTokens.choiceCardHeight))
             .offset(y: hop ? metrics.u(-14) : 0)
             .offset(x: wiggle ? metrics.u(8) : 0)

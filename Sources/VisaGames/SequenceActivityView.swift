@@ -4,6 +4,7 @@ import VisaCore
 /// Short→long convoy: tap vehicles in order from shortest to longest.
 struct SequenceActivityView: View {
     let question: SequenceQuestion
+    let dealSeed: String
     let accent: Color
     let yellow: Color
     let foreground: Color
@@ -15,18 +16,10 @@ struct SequenceActivityView: View {
     let onHint: () -> Void
     let onSpeakPrompt: () -> Void
 
-    /// Shuffled display order so the correct order is not left-to-right.
+    /// Starting slots for this deal. Tap order stays `orderedAssetIDs` (short→long).
+    /// Recomputed from `dealSeed` only, so a wrong tap does not move the vehicles.
     private var displayOrder: [String] {
-        // Stable shuffle from completionID so layout does not jump across redraws.
-        let seed = question.completionID.unicodeScalars.reduce(into: 0) { $0 = $0 &* 31 &+ Int($1.value) }
-        var items = question.orderedAssetIDs
-        var state = seed == 0 ? 1 : abs(seed)
-        for i in stride(from: items.count - 1, through: 1, by: -1) {
-            state = state &* 1103515245 &+ 12345
-            let j = abs(state) % (i + 1)
-            items.swapAt(i, j)
-        }
-        return items
+        question.presentedAssetIDs(seed: dealSeed)
     }
 
     private func displayWidth(for assetID: String) -> CGFloat {

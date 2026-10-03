@@ -410,4 +410,94 @@ final class ActivityTests {
         )
         expectFalse(bad.isWellFormed) // two empties
     }
+
+    /// Choice slots must not stay in catalog order for every deal, and a fixed seed must not move.
+    func testChoiceOrderIsStableAndNotAlwaysCatalog() {
+        let seeds = (0..<64).map { "deal-\($0)" }
+
+        func ordersVary<T: Equatable>(_ catalog: [T], _ present: (String) -> [T]) -> Bool {
+            var distinct: [[T]] = []
+            var moved = false
+            for seed in seeds {
+                let order = present(seed)
+                expectEqual(order.count, catalog.count)
+                if order != catalog { moved = true }
+                if !distinct.contains(where: { $0 == order }) {
+                    distinct.append(order)
+                }
+            }
+            expectTrue(distinct.count > 1)
+            let fixed = present("fixed-seed")
+            // Another deal in between must not disturb this seed (no global RNG).
+            _ = present("other-seed")
+            expectEqual(fixed, present("fixed-seed"))
+            // A wrong tap is not part of the seed, so the same deal stays put.
+            expectEqual(fixed, present("fixed-seed"))
+            return moved
+        }
+
+        let two = ActivityCatalog.twoPictureQuestion()
+        expectTrue(ordersVary(two.options.map(\.id)) { two.presentedOptions(seed: $0).map(\.id) })
+        expectEqual(two.correctOptionID, "opt-fire")
+        expectEqual(two.presentedOptions(seed: "fixed-seed").map(\.id).sorted(), two.options.map(\.id).sorted())
+
+        let find = ActivityCatalog.findSameQuestion()
+        expectTrue(ordersVary(find.options.map(\.id)) { find.presentedOptions(seed: $0).map(\.id) })
+        expectTrue(find.presentedOptions(seed: "fixed-seed").contains { $0.id == find.correctOptionID })
+
+        let count = ActivityCatalog.countQuestion()
+        expectEqual(count.choiceCounts, [2, 3, 4])
+        expectTrue(ordersVary(count.choiceCounts) { count.presentedChoiceCounts(seed: $0) })
+        expectTrue(count.presentedChoiceCounts(seed: "fixed-seed").contains(count.correctCount))
+        expectEqual(count.choiceCounts, [2, 3, 4])
+
+        let sequence = ActivityCatalog.sequenceQuestion()
+        let catalogOrder = sequence.orderedAssetIDs
+        expectTrue(ordersVary(catalogOrder) { sequence.presentedAssetIDs(seed: $0) })
+        expectEqual(sequence.orderedAssetIDs, catalogOrder)
+        expectEqual(
+            evaluator.nextExpectedAssetID(question: sequence, tappedSoFar: []),
+            catalogOrder[0]
+        )
+        expectEqual(
+            evaluator.evaluate(
+                question: sequence,
+                orderedSelectionIDs: catalogOrder,
+                hintUsed: false
+            ),
+            .correct(assisted: false)
+        )
+        let shown = sequence.presentedAssetIDs(seed: "fixed-seed")
+        expectEqual(shown.sorted(), catalogOrder.sorted())
+
+        let half = ActivityCatalog.halfMatchQuestion()
+        expectTrue(ordersVary(half.options.map(\.id)) { half.presentedOptions(seed: $0).map(\.id) })
+        let shape = ActivityCatalog.shapeCousinQuestion()
+        expectTrue(ordersVary(shape.options.map(\.id)) { shape.presentedOptions(seed: $0).map(\.id) })
+        let capacity = ActivityCatalog.capacityCompareQuestion()
+        expectTrue(ordersVary(capacity.options.map(\.id)) { capacity.presentedOptions(seed: $0).map(\.id) })
+        expectEqual(capacity.correctOptionID, "cap-bus")
+
+        let lots = ActivityCatalog.moreFewerQuestion()
+        expectEqual(lots.correctSide, .right)
+        expectTrue(ordersVary([ParkingLotSide.left, .right]) { lots.presentedSides(seed: $0) })
+        expectEqual(lots.correctSide, .right)
+
+        let shadow = ActivityCatalog.shadowMatchQuestion()
+        expectTrue(ordersVary(shadow.options.map(\.id)) { shadow.presentedOptions(seed: $0).map(\.id) })
+        let bay = ActivityCatalog.emptyBayQuestion()
+        expectTrue(ordersVary(bay.bays.map(\.id)) { bay.presentedBays(seed: $0).map(\.id) })
+        expectEqual(bay.correctBayID, "bay-b")
+        expectEqual(bay.presentedBays(seed: "fixed-seed").first { $0.id == bay.correctBayID }?.isEmpty, true)
+
+        var rng = SeededGenerator(seed: 42)
+        let injected = ActivityChoiceOrder.shuffled(["a", "b", "c", "d"], using: &rng)
+        var rngAgain = SeededGenerator(seed: 42)
+        expectEqual(injected, ActivityChoiceOrder.shuffled(["a", "b", "c", "d"], using: &rngAgain))
+        expectEqual(
+            ActivityChoiceOrder.shuffled(["a", "b", "c", "d"], seed: "round-7"),
+            ActivityChoiceOrder.shuffled(["a", "b", "c", "d"], seed: "round-7")
+        )
+        expectEqual(ActivityChoiceOrder.shuffled(["only"], seed: "x"), ["only"])
+    }
 }

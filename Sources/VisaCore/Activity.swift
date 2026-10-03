@@ -49,6 +49,113 @@ public enum ActivityKind: String, CaseIterable, Sendable, Codable, Equatable, Ha
     case emptyBay
 }
 
+extension ActivityKind {
+    /// Parent catalog card title (HK Traditional). Not the child prompt.
+    public var parentCardTitle: String {
+        switch self {
+        case .twoPictureChoose: return "邊架消防車"
+        case .findTheSame: return "搵同一個"
+        case .countVehicles: return "數消防車"
+        case .sequenceShortToLong: return "短到長車隊"
+        case .halfMatch: return "搵另一半"
+        case .shapeCousin: return "圓圓嘅"
+        case .capacityCompare: return "邊架載多啲人"
+        case .moreFewer: return "邊邊車多啲"
+        case .shadowMatch: return "邊個影子"
+        case .emptyBay: return "空車位"
+        }
+    }
+
+    /// Short English subtitle on the parent card (not the spoken prompt).
+    public var parentCardEnglish: String {
+        switch self {
+        case .twoPictureChoose: return "Which fire truck"
+        case .findTheSame: return "Find the same"
+        case .countVehicles: return "Count the fire trucks"
+        case .sequenceShortToLong: return "Short-to-long convoy"
+        case .halfMatch: return "Find the other half"
+        case .shapeCousin: return "Round like the sun"
+        case .capacityCompare: return "Who carries more"
+        case .moreFewer: return "Which lot has more"
+        case .shadowMatch: return "Match the shadow"
+        case .emptyBay: return "Empty parking bay"
+        }
+    }
+
+    /// Corner pill on the art well.
+    public var parentShortLabel: String {
+        switch self {
+        case .twoPictureChoose: return "兩圖"
+        case .findTheSame: return "搵相同"
+        case .countVehicles: return "數數"
+        case .sequenceShortToLong: return "車隊"
+        case .halfMatch: return "另一半"
+        case .shapeCousin: return "圓形"
+        case .capacityCompare: return "載人"
+        case .moreFewer: return "多定少"
+        case .shadowMatch: return "影子"
+        case .emptyBay: return "空位"
+        }
+    }
+
+    /// Help tip — the child prompt in HK Traditional, not the card title.
+    public var parentHelpTraditionalChinese: String {
+        switch self {
+        case .twoPictureChoose: return "邊架係消防車呀？"
+        case .findTheSame: return "搵同一個！邊架同上面一樣？"
+        case .countVehicles: return "數一數有幾架消防車呀？"
+        case .sequenceShortToLong: return "由短到長排車隊。"
+        case .halfMatch: return "搵另一半！"
+        case .shapeCousin: return "太陽圓圓嘅，邊樣都係圓圓嘅？"
+        case .capacityCompare: return "巴士同的士，邊架載多啲人？"
+        case .moreFewer: return "邊邊停車場嘅車多啲？"
+        case .shadowMatch: return "邊架啱呢個影子？"
+        case .emptyBay: return "邊個車位係空嘅？"
+        }
+    }
+
+    public var parentHelpEnglish: String {
+        switch self {
+        case .twoPictureChoose: return "Which one is the fire truck?"
+        case .findTheSame: return "Which one matches the one above?"
+        case .countVehicles: return "How many fire trucks?"
+        case .sequenceShortToLong: return "Line the convoy up from short to long."
+        case .halfMatch: return "Find the other half!"
+        case .shapeCousin: return "The sun is round — which one is also round?"
+        case .capacityCompare: return "Bus or taxi — which carries more people?"
+        case .moreFewer: return "Which parking lot has more vehicles?"
+        case .shadowMatch: return "Which vehicle matches this shadow?"
+        case .emptyBay: return "Which parking bay is empty?"
+        }
+    }
+
+    /// Static hero asset ids for the parent card (not a live round).
+    public var parentHeroAssetIDs: [String] {
+        switch self {
+        case .twoPictureChoose:
+            return ["silhouette.fireEngine", "silhouette.hkTaxi"]
+        case .findTheSame:
+            return ["silhouette.hkTaxi"]
+        case .countVehicles:
+            return ["silhouette.fireEngine", "silhouette.fireEngine", "silhouette.fireEngine"]
+        case .sequenceShortToLong:
+            return ["silhouette.hkTaxi", "silhouette.fireEngine", "silhouette.crane", "silhouette.metroTrain"]
+        case .halfMatch:
+            return ["silhouette.fireEngine"]
+        case .shapeCousin:
+            return ["prop.sun", "silhouette.tanker"]
+        case .capacityCompare:
+            return ["silhouette.articulatedBus", "silhouette.hkTaxi"]
+        case .moreFewer:
+            return ["silhouette.hkTaxi", "silhouette.nyTaxi", "silhouette.fireEngine", "silhouette.articulatedBus"]
+        case .shadowMatch:
+            return ["silhouette.metroTrain"]
+        case .emptyBay:
+            return ["silhouette.hkTaxi", "silhouette.fireEngine"]
+        }
+    }
+}
+
 /// First child entry gate: choose one of two pictures (ADR 0004 / M3 scaffold).
 /// Prompt copy is HK Traditional Chinese + English only — never Simplified.
 public struct TwoPictureQuestion: Sendable, Equatable, Codable {
@@ -647,15 +754,40 @@ public enum ActivityCatalog {
     /// Reserved for future genres (path-trace, maze-lite, inside/outside, …).
     public static let stubKinds: [ActivityKind] = []
 
-    /// Deterministic rotation from the round UUID / seed string.
+    /// Named in ADR 0005 but not built. Parent catalog shows these as a muted row — never as cards.
+    public struct UnbuiltParentActivity: Equatable, Sendable {
+        public var traditionalChinese: String
+        public var english: String
+
+        public init(traditionalChinese: String, english: String) {
+            self.traditionalChinese = traditionalChinese
+            self.english = english
+        }
+    }
+
+    public static let unbuiltParentActivities: [UnbuiltParentActivity] = [
+        UnbuiltParentActivity(traditionalChinese: "描線", english: "Path trace"),
+        UnbuiltParentActivity(traditionalChinese: "迷宮", english: "Maze"),
+        UnbuiltParentActivity(traditionalChinese: "形狀分類", english: "Shape sort"),
+        UnbuiltParentActivity(traditionalChinese: "連點", english: "Connect the dots")
+    ]
+
+    /// Deterministic rotation from the round UUID / seed string across every playable kind.
     public static func kind(forRoundSeed seed: String) -> ActivityKind {
+        kind(forRoundSeed: seed, pool: playableKinds)
+    }
+
+    /// Same hash as `kind(forRoundSeed:)`, modulo `pool` only.
+    /// Empty pool falls back to all playable kinds (corrupt / empty star must still deal).
+    public static func kind(forRoundSeed seed: String, pool: [ActivityKind]) -> ActivityKind {
+        let kinds = pool.isEmpty ? playableKinds : pool
         let hash = seed.unicodeScalars.reduce(into: 0) { partial, scalar in
             partial = partial &* 31 &+ Int(scalar.value)
         }
-        let count = playableKinds.count
+        let count = kinds.count
         // Avoid Int.min abs overflow; keep index in 0..<count.
         let index = ((hash % count) + count) % count
-        return playableKinds[index]
+        return kinds[index]
     }
 
     public static func twoPictureQuestion() -> TwoPictureQuestion {

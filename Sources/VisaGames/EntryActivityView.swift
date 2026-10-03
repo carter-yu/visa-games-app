@@ -23,6 +23,8 @@ enum SilhouetteAsset {
 /// Large-target two-picture entry gate with friendly faced vehicles.
 struct EntryActivityView: View {
     let question: TwoPictureQuestion
+    /// Per-deal seed. Choice slots stay put until the next question.
+    let dealSeed: String
     let accent: Color
     let yellow: Color
     let foreground: Color
@@ -47,7 +49,7 @@ struct EntryActivityView: View {
                 .font(.system(size: 22, weight: .medium, design: .rounded))
 
             HStack(spacing: 36) {
-                ForEach(question.options, id: \.id) { option in
+                ForEach(question.presentedOptions(seed: dealSeed), id: \.id) { option in
                     Button {
                         onSelect(option.id)
                     } label: {

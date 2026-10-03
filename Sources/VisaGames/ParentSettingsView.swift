@@ -13,30 +13,151 @@ import VisaCore
 struct ParentSettingsView: View {
     @ObservedObject var model: AppModel
     @State private var showAdvanced = false
+    /// Remembered for this parent visit only. Default 影片 so today's screen does not jump.
+    @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.16.0"
+    static let versionLabel = "Visa Games v0.18.0"
+
+    private enum ParentLibrary { case videos, games }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
+        ZStack {
+            VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 18) {
                     header
                     notices
                     quickActions
-                    allowlistSection
-                    advancedSection
+                    librarySegment
                 }
                 .padding(.horizontal, 28)
-                .padding(.vertical, 24)
+                .padding(.top, 24)
+                .padding(.bottom, 8)
                 .frame(maxWidth: 940, alignment: .leading)
                 .frame(maxWidth: .infinity)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) {
+                        switch library {
+                        case .videos:
+                            allowlistSection
+                        case .games:
+                            gamesSection
+                        }
+                        advancedSection
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.top, 8)
+                    .padding(.bottom, 24)
+                    .frame(maxWidth: 940, alignment: .leading)
+                    .frame(maxWidth: .infinity)
+                }
+                // Return stays hidden under a playtest cover so it cannot leaveParent mid-question.
+                if model.playtestKind == nil {
+                    bottomBar
+                }
             }
-            bottomBar
+            if model.session.mode == .parent, let kind = model.playtestKind {
+                ParentPlaytestCover(model: model, kind: kind)
+            }
         }
         .background(Color(hex: DesignTokens.Palette.paper).ignoresSafeArea())
         .environment(\.canvasMetrics, CanvasMetrics(scale: 1))
         .foregroundStyle(Color.ink)
+    }
+
+    private var librarySegment: some View {
+        HStack(spacing: 12) {
+            libraryButton(
+                title: "影片",
+                subtitle: "Videos · \(model.allowlist.videos.count)",
+                selected: library == .videos,
+                action: { selectLibrary(.videos) }
+            )
+            libraryButton(
+                title: "遊戲",
+                subtitle: "Games · \(ActivityCatalog.playableKinds.count)",
+                selected: library == .games,
+                action: { selectLibrary(.games) }
+            )
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func selectLibrary(_ next: ParentLibrary) {
+        guard library != next else { return }
+        library = next
+        model.stopParentPreview()
+    }
+
+    private func libraryButton(
+        title: String,
+        subtitle: String,
+        selected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 0) {
+                ParentLabel(title, size: 22, weight: 900)
+                ParentLabel(subtitle, size: 13, weight: 700, color: .inkSoft)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+        }
+        .buttonStyle(ChunkyButtonStyle(
+            fill: selected ? Color(hex: DesignTokens.Palette.sunnyPale) : Color(hex: DesignTokens.Palette.paper),
+            cornerRadius: 16,
+            shadowDepth: selected ? 2 : 4,
+            lineWidth: 3
+        ))
+        .accessibilityLabel("\(title) \(subtitle)")
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private var gamesSection: some View {
+        ParentSection(
+            title: "遊戲",
+            subtitle: "Games · \(ActivityCatalog.playableKinds.count)"
+        ) {
+            VStack(alignment: .leading, spacing: 16) {
+                if let banner = model.gameAssignmentBanner {
+                    ParentBanner(text: banner, fill: Color(hex: DesignTokens.Palette.taxiTicket))
+                }
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 230, maximum: 320), spacing: 18)],
+                    alignment: .leading,
+                    spacing: 22
+                ) {
+                    ForEach(ActivityCatalog.playableKinds, id: \.self) { kind in
+                        ParentGameCard(
+                            kind: kind,
+                            assignment: model.gameAssignment,
+                            isHighlighted: model.playtestHighlightedKind == kind,
+                            onToggleStar: { model.toggleMissionStar(kind: kind, star: $0) },
+                            onPlaytest: { model.startPlaytest(kind: kind) }
+                        )
+                    }
+                }
+                .padding(.bottom, 6)
+                unbuiltRow
+            }
+        }
+    }
+
+    /// ADR 0005 genres that have no ActivityKind. Muted — not fake cards.
+    private var unbuiltRow: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ParentLabel("未做好 / Not built yet", size: 14, weight: 800, color: .inkSoft)
+            Text(ActivityCatalog.unbuiltParentActivities
+                .map { "\($0.traditionalChinese) \($0.english)" }
+                .joined(separator: " · "))
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color.inkSoft.opacity(0.85))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, 4)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: Header
@@ -299,10 +420,6 @@ struct ParentSettingsView: View {
     private var advancedSection: some View {
         DisclosureGroup(isExpanded: $showAdvanced) {
             VStack(alignment: .leading, spacing: 14) {
-                Text("入口遊戲已開（兩圖／搵相同／數車／車隊排序）。YouTube 內容包仍待家長 D9 審核。 / Entry games live (two-picture / find-same / count / convoy order). YouTube pack still parent D9.")
-                    .font(.system(size: 13, design: .rounded))
-                    .foregroundStyle(Color.inkSoft)
-                    .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 12) {
                     ParentSmallButton(title: "重設入口活動（兒童 UAT）/ Reset entry activity (child UAT)",
                                       symbol: "arrow.counterclockwise",
@@ -383,7 +500,7 @@ struct ParentSettingsView: View {
 // MARK: - Building blocks
 
 /// Canvas-font text for parent screens (wraps, unlike the one-line `CanvasText`).
-private struct ParentLabel: View {
+struct ParentLabel: View {
     let text: String
     let size: CGFloat
     let weight: Int
@@ -403,7 +520,7 @@ private struct ParentLabel: View {
     }
 }
 
-private struct ParentPill: View {
+struct ParentPill: View {
     let text: String
     let fill: Color
 
@@ -418,7 +535,7 @@ private struct ParentPill: View {
     }
 }
 
-private struct ParentBanner: View {
+struct ParentBanner: View {
     let text: String
     let fill: Color
 

@@ -4,6 +4,7 @@ import VisaCore
 /// Find-the-same entry gate with faced vehicles and bigger taps.
 struct FindSameActivityView: View {
     let question: FindSameQuestion
+    let dealSeed: String
     let accent: Color
     let yellow: Color
     let foreground: Color
@@ -42,7 +43,7 @@ struct FindSameActivityView: View {
             .accessibilityLabel("目標 / Target")
 
             HStack(spacing: 24) {
-                ForEach(question.options, id: \.id) { option in
+                ForEach(question.presentedOptions(seed: dealSeed), id: \.id) { option in
                     Button {
                         onSelect(option.id)
                     } label: {
