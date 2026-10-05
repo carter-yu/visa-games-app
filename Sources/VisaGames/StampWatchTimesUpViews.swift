@@ -7,11 +7,15 @@ struct StampSuccessView: View {
     let ticket: MissionTicket
     /// Actual pending award at success (minutes/road follow this; stars stay ticket difficulty).
     let earnedMinutes: Int
+    /// Leading x of the departure pair. Already the visit dock on the first frame.
+    let dockLeadingX: CGFloat
     let onGo: () -> Void
     let onSpeak: () -> Void
     @Environment(\.canvasMetrics) private var metrics
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var confetti = false
     @State private var zoomVehicle = false
+    @State private var dockSettled = false
 
     var body: some View {
         CanvasStage {
@@ -66,11 +70,18 @@ struct StampSuccessView: View {
                     .offset(x: zoomVehicle ? metrics.u(160) : 0)
                     .opacity(zoomVehicle ? 0 : 1)
             }
-            .canvasPlaced(x: 360, y: 560)
+            // Settle in place only. x is the dock already; never slide from 360.
+            .scaleEffect(reduceMotion || dockSettled ? 1 : 0.96, anchor: .bottomLeading)
+            .canvasPlaced(x: dockLeadingX, y: CGFloat(BayDock.canvasY))
         }
         .onAppear {
             onSpeak()
             confetti = true
+            if reduceMotion {
+                dockSettled = true
+            } else {
+                withAnimation(.easeOut(duration: 0.12)) { dockSettled = true }
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 withAnimation(.easeIn(duration: 0.55)) { zoomVehicle = true }
             }
@@ -392,9 +403,13 @@ private struct GarageGlyph: View {
 
 struct TimesUpView: View {
     let ticket: MissionTicket
+    /// Leading x of 「再揀車票」. Already the visit dock on the first frame.
+    let dockLeadingX: CGFloat
     let onNewMission: () -> Void
     let onSpeak: () -> Void
     @Environment(\.canvasMetrics) private var metrics
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var dockSettled = false
 
     private var prompt: SpokenPrompt { .timesUp(for: ticket) }
 
@@ -453,10 +468,18 @@ struct TimesUpView: View {
             }
             .buttonStyle(ChunkyButtonStyle(fill: Color(hex: DesignTokens.Palette.sand),
                                            cornerRadius: 40, shadowDepth: 10))
-            .canvasPlaced(x: 430, y: 560)
+            .scaleEffect(reduceMotion || dockSettled ? 1 : 0.96, anchor: .bottomLeading)
+            .canvasPlaced(x: dockLeadingX, y: CGFloat(BayDock.canvasY))
             .accessibilityLabel("再揀車票 New mission")
         }
-        .onAppear(perform: onSpeak)
+        .onAppear {
+            onSpeak()
+            if reduceMotion {
+                dockSettled = true
+            } else {
+                withAnimation(.easeOut(duration: 0.12)) { dockSettled = true }
+            }
+        }
     }
 }
 
