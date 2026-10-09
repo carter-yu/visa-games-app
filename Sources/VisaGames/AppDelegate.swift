@@ -403,8 +403,15 @@ final class AppModel: ObservableObject {
 
     func grant() {
         guard !storageFailed else { return }
+        let modeBeforeGrant = session.mode
         update { $0.grant(seconds: 60, now: Date()) }
         guard session.mode == .play else { return }
+        if modeBeforeGrant == .parent {
+            // 測試一分鐘簽證 leaves parent controls straight into play (no returnToChild).
+            perf.endPlay(reason: .previewStopped, resumeSaved: false)
+            perf.abandonRound(reason: "test_visa")
+            perf.parentLeft(reason: "test_visa")
+        }
         // Parent test visa has no activity ticket — keep canvas (picker), never legacyShell.
         if selectedStars == nil {
             selectedStars = ChildDifficulty.easy.rawValue
