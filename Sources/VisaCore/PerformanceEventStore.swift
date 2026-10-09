@@ -286,7 +286,8 @@ public enum PerfResumeLink: String, Sendable, Equatable {
         guard end.bool("resume_saved") == true, let video = end.string("video") else { return .notApplicable }
         for event in ordered[(endIndex + 1)...] {
             switch event.type {
-            case .videoStart where event.actor != .parentPreview && event.string("video") == video:
+            case .videoStart where event.actor != .parentPreview && event.string("video") == video
+                && event.string("source") != "after_parent":
                 return event.string("source") == "continue" ? .yes : .no
             case .resumeCleared where event.string("video") == video:
                 return .no
@@ -349,7 +350,8 @@ public enum PerfSummaries {
                     summary.uncountedPlays += 1
                     break
                 }
-                if let id = event.string("video") {
+                // The reload after parent mode continues the same play (design §7.1): not a new play.
+                if let id = event.string("video"), event.string("source") != "after_parent" {
                     summary.videos[id, default: PerfVideoDayStats()].plays += 1
                     if event.string("source") == "continue" {
                         summary.videos[id, default: PerfVideoDayStats()].resumedPlays += 1

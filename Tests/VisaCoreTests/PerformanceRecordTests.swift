@@ -496,6 +496,18 @@ final class PerformanceRecordTests {
         expectEqual(PerfResumeLink.resolve(events, endIndex: index("p3")), .notApplicable)
         expectEqual(PerfResumeLink.resolve(events, endIndex: index("p4")), .pending)
         expectEqual(PerfResumeLink.notApplicable.rawValue, "n/a")
+
+        // after_parent reloads continue the same play: not a new play in the daily summary.
+        let reload = [
+            event(.videoStart, ["play": .string("q1"), "video": .string("c"), "source": .string("pick")],
+                  at: 100, seq: 10, mode: "play"),
+            event(.videoStart, ["play": .string("q2"), "video": .string("c"), "source": .string("after_parent")],
+                  at: 200, seq: 11, mode: "play")
+        ]
+        let reloadDays = Set(reload.map { PerfClock.dayStamp($0.timestamp, timeZone: PerfClock.hongKong) })
+        let reloadDay = PerfSummaries.daySummaries(events: reload, days: reloadDays, excluded: [],
+                                                   timeZone: PerfClock.hongKong).values.first
+        expectEqual(reloadDay?.videos["c"]?.plays, 1)
         expectTrue(PerfVideoStopReason.visaExpired.isTimeUp && PerfVideoStopReason.budgetExhausted.isTimeUp)
         expectFalse(PerfVideoStopReason.navGuard.isTimeUp)
         expectEqual(PerfVideoStopReason.navGuard.rawValue, "nav_guard")
