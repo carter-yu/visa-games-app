@@ -123,7 +123,10 @@ final class PerformanceRecordTests {
         try store.append([event(.statsMarker, ["what": .string("cleared")], seq: 2, actor: .parent)])
         expectEqual(store.read().events.count, 1)
         // Default location: Application Support/VisaGames/stats (never the repo logs/ mirror).
-        expectTrue(PerfEventStore.defaultDirectory().path.hasSuffix("Application Support/VisaGames/stats"))
+        expectTrue(PerfEventStore.defaultDirectory().path.hasSuffix("VisaGames/stats"))
+        #if os(macOS)
+        expectTrue(PerfEventStore.defaultDirectory().path.hasSuffix("Library/Application Support/VisaGames/stats"))
+        #endif
     }
 
     // MARK: Trackers

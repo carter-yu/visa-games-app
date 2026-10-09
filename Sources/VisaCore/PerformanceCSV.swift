@@ -110,37 +110,47 @@ public enum PerfCSVExport {
             let wrong = (answers[round] ?? []).filter { $0.bool("correct") == false }
             let kind = dealt.string("kind").flatMap(ActivityKind.init(rawValue:))
             let outcome = result?.string("outcome") ?? "abandoned"
-            rows.append(timeColumns(dealt.timestamp, timeZone: timeZone) + [
-                round,
-                dealt.session,
-                dealt.actor.rawValue,
-                yesNo(PerfFilter.countable(dealt, excludedSessions: excluded)),
-                dealt.int("stars").map(String.init) ?? "",
-                dealt.string("kind") ?? "",
-                kind?.parentCardTitle ?? "",
-                dealt.string("item") ?? "",
-                dealt.string("deal_mode") ?? "",
-                outcome,
-                result == nil ? "no_result_recorded" : (result?.string("reason") ?? ""),
-                yesNo(result?.bool("first_try")),
-                result?.int("misses").map(String.init) ?? String(wrong.count),
-                result?.int("answers").map(String.init) ?? String((answers[round] ?? []).count),
-                yesNo(result?.bool("hint_used")),
-                yesNo(result?.bool("assisted")),
-                dealt.int("pending_start").map(String.init) ?? "",
-                result?.int("earned_min").map(String.init) ?? "0",
-                msToSeconds(result?.int("active_ms")),
-                msToSeconds(result?.int("total_ms")),
-                msToSeconds(result?.int("first_tap_ms")),
-                wrong.map { $0.string("choice") ?? "" }.joined(separator: "|"),
-                wrong.map { ($0["tags"]?.stringArray ?? []).joined(separator: "+") }.joined(separator: "|"),
-                wrong.map { $0.int("slot").map(String.init) ?? "" }.joined(separator: "|"),
-                String(wrong.filter { $0.bool("repeat_wrong") == true }.count),
-                String(wrong.filter { $0.bool("fast") == true }.count),
-                result?.int("mash_taps").map(String.init) ?? "",
-                result?.int("steps_before_first_miss").map(String.init) ?? "",
-                dealt.app
-            ])
+            let roundAnswers: [PerfEvent] = answers[round] ?? []
+            let misses: String = result?.int("misses").map(String.init) ?? String(wrong.count)
+            let answerCount: String = result?.int("answers").map(String.init) ?? String(roundAnswers.count)
+            let abandonReason: String = result == nil ? "no_result_recorded" : (result?.string("reason") ?? "")
+            let wrongChoices: String = wrong.map { $0.string("choice") ?? "" }.joined(separator: "|")
+            let wrongTags: String = wrong.map { ($0["tags"]?.stringArray ?? []).joined(separator: "+") }
+                .joined(separator: "|")
+            let wrongSlots: String = wrong.map { $0.int("slot").map(String.init) ?? "" }.joined(separator: "|")
+            let repeatWrong: Int = wrong.filter { $0.bool("repeat_wrong") == true }.count
+            let fastWrong: Int = wrong.filter { $0.bool("fast") == true }.count
+            var row: [String] = timeColumns(dealt.timestamp, timeZone: timeZone)
+            row.append(round)
+            row.append(dealt.session)
+            row.append(dealt.actor.rawValue)
+            row.append(yesNo(PerfFilter.countable(dealt, excludedSessions: excluded)))
+            row.append(dealt.int("stars").map(String.init) ?? "")
+            row.append(dealt.string("kind") ?? "")
+            row.append(kind?.parentCardTitle ?? "")
+            row.append(dealt.string("item") ?? "")
+            row.append(dealt.string("deal_mode") ?? "")
+            row.append(outcome)
+            row.append(abandonReason)
+            row.append(yesNo(result?.bool("first_try")))
+            row.append(misses)
+            row.append(answerCount)
+            row.append(yesNo(result?.bool("hint_used")))
+            row.append(yesNo(result?.bool("assisted")))
+            row.append(dealt.int("pending_start").map(String.init) ?? "")
+            row.append(result?.int("earned_min").map(String.init) ?? "0")
+            row.append(msToSeconds(result?.int("active_ms")))
+            row.append(msToSeconds(result?.int("total_ms")))
+            row.append(msToSeconds(result?.int("first_tap_ms")))
+            row.append(wrongChoices)
+            row.append(wrongTags)
+            row.append(wrongSlots)
+            row.append(String(repeatWrong))
+            row.append(String(fastWrong))
+            row.append(result?.int("mash_taps").map(String.init) ?? "")
+            row.append(result?.int("steps_before_first_miss").map(String.init) ?? "")
+            row.append(dealt.app)
+            rows.append(row)
         }
         return rows
     }
@@ -164,33 +174,35 @@ public enum PerfCSVExport {
                     resumedLater = yesNo(next.string("source") == "continue" && next.string("video") == video)
                 }
             }
-            rows.append(timeColumns(start.timestamp, timeZone: timeZone) + [
-                play,
-                start.session,
-                start.actor.rawValue,
-                yesNo(PerfFilter.countable(start, excludedSessions: excluded)),
-                start.string("visa_source") ?? "",
-                video,
-                titles[video] ?? "",
-                start.string("source") ?? "",
-                start.string("visit") ?? "",
-                start.int("page").map(String.init) ?? "",
-                start.int("slot").map(String.init) ?? "",
-                start.int("deck_size").map(String.init) ?? "",
-                start.int("ms_on_page").map(String.init) ?? "",
-                number(start.double("start_s")),
-                end?.string("reason") ?? "no_end_recorded",
-                yesNo(end?.bool("completed")),
-                end == nil ? "" : yesNo(resumeSaved),
-                resumedLater,
-                number(end?.double("watched_s")),
-                number(end?.double("wall_s")),
-                number(end?.double("max_pos_s")),
-                number(end?.double("duration_s") ?? start.double("duration_s")),
-                end?.double("completion").map { number($0 * 100, decimals: 0) } ?? "",
-                end?.string("telemetry") ?? "",
-                start.app
-            ])
+            let duration: Double? = end?.double("duration_s") ?? start.double("duration_s")
+            let completion: String = end?.double("completion").map { number($0 * 100, decimals: 0) } ?? ""
+            var row: [String] = timeColumns(start.timestamp, timeZone: timeZone)
+            row.append(play)
+            row.append(start.session)
+            row.append(start.actor.rawValue)
+            row.append(yesNo(PerfFilter.countable(start, excludedSessions: excluded)))
+            row.append(start.string("visa_source") ?? "")
+            row.append(video)
+            row.append(titles[video] ?? "")
+            row.append(start.string("source") ?? "")
+            row.append(start.string("visit") ?? "")
+            row.append(start.int("page").map(String.init) ?? "")
+            row.append(start.int("slot").map(String.init) ?? "")
+            row.append(start.int("deck_size").map(String.init) ?? "")
+            row.append(start.int("ms_on_page").map(String.init) ?? "")
+            row.append(number(start.double("start_s")))
+            row.append(end?.string("reason") ?? "no_end_recorded")
+            row.append(yesNo(end?.bool("completed")))
+            row.append(end == nil ? "" : yesNo(resumeSaved))
+            row.append(resumedLater)
+            row.append(number(end?.double("watched_s")))
+            row.append(number(end?.double("wall_s")))
+            row.append(number(end?.double("max_pos_s")))
+            row.append(number(duration))
+            row.append(completion)
+            row.append(end?.string("telemetry") ?? "")
+            row.append(start.app)
+            rows.append(row)
         }
         return rows
     }

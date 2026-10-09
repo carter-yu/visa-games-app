@@ -331,6 +331,11 @@ public enum PerfRetention {
     public struct Outcome: Equatable, Sendable {
         public var folded: [String]
         public var deleted: [String]
+
+        public init(folded: [String], deleted: [String]) {
+            self.folded = folded
+            self.deleted = deleted
+        }
     }
 
     /// Days strictly older than the last `rawDays` HKT calendar days (today included).
