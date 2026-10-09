@@ -360,7 +360,6 @@ final class AppModel: ObservableObject {
         discardPlaytestCover(reason: "leaveParent")
         let beforeMode = session.mode
         if beforeMode == .parent {
-            perf.parentLeft(reason: reason)
             // An inline 試播 preview (if any) ends with parent controls.
             perf.endPlay(reason: .previewStopped, resumeSaved: false)
         }
@@ -370,6 +369,7 @@ final class AppModel: ObservableObject {
         authenticating = false
         parentDeadline = nil
         update { $0.leaveParent(now: Date()) }
+        if beforeMode == .parent { perf.parentLeft(reason: reason, toMode: session.mode) }
         // Drop parent preview if we are no longer in play with a valid policy.
         pendingVideoStopReason = .previewStopped
         if session.mode != .play {
@@ -410,7 +410,7 @@ final class AppModel: ObservableObject {
             // 測試一分鐘簽證 leaves parent controls straight into play (no returnToChild).
             perf.endPlay(reason: .previewStopped, resumeSaved: false)
             perf.abandonRound(reason: "test_visa")
-            perf.parentLeft(reason: "test_visa")
+            perf.parentLeft(reason: "test_visa", toMode: session.mode)
         }
         // Parent test visa has no activity ticket — keep canvas (picker), never legacyShell.
         if selectedStars == nil {
@@ -604,8 +604,21 @@ final class AppModel: ObservableObject {
         perf.playSample(video: videoID, seconds: seconds)
     }
 
+    /// Log reason → design §5.5 `resume_cleared.reason`.
+    private static func perfResumeClearReason(_ reason: String) -> String {
+        switch reason {
+        case "resumeChoicePickOther": return "resume_choice_pick_other"
+        case "pickOther": return "pick_other"
+        case "allowlistRemove": return "allowlist_removed"
+        case "ended": return "ended"
+        default: return reason
+        }
+    }
+
     private func clearLastIncomplete(reason: String) {
-        guard session.snapshot.lastIncomplete != nil else { return }
+        guard let cleared = session.snapshot.lastIncomplete else { return }
+        perf.resumeCleared(video: cleared.videoID, position: cleared.positionSeconds,
+                           reason: Self.perfResumeClearReason(reason))
         update { $0.replaceLastIncomplete(nil) }
         VisaGamesLog.append("resume clear — 清進度 reason=\(reason)")
     }
@@ -1597,7 +1610,7 @@ final class AppModel: ObservableObject {
         switch reason {
         case .budgetExhausted: pendingVideoStopReason = isChild ? .budgetExhausted : .previewStopped
         case .sessionExpired: pendingVideoStopReason = isChild ? .visaExpired : .previewStopped
-        case .navigationRejected: pendingVideoStopReason = isChild ? .navBlocked : .previewStopped
+        case .navigationRejected: pendingVideoStopReason = isChild ? .navGuard : .previewStopped
         case .notAllowlisted, .invalidVideoID: pendingVideoStopReason = .unknown
         }
         let route = VideoEndRouting.afterPlaybackStopped(reason: reason, isChildPlay: isChild)
@@ -2049,16 +2062,22 @@ final class AppModel: ObservableObject {
         // Visa / ledger only. Mission-game star assignment stays in UserDefaults.
         do {
             let fresh = Snapshot(configured: true)
+            let clearedResume = session.snapshot.lastIncomplete
             try store.save(fresh)
             storageFailed = false
             message = nil
             perf.abandonRound(reason: "reset_storage")
             resetTaskRound()
-            pendingVideoStopReason = .resetStorage
+            pendingVideoStopReason = .storageReset
             activePlayVideoID = nil
             pendingVideoStopReason = nil
             // 清除簽證及重設儲存 never touches stats/ (Carter 3A): that is 「清除表現紀錄」.
             perf.visaEnded(reason: "reset")
+            if let clearedResume {
+                perf.resumeCleared(video: clearedResume.videoID, position: clearedResume.positionSeconds,
+                                   reason: "storage_reset")
+            }
+            perf.marker("reset_storage")
             activePlayStartSeconds = nil
             lastKnownPlaybackSeconds = nil
             session = Session(snapshot: fresh, now: Date())
@@ -2073,7 +2092,7 @@ final class AppModel: ObservableObject {
     func quitFromParent() {
         guard session.mode == .parent else { return }
         VisaGamesLog.append("quit requested — 家長離開程式 activeVideo=\(activePlayVideoID ?? "nil")")
-        pendingVideoStopReason = .terminate
+        pendingVideoStopReason = .appTerminate
         activePlayVideoID = nil
         pendingVideoStopReason = nil
         DispatchQueue.main.async {
@@ -2088,10 +2107,10 @@ final class AppModel: ObservableObject {
         draftTitleTask?.cancel()
         draftTitleTask = nil
         guideVoice.stop()
-        pendingVideoStopReason = .terminate
+        pendingVideoStopReason = .appTerminate
         activePlayVideoID = nil
         pendingVideoStopReason = nil
-        perf.endPlay(reason: .terminate, resumeSaved: false)
+        perf.endPlay(reason: .appTerminate, resumeSaved: false)
         perf.abandonRound(reason: "terminate")
         perf.terminate(reason: "quit")
         playbackMessage = nil

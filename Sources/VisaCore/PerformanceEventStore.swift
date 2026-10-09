@@ -235,6 +235,11 @@ public struct PerfVideoDayStats: Codable, Equatable, Sendable {
     public var timeUpCuts = 0
     /// Starts through 繼續睇.
     public var resumedPlays = 0
+    /// Time-up stops whose saved position was later used through 繼續睇.
+    public var timeUpResumedLater = 0
+    public var navGuardStops = 0
+    /// Plays with no player samples (`telemetry: none`).
+    public var noTelemetryPlays = 0
     public var watchedSeconds: Double = 0
 
     public init() {}
@@ -243,7 +248,53 @@ public struct PerfVideoDayStats: Codable, Equatable, Sendable {
         case impressions, picks, plays, completions
         case timeUpCuts = "time_up_cuts"
         case resumedPlays = "resumed_plays"
+        case timeUpResumedLater = "time_up_resumed_later"
+        case navGuardStops = "nav_guard_stops"
+        case noTelemetryPlays = "no_telemetry_plays"
         case watchedSeconds = "watched_s"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        impressions = try c.decodeIfPresent(Int.self, forKey: .impressions) ?? 0
+        picks = try c.decodeIfPresent(Int.self, forKey: .picks) ?? 0
+        plays = try c.decodeIfPresent(Int.self, forKey: .plays) ?? 0
+        completions = try c.decodeIfPresent(Int.self, forKey: .completions) ?? 0
+        timeUpCuts = try c.decodeIfPresent(Int.self, forKey: .timeUpCuts) ?? 0
+        resumedPlays = try c.decodeIfPresent(Int.self, forKey: .resumedPlays) ?? 0
+        timeUpResumedLater = try c.decodeIfPresent(Int.self, forKey: .timeUpResumedLater) ?? 0
+        navGuardStops = try c.decodeIfPresent(Int.self, forKey: .navGuardStops) ?? 0
+        noTelemetryPlays = try c.decodeIfPresent(Int.self, forKey: .noTelemetryPlays) ?? 0
+        watchedSeconds = try c.decodeIfPresent(Double.self, forKey: .watchedSeconds) ?? 0
+    }
+}
+
+/// 「之後繼續睇」 link for a time-up stop (design §7.1).
+public enum PerfResumeLink: String, Sendable, Equatable {
+    /// A later child play of the same video started from 繼續睇.
+    case yes
+    /// The saved position was cleared first (揀片睇, another card, ended, removal, storage reset).
+    case no
+    /// The position is still saved.
+    case pending
+    /// No position was saved.
+    case notApplicable = "n/a"
+
+    /// `ordered` must be `PerfCodec.ordered`; `endIndex` is the `video_end` line.
+    public static func resolve(_ ordered: [PerfEvent], endIndex: Int) -> PerfResumeLink {
+        let end = ordered[endIndex]
+        guard end.bool("resume_saved") == true, let video = end.string("video") else { return .notApplicable }
+        for event in ordered[(endIndex + 1)...] {
+            switch event.type {
+            case .videoStart where event.actor != .parentPreview && event.string("video") == video:
+                return event.string("source") == "continue" ? .yes : .no
+            case .resumeCleared where event.string("video") == video:
+                return .no
+            default:
+                continue
+            }
+        }
+        return .pending
     }
 }
 
@@ -257,7 +308,7 @@ public enum PerfSummaries {
         for event in ordered where event.type == .roundResult {
             if let round = event.string("round") { results[round] = event }
         }
-        for event in ordered {
+        for (index, event) in ordered.enumerated() {
             let day = PerfClock.dayStamp(event.timestamp, timeZone: timeZone)
             guard days.contains(day) else { continue }
             let counted = PerfFilter.countable(event, excludedSessions: excluded)
@@ -307,12 +358,14 @@ public enum PerfSummaries {
             case .videoEnd where counted:
                 guard let id = event.string("video") else { break }
                 var stats = summary.videos[id] ?? PerfVideoDayStats()
-                switch event.string("reason") {
-                case PerfVideoStopReason.ended.rawValue: stats.completions += 1
-                case PerfVideoStopReason.visaExpired.rawValue, PerfVideoStopReason.budgetExhausted.rawValue:
+                let reason = event.string("stop_reason").flatMap(PerfVideoStopReason.init(rawValue:))
+                if reason == .ended { stats.completions += 1 }
+                if reason == .navGuard { stats.navGuardStops += 1 }
+                if reason?.isTimeUp == true {
                     stats.timeUpCuts += 1
-                default: break
+                    if PerfResumeLink.resolve(ordered, endIndex: index) == .yes { stats.timeUpResumedLater += 1 }
                 }
+                if event.string("telemetry") == "none" { stats.noTelemetryPlays += 1 }
                 stats.watchedSeconds += event.double("watched_s") ?? 0
                 summary.videos[id] = stats
             default:

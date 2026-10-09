@@ -30,17 +30,24 @@ clean, tagged data first.
    `hint_shown`, `round_result` (solved / zeroed / abandoned, first try, misses, active / total /
    parent ms, mash taps, wrong choices), `visa_start` / `visa_end` (earned / parent_test /
    unknown), `picker_visit` (deck, entry), `video_impressions` (ids fully drawn on a page),
-   `video_pick` (page, slot, accepted / refused), `resume_offered` / `resume_used`,
+   `video_pick` (page, slot, accepted / refused), `resume_offered` / `resume_used` /
+   `resume_cleared` (saved position dropped: pick_other, resume_choice_pick_other, ended,
+   allowlist_removed, storage_reset),
    `video_start` (source pick / continue / after_parent / parent_preview), `video_progress`
    (every 60 s), `video_end` (stop reason, watched / wall seconds, max position, completion,
    resume saved), `allowlist_change`, `config_change`, `stats_exclude` / `stats_include`,
    `stats_marker`, `clock_jump`.
 4. **Video stop reasons match the code (decision 8 replaced).** The child has no stop button; a
    child play ends by finishing or by time running out. `PerfVideoStopReason`: `ended`,
-   `visa_expired`, `budget_exhausted`, `nav_blocked` (D8 guard, rare and technical),
-   `parent_unlock`, `preview_stopped`, `allowlist_removed`, `reset_storage`,
-   `storage_failure`, `superseded`, `terminate`, `unknown`. No quick-exit or early-exit
-   classification. Embed errors do not stop playback (wall time only, `telemetry=wall_only`).
+   `visa_expired`, `budget_exhausted`, `nav_guard` (D8 guard, rare and technical),
+   `parent_unlock`, `preview_stopped`, `allowlist_removed`, `storage_reset`,
+   `storage_failure`, `app_terminate`, plus defensive `superseded` / `unknown` (not expected).
+   The field is `video_end.stop_reason`. A missing end (power cut) is read as `interrupted`,
+   never written. No quick-exit or early-exit classification. Embed errors do not stop
+   playback; a play with no player samples has `telemetry=none` and `watched_s=0`.
+   `resumed_later` (CSV, rollup) is resolved by the reader: `yes` (a later child start of the
+   same video from 繼續睇), `no` (another child start or `resume_cleared` first), `pending`
+   (still saved), `n/a` (nothing saved).
 5. **Who counts.** One actor rule: parent playtest → `parent_playtest`; other parent-mode video →
    `parent_preview`; other parent mode → `parent`; 🧪 家長測試中 on → `parent_uat`; play inside a
    「測試一分鐘簽證」 → `parent_test_visa`; else `child`. Only `child` lines in sessions not marked

@@ -16,9 +16,9 @@ public enum PerfCSVExport {
 
     public static let videosHeader = [
         "date_hkt", "time_hkt", "ts_utc", "play_id", "session_id", "actor", "counted", "visa_source",
-        "video_id", "title", "source", "visit_id", "page", "slot", "deck_size", "ms_on_page",
-        "start_s", "stop_reason", "completed", "resume_saved", "resumed_later", "watched_s", "wall_s",
-        "max_pos_s", "duration_s", "completion_pct", "telemetry", "app_version"
+        "video_id", "title", "source", "visit_id", "page", "slot", "deck_size", "pick_s",
+        "start_s", "stop_reason", "completed", "time_up_stop", "resume_saved", "resumed_later", "watched_s",
+        "wall_s", "max_pos_s", "duration_s", "completion_pct", "telemetry", "app_version"
     ]
 
     public static let impressionsHeader = [
@@ -33,7 +33,8 @@ public enum PerfCSVExport {
 
     public static let dailyVideosHeader = [
         "date_hkt", "video_id", "title", "impressions", "picks", "plays", "completions",
-        "time_up_cuts", "resumed_plays", "watched_min"
+        "time_up_stops", "time_up_stops_resumed_later", "continues", "nav_guard_stops", "no_telemetry_plays",
+        "watched_min"
     ]
 
     /// RFC 4180: quote when a field has a comma, quote, CR or LF; double inner quotes.
@@ -157,23 +158,20 @@ public enum PerfCSVExport {
 
     public static func videoRows(_ events: [PerfEvent], excluded: Set<String>, titles: [String: String],
                                  timeZone: TimeZone) -> [[String]] {
-        var ends: [String: PerfEvent] = [:]
-        for event in events where event.type == .videoEnd {
-            if let play = event.string("play") { ends[play] = event }
+        var ends: [String: Int] = [:]
+        for (index, event) in events.enumerated() where event.type == .videoEnd {
+            if let play = event.string("play") { ends[play] = index }
         }
-        let starts = events.filter { $0.type == .videoStart }
         var rows: [[String]] = []
-        for (index, start) in starts.enumerated() {
+        for start in events where start.type == .videoStart {
             guard let play = start.string("play") else { continue }
-            let end = ends[play]
+            let endIndex = ends[play]
+            let end = endIndex.map { events[$0] }
             let video = start.string("video") ?? ""
             let resumeSaved = end?.bool("resume_saved") == true
-            var resumedLater = ""
-            if resumeSaved {
-                if let next = starts[(index + 1)...].first(where: { $0.actor != .parentPreview }) {
-                    resumedLater = yesNo(next.string("source") == "continue" && next.string("video") == video)
-                }
-            }
+            let stopReason = end?.string("stop_reason").flatMap(PerfVideoStopReason.init(rawValue:))
+            let resumedLater: String = endIndex.map { PerfResumeLink.resolve(events, endIndex: $0).rawValue } ?? ""
+            let pickSeconds: String = start.int("ms_on_page").map { number(Double($0) / 1000) } ?? ""
             let duration: Double? = end?.double("duration_s") ?? start.double("duration_s")
             let completion: String = end?.double("completion").map { number($0 * 100, decimals: 0) } ?? ""
             var row: [String] = timeColumns(start.timestamp, timeZone: timeZone)
@@ -189,10 +187,12 @@ public enum PerfCSVExport {
             row.append(start.int("page").map(String.init) ?? "")
             row.append(start.int("slot").map(String.init) ?? "")
             row.append(start.int("deck_size").map(String.init) ?? "")
-            row.append(start.int("ms_on_page").map(String.init) ?? "")
+            row.append(pickSeconds)
             row.append(number(start.double("start_s")))
-            row.append(end?.string("reason") ?? "no_end_recorded")
+            // No end line (power cut, crash): the reader infers `interrupted` (never written).
+            row.append(end?.string("stop_reason") ?? "interrupted")
             row.append(yesNo(end?.bool("completed")))
+            row.append(end == nil ? "" : yesNo(stopReason?.isTimeUp == true))
             row.append(end == nil ? "" : yesNo(resumeSaved))
             row.append(resumedLater)
             row.append(number(end?.double("watched_s")))
@@ -264,7 +264,8 @@ public enum PerfCSVExport {
                 rows.append([
                     day, id, titles[id] ?? "",
                     String(stats.impressions), String(stats.picks), String(stats.plays),
-                    String(stats.completions), String(stats.timeUpCuts), String(stats.resumedPlays),
+                    String(stats.completions), String(stats.timeUpCuts), String(stats.timeUpResumedLater),
+                    String(stats.resumedPlays), String(stats.navGuardStops), String(stats.noTelemetryPlays),
                     number(stats.watchedSeconds / 60)
                 ])
             }
@@ -309,16 +310,20 @@ public enum PerfCSVExport {
     videos.csv — 每次播片一行 / one row per video play
       source            pick 揀片 · continue 繼續睇 · after_parent 家長返回後再播 · parent_preview 試播
       page, slot        揀片時喺第幾頁、第幾格（0 起計，4×2 由左至右、由上至下）/ picker page and slot (0-based)
+      pick_s            嗰頁出咗幾耐先揀 / seconds on the page before the pick
       stop_reason       ended 睇完 · visa_expired 簽證時間到 · budget_exhausted 觀看時間用完 ·
-                        nav_blocked 撳咗 YouTube 連結被擋 · parent_unlock 家長打開設定 ·
+                        nav_guard 撳咗 YouTube 連結被擋（少見）· parent_unlock 家長打開設定 ·
                         preview_stopped 試播停止 · allowlist_removed 片被移除 ·
-                        reset_storage 重設儲存 · storage_failure 儲存失敗 · superseded 被新播放取代 ·
-                        terminate 離開程式 · no_end_recorded 冇結束紀錄（例如斷電）
+                        storage_reset 重設儲存 · storage_failure 儲存失敗 · app_terminate 離開程式 ·
+                        superseded / unknown 後備（唔應該出現）· interrupted 冇結束紀錄（例如斷電）
+                        小朋友冇辦法中途熄片；時間到停咗只係資料，唔代表唔鍾意。
+                        A child cannot close a video; a time-up stop is information, not dislike.
       completed         睇完成條片 / reached the end
+      time_up_stop      簽證或者觀看時間用完而停 / stopped because time ran out
       resume_saved      時間到停咗，有記低進度 / stopped by time, position saved
-      resumed_later     之後有冇揀「繼續睇」/ later continued with 繼續睇
-      watched_s         真正播咗幾多秒 / seconds actually played
-      telemetry         full 有播放資料 · wall_only 冇播放資料（用時鐘估）
+      resumed_later     yes 之後用「繼續睇」睇返 · no 冇（進度清咗）· pending 進度仲喺度 · n/a 冇記進度
+      watched_s         真正播咗幾多秒（冇播放資料就係 0）/ seconds actually played (0 without player data)
+      telemetry         full 有播放資料 · none 冇播放資料
 
     video_impressions.csv — 揀片畫面每格一行 / one row per card shown on a picker page
       picked            呢頁有冇揀呢條片 / picked from this page

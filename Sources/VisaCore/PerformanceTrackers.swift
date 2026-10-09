@@ -186,7 +186,7 @@ public enum PerfVideoStopReason: String, Sendable, Equatable, CaseIterable {
     case budgetExhausted = "budget_exhausted"
     /// D8 guard: a tap inside the embed tried to leave it (e.g. the YouTube logo).
     /// The app returns to the picker. Rare; technical, not a dislike signal.
-    case navBlocked = "nav_blocked"
+    case navGuard = "nav_guard"
     /// A parent opened parent controls mid-play (the player is torn down).
     case parentUnlock = "parent_unlock"
     /// Parent stopped an inline 試播 preview (Stop, segment switch, ended preview, Return).
@@ -194,14 +194,18 @@ public enum PerfVideoStopReason: String, Sendable, Equatable, CaseIterable {
     /// Parent removed the playing video from the allowlist.
     case allowlistRemoved = "allowlist_removed"
     /// Parent 「清除簽證及重設儲存」.
-    case resetStorage = "reset_storage"
+    case storageReset = "storage_reset"
     /// `state.json` could not be saved (app falls back to lock).
     case storageFailure = "storage_failure"
-    /// A new start replaced an open play without an end report.
+    /// A new start replaced an open play without an end report (defensive; not expected).
     case superseded
     /// Parent quit the app.
-    case terminate
+    case appTerminate = "app_terminate"
+    /// Defensive fallback; not expected.
     case unknown
+
+    /// The visa or the viewing bank ran out (information only, never a dislike signal).
+    public var isTimeUp: Bool { self == .visaExpired || self == .budgetExhausted }
 }
 
 /// One video load: watch time from `currentTime` samples, position, wall time.
@@ -271,16 +275,17 @@ public struct PerfPlayTracker: Sendable, Equatable {
             "play": .string(play),
             "video": .string(video),
             "source": .string(source),
-            "reason": .string(reason.rawValue),
+            "stop_reason": .string(reason.rawValue),
             "completed": .bool(reason == .ended),
             "start_s": .seconds(startSeconds),
             "last_pos_s": .seconds(lastPosition),
             "max_pos_s": .seconds(maxPosition),
-            "watched_s": .seconds(samples > 0 ? watchedSeconds : wall),
+            // No `currentTime` samples (embed error, no IFrame API): 0 watched, flagged `none`.
+            "watched_s": .seconds(samples > 0 ? watchedSeconds : 0),
             "wall_s": .seconds(wall),
             "duration_s": .seconds(durationSeconds),
             "completion": .seconds(reached),
-            "telemetry": .string(samples > 0 ? "full" : "wall_only"),
+            "telemetry": .string(samples > 0 ? "full" : "none"),
             "resume_saved": .bool(resumeSaved)
         ]
     }

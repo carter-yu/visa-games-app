@@ -125,7 +125,7 @@ public enum PerfEventType: Sendable, Equatable, Hashable {
     case gameDealt, answerAttempt, hintShown, roundResult
     case visaStart, visaEnd
     case pickerVisit, videoImpressions, videoPick
-    case resumeOffered, resumeUsed
+    case resumeOffered, resumeUsed, resumeCleared
     case videoStart, videoProgress, videoEnd
     case allowlistChange, configChange
     case statsExclude, statsInclude, statsMarker, clockJump
@@ -134,7 +134,7 @@ public enum PerfEventType: Sendable, Equatable, Hashable {
     public static let known: [PerfEventType] = [
         .appLaunch, .appTerminate, .sessionStart, .parentEnter, .parentLeave, .uatMode,
         .gameDealt, .answerAttempt, .hintShown, .roundResult, .visaStart, .visaEnd,
-        .pickerVisit, .videoImpressions, .videoPick, .resumeOffered, .resumeUsed,
+        .pickerVisit, .videoImpressions, .videoPick, .resumeOffered, .resumeUsed, .resumeCleared,
         .videoStart, .videoProgress, .videoEnd, .allowlistChange, .configChange,
         .statsExclude, .statsInclude, .statsMarker, .clockJump
     ]
@@ -158,6 +158,7 @@ public enum PerfEventType: Sendable, Equatable, Hashable {
         case .videoPick: return "video_pick"
         case .resumeOffered: return "resume_offered"
         case .resumeUsed: return "resume_used"
+        case .resumeCleared: return "resume_cleared"
         case .videoStart: return "video_start"
         case .videoProgress: return "video_progress"
         case .videoEnd: return "video_end"
@@ -178,7 +179,7 @@ public enum PerfEventType: Sendable, Equatable, Hashable {
     /// Video-surface events. A parent-mode video event is tagged `parent_preview`.
     public var isVideoEvent: Bool {
         switch self {
-        case .pickerVisit, .videoImpressions, .videoPick, .resumeOffered, .resumeUsed,
+        case .pickerVisit, .videoImpressions, .videoPick, .resumeOffered, .resumeUsed, .resumeCleared,
              .videoStart, .videoProgress, .videoEnd:
             return true
         default:

@@ -224,7 +224,7 @@ final class PerformanceRecorder {
     }
 
     func terminate(reason: String) {
-        if play != nil { endPlay(reason: .terminate, resumeSaved: false) }
+        if play != nil { endPlay(reason: .appTerminate, resumeSaved: false) }
         abandonRound(reason: "terminate")
         abandonPlaytest(reason: "terminate")
         emit(.appTerminate, ["reason": .string(reason)], actorOverride: .system, synchronize: true)
@@ -252,8 +252,10 @@ final class PerformanceRecorder {
         emit(.parentEnter, ["from_mode": .string(PerfActorRule.modeName(fromMode))], actorOverride: .parent)
     }
 
-    func parentLeft(reason: String) {
-        emit(.parentLeave, ["reason": .string(reason)], actorOverride: .parent)
+    func parentLeft(reason: String, toMode: Mode) {
+        emit(.parentLeave, [
+            "reason": .string(reason), "to_mode": .string(PerfActorRule.modeName(toMode))
+        ], actorOverride: .parent)
         round?.tracker.parentEnded(mono: Self.monoNow())
     }
 
@@ -541,6 +543,7 @@ final class PerformanceRecorder {
             "entry": .string(entry),
             "deck": .strings(deck),
             "page_count": .int(VideoPickerDeck.pageCount(itemCount: deck.count)),
+            "visa": .optionalString(visa?.id),
             "visa_source": .optionalString(visa?.source.rawValue),
             "visa_left_s": .int(visaLeft),
             "budget_left_s": .seconds(budgetLeft)
@@ -612,6 +615,14 @@ final class PerformanceRecorder {
         ])
     }
 
+    /// The saved 繼續睇 position was dropped (design §5.5). Lets the reader settle
+    /// `resumed_later` = no instead of pending.
+    func resumeCleared(video: String, position: TimeInterval?, reason: String) {
+        var fields: [String: PerfValue] = ["video": .string(video), "reason": .string(reason)]
+        if let position { fields["position_s"] = .seconds(position) }
+        emit(.resumeCleared, fields)
+    }
+
     // MARK: Plays
 
     var hasOpenPlay: Bool { play != nil }
@@ -635,6 +646,7 @@ final class PerformanceRecorder {
             "source": .string(source),
             "start_s": .seconds(startSeconds ?? 0),
             "duration_s": .seconds(durationSeconds),
+            "visa": .optionalString(visa?.id),
             "visa_source": .optionalString(visa?.source.rawValue),
             "visa_left_s": .int(visaLeft),
             "budget_left_s": .seconds(budgetLeft)

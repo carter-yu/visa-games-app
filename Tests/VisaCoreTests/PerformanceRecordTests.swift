@@ -341,7 +341,7 @@ final class PerformanceRecordTests {
         expectEqual(cut["last_pos_s"], .double(90))
         expectEqual(cut["completed"], .bool(false))
         expectEqual(cut["resume_saved"], .bool(true))
-        expectEqual(cut["reason"], .string("visa_expired"))
+        expectEqual(cut["stop_reason"], .string("visa_expired"))
         expectEqual(cut["telemetry"], .string("full"))
         expectEqual(cut["completion"]?.doubleValue, 0.842)
 
@@ -352,14 +352,14 @@ final class PerformanceRecordTests {
         let silent = PerfPlayTracker(play: "p2", video: "vid", source: "pick", startSeconds: nil,
                                      durationSeconds: nil, mono: 10)
         let silentEnd = silent.endFields(reason: .unknown, resumeSaved: false, mono: 25.5)
-        expectEqual(silentEnd["telemetry"], .string("wall_only"))
-        expectEqual(silentEnd["watched_s"], .double(15.5))
+        expectEqual(silentEnd["telemetry"], .string("none"))
+        expectEqual(silentEnd["watched_s"], .double(0))
         expectEqual(silentEnd["completion"], .null)
 
         // Stop reasons: unique snake_case raw values; only `ended` means completed.
         let raws = PerfVideoStopReason.allCases.map(\.rawValue)
         expectEqual(Set(raws).count, raws.count)
-        expectTrue(raws.contains("nav_blocked") && raws.contains("budget_exhausted") && raws.contains("parent_unlock"))
+        expectTrue(raws.contains("nav_guard") && raws.contains("budget_exhausted") && raws.contains("parent_unlock"))
         for reason in PerfVideoStopReason.allCases {
             let fields = silent.endFields(reason: reason, resumeSaved: false, mono: 11)
             expectEqual(fields["completed"], .bool(reason == .ended))
@@ -441,7 +441,7 @@ final class PerformanceRecordTests {
             event(.videoStart, ["play": .string("p1"), "video": .string("b"), "source": .string("pick"),
                                 "visit": .string("v1"), "page": .int(0), "slot": .int(1), "start_s": .double(0)],
                   at: 2, seq: 3, mode: "play"),
-            event(.videoEnd, ["play": .string("p1"), "video": .string("b"), "reason": .string("visa_expired"),
+            event(.videoEnd, ["play": .string("p1"), "video": .string("b"), "stop_reason": .string("visa_expired"),
                               "completed": .bool(false), "resume_saved": .bool(true), "watched_s": .double(55),
                               "telemetry": .string("full")], at: 60, seq: 4, mode: "play"),
             event(.videoStart, ["play": .string("pp"), "video": .string("b"), "source": .string("parent_preview")],
@@ -460,7 +460,9 @@ final class PerformanceRecordTests {
         expectEqual(column(rows[0], "title"), "Bus, \"big\"")
         expectEqual(column(rows[0], "slot"), "1")
         expectEqual(column(rows[1], "counted"), "no")
-        expectEqual(column(rows[2], "stop_reason"), "no_end_recorded")
+        expectEqual(column(rows[2], "stop_reason"), "interrupted")
+        expectEqual(column(rows[0], "time_up_stop"), "yes")
+        expectEqual(column(rows[2], "resumed_later"), "")
         expectEqual(column(rows[2], "source"), "continue")
 
         let impressions = PerfCSVExport.impressionRows(events, excluded: [], titles: [:], timeZone: PerfClock.hongKong)
@@ -469,6 +471,37 @@ final class PerformanceRecordTests {
         expectEqual(impressions[0][iHeader.firstIndex(of: "picked")!], "no")
         expectEqual(impressions[1][iHeader.firstIndex(of: "picked")!], "yes")
         expectEqual(impressions[1][iHeader.firstIndex(of: "slot")!], "1")
+    }
+
+    func testResumeLinkYesNoPendingAndNotApplicable() {
+        func end(_ play: String, _ video: String, _ reason: String, saved: Bool, _ seq: Int) -> PerfEvent {
+            event(.videoEnd, ["play": .string(play), "video": .string(video), "stop_reason": .string(reason),
+                              "completed": .bool(reason == "ended"), "resume_saved": .bool(saved)],
+                  at: TimeInterval(seq * 10), seq: seq, mode: "play")
+        }
+        let events = PerfCodec.ordered([
+            end("p1", "a", "visa_expired", saved: true, 1),
+            event(.resumeCleared, ["video": .string("a"), "reason": .string("pick_other")], at: 20, seq: 2, mode: "play"),
+            event(.videoStart, ["play": .string("p2"), "video": .string("a"), "source": .string("pick")],
+                  at: 30, seq: 3, mode: "play"),
+            end("p2", "a", "budget_exhausted", saved: true, 4),
+            event(.videoStart, ["play": .string("p3"), "video": .string("a"), "source": .string("continue")],
+                  at: 50, seq: 5, mode: "play"),
+            end("p3", "a", "ended", saved: false, 6),
+            end("p4", "b", "visa_expired", saved: true, 7)
+        ])
+        let index = { (play: String) in events.firstIndex { $0.type == .videoEnd && $0.string("play") == play }! }
+        expectEqual(PerfResumeLink.resolve(events, endIndex: index("p1")), .no)
+        expectEqual(PerfResumeLink.resolve(events, endIndex: index("p2")), .yes)
+        expectEqual(PerfResumeLink.resolve(events, endIndex: index("p3")), .notApplicable)
+        expectEqual(PerfResumeLink.resolve(events, endIndex: index("p4")), .pending)
+        expectEqual(PerfResumeLink.notApplicable.rawValue, "n/a")
+        expectTrue(PerfVideoStopReason.visaExpired.isTimeUp && PerfVideoStopReason.budgetExhausted.isTimeUp)
+        expectFalse(PerfVideoStopReason.navGuard.isTimeUp)
+        expectEqual(PerfVideoStopReason.navGuard.rawValue, "nav_guard")
+        expectEqual(PerfVideoStopReason.storageReset.rawValue, "storage_reset")
+        expectEqual(PerfVideoStopReason.appTerminate.rawValue, "app_terminate")
+        expectEqual(PerfEventType.resumeCleared.rawValue, "resume_cleared")
     }
 
     // MARK: Retention
@@ -504,7 +537,7 @@ final class PerformanceRecordTests {
             oldEvent(.videoImpressions, ["visit": .string("v"), "page": .int(0), "ids": .strings(["a", "b"])], 40, 6),
             oldEvent(.videoPick, ["visit": .string("v"), "video": .string("a"), "accepted": .bool(true)], 41, 7),
             oldEvent(.videoStart, ["play": .string("p"), "video": .string("a"), "source": .string("pick")], 41, 8),
-            oldEvent(.videoEnd, ["play": .string("p"), "video": .string("a"), "reason": .string("budget_exhausted"),
+            oldEvent(.videoEnd, ["play": .string("p"), "video": .string("a"), "stop_reason": .string("budget_exhausted"),
                                  "watched_s": .double(90)], 140, 9)
         ])
         try store.append([event(.appLaunch, seq: 1, actor: .system)])  // today, kept
@@ -538,7 +571,7 @@ final class PerformanceRecordTests {
         expectEqual(store.loadRollup(), rollup)  // not counted twice
         let export = PerfCSVExport.files(events: store.read().events, rollup: rollup, titles: ["a": "Apple"])
         expectTrue((export["daily_games.csv"] ?? "").contains("2026-06-01,findTheSame,"))
-        expectTrue((export["daily_videos.csv"] ?? "").contains("2026-06-01,a,Apple,1,1,1,0,1,0,1.5"))
+        expectTrue((export["daily_videos.csv"] ?? "").contains("2026-06-01,a,Apple,1,1,1,0,1,0,0,0,0,1.5"))
     }
 
     // MARK: Language lock
