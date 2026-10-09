@@ -28,13 +28,29 @@ public enum PerfCSVExport {
 
     public static let dailyGamesHeader = [
         "date_hkt", "kind", "kind_zh", "stars", "deals", "answered", "first_try", "misses",
-        "solved", "zeroed", "abandoned", "hinted", "active_s"
+        "solved", "zeroed", "abandoned", "hinted", "active_s", "active_hist"
     ]
 
     public static let dailyVideosHeader = [
         "date_hkt", "video_id", "title", "impressions", "picks", "plays", "completions",
         "time_up_stops", "time_up_stops_resumed_later", "continues", "nav_guard_stops", "no_telemetry_plays",
-        "watched_min"
+        "watched_min", "impressions_by_page", "picks_by_slot", "expected_picks"
+    ]
+
+    /// v0.21 (§5.10): one row per kind.
+    public static let gamesSummaryHeader = [
+        "kind", "kind_zh", "label", "label_zh", "rounds_30d", "rounds_all", "first_try_30d", "first_try_rate_30d",
+        "mastery_mean", "mastery_low80", "mastery_high80", "solved", "zeroed", "abandoned", "median_active_s",
+        "median_first_tap_s", "rounds_star1", "rounds_star2", "rounds_star3", "first_try_star1", "first_try_star2",
+        "first_try_star3", "trend_7d", "last_played_hkt", "top_wrong_tag", "top_wrong_tag_share"
+    ]
+
+    /// v0.21 (§5.10): one row per allowlisted video.
+    public static let videosSummaryHeader = [
+        "video_id", "title", "label", "label_zh", "days_on_list", "visits_shown", "impressions_p1",
+        "impressions_later", "picks", "expected_picks", "appeal_index", "plays", "continues", "watched_min",
+        "completions", "time_up_stops", "time_up_stops_resumed_later", "nav_guard_stops", "parent_stops",
+        "no_telemetry_plays", "resumes_offered", "resumes_used", "last_picked_hkt"
     ]
 
     /// RFC 4180: quote when a field has a comma, quote, CR or LF; double inner quotes.
@@ -51,11 +67,23 @@ public enum PerfCSVExport {
     }
 
     /// All export files: name → contents.
+    /// `order` is the allowlist order for the summary (ids missing from it follow, by title).
     public static func files(events: [PerfEvent], rollup: PerfRollup, titles: [String: String],
+                             order: [String] = [], now: Date = Date(),
                              timeZone: TimeZone = PerfClock.hongKong) -> [String: String] {
         let ordered = PerfCodec.ordered(events)
         let excluded = PerfFilter.excludedSessions(in: ordered)
+        var ids = order.filter { titles[$0] != nil }
+        let listed = Set(ids)
+        ids += titles.keys.filter { !listed.contains($0) }.sorted { (titles[$0] ?? $0, $0) < (titles[$1] ?? $1, $1) }
+        let videos = ids.map { (id: $0, title: titles[$0] ?? "") }
+        let report = PerfReportBuilder.build(events: ordered, rollup: rollup, videos: videos, now: now,
+                                             window: .days30, timeZone: timeZone)
         return [
+            "games_summary.csv": document(header: gamesSummaryHeader,
+                                          rows: gamesSummaryRows(report, timeZone: timeZone)),
+            "videos_summary.csv": document(header: videosSummaryHeader,
+                                           rows: videosSummaryRows(report, now: now, timeZone: timeZone)),
             "rounds.csv": document(header: roundsHeader,
                                    rows: roundRows(ordered, excluded: excluded, timeZone: timeZone)),
             "videos.csv": document(header: videosHeader,
@@ -248,7 +276,8 @@ public enum PerfCSVExport {
                     parts.count > 1 ? parts[1] : "",
                     String(stats.deals), String(stats.answered), String(stats.firstTry), String(stats.misses),
                     String(stats.solved), String(stats.zeroed), String(stats.abandoned), String(stats.hinted),
-                    number(Double(stats.activeMs) / 1000)
+                    number(Double(stats.activeMs) / 1000),
+                    stats.activeHistogram.map(String.init).joined(separator: "|")
                 ])
             }
         }
@@ -266,11 +295,63 @@ public enum PerfCSVExport {
                     String(stats.impressions), String(stats.picks), String(stats.plays),
                     String(stats.completions), String(stats.timeUpCuts), String(stats.timeUpResumedLater),
                     String(stats.resumedPlays), String(stats.navGuardStops), String(stats.noTelemetryPlays),
-                    number(stats.watchedSeconds / 60)
+                    number(stats.watchedSeconds / 60),
+                    stats.impressionsByPage.map(String.init).joined(separator: "|"),
+                    stats.picksBySlot.map(String.init).joined(separator: "|"),
+                    number(stats.expectedPicks, decimals: 2)
                 ])
             }
         }
         return rows
+    }
+
+    static func hktDateTime(_ date: Date?, timeZone: TimeZone) -> String {
+        guard let date else { return "" }
+        return PerfClock.dayStamp(date, timeZone: timeZone) + " " + PerfClock.timeStamp(date, timeZone: timeZone)
+    }
+
+    static func gamesSummaryRows(_ report: PerfReport, timeZone: TimeZone) -> [[String]] {
+        report.games.map { row in
+            var fields: [String] = [row.kind.rawValue, row.kind.parentCardTitle, row.label.rawValue, row.label.zh]
+            fields.append(String(row.answered))
+            fields.append(String(row.evidence.rounds))
+            fields.append(String(row.firstTry))
+            fields.append(number(row.firstTryRate, decimals: 2))
+            fields.append(number(row.estimate.mastery, decimals: 2))
+            fields.append(number(row.estimate.masteryLow, decimals: 2))
+            fields.append(number(row.estimate.masteryHigh, decimals: 2))
+            fields.append(String(row.solved))
+            fields.append(String(row.zeroed))
+            fields.append(String(row.abandoned))
+            fields.append(number(row.medianActiveSeconds))
+            fields.append(number(row.medianFirstTapSeconds))
+            fields += row.stars.map { String($0.rounds) }
+            fields += row.stars.map { String($0.firstTry) }
+            fields.append(row.trend?.rawValue ?? "")
+            fields.append(hktDateTime(row.lastPlayed, timeZone: timeZone))
+            fields.append(row.topWrongTag ?? "")
+            fields.append(number(row.topWrongTagShare, decimals: 2))
+            return fields
+        }
+    }
+
+    static func videosSummaryRows(_ report: PerfReport, now: Date, timeZone: TimeZone) -> [[String]] {
+        report.videos.map { row in
+            var fields: [String] = [row.id, row.title, row.label.rawValue, row.label.zh]
+            fields.append(row.firstSeen.map { String(max(0, Int(now.timeIntervalSince($0) / 86_400))) } ?? "")
+            fields.append(String(row.visitsShown))
+            fields.append(String(row.impressionsFirstPage))
+            fields.append(String(row.impressionsLater))
+            fields.append(String(row.picks))
+            fields.append(number(row.expected, decimals: 2))
+            fields.append(number(row.appeal, decimals: 2))
+            let counts: [Int] = [row.plays, row.continues, row.watchedMinutes, row.completions, row.timeUpStops,
+                                 row.timeUpResumedLater, row.navGuardStops, row.parentStops, row.noTelemetryPlays,
+                                 row.resumesOffered, row.resumesUsed]
+            fields += counts.map { String($0) }
+            fields.append(hktDateTime(row.lastPicked, timeZone: timeZone))
+            return fields
+        }
     }
 
     public static let readme = """
@@ -329,5 +410,25 @@ public enum PerfCSVExport {
       picked            呢頁有冇揀呢條片 / picked from this page
 
     daily_games.csv / daily_videos.csv — 超過 90 日嘅每日摘要 / daily summaries after 90 days
+      active_hist         完成局數按答題秒數分組：<5 | 5–10 | 10–20 | 20–40 | 40–80 | ≥80
+                          solved rounds by answering seconds
+      impressions_by_page 每頁見過幾多次：第 1 | 2 | 3 | 4 頁或之後 / impressions on page 1 | 2 | 3 | 4+
+      picks_by_slot       每格揀咗幾多次（0–7）/ picks per picker slot 0–7
+      expected_picks      如果隨便揀，預計會揀幾多次 / picks expected if choosing at random
+
+    games_summary.csv — 近 30 日每個遊戲一行 / one row per game, last 30 days
+      label               confident 熟手 · learning 學緊 · practise 要多練 · insufficient 未夠數據
+      rounds_all          保留紀錄入面答過嘅局數（標籤用晒全部，舊嘅計少啲）
+                          answered rounds in all kept records (labels use all, older rounds count less)
+      mastery_*           掌握度，已扣除估中機會；low80 / high80 係 80% 範圍
+                          mastery after removing lucky guesses; low80 / high80 bound an 80% range
+      trend_7d            up 近 7 日進步咗 · down 近 7 日少咗答啱 · flat 差唔多 · 空白 = 未夠數據
+
+    videos_summary.csv — 每條片一行（近 30 日）/ one row per allowlisted video, last 30 days
+      label               favourite 好鍾意 · sometimes 間中揀 · rare 少揀 · seenNever 見過未揀過 ·
+                          insufficient 未夠數據 · notShown 未出過
+      days_on_list        第一次出現喺揀片畫面至今幾多日 / days since first shown on the picker
+      appeal_index        (揀咗 + 1) ÷ (預計 + 1)；1 = 同隨便揀一樣 / (picks + 1) ÷ (expected + 1)
+                          播放結果只供參考，唔影響標籤。 / Watch outcomes never change the label.
     """
 }

@@ -407,7 +407,7 @@ final class PerformanceRecordTests {
         ]
         let files = PerfCSVExport.files(events: events, rollup: PerfRollup(), titles: [:])
         expectEqual(Set(files.keys), ["rounds.csv", "videos.csv", "video_impressions.csv", "daily_games.csv",
-                                      "daily_videos.csv", "README.txt"])
+                                      "daily_videos.csv", "games_summary.csv", "videos_summary.csv", "README.txt"])
         let rounds = files["rounds.csv"] ?? ""
         expectTrue(rounds.hasPrefix("\u{FEFF}" + PerfCSVExport.roundsHeader.joined(separator: ",") + "\r\n"))
         let rows = PerfCSVExport.roundRows(events, excluded: [], timeZone: PerfClock.hongKong)
@@ -530,8 +530,8 @@ final class PerformanceRecordTests {
         }
         let version = plistValue("CFBundleShortVersionString") ?? "?"
         expectTrue(view.contains("static let versionLabel = \"Visa Games v\(version)\""))
-        expectEqual(version, "0.20.1")
-        expectEqual(plistValue("CFBundleVersion"), "43")
+        expectEqual(version, "0.21.0")
+        expectEqual(plistValue("CFBundleVersion"), "44")
         guard let start = view.range(of: "private func advancedSection("),
               let end = view.range(of: "private var advancedContent", range: start.upperBound..<view.endIndex) else {
             expectTrue(false)
@@ -626,7 +626,11 @@ final class PerformanceRecordTests {
             "Sources/VisaCore/PerformanceEvent.swift",
             "Sources/VisaCore/PerformanceTrackers.swift",
             "Sources/VisaCore/PerformanceEventStore.swift",
-            "Sources/VisaCore/PerformanceCatalog.swift"
+            "Sources/VisaCore/PerformanceCatalog.swift",
+            "Sources/VisaGames/ParentReviewView.swift",
+            "Sources/VisaCore/PerformanceReport.swift",
+            "Sources/VisaCore/MasteryEstimator.swift",
+            "Sources/VisaCore/VideoAppeal.swift"
         ]
         let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         for path in files {

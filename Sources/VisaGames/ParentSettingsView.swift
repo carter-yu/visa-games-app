@@ -17,9 +17,10 @@ struct ParentSettingsView: View {
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.20.1"
+    static let versionLabel = "Visa Games v0.21.0"
 
-    private enum ParentLibrary { case videos, games }
+    /// v0.21.0: 表現 (Review) is the third parent segment (layout L5).
+    private enum ParentLibrary { case videos, games, review }
 
     var body: some View {
         ZStack {
@@ -44,6 +45,8 @@ struct ParentSettingsView: View {
                                 allowlistSection
                             case .games:
                                 gamesSection
+                            case .review:
+                                reviewSection
                             }
                             advancedSection(proxy: proxy)
                         }
@@ -82,6 +85,12 @@ struct ParentSettingsView: View {
                 selected: library == .games,
                 action: { selectLibrary(.games) }
             )
+            libraryButton(
+                title: "表現",
+                subtitle: "Review",
+                selected: library == .review,
+                action: { selectLibrary(.review) }
+            )
         }
         .accessibilityElement(children: .contain)
     }
@@ -90,6 +99,23 @@ struct ParentSettingsView: View {
         guard library != next else { return }
         library = next
         model.stopParentPreview()
+        VisaGamesLog.append("parent library — \(next)")
+        // 表現: build the report once per open, off-main (never from body / onAppear).
+        if next == .review { model.perfRefreshReview() }
+    }
+
+    /// `.equatable()`: the 0.5 s clock tick re-renders this view only when the report,
+    /// window or 🧪 switch actually changes.
+    private var reviewSection: some View {
+        ParentReviewView(
+            state: model.perfReview,
+            window: model.perfReviewWindow,
+            uatOn: model.perfUATOn,
+            onRefresh: { model.perfRefreshReview() },
+            onWindow: { window in model.perfSetReviewWindow(window) },
+            onSetSessionExcluded: { id, excluded in model.perfReviewSetSessionExcluded(id, excluded: excluded) }
+        )
+        .equatable()
     }
 
     private func libraryButton(
