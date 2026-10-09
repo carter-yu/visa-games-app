@@ -17,7 +17,7 @@ struct ParentSettingsView: View {
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.20.0"
+    static let versionLabel = "Visa Games v0.20.1"
 
     private enum ParentLibrary { case videos, games }
 
@@ -36,21 +36,23 @@ struct ParentSettingsView: View {
                 .frame(maxWidth: 940, alignment: .leading)
                 .frame(maxWidth: .infinity)
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 22) {
-                        switch library {
-                        case .videos:
-                            allowlistSection
-                        case .games:
-                            gamesSection
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 22) {
+                            switch library {
+                            case .videos:
+                                allowlistSection
+                            case .games:
+                                gamesSection
+                            }
+                            advancedSection(proxy: proxy)
                         }
-                        advancedSection
+                        .padding(.horizontal, 28)
+                        .padding(.top, 8)
+                        .padding(.bottom, 24)
+                        .frame(maxWidth: 940, alignment: .leading)
+                        .frame(maxWidth: .infinity)
                     }
-                    .padding(.horizontal, 28)
-                    .padding(.top, 8)
-                    .padding(.bottom, 24)
-                    .frame(maxWidth: 940, alignment: .leading)
-                    .frame(maxWidth: .infinity)
                 }
                 // Return stays hidden under a playtest cover so it cannot leaveParent mid-question.
                 if model.playtestKind == nil {
@@ -433,39 +435,74 @@ struct ParentSettingsView: View {
 
     // MARK: Advanced — UAT tools, storage, legal
 
-    private var advancedSection: some View {
-        DisclosureGroup(isExpanded: $showAdvanced) {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 12) {
-                    ParentSmallButton(title: "重設入口活動（兒童 UAT）/ Reset entry activity (child UAT)",
-                                      symbol: "arrow.counterclockwise",
-                                      action: { model.resetEntryActivityForChildUAT() })
-                    ParentSmallButton(title: "開啟日誌資料夾 / Open logs folder",
-                                      symbol: "folder",
-                                      action: { model.openScopedPlayerLogsFolder() })
-                }
-                // Same confirmation as the top banner, next to the UAT buttons (no scrolling back).
-                if let playbackMessage = model.playbackMessage {
-                    Text(playbackMessage)
+    /// v0.20.1: a plain full-width button instead of `DisclosureGroup`. On macOS a
+    /// DisclosureGroup only toggles from its small chevron, so tapping 「進階」 did nothing
+    /// (UAT 2026-10-09). The section sits at the bottom of the scroll view, so opening it
+    /// also scrolls it to the top. No animation, no grid (parent layout SIGBUS history).
+    private func advancedSection(proxy: ScrollViewProxy) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button(action: { toggleAdvanced(proxy: proxy) }) {
+                HStack(spacing: 10) {
+                    Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 16, weight: .heavy))
+                        .frame(width: 18)
+                    ParentLabel("進階 / Advanced", size: 18, weight: 800)
+                    Spacer(minLength: 8)
+                    Text(showAdvanced ? "收埋 / Hide" : "打開 / Show")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(Color.inkSoft)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
-                ParentPerformanceRecordsBlock(model: model)
-                if model.message != nil {
-                    ParentSmallButton(title: "清除簽證及重設儲存 / Clear visa and reset storage",
-                                      symbol: "trash",
-                                      fill: Color(hex: DesignTokens.Palette.fireTicket),
-                                      action: { model.resetStorage() })
-                }
-                ParentLicenseFooter()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            .padding(.top, 10)
-        } label: {
-            ParentLabel("進階 / Advanced", size: 18, weight: 800)
+            .buttonStyle(.plain)
+            .accessibilityLabel("進階 / Advanced")
+            if showAdvanced {
+                advancedContent
+            }
         }
         .padding(16)
         .modifier(ChunkyPanel(fill: .white, cornerRadius: 18, shadowDepth: 4, lineWidth: 3))
+        .id(Self.advancedAnchor)
+    }
+
+    private static let advancedAnchor = "parent.advanced"
+
+    private func toggleAdvanced(proxy: ScrollViewProxy) {
+        showAdvanced.toggle()
+        VisaGamesLog.append("parent advanced — 進階 \(showAdvanced ? "open" : "close")")
+        guard showAdvanced else { return }
+        // Next main-loop turn, after the content exists; no animation.
+        DispatchQueue.main.async { proxy.scrollTo(Self.advancedAnchor, anchor: .top) }
+    }
+
+    private var advancedContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                ParentSmallButton(title: "重設入口活動（兒童 UAT）/ Reset entry activity (child UAT)",
+                                  symbol: "arrow.counterclockwise",
+                                  action: { model.resetEntryActivityForChildUAT() })
+                ParentSmallButton(title: "開啟日誌資料夾 / Open logs folder",
+                                  symbol: "folder",
+                                  action: { model.openScopedPlayerLogsFolder() })
+            }
+            // Same confirmation as the top banner, next to the UAT buttons (no scrolling back).
+            if let playbackMessage = model.playbackMessage {
+                Text(playbackMessage)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            ParentPerformanceRecordsBlock(model: model)
+            if model.message != nil {
+                ParentSmallButton(title: "清除簽證及重設儲存 / Clear visa and reset storage",
+                                  symbol: "trash",
+                                  fill: Color(hex: DesignTokens.Palette.fireTicket),
+                                  action: { model.resetStorage() })
+            }
+            ParentLicenseFooter()
+        }
+        .padding(.top, 14)
     }
 
     // MARK: Pinned bottom bar — Return always visible

@@ -10,10 +10,10 @@ ADR 0008. Three PRs, each with Mac mini + TV UAT before the next.
 
 ## v0.20.0 exit evidence
 
-- `sh scripts/test.sh` PASS with **19 performance-log** checks (schema round trip, tolerant
+- `sh scripts/test.sh` PASS with **20 performance-log** checks (schema round trip, tolerant
   decoder, HKT day files, clear vs visa reset, round / play trackers, slots vs presented order for
   every kind, confusion tags, actor rule and exclusions, 🧪 auto-off, session clock, picker
   placement, CSV, retention, prune idempotence, Traditional-only strings).
 - `sh scripts/bundle.sh` + `sh scripts/install-mac-mini.sh` → `/Applications/Visa Games.app`
-  0.20.0 / 42.
+  0.20.1 / 43 (v0.20.1 fixes the 「進階」 toggle).
 - TV UAT checklist in the v0.20.0 PR.

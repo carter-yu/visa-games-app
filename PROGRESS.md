@@ -1,5 +1,6 @@
 # Progress
 
+- 2026-10-09: PR #18 (pending) PATCH **v0.20.1 / build 43** — UAT fix: tapping 「進階 / Advanced」 in parent settings did nothing. On macOS a SwiftUI `DisclosureGroup` only toggles from its small chevron (same since v0.12), and the section sits at the bottom of the scroll view. Now a plain full-width button (chevron + 「打開 / 收埋」) that also scrolls the section to the top when opened (`ScrollViewReader`, no animation, no grid). Log line `parent advanced — 進階 open|close`. Source guard test + Info.plist/footer match → **20 performance-log** checks.
 - 2026-10-09: PR (pending) MINOR **v0.20.0 / build 42** — D10 performance records, **Record** only (ADR 0008; design approved by Carter 2026-10-09 08:03 HKT, §13 all "A", decision 8 replaced). Branch `feat/perf-record-v020` from `main` @ e35430d. Do not merge. No kiosk launch.
   - **Store:** `~/Library/Application Support/VisaGames/stats/events-YYYY-MM-DD.jsonl` (one file per HKT day, append-only JSONL, envelope v1, sorted keys), `rollup-v1.json` (daily summaries), `exports/`. Separate from `state.json` and from the gitignored repo `logs/` mirror (stats are never written there). Serial utility queue; write errors only raise a parent banner, never `storageFailed`.
   - **Events:** launch / terminate / session; parent enter / leave / 🧪 uat_mode; game_dealt (dealt slots) / answer_attempt (choice, asset, slot, tags, pending before/after, convoy step) / hint_shown / round_result (solved / zeroed / abandoned, first try, misses, active / total / parent ms, mash taps); visa_start / visa_end (earned / parent_test); picker_visit / video_impressions (page ids) / video_pick (page, slot, accepted / refused); resume_offered / resume_used / resume_cleared; video_start (pick / continue / after_parent / parent_preview) / video_progress (60 s) / video_end (stop reason, watched / wall s, completion, resume saved); allowlist_change, config_change, stats_exclude / include / marker, clock_jump.
@@ -8,7 +9,7 @@
   - **Retention / clear / export:** raw 90 HKT days incl. today, older days folded into daily summaries then deleted (idempotent, launch, background). 「清除表現紀錄」 (Advanced, confirm) deletes `stats/` only; 「清除簽證及重設儲存」 leaves stats. 「匯出表現 (CSV)」 → `stats/exports/performance-…/` (rounds, videos, video_impressions, daily_games, daily_videos, README) and reveals it in Finder.
   - **UI:** parent only (toggle row, header pill, banner, Advanced 表現紀錄 block). No LazyVGrid edits, no I/O in `body`. `VideoPickerView` gains an optional `onPageShown` callback (no visual change).
   - Version: Info.plist **0.20.0 / 42**, parent footer **Visa Games v0.20.0**.
-  - Tests: +19 performance-log → PASS banner adds **19 performance-log**.
+  - Tests: +19 performance-log → PASS banner adds **19 performance-log** (20 from v0.20.1).
 
 - 2026-10-04: PR (pending) MINOR **v0.19.0 / build 41** — Shuffle the video picker once per visit, and dock 「出發！」 / 「再揀車票」 in one of three parking bays. Branch `feat/shuffle-picker-and-docks` from `main` @ 4058370 (same tree as v0.18.0 `47a8541`). Do not merge. No kiosk launch.
 

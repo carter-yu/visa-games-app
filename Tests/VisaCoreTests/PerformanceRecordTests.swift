@@ -516,6 +516,34 @@ final class PerformanceRecordTests {
         expectEqual(PerfEventType.resumeCleared.rawValue, "resume_cleared")
     }
 
+    /// v0.20.1 UAT: 「進階」 was a macOS DisclosureGroup (only the chevron toggles). Source guard:
+    /// the Advanced header is a plain button, and the footer label matches Info.plist.
+    func testParentAdvancedIsAButtonAndVersionMatchesInfoPlist() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let view = try String(contentsOf: root.appendingPathComponent("Sources/VisaGames/ParentSettingsView.swift"),
+                              encoding: .utf8)
+        let plist = try String(contentsOf: root.appendingPathComponent("Resources/Info.plist"), encoding: .utf8)
+        func plistValue(_ key: String) -> String? {
+            guard let keyRange = plist.range(of: "<key>\(key)</key><string>"),
+                  let end = plist.range(of: "</string>", range: keyRange.upperBound..<plist.endIndex) else { return nil }
+            return String(plist[keyRange.upperBound..<end.lowerBound])
+        }
+        let version = plistValue("CFBundleShortVersionString") ?? "?"
+        expectTrue(view.contains("static let versionLabel = \"Visa Games v\(version)\""))
+        expectEqual(version, "0.20.1")
+        expectEqual(plistValue("CFBundleVersion"), "43")
+        guard let start = view.range(of: "private func advancedSection("),
+              let end = view.range(of: "private var advancedContent", range: start.upperBound..<view.endIndex) else {
+            expectTrue(false)
+            return
+        }
+        let header = view[start.upperBound..<end.lowerBound]
+        expectFalse(header.contains("DisclosureGroup"))
+        expectTrue(header.contains("Button(action: { toggleAdvanced(proxy: proxy) })"))
+        expectTrue(header.contains(".contentShape(Rectangle())"))
+        expectTrue(header.contains("scrollTo(Self.advancedAnchor"))
+    }
+
     // MARK: Retention
 
     func testRetentionKeepsNinetyHongKongDaysIncludingToday() {
