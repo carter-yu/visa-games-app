@@ -17,7 +17,7 @@ struct ParentSettingsView: View {
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.19.0"
+    static let versionLabel = "Visa Games v0.20.0"
 
     private enum ParentLibrary { case videos, games }
 
@@ -172,6 +172,9 @@ struct ParentSettingsView: View {
                 ParentLabel("Parent controls", size: 16, weight: 700, color: .inkSoft)
             }
             Spacer(minLength: 12)
+            if model.perfUATOn {
+                ParentPill(text: "🧪 測試中 · 唔計 / Testing", fill: Color(hex: DesignTokens.Palette.sunnyPale))
+            }
             ParentPill(text: "🔒 10 分鐘自動鎖 / Auto-lock 10 min", fill: Color(hex: DesignTokens.Palette.sky))
         }
     }
@@ -185,6 +188,10 @@ struct ParentSettingsView: View {
         }
         if let playbackMessage = model.playbackMessage {
             ParentBanner(text: playbackMessage, fill: Color(hex: DesignTokens.Palette.taxiTicket))
+        }
+        if model.perfWriteFailed {
+            ParentBanner(text: "表現紀錄未能儲存（唔影響小朋友玩）。 / Performance records could not be saved.",
+                         fill: Color(hex: DesignTokens.Palette.sand))
         }
     }
 
@@ -209,6 +216,15 @@ struct ParentSettingsView: View {
                             fill: Color(hex: DesignTokens.Palette.sunnyPale), action: { model.seedTestViewingBudget() }
                         )
                     }
+                    // D10: parent play on the TV is tagged and never counted (auto-off after 60 min).
+                    ParentSmallButton(
+                        title: model.perfUATOn
+                            ? "🧪 家長測試中（唔計表現）· 仲有 \(model.perfUATMinutesLeft) 分鐘 — 撳一下關 / Testing on · tap to stop"
+                            : "🧪 家長測試模式：關 — 撳一下開 60 分鐘 / Parent testing off · tap for 60 min",
+                        symbol: model.perfUATOn ? "flask.fill" : "flask",
+                        fill: model.perfUATOn ? Color(hex: DesignTokens.Palette.sunnyPale) : Color(hex: DesignTokens.Palette.paper),
+                        action: { model.perfToggleUAT() }
+                    )
                 }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 12)], alignment: .leading, spacing: 12) {
                     ForEach(ThemePaletteID.allCases, id: \.self) { palette in
@@ -435,6 +451,7 @@ struct ParentSettingsView: View {
                         .foregroundStyle(Color.inkSoft)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                ParentPerformanceRecordsBlock(model: model)
                 if model.message != nil {
                     ParentSmallButton(title: "清除簽證及重設儲存 / Clear visa and reset storage",
                                       symbol: "trash",
@@ -494,6 +511,91 @@ struct ParentSettingsView: View {
                 .overlay(Rectangle().fill(Color.ink).frame(height: 3), alignment: .top)
                 .ignoresSafeArea()
         )
+    }
+}
+
+// MARK: - D10 performance records (v0.20.0) — parent-only, Advanced
+
+/// Export, 「唔計呢段」 for recent sessions, and 「清除表現紀錄」. Plain VStack/HStack only:
+/// no grid, no file I/O in `body` (all work happens in `AppModel` / `PerformanceRecorder`).
+private struct ParentPerformanceRecordsBlock: View {
+    @ObservedObject var model: AppModel
+    @State private var confirmClear = false
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "Asia/Hong_Kong")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ParentLabel("表現紀錄 / Performance records", size: 16, weight: 800)
+            Text("只存喺呢部機，唔會上載，亦唔會入 GitHub。清除簽證唔會清走表現紀錄。 / Stored on this Mac only; never uploaded.")
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color.inkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 12) {
+                ParentSmallButton(title: "匯出表現 (CSV) / Export CSV",
+                                  symbol: "square.and.arrow.up",
+                                  action: { model.perfExport() })
+                if confirmClear {
+                    ParentSmallButton(title: "確定清除 / Clear",
+                                      symbol: "trash",
+                                      fill: Color(hex: DesignTokens.Palette.fireTicket),
+                                      action: {
+                                          confirmClear = false
+                                          model.perfClear()
+                                      })
+                    ParentSmallButton(title: "取消 / Cancel",
+                                      symbol: "xmark",
+                                      action: { confirmClear = false })
+                } else {
+                    ParentSmallButton(title: "清除表現紀錄 / Clear records",
+                                      symbol: "trash",
+                                      action: { confirmClear = true })
+                }
+            }
+            if confirmClear {
+                Text("清除所有表現紀錄？簽證同准許影片唔會變。 / Clear all performance records?")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.ink)
+            }
+            if let status = model.perfStatusMessage {
+                Text(status)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.inkSoft)
+            }
+            let sessions = Array(model.perfRecentSessions.prefix(3))
+            if !sessions.isEmpty {
+                ParentLabel("最近幾段（今次開機） / Recent sessions", size: 13, weight: 800, color: .inkSoft)
+                ForEach(sessions) { summary in
+                    sessionRow(summary)
+                }
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private func sessionRow(_ summary: PerfSessionSummary) -> some View {
+        let excluded = model.perf.excludedSessions.contains(summary.id)
+        let start = Self.timeFormatter.string(from: summary.start)
+        let end = Self.timeFormatter.string(from: summary.end)
+        let tested = summary.actors.contains(.parentUAT) || summary.actors.contains(.parentTestVisa)
+        let line = "\(start)–\(end) · \(summary.rounds) 局 · \(summary.plays) 條片"
+            + (tested ? " · 測試" : "")
+            + (excluded ? " · 唔計" : "")
+        return HStack(spacing: 10) {
+            Text(line)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(excluded ? Color.inkSoft : Color.ink)
+            Spacer(minLength: 8)
+            ParentSmallButton(title: excluded ? "計返 / Count" : "唔計呢段 / Don't count",
+                              symbol: excluded ? "arrow.uturn.backward" : "minus.circle",
+                              action: { model.perfToggleSessionExcluded(summary.id) })
+        }
     }
 }
 

@@ -63,7 +63,12 @@ final class AppModel: ObservableObject {
     @Published var parentVideoDurationDraft = "120"
     @Published var showAllowlistAdvanced = false
     @Published private(set) var isFetchingAllowlistMetadata = false
-    @Published private(set) var activePlayVideoID: String?
+    @Published private(set) var activePlayVideoID: String? {
+        didSet {
+            // D10: every path that clears or swaps the player passes through here.
+            if let oldValue, oldValue != activePlayVideoID { perfActivePlayCleared(oldValue) }
+        }
+    }
     /// Resume offset for the active child load (`start=`). Nil for fresh picks / parent preview.
     @Published private(set) var activePlayStartSeconds: TimeInterval?
     /// Last reported player position for the active child video (in-memory).
@@ -141,6 +146,20 @@ final class AppModel: ObservableObject {
     private var parentDeadline: Date?
     private let parentAccessSeconds: TimeInterval = 600
     var changed: (() -> Void)?
+    /// D10 performance records (v0.20.0). Local, parent-only, never blocks the child flow.
+    let perf = PerformanceRecorder()
+    /// Parent banner only: 「表現紀錄未能儲存（唔影響小朋友玩）」.
+    @Published private(set) var perfWriteFailed = false
+    /// Why the next player clear happens (consumed by `perfActivePlayCleared`).
+    private var pendingVideoStopReason: PerfVideoStopReason?
+    /// Source of the next `playAllowlisted` start (pick / continue). Nil → preview or legacy.
+    private var pendingVideoStartSource: String?
+    /// Why the next visa end happens (consumed in `update(_:)`).
+    private var pendingVisaEndReason: String?
+    /// Parent-only status line for export / clear.
+    @Published var perfStatusMessage: String?
+    /// Convoy tap context for the answer being evaluated (step, expected asset, tapped before).
+    private var pendingSequenceContext: (step: Int, expected: String?, tappedSoFar: [String])?
 
     init() {
         themePaletteID = ThemePreferenceStore().load()
@@ -157,6 +176,16 @@ final class AppModel: ObservableObject {
             message = "儲存資料有問題，請家長處理。 / Storage needs parent attention."
             VisaGamesLog.append("storage load FAILED — 載入失敗 storageFailed=true")
         }
+        perf.contextProvider = { [unowned self] in
+            PerfRecorderContext(mode: self.session.mode, isPlaytest: self.isParentPlaytest)
+        }
+        perf.onWriteFailed = { [weak self] in self?.perfWriteFailed = true }
+        perf.launch(
+            recoveredPlay: session.mode == .play,
+            visaEndsAt: session.snapshot.endsAt,
+            allowlistIDs: allowlist.videos.map(\.id),
+            assignment: gameAssignment
+        )
         // Durable endsAt can resume into .play while selectedStars is still nil → legacyShell.
         recoverPlayPresentationAfterLaunch()
     }
@@ -176,7 +205,7 @@ final class AppModel: ObservableObject {
         }
         // Stamp gate is in-memory; resume past it so the child picks (or watches) again.
         awaitingDeparture = false
-        mintVideoPickerOrderIfRouteIsPicker()
+        mintVideoPickerOrderIfRouteIsPicker(entry: "recovered")
         VisaGamesLog.append(
             "recoverPlayPresentation — 恢復遊玩 stars=\(selectedStars ?? -1) total=\(playVisaTotalSeconds) allowlist=\(allowlist.videos.count)"
         )
@@ -191,6 +220,9 @@ final class AppModel: ObservableObject {
                 storageFailed = true
                 message = "未能儲存，請家長處理。 / Could not save. Ask a parent."
                 VisaGamesLog.append("storage save FAILED — 儲存失敗 storageFailed=true")
+                perf.endPlay(reason: .storageFailure, resumeSaved: false)
+                perf.abandonRound(reason: "storage_failure")
+                perf.visaEnded(reason: "storage_failure")
                 session = Session(snapshot: Snapshot(configured: true), now: Date())
                 resetTaskRound()
                 changed?()
@@ -229,7 +261,11 @@ final class AppModel: ObservableObject {
         if visaEnded {
             awaitingDeparture = false
             almostHomeSpoken = false
+            if pendingVideoStopReason == nil { pendingVideoStopReason = .visaExpired }
             activePlayVideoID = nil
+            pendingVideoStopReason = nil
+            perf.visaEnded(reason: pendingVisaEndReason ?? "expired")
+            pendingVisaEndReason = nil
             activePlayStartSeconds = nil
             lastKnownPlaybackSeconds = nil
             let ticket = resolvedPlayTicket
@@ -262,7 +298,8 @@ final class AppModel: ObservableObject {
             VisaGamesLog.append("mode change — 模式變更 \(modeBefore) → \(session.mode) via tick")
             logShellBranch(context: "tick")
         }
-        if let parentDeadline, current >= parentDeadline { returnToChild() }
+        if let parentDeadline, current >= parentDeadline { returnToChild(reason: "auto_lock") }
+        perf.tick(now: current)
         if session.mode == .play, !awaitingDeparture, let endsAt = session.snapshot.endsAt {
             let progress = RoadTimerProgress.from(endsAt: endsAt, totalSeconds: playVisaTotalSeconds, now: current)
             if progress.almostHome, !almostHomeSpoken {
@@ -307,17 +344,26 @@ final class AppModel: ObservableObject {
             parentDeadline = Date().addingTimeInterval(parentAccessSeconds)
             if !storageFailed { message = nil }
             guideVoice.stop()
+            let modeBeforeParent = session.mode
+            // The player is torn down under parent controls: close the child play first.
+            perf.endPlay(reason: .parentUnlock, resumeSaved: false)
             update { $0.enterParent(authenticated: true, now: Date()) }
+            perf.parentEntered(fromMode: modeBeforeParent)
             VisaGamesLog.append("mode → parent — 進入家長模式")
             logShellBranch(context: "enterParent")
         }
     }
 
-    func returnToChild() {
+    func returnToChild(reason: String = "return") {
         // Auto-lock, sleep, and Return all come through here. Drop a playtest
         // before leaveParent so it cannot resume as a child round.
         discardPlaytestCover(reason: "leaveParent")
         let beforeMode = session.mode
+        if beforeMode == .parent {
+            perf.parentLeft(reason: reason)
+            // An inline 試播 preview (if any) ends with parent controls.
+            perf.endPlay(reason: .previewStopped, resumeSaved: false)
+        }
         let beforeEntry = isEntryActivityCompleted
         authentication?.invalidate()
         authentication = nil
@@ -325,6 +371,7 @@ final class AppModel: ObservableObject {
         parentDeadline = nil
         update { $0.leaveParent(now: Date()) }
         // Drop parent preview if we are no longer in play with a valid policy.
+        pendingVideoStopReason = .previewStopped
         if session.mode != .play {
             activePlayVideoID = nil
         } else if let id = activePlayVideoID {
@@ -335,8 +382,14 @@ final class AppModel: ObservableObject {
                 sessionEndsAt: session.snapshot.endsAt,
                 now: Date()
             )
-            if !decision.allowed { activePlayVideoID = nil }
+            if !decision.allowed {
+                activePlayVideoID = nil
+            } else if beforeMode == .parent {
+                // Watch is rebuilt after parent controls: the same id loads again from its start offset.
+                perfVideoStarted(id: id, source: "after_parent")
+            }
         }
+        pendingVideoStopReason = nil
         VisaGamesLog.append(
             "returnToChild — 返回兒童 beforeMode=\(beforeMode) afterMode=\(session.mode) entryBefore=\(beforeEntry) entryAfter=\(isEntryActivityCompleted) rewardNil=\(session.snapshot.reward == nil)"
         )
@@ -358,8 +411,14 @@ final class AppModel: ObservableObject {
         }
         playVisaTotalSeconds = 60
         awaitingDeparture = false
+        pendingVideoStopReason = .previewStopped
         activePlayVideoID = nil
+        pendingVideoStopReason = nil
         showTimesUp = false
+        perf.visaStarted(id: "test-\(UUID().uuidString)", source: .parentTest, seconds: 60,
+                         endsAt: session.snapshot.endsAt, stars: nil)
+        // D10: give the test visa its own picker visit (deck order is per visit, as for 出發).
+        mintVideoPickerOrderIfRouteIsPicker(entry: "test_visa")
         VisaGamesLog.append("grant — 測試一分鐘簽證 canvasPlay stars=\(selectedStars ?? -1)")
         logShellBranch(context: "grant")
     }
@@ -420,12 +479,34 @@ final class AppModel: ObservableObject {
         VideoPickerDeck.ordered(allowlist.videos, seed: videoPickerOrderSeed)
     }
 
-    private func mintVideoPickerOrderSeed() {
+    private func mintVideoPickerOrderSeed(entry: String) {
         videoPickerOrderSeed = UUID().uuidString
+        let now = Date()
+        perf.pickerVisit(
+            visit: videoPickerOrderSeed,
+            entry: entry,
+            deck: pickerVideosInVisitOrder.map(\.id),
+            visaLeft: session.remaining(at: now),
+            budgetLeft: remainingViewingBudget(at: now)
+        )
+    }
+
+    /// D10: the picker reports each page it draws (no visual change).
+    func videoPickerPageShown(page: Int, via: String) {
+        guard session.mode == .play else { return }
+        let now = Date()
+        perf.pageShown(
+            visit: videoPickerOrderSeed,
+            deck: pickerVideosInVisitOrder.map(\.id),
+            page: page,
+            via: via,
+            visaLeft: session.remaining(at: now),
+            budgetLeft: remainingViewingBudget(at: now)
+        )
     }
 
     /// New deck only when the route actually lands on the picker.
-    private func mintVideoPickerOrderIfRouteIsPicker() {
+    private func mintVideoPickerOrderIfRouteIsPicker(entry: String) {
         let route = PlayStageRoute.route(
             awaitingDeparture: awaitingDeparture,
             allowlistCount: allowlist.videos.count,
@@ -433,12 +514,15 @@ final class AppModel: ObservableObject {
             hasResumeCandidate: resumeCandidate != nil
         )
         if route == .videoPicker {
-            mintVideoPickerOrderSeed()
+            mintVideoPickerOrderSeed(entry: entry)
         }
     }
 
     /// Board 4 prelude: child sees preview cards of allowlisted videos (Holiday P0).
     func videoPickerOpened() {
+        if let candidate = resumeCandidate, session.mode == .play {
+            perf.resumeOffered(video: candidate.videoID, position: candidate.positionSeconds, surface: "picker_banner")
+        }
         let resume = resumeCandidate.map { "\($0.videoID)@\(Int($0.positionSeconds))s" } ?? "nil"
         VisaGamesLog.append(
             "videoPicker open — 揀片 allowlistCount=\(allowlist.videos.count) viewing=\(remainingViewingBudget(at: Date())) resume=\(resume)"
@@ -462,7 +546,10 @@ final class AppModel: ObservableObject {
         )
         activePlayStartSeconds = candidate.positionSeconds
         lastKnownPlaybackSeconds = candidate.positionSeconds
+        perf.resumeUsed(video: candidate.videoID, position: candidate.positionSeconds, choice: "continue")
+        pendingVideoStartSource = "continue"
         let decision = playAllowlisted(id: candidate.videoID)
+        pendingVideoStartSource = nil
         if activePlayVideoID == nil {
             activePlayStartSeconds = nil
             VisaGamesLog.append(
@@ -480,17 +567,23 @@ final class AppModel: ObservableObject {
     func pickOtherFromResumeChoice() {
         guard session.mode == .play, !awaitingDeparture else { return }
         VisaGamesLog.append("resumeChoice pickOther — 揀片睇 clearCursor=immediate")
+        if let candidate = resumeCandidate {
+            perf.resumeUsed(video: candidate.videoID, position: candidate.positionSeconds, choice: "pick_other")
+        }
         clearLastIncomplete(reason: "resumeChoicePickOther")
         activePlayVideoID = nil
         activePlayStartSeconds = nil
         lastKnownPlaybackSeconds = nil
         playbackMessage = nil
         // 「揀片睇」enters the picker. Mint here, not in the view's onAppear.
-        mintVideoPickerOrderIfRouteIsPicker()
+        mintVideoPickerOrderIfRouteIsPicker(entry: "resume_pick_other")
         logShellBranch(context: "resumeChoicePickOther")
     }
 
     func resumeChoiceOpened() {
+        if let candidate = resumeCandidate, session.mode == .play {
+            perf.resumeOffered(video: candidate.videoID, position: candidate.positionSeconds, surface: "resume_choice")
+        }
         let resume = resumeCandidate.map { "\($0.videoID)@\(Int($0.positionSeconds))s" } ?? "nil"
         VisaGamesLog.append(
             "resumeChoice open — 繼續定揀片 resume=\(resume) allowlistCount=\(allowlist.videos.count)"
@@ -501,6 +594,7 @@ final class AppModel: ObservableObject {
         guard session.mode == .play, activePlayVideoID == videoID,
               seconds.isFinite, seconds > 0 else { return }
         lastKnownPlaybackSeconds = seconds
+        perf.playSample(video: videoID, seconds: seconds)
     }
 
     private func clearLastIncomplete(reason: String) {
@@ -524,11 +618,15 @@ final class AppModel: ObservableObject {
     func pickVideo(id: String) {
         guard session.mode == .play, !awaitingDeparture else { return }
         VisaGamesLog.append("videoPicker pick — 揀咗 id=\(id)")
+        perf.pickTapped(visit: videoPickerOrderSeed, video: id, deck: pickerVideosInVisitOrder.map(\.id))
         clearLastIncomplete(reason: "pickOther")
         activePlayStartSeconds = nil
         lastKnownPlaybackSeconds = nil
+        pendingVideoStartSource = "pick"
         let decision = playAllowlisted(id: id)
+        pendingVideoStartSource = nil
         if activePlayVideoID == nil {
+            perf.pickRefused(reason: decision.stopReason?.rawValue)
             VisaGamesLog.append("videoPicker pick rejected — 未能播放 id=\(id) message=\(playbackMessage ?? "nil")")
             // Dead budget on the picker (e.g. day rollover) → Time's up, not a stuck picker.
             if let reason = decision.stopReason,
@@ -586,10 +684,13 @@ final class AppModel: ObservableObject {
         fuelFeedbackMessage = nil
         clearThinkPause()
         taskRoundOpen = true
+        perf.roundDealt(round: seed, kind: kind, stars: stars, pendingStart: difficulty.minutes, pool: pool)
         VisaGamesLog.append("selectDifficulty — 選擇難度 stars=\(stars) kind=\(kind.rawValue) seed=\(seed) pendingMin=\(pendingAwardMinutes) pool=\(pool.count)")
     }
 
     private func resetTaskRound() {
+        // D10: a round still open here was left without an answer (specific reasons are logged earlier).
+        perf.abandonRound(reason: "round_reset")
         taskRoundOpen = false
         selectedStars = nil
         roundCompletionID = nil
@@ -665,7 +766,7 @@ final class AppModel: ObservableObject {
 
     func selectEntryOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .twoPictureChoose else { return }
-        guard !choicesLocked else { return }
+        guard !choicesLocked else { perf.roundMashTap(); return }
         guard !storageFailed else {
             VisaGamesLog.append("selectEntryOption blocked — 已封鎖 storageFailed=true id=\(id)")
             return
@@ -680,7 +781,7 @@ final class AppModel: ObservableObject {
 
     func selectFindSameOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .findTheSame else { return }
-        guard !choicesLocked else { return }
+        guard !choicesLocked else { perf.roundMashTap(); return }
         guard !storageFailed else {
             VisaGamesLog.append("selectFindSameOption blocked — 已封鎖 storageFailed=true id=\(id)")
             return
@@ -695,7 +796,7 @@ final class AppModel: ObservableObject {
 
     func selectCountChoice(_ count: Int) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .countVehicles else { return }
-        guard !choicesLocked else { return }
+        guard !choicesLocked else { perf.roundMashTap(); return }
         guard !storageFailed else {
             VisaGamesLog.append("selectCountChoice blocked — 已封鎖 storageFailed=true count=\(count)")
             return
@@ -710,7 +811,7 @@ final class AppModel: ObservableObject {
 
     func selectSequenceAsset(id assetID: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .sequenceShortToLong else { return }
-        guard !choicesLocked else { return }
+        guard !choicesLocked else { perf.roundMashTap(); return }
         guard !storageFailed else {
             VisaGamesLog.append("selectSequenceAsset blocked — 已封鎖 storageFailed=true asset=\(assetID)")
             return
@@ -721,11 +822,21 @@ final class AppModel: ObservableObject {
             tappedSoFar: sequenceTappedAssetIDs
         )
         if expected != assetID {
+            pendingSequenceContext = (sequenceTappedAssetIDs.count + 1, expected, sequenceTappedAssetIDs)
             sequenceTappedAssetIDs = []
             handleEvaluation(.incorrect, selectionLabel: assetID)
+            pendingSequenceContext = nil
             return
         }
+        let tappedBefore = sequenceTappedAssetIDs
         sequenceTappedAssetIDs.append(assetID)
+        if sequenceTappedAssetIDs.count < sequenceQuestion.orderedAssetIDs.count {
+            perf.roundAnswer(choice: assetID, correct: true, pendingBefore: pendingAwardMinutes,
+                             pendingAfter: pendingAwardMinutes, hintOn: entryHintUsed,
+                             sequence: (tappedBefore.count + 1, expected, tappedBefore))
+        } else {
+            pendingSequenceContext = (tappedBefore.count + 1, expected, tappedBefore)
+        }
         if sequenceTappedAssetIDs.count == sequenceQuestion.orderedAssetIDs.count {
             let evaluation = activityEvaluator.evaluate(
                 question: sequenceQuestion,
@@ -733,6 +844,7 @@ final class AppModel: ObservableObject {
                 hintUsed: entryHintUsed
             )
             handleEvaluation(evaluation, selectionLabel: "seq-complete")
+            pendingSequenceContext = nil
         } else {
             entryRetryMessage = "好！下一架～ / Good! Next one~"
             VisaGamesLog.append("sequence progress — 車隊進度 count=\(sequenceTappedAssetIDs.count)")
@@ -741,7 +853,7 @@ final class AppModel: ObservableObject {
 
     func selectHalfMatchOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .halfMatch else { return }
-        guard !choicesLocked else { return }
+        guard !choicesLocked else { perf.roundMashTap(); return }
         guard !storageFailed else {
             VisaGamesLog.append("selectHalfMatchOption blocked — 已封鎖 storageFailed=true id=\(id)")
             return
@@ -756,7 +868,7 @@ final class AppModel: ObservableObject {
 
     func selectShapeCousinOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .shapeCousin else { return }
-        guard !choicesLocked else { return }
+        guard !choicesLocked else { perf.roundMashTap(); return }
         guard !storageFailed else {
             VisaGamesLog.append("selectShapeCousinOption blocked — 已封鎖 storageFailed=true id=\(id)")
             return
@@ -771,7 +883,7 @@ final class AppModel: ObservableObject {
 
     func selectCapacityOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .capacityCompare else { return }
-        guard !choicesLocked else { return }
+        guard !choicesLocked else { perf.roundMashTap(); return }
         guard !storageFailed else {
             VisaGamesLog.append("selectCapacityOption blocked — 已封鎖 storageFailed=true id=\(id)")
             return
@@ -786,7 +898,7 @@ final class AppModel: ObservableObject {
 
     func selectMoreFewerSide(_ side: ParkingLotSide) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .moreFewer else { return }
-        guard !choicesLocked else { return }
+        guard !choicesLocked else { perf.roundMashTap(); return }
         guard !storageFailed else {
             VisaGamesLog.append("selectMoreFewerSide blocked — 已封鎖 storageFailed=true side=\(side.rawValue)")
             return
@@ -801,7 +913,7 @@ final class AppModel: ObservableObject {
 
     func selectShadowMatchOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .shadowMatch else { return }
-        guard !choicesLocked else { return }
+        guard !choicesLocked else { perf.roundMashTap(); return }
         guard !storageFailed else {
             VisaGamesLog.append("selectShadowMatchOption blocked — 已封鎖 storageFailed=true id=\(id)")
             return
@@ -816,7 +928,7 @@ final class AppModel: ObservableObject {
 
     func selectEmptyBay(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .emptyBay else { return }
-        guard !choicesLocked else { return }
+        guard !choicesLocked else { perf.roundMashTap(); return }
         guard !storageFailed else {
             VisaGamesLog.append("selectEmptyBay blocked — 已封鎖 storageFailed=true id=\(id)")
             return
@@ -844,6 +956,9 @@ final class AppModel: ObservableObject {
             let before = pendingAwardMinutes
             pendingAwardMinutes = WrongAnswerPolicy.halvedPendingMinutes(pendingAwardMinutes)
             fuelFeedbackMessage = WrongAnswerCopy.fuelHalvedTraditionalChinese
+            perf.roundAnswer(choice: selectionLabel, correct: false, pendingBefore: before,
+                             pendingAfter: pendingAwardMinutes, hintOn: entryHintUsed,
+                             sequence: pendingSequenceContext)
             VisaGamesLog.append(
                 "activity incorrect — 答錯 selection=\(selectionLabel) kind=\(activeActivityKind?.rawValue ?? "nil") misses=\(entryMissCount) pending \(before)→\(pendingAwardMinutes) hintUsed=\(entryHintUsed)"
             )
@@ -855,6 +970,11 @@ final class AppModel: ObservableObject {
             }
             beginThinkPause(now: Date())
         case .correct(let assisted):
+            let answeredChoice = selectionLabel == "seq-complete"
+                ? (sequenceTappedAssetIDs.last ?? selectionLabel) : selectionLabel
+            perf.roundAnswer(choice: answeredChoice, correct: true, pendingBefore: pendingAwardMinutes,
+                             pendingAfter: pendingAwardMinutes, hintOn: entryHintUsed,
+                             sequence: pendingSequenceContext)
             guard pendingAwardMinutes > 0 else {
                 // Should not reach stamp with 0 fuel; send to Depot safely.
                 VisaGamesLog.append("activity correct blocked — pending=0 → depot")
@@ -908,6 +1028,9 @@ final class AppModel: ObservableObject {
             session.startPlayVisa(seconds: awardSeconds, now: now)
         }
         guard !storageFailed, session.mode == .play else { return }
+        perf.roundFinished(outcome: .solved, earnedMinutes: earnedMinutes, assisted: assisted)
+        perf.visaStarted(id: completionID, source: .earned, seconds: awardSeconds,
+                         endsAt: session.snapshot.endsAt, stars: stars)
         taskRoundOpen = false
         entryRetryMessage = nil
         fuelFeedbackMessage = nil
@@ -937,7 +1060,7 @@ final class AppModel: ObservableObject {
         awaitingDeparture = false
         guideVoice.speak(.departGo)
         // 「出發！」 enters the picker only when there is no Resume Choice and the bay is not empty.
-        mintVideoPickerOrderIfRouteIsPicker()
+        mintVideoPickerOrderIfRouteIsPicker(entry: "go")
         VisaGamesLog.append("confirmDeparture — 出發 watchUI allowlistCount=\(allowlist.videos.count)")
         logShellBranch(context: "confirmDeparture")
     }
@@ -956,7 +1079,9 @@ final class AppModel: ObservableObject {
         awaitingDeparture = false
         suppressNextTimesUp = true
         // End the active visa (child left play); skip park-and-sleep and return to depot.
+        pendingVisaEndReason = "empty_allowlist_return"
         update { $0.endPlayVisa(now: Date()) }
+        pendingVisaEndReason = nil
         VisaGamesLog.append("returnFromEmptyAllowlist — 返回車廠")
     }
 
@@ -970,6 +1095,7 @@ final class AppModel: ObservableObject {
     private func beginThinkPause(now: Date) {
         thinkPauseEndsAt = now.addingTimeInterval(TimeInterval(WrongAnswerPolicy.thinkPauseSeconds))
         thinkPauseRemainingSeconds = WrongAnswerPolicy.thinkPauseSeconds
+        perf.roundPauseStarted()
         VisaGamesLog.append(
             "think-pause start — 停一停 pendingMin=\(pendingAwardMinutes) secs=\(WrongAnswerPolicy.thinkPauseSeconds)"
         )
@@ -990,6 +1116,7 @@ final class AppModel: ObservableObject {
 
     private func finishThinkPause() {
         thinkPauseRemainingSeconds = 0
+        perf.roundPauseEnded()
         fuelFeedbackMessage = nil
         if WrongAnswerPolicy.shouldReturnToDepot(pendingMinutes: pendingAwardMinutes) {
             VisaGamesLog.append("think-pause end — pending=0 → depot")
@@ -1003,6 +1130,7 @@ final class AppModel: ObservableObject {
         if ActivityHintPolicy.shouldAutoHint(afterMissCount: entryMissCount), !entryHintUsed {
             useEntryHint()
             speakEntryPrompt()
+            perf.roundHint(afterMisses: entryMissCount)
             VisaGamesLog.append("auto-hint — 自動提示 after pause misses=\(entryMissCount) → assisted")
         }
         changed?()
@@ -1011,6 +1139,7 @@ final class AppModel: ObservableObject {
     private func returnToDepotOutOfFuel() {
         guideVoice.speak(.outOfFuelDepot)
         VisaGamesLog.append("returnToDepotOutOfFuel — 油用晒 返車廠")
+        perf.roundFinished(outcome: .zeroed, earnedMinutes: 0, assisted: false)
         resetTaskRound()
         changed?()
     }
@@ -1091,8 +1220,10 @@ final class AppModel: ObservableObject {
                 self.playbackMessage = "影片編號無效。 / Invalid video ID."
                 return
             }
+            let existed = self.allowlist.video(id: id) != nil
             self.allowlist = next
             self.allowlistStore.save(next)
+            self.perf.allowlistChanged(op: existed ? "update" : "add", video: id)
             self.parentVideoIDDraft = ""
             self.parentVideoTitleDraft = ""
             self.parentVideoDurationDraft = "120"
@@ -1190,8 +1321,11 @@ final class AppModel: ObservableObject {
         next.remove(id: id)
         allowlist = next
         allowlistStore.save(next)
+        perf.allowlistChanged(op: "remove", video: id)
         if activePlayVideoID == id {
+            pendingVideoStopReason = .allowlistRemoved
             activePlayVideoID = nil
+            pendingVideoStopReason = nil
             activePlayStartSeconds = nil
             lastKnownPlaybackSeconds = nil
         }
@@ -1272,6 +1406,7 @@ final class AppModel: ObservableObject {
             }
             session.replaceRewardState(ledger.exportState())
         }
+        perf.abandonRound(reason: "reset_entry_uat")
         resetTaskRound()
         // Force ObservableObject subscribers to refresh derived entry UI even if other fields look similar.
         objectWillChange.send()
@@ -1374,7 +1509,77 @@ final class AppModel: ObservableObject {
             lastKnownPlaybackSeconds = nil
             parentDeadline = Date().addingTimeInterval(parentAccessSeconds)
         }
+        perfVideoStarted(id: id, source: pendingVideoStartSource ?? (isParentPreview ? "parent_preview" : "legacy"))
         return decision
+    }
+
+    // MARK: - D10 performance records (v0.20.0)
+
+    private func perfVideoStarted(id: String, source: String) {
+        let now = Date()
+        perf.videoStarted(
+            video: id,
+            source: source,
+            startSeconds: activePlayStartSeconds,
+            durationSeconds: allowlist.video(id: id)?.playerDurationSeconds,
+            visaLeft: session.remaining(at: now),
+            budgetLeft: remainingViewingBudget(at: now)
+        )
+    }
+
+    /// `activePlayVideoID` left `oldID`: close the open play with the pending reason.
+    private func perfActivePlayCleared(_ oldID: String) {
+        guard perf.openPlayVideoID == oldID else { return }
+        let reason = pendingVideoStopReason ?? (session.mode == .parent ? .previewStopped : .unknown)
+        let timeUp = reason == .visaExpired || reason == .budgetExhausted
+        let saved = timeUp && session.snapshot.lastIncomplete?.videoID == oldID
+        perf.endPlay(reason: reason, resumeSaved: saved)
+    }
+
+    /// Parent 🧪 家長測試中 switch (60-minute auto-off).
+    var perfUATOn: Bool { perf.uat.isOn(at: now) }
+    var perfUATMinutesLeft: Int { perf.uat.minutesLeft(at: now) }
+
+    func perfToggleUAT() {
+        guard session.mode == .parent else { return }
+        perf.setUAT(on: !perf.uat.isOn(at: Date()))
+        objectWillChange.send()
+    }
+
+    var perfRecentSessions: [PerfSessionSummary] { perf.recentSessions }
+
+    func perfToggleSessionExcluded(_ id: String) {
+        guard session.mode == .parent else { return }
+        perf.setSessionExcluded(id, excluded: !perf.excludedSessions.contains(id))
+        objectWillChange.send()
+    }
+
+    func perfExport() {
+        guard session.mode == .parent else { return }
+        var titles: [String: String] = [:]
+        for video in allowlist.videos { titles[video.id] = video.parentLabel }
+        perfStatusMessage = "匯出緊…"
+        perf.export(titles: titles) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let url):
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+                self.perfStatusMessage = "已匯出，資料夾已開啟。 / Exported."
+            case .failure:
+                self.perfStatusMessage = "未能匯出表現紀錄。 / Export failed."
+            }
+        }
+    }
+
+    func perfClear() {
+        guard session.mode == .parent else { return }
+        perf.clearAll { [weak self] ok in
+            guard let self else { return }
+            if ok { self.perfWriteFailed = false }
+            self.perfStatusMessage = ok
+                ? "已清除表現紀錄。 / Performance records cleared."
+                : "未能清除表現紀錄。 / Could not clear."
+        }
     }
 
     /// Policy (tick) or D8 navigation stop. v0.12.0: in child play, no time left → Time's up
@@ -1382,6 +1587,12 @@ final class AppModel: ObservableObject {
     func stopScopedPlayback(reason: PlaybackStopReason) {
         let stoppedID = activePlayVideoID
         let isChild = session.mode == .play
+        switch reason {
+        case .budgetExhausted: pendingVideoStopReason = isChild ? .budgetExhausted : .previewStopped
+        case .sessionExpired: pendingVideoStopReason = isChild ? .visaExpired : .previewStopped
+        case .navigationRejected: pendingVideoStopReason = isChild ? .navBlocked : .previewStopped
+        case .notAllowlisted, .invalidVideoID: pendingVideoStopReason = .unknown
+        }
         let route = VideoEndRouting.afterPlaybackStopped(reason: reason, isChildPlay: isChild)
         if isChild,
            let id = stoppedID,
@@ -1394,6 +1605,7 @@ final class AppModel: ObservableObject {
             persistLastIncomplete(videoID: id, positionSeconds: position, reason: reason.rawValue)
         }
         activePlayVideoID = nil
+        pendingVideoStopReason = nil
         activePlayStartSeconds = nil
         lastKnownPlaybackSeconds = nil
         switch reason {
@@ -1408,7 +1620,7 @@ final class AppModel: ObservableObject {
         if route == .timesUp {
             finishPlayVisaToTimesUp(reason: "stop-\(reason.rawValue)")
         } else if route == .videoPicker {
-            mintVideoPickerOrderSeed()
+            mintVideoPickerOrderSeed(entry: "stop_return")
         }
     }
 
@@ -1427,6 +1639,8 @@ final class AppModel: ObservableObject {
         VisaGamesLog.append(
             "video ended — 片播完 id=\(videoID) route=\(route) mode=\(session.mode) viewing=\(Int(budget)) visaLeft=\(session.remaining(at: now))s"
         )
+        if route != .ignore { pendingVideoStopReason = .ended }
+        defer { pendingVideoStopReason = nil }
         switch route {
         case .videoPicker:
             clearLastIncomplete(reason: "ended")
@@ -1435,7 +1649,7 @@ final class AppModel: ObservableObject {
             lastKnownPlaybackSeconds = nil
             playbackMessage = nil
             // Clip ended with time left: a new visit, a new deck. Refused picks do not come through here.
-            mintVideoPickerOrderSeed()
+            mintVideoPickerOrderSeed(entry: "ended_time_left")
             VisaGamesLog.append("video ended → picker — 返揀片 visaLeft=\(session.remaining(at: now))s")
             logShellBranch(context: "videoEnded")
         case .timesUp:
@@ -1466,12 +1680,15 @@ final class AppModel: ObservableObject {
             "visa end → timesUp — 冇時間喇 reason=\(reason) viewing=\(Int(remainingViewingBudget(at: now))) visaLeft=\(session.remaining(at: now))s"
         )
         guideVoice.stop()
+        pendingVisaEndReason = "no_time_left"
         update { $0.endPlayVisa(now: now) }
+        pendingVisaEndReason = nil
         logShellBranch(context: "timesUp-\(reason)")
     }
 
     /// Real length from the player → parent card chip only (D4 `durationSeconds` unchanged).
     func recordPlayerDuration(videoID: String, seconds: TimeInterval) {
+        perf.playDuration(video: videoID, seconds: seconds)
         var next = allowlist
         guard next.recordPlayerDuration(id: videoID, seconds: seconds) else { return }
         allowlist = next
@@ -1482,7 +1699,9 @@ final class AppModel: ObservableObject {
     /// Parent card: stop the inline preview player.
     func stopParentPreview() {
         guard session.mode == .parent else { return }
+        pendingVideoStopReason = .previewStopped
         activePlayVideoID = nil
+        pendingVideoStopReason = nil
         playbackMessage = nil
     }
 
@@ -1504,6 +1723,7 @@ final class AppModel: ObservableObject {
             gameAssignment = next
             gameAssignmentStore.save(next)
             gameAssignmentBanner = nil
+            perf.assignmentChanged(kind: kind, star: star.rawValue, on: next.isEnabled(kind, star: star))
             VisaGamesLog.append(
                 "game assignment — 星級 kind=\(kind.rawValue) star=\(star.rawValue) on=\(next.isEnabled(kind, star: star))"
             )
@@ -1532,6 +1752,7 @@ final class AppModel: ObservableObject {
         playtestSequenceTaps = []
         playtestChoiceDealSeed = UUID().uuidString
         clearPlaytestThinkPause()
+        perf.playtestStarted(round: playtestChoiceDealSeed, kind: kind, pendingStart: playtestStartingMinutes)
         VisaGamesLog.append("playtest start — 試玩 kind=\(kind.rawValue) mode=parent visa=false")
     }
 
@@ -1624,11 +1845,21 @@ final class AppModel: ObservableObject {
             tappedSoFar: playtestSequenceTaps
         )
         if expected != assetID {
+            pendingSequenceContext = (playtestSequenceTaps.count + 1, expected, playtestSequenceTaps)
             playtestSequenceTaps = []
             playtestHandle(.incorrect, selectionLabel: assetID)
+            pendingSequenceContext = nil
             return
         }
+        let tappedBefore = playtestSequenceTaps
         playtestSequenceTaps.append(assetID)
+        if playtestSequenceTaps.count < sequenceQuestion.orderedAssetIDs.count {
+            perf.playtestAnswer(choice: assetID, correct: true, pendingBefore: playtestPendingMinutes,
+                                pendingAfter: playtestPendingMinutes, hintOn: playtestHintUsed,
+                                sequence: (tappedBefore.count + 1, expected, tappedBefore))
+        } else {
+            pendingSequenceContext = (tappedBefore.count + 1, expected, tappedBefore)
+        }
         if playtestSequenceTaps.count == sequenceQuestion.orderedAssetIDs.count {
             let evaluation = activityEvaluator.evaluate(
                 question: sequenceQuestion,
@@ -1636,6 +1867,7 @@ final class AppModel: ObservableObject {
                 hintUsed: playtestHintUsed
             )
             playtestHandle(evaluation, selectionLabel: "seq-complete")
+            pendingSequenceContext = nil
         } else {
             VisaGamesLog.append("playtest sequence — 試玩車隊 local count=\(playtestSequenceTaps.count)")
         }
@@ -1715,6 +1947,9 @@ final class AppModel: ObservableObject {
             let before = playtestPendingMinutes
             playtestPendingMinutes = WrongAnswerPolicy.halvedPendingMinutes(playtestPendingMinutes)
             playtestFuelMessage = WrongAnswerCopy.fuelHalvedTraditionalChinese
+            perf.playtestAnswer(choice: selectionLabel, correct: false, pendingBefore: before,
+                                pendingAfter: playtestPendingMinutes, hintOn: playtestHintUsed,
+                                sequence: pendingSequenceContext)
             VisaGamesLog.append(
                 "playtest incorrect — 試玩答錯 local selection=\(selectionLabel) pending \(before)→\(playtestPendingMinutes) misses=\(playtestMissCount)"
             )
@@ -1725,7 +1960,13 @@ final class AppModel: ObservableObject {
                 }
             }
             beginPlaytestThinkPause(now: Date())
-        case .correct:
+        case .correct(let assisted):
+            let answeredChoice = selectionLabel == "seq-complete"
+                ? (playtestSequenceTaps.last ?? selectionLabel) : selectionLabel
+            perf.playtestAnswer(choice: answeredChoice, correct: true, pendingBefore: playtestPendingMinutes,
+                                pendingAfter: playtestPendingMinutes, hintOn: playtestHintUsed,
+                                sequence: pendingSequenceContext)
+            perf.playtestSolved(earnedMinutes: playtestPendingMinutes, assisted: assisted)
             playtestLastCorrectID = selectionLabel
             playtestLastIncorrectID = nil
             playtestCompleted = true
@@ -1761,10 +2002,12 @@ final class AppModel: ObservableObject {
         playtestThinkRemaining = 0
         playtestFuelMessage = nil
         guard playtestKind != nil, !playtestCompleted else { return }
+        perf.playtestPauseEnded()
         // Fuel may hit 0. Stay on the cover — do not speak the depot line or end the visa.
         if ActivityHintPolicy.shouldAutoHint(afterMissCount: playtestMissCount), !playtestHintUsed {
             playtestHintUsed = true
             speakPlaytestPrompt()
+            perf.playtestHint(afterMisses: playtestMissCount)
             VisaGamesLog.append("playtest auto-hint — 試玩提示 local misses=\(playtestMissCount)")
         }
     }
@@ -1777,6 +2020,7 @@ final class AppModel: ObservableObject {
     /// Drops local playtest state. Does not write the ledger or change `session.mode`.
     private func discardPlaytestCover(reason: String) {
         guard playtestKind != nil || playtestThinkEndsAt != nil else { return }
+        perf.abandonPlaytest(reason: "playtest_\(reason)")
         guideVoice.stop()
         playtestKind = nil
         playtestHintUsed = false
@@ -1801,8 +2045,13 @@ final class AppModel: ObservableObject {
             try store.save(fresh)
             storageFailed = false
             message = nil
+            perf.abandonRound(reason: "reset_storage")
             resetTaskRound()
+            pendingVideoStopReason = .resetStorage
             activePlayVideoID = nil
+            pendingVideoStopReason = nil
+            // 清除簽證及重設儲存 never touches stats/ (Carter 3A): that is 「清除表現紀錄」.
+            perf.visaEnded(reason: "reset")
             activePlayStartSeconds = nil
             lastKnownPlaybackSeconds = nil
             session = Session(snapshot: fresh, now: Date())
@@ -1817,7 +2066,9 @@ final class AppModel: ObservableObject {
     func quitFromParent() {
         guard session.mode == .parent else { return }
         VisaGamesLog.append("quit requested — 家長離開程式 activeVideo=\(activePlayVideoID ?? "nil")")
+        pendingVideoStopReason = .terminate
         activePlayVideoID = nil
+        pendingVideoStopReason = nil
         DispatchQueue.main.async {
             NSApp.terminate(nil)
         }
@@ -1830,7 +2081,12 @@ final class AppModel: ObservableObject {
         draftTitleTask?.cancel()
         draftTitleTask = nil
         guideVoice.stop()
+        pendingVideoStopReason = .terminate
         activePlayVideoID = nil
+        pendingVideoStopReason = nil
+        perf.endPlay(reason: .terminate, resumeSaved: false)
+        perf.abandonRound(reason: "terminate")
+        perf.terminate(reason: "quit")
         playbackMessage = nil
         authentication?.invalidate()
         authentication = nil
@@ -1928,7 +2184,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         isChildPresentation = child
     }
 
-    @objc private func willSleep() { model.returnToChild() }
+    @objc private func willSleep() { model.returnToChild(reason: "sleep") }
     @objc private func didWake() { model.tick() }
     @objc private func screenChanged() {
         if !model.session.allowsExit, let screen = window.screen ?? NSScreen.main {
@@ -2094,7 +2350,8 @@ struct ShellView: View {
                     onPick: { model.pickVideo(id: $0) },
                     onContinue: nil,
                     onSpeak: { model.guideSpeakPickVideo() },
-                    onAppearLog: model.videoPickerOpened
+                    onAppearLog: model.videoPickerOpened,
+                    onPageShown: { model.videoPickerPageShown(page: $0, via: $1) }
                 )
                 .ignoresSafeArea()
             }
@@ -2109,7 +2366,8 @@ struct ShellView: View {
                 onPick: { model.pickVideo(id: $0) },
                 onContinue: model.resumeCandidate == nil ? nil : { model.continueIncompleteVideo() },
                 onSpeak: { model.guideSpeakPickVideo() },
-                onAppearLog: model.videoPickerOpened
+                onAppearLog: model.videoPickerOpened,
+                onPageShown: { model.videoPickerPageShown(page: $0, via: $1) }
             )
             .ignoresSafeArea()
         case .watch:

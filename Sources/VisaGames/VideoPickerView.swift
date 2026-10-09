@@ -27,6 +27,8 @@ struct VideoPickerView: View {
     var onContinue: (() -> Void)? = nil
     let onSpeak: () -> Void
     let onAppearLog: () -> Void
+    /// D10 (v0.20.0): reports each page drawn — (page index, "open" | "prev" | "next"). No visual effect.
+    var onPageShown: ((Int, String) -> Void)? = nil
     @Environment(\.canvasMetrics) private var metrics
     @State private var pendingSpeech: DispatchWorkItem?
     @State private var pageIndex = 0
@@ -104,6 +106,7 @@ struct VideoPickerView: View {
         .onAppear {
             clampPageIndex()
             onAppearLog()
+            onPageShown?(pageIndex, "open")
             // Let 「出發！」 finish before Stampy asks 「揀片睇！」.
             let work = DispatchWorkItem { onSpeak() }
             pendingSpeech = work
@@ -157,7 +160,9 @@ struct VideoPickerView: View {
         HStack(alignment: .center, spacing: metrics.u(10)) {
             if showsPager {
                 pageArrow(direction: .previous, enabled: hasPrevPage) {
+                    let before = pageIndex
                     pageIndex = max(0, pageIndex - 1)
+                    if pageIndex != before { onPageShown?(pageIndex, "prev") }
                 }
             }
 
@@ -199,7 +204,9 @@ struct VideoPickerView: View {
 
             if showsPager {
                 pageArrow(direction: .next, enabled: hasNextPage) {
+                    let before = pageIndex
                     pageIndex = min(pageCount - 1, pageIndex + 1)
+                    if pageIndex != before { onPageShown?(pageIndex, "next") }
                 }
             }
         }

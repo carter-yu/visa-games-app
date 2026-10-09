@@ -381,6 +381,26 @@ struct TestRunner {
         wrong.testTraditionalOnlyCopy()
         wrong.testReducedPendingAwardsViaLedgerWithoutBurningBankOnMiss()
 
-        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy checks")
+        let perf = PerformanceRecordTests()
+        try perf.testEnvelopeRoundTripsEveryEventType()
+        try perf.testTolerantDecoderSkipsTornAndNewerLinesAndKeepsUnknownTypes()
+        try perf.testStoreWritesOneFilePerHongKongDayAndReadsInLaunchOrder()
+        try perf.testClearPerformanceRecordsIsSeparateFromVisaReset()
+        perf.testRoundTrackerFirstTryMissesAndActiveTimeWithoutPauses()
+        perf.testRoundTrackerFuelOutParentIntervalIdleCapAndAbandon()
+        perf.testSequenceStepsBeforeFirstMissAndRankTags()
+        perf.testRecordedSlotsMatchWhatTheChildSawForEveryKind()
+        perf.testEveryWrongOptionHasConfusionTagsAndTheRightOneHasNone()
+        perf.testActorRuleCountableAndParentExclusion()
+        perf.testUATSwitchAutoOffAfterSixtyMinutesAndSessionClock()
+        perf.testPlayTrackerWatchedSecondsSeeksStopReasonsAndWallOnly()
+        perf.testPickerPlacementPagesAndImpressions()
+        perf.testCSVHasBOMHeadersEscapingAndHongKongTime()
+        perf.testVideoCSVStopReasonResumeLaterImpressionsAndMissingEnd()
+        perf.testRetentionKeepsNinetyHongKongDaysIncludingToday()
+        try perf.testPruneFoldsDailySummariesThenDeletesAndIsIdempotent()
+        try perf.testPerformanceStringsAreTraditionalChineseOnly()
+
+        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 18 performance-log checks")
     }
 }
