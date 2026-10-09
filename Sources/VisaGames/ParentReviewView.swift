@@ -4,7 +4,7 @@ import VisaCore
 // MARK: - v0.21.0 表現 / Review (design §8.4–8.5, layout L5) — parent-only
 
 /// Report lifecycle in `AppModel`. Built off-main by `PerformanceRecorder.buildReport`.
-enum PerfReviewState: Equatable {
+enum PerfReviewState: Equatable, Sendable {
     case idle
     case computing(previous: PerfReport?)
     case ready(PerfReport)
@@ -43,7 +43,8 @@ struct ParentReviewView: View, Equatable {
 
     enum ReviewTab { case games, videos }
 
-    static func == (lhs: ParentReviewView, rhs: ParentReviewView) -> Bool {
+    /// Nonisolated (Swift 6): compares only the Sendable value inputs, never the closures.
+    nonisolated static func == (lhs: ParentReviewView, rhs: ParentReviewView) -> Bool {
         lhs.state == rhs.state && lhs.window == rhs.window && lhs.uatOn == rhs.uatOn
     }
 
