@@ -77,3 +77,17 @@ clean, tagged data first.
   readers merge by `(launch, seq)`.
 - Unchanged: kiosk boundary, parent authentication, reward policy D1–D7, D8 playback gate,
   activity content, child screens.
+
+## v0.21.0 Review (2026-10-09)
+
+- Parent 「表現 / Review」 is the third parent segment (L5) with 遊戲表現 / 影片表現 tabs. Read-only:
+  it never changes dealing (v0.22) or anything the child sees.
+- Game labels (§3.4–3.6): 7-day half-life, 5-round minimum, pooled prior, chance correction.
+  Video labels (§7.3–7.4) come only from picks against what was actually shown; watch outcomes
+  (finished, time-up stops, minutes) are information only.
+- Counted data is unchanged: `child` actor and not in a 「唔計呢段」 session (read back from
+  `stats_exclude` / `stats_include`, so exclusions also survive a relaunch in the report).
+- The rollup gains schema 2 fields (active-time histogram, impressions by page, picks per slot,
+  expected picks, paging counts). Schema 1 files load with those at 0; the file name stays
+  `rollup-v1.json`.
+- The report is built off the main thread on the recorder queue, once per open / 更新.

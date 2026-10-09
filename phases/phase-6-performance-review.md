@@ -17,3 +17,13 @@ ADR 0008. Three PRs, each with Mac mini + TV UAT before the next.
 - `sh scripts/bundle.sh` + `sh scripts/install-mac-mini.sh` → `/Applications/Visa Games.app`
   0.20.1 / 43 (v0.20.1 fixes the 「進階」 toggle).
 - TV UAT checklist in the v0.20.0 PR.
+
+## v0.21.0 exit evidence
+
+- `sh scripts/test.sh` PASS with **19 performance-review** checks (worked examples A–D, the §3.5
+  fresh-data table, 7-day half-life, pooled prior, per-star counts, trend, session exclusion,
+  video labels, appeal from impressions, paging rate, watch outcomes never change a label,
+  rollup + raw merge, schema-2 rollup, empty state + summary CSVs, 35k events, layout guard).
+- `sh scripts/bundle.sh` + `sh scripts/install-mac-mini.sh` → `/Applications/Visa Games.app`
+  0.21.0 / 44.
+- TV UAT checklist in the v0.21.0 PR.
