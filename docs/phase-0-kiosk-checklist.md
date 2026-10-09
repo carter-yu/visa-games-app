@@ -65,6 +65,7 @@ recorded unless noted.
 | Display change | Disconnect/reconnect TV and change resolution; window resizes to its screen. | Not tested |
 | Parent corner (v0.9.0) | On lock and play, a tap on the faint bottom-right corner does nothing; a 3-second hold opens the macOS authentication prompt. A visible Parent button appears only in setup or after a storage error. The corner is not cut off by TV overscan. | Pending Mac mini UAT |
 | Pen glow monitor (v0.9.0) | The pointer monitor only observes: Escape, Cmd-Q, Cmd-W and Cmd-Tab stay blocked in every child state; taps still reach buttons; the glow never blocks a tap. | Pending Mac mini UAT |
+| Performance export (v0.20.0) | Parent controls → Advanced → 匯出表現 (CSV): Finder opens `~/Library/Application Support/VisaGames/stats/exports/…` above the kiosk window; Return to the app restores the kiosk; no Finder window is reachable from child screens. | Pending Mac mini UAT |
 
 ## Remaining OS and physical escape paths
 
