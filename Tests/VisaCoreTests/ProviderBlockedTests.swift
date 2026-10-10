@@ -88,4 +88,20 @@ final class ProviderBlockedTests {
         expectTrue(text.contains(".ytp-error"))
         expectTrue(text.contains("bot-check ignored (already playing)"))
     }
+
+    func testParentSettingsScrollLayoutSourceGuard() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let text = try String(contentsOf: root.appendingPathComponent("Sources/VisaGames/ParentSettingsView.swift"), encoding: .utf8)
+        let bar = text.range(of: "if model.playtestKind == nil")!
+        let scroll = text.range(of: "ScrollView {")!
+        expectTrue(bar.lowerBound < scroll.lowerBound)
+        expectTrue(text.contains("one outer ScrollView"))
+        expectTrue(text.contains("pin 返回"))
+        // Nested ScrollView in this file would reintroduce the TV clip bug.
+        expectEqual(text.components(separatedBy: "ScrollView {").count - 1, 1)
+        expectTrue(text.contains("dismissProviderBlockedParentHint"))
+        expectTrue(text.contains("onDismiss"))
+        expectTrue(text.contains("noteProviderPlaybackProgress"))
+        expectTrue(text.contains("onProviderBlocked: { model.handleProviderBlocked"))
+    }
 }

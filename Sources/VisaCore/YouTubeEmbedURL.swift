@@ -302,9 +302,12 @@ public enum YouTubeEmbedURL: Sendable {
                     try { seconds = event.target.getDuration(); } catch (e) {}
                     post("ready", { duration: seconds });
                     reportDuration(seconds);
-                    setTimeout(function () {
-                      try { if (lastState !== 1 && typeof event.target.playVideo === "function") { event.target.playVideo(); } } catch (e) {}
-                    }, 8000);
+                    // v0.21.3: nudge play (autoplay / parent 試播). Early + late.
+                    [1500, 8000].forEach(function (ms) {
+                      setTimeout(function () {
+                        try { if (lastState !== 1 && typeof event.target.playVideo === "function") { event.target.playVideo(); } } catch (e) {}
+                      }, ms);
+                    });
                     if (resumeStart > 0 && typeof event.target.seekTo === "function") {
                       try { event.target.seekTo(resumeStart, true); } catch (e) {}
                     }

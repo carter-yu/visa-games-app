@@ -1,5 +1,11 @@
 # Progress
 
+## v0.21.3 / 47 — parent scroll + preview (2026-10-10)
+
+- Pin 返回/離開 above one outer ScrollView (TV banners no longer push exit off-screen)
+- VPN banner dismissible (X); auto-clear on real playback progress
+- Parent 試播 keeps player on blocked signal; playVideo nudge at 1.5s + 8s
+
 ## v0.21.2 / 46 — fix false-positive bot-check (2026-10-10)
 
 - Page scan read textContent (inline script i18n contains "Sign in to confirm you’re not a bot") → every load flagged ~1.5s with VPN off. Now visible `.ytp-error` panel only; ignore once playing; watchdog 20s from ready and disarmed by currentTime>0; one playVideo nudge at 8s.

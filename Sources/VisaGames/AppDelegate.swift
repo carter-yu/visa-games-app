@@ -613,10 +613,13 @@ final class AppModel: ObservableObject {
     }
 
     func notePlaybackCurrentTime(videoID: String, seconds: TimeInterval) {
-        guard session.mode == .play, activePlayVideoID == videoID,
+        guard activePlayVideoID == videoID,
               seconds.isFinite, seconds > 0 else { return }
-        lastKnownPlaybackSeconds = seconds
-        perf.playSample(video: videoID, seconds: seconds)
+        if session.mode == .play {
+            lastKnownPlaybackSeconds = seconds
+            perf.playSample(video: videoID, seconds: seconds)
+        }
+        noteProviderPlaybackProgress()
     }
 
     /// Log reason → design §5.5 `resume_cleared.reason`.
@@ -1542,6 +1545,7 @@ final class AppModel: ObservableObject {
         activePlayVideoID = id
         playbackMessage = nil
         showProviderBlocked = false
+        // Keep a prior VPN hint until real progress; starting a new try is fine.
         if session.mode == .play { providerBlockedLoadStartedAt = Date() }
         if isParentPreview {
             // Parent preview never resumes and never writes the incomplete cursor.
@@ -1668,17 +1672,22 @@ final class AppModel: ObservableObject {
             VisaGamesLog.append(
                 "provider blocked — 片睇唔到 id=\(videoID) via=\(via) credit=\(Int(credit))s strikes=\(state.strikes) → board"
             )
-            pendingVideoStopReason = session.mode == .play ? .blocked : .previewStopped
-            activePlayVideoID = nil
-            activePlayStartSeconds = nil
-            lastKnownPlaybackSeconds = nil
-            providerBlockedLoadStartedAt = nil
-            pendingVideoStopReason = nil
             providerBlockedParentHint = "YouTube 要求驗證（可能係 Mac mini 嘅 NordVPN／網絡）。試關 VPN 或換伺服器。 / YouTube verification (Mac mini NordVPN/network?). Try VPN off or another server."
+            providerBlockedLoadStartedAt = nil
             if session.mode == .play {
+                pendingVideoStopReason = .blocked
+                activePlayVideoID = nil
+                activePlayStartSeconds = nil
+                lastKnownPlaybackSeconds = nil
+                pendingVideoStopReason = nil
                 showProviderBlocked = true
             } else {
-                playbackMessage = providerBlockedParentHint
+                // Parent 試播: keep the inline player so the parent can see the embed /
+                // retry; only surface a dismissible banner (v0.21.3).
+                pendingVideoStopReason = .previewStopped
+                pendingVideoStopReason = nil
+                playbackMessage = nil
+                VisaGamesLog.append("provider blocked — parent preview kept playing id=\(videoID)")
             }
         case .timesUp(let credit, let bank, let state):
             providerBlockedState = state
@@ -1712,6 +1721,21 @@ final class AppModel: ObservableObject {
             playbackMessage = providerBlockedParentHint
             clearProviderBlockedVisaState()
         }
+    }
+
+    func dismissProviderBlockedParentHint() {
+        providerBlockedParentHint = nil
+        if playbackMessage?.contains("YouTube") == true {
+            playbackMessage = nil
+        }
+    }
+
+    /// Successful playback progress clears a stale VPN / bot-check banner.
+    func noteProviderPlaybackProgress() {
+        guard providerBlockedParentHint != nil || (playbackMessage?.contains("YouTube") == true) else { return }
+        providerBlockedParentHint = nil
+        if playbackMessage?.contains("YouTube") == true { playbackMessage = nil }
+        VisaGamesLog.append("provider blocked hint cleared — 有播到")
     }
 
     func dismissProviderBlocked() {
