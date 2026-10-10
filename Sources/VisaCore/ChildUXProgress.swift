@@ -100,7 +100,7 @@ public enum VideoEndRouting: Sendable {
         switch reason {
         case .budgetExhausted, .sessionExpired:
             return .timesUp
-        case .navigationRejected, .notAllowlisted, .invalidVideoID:
+        case .navigationRejected, .notAllowlisted, .invalidVideoID, .providerBlocked:
             return .videoPicker
         }
     }

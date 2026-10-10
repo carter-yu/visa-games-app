@@ -216,6 +216,8 @@ struct WatchPlaybackView: View {
     let onPlaybackEnded: (String) -> Void
     let onDurationKnown: (String, TimeInterval) -> Void
     var onCurrentTime: ((String, TimeInterval) -> Void)? = nil
+    /// v0.21.1: YouTube blocked (bot-check).
+    var onProviderBlocked: ((String, String) -> Void)? = nil
     /// 3-second hold on the garage glyph (ADR 0007 §5, Carter 2026-09-30).
     let onParentUnlock: () -> Void
 
@@ -252,7 +254,8 @@ struct WatchPlaybackView: View {
                             onNavigationRejected: onNavigationRejected,
                             onPlaybackEnded: onPlaybackEnded,
                             onDurationKnown: onDurationKnown,
-                            onCurrentTime: onCurrentTime
+                            onCurrentTime: onCurrentTime,
+                            onProviderBlocked: onProviderBlocked
                         )
                             .clipShape(RoundedRectangle(cornerRadius: metrics.u(20), style: .continuous))
                             .padding(metrics.u(8))

@@ -22,6 +22,8 @@ struct ScopedPlayerView: NSViewRepresentable {
     var onDurationKnown: ((String, TimeInterval) -> Void)? = nil
     /// Periodic currentTime while playing (child resume cursor). Parent preview may ignore.
     var onCurrentTime: ((String, TimeInterval) -> Void)? = nil
+    /// v0.21.1: YouTube blocked the embed (bot-check / onError / watchdog). `(videoID, via)`.
+    var onProviderBlocked: ((String, String) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -30,12 +32,16 @@ struct ScopedPlayerView: NSViewRepresentable {
             onNavigationRejected: onNavigationRejected,
             onPlaybackEnded: onPlaybackEnded,
             onDurationKnown: onDurationKnown,
-            onCurrentTime: onCurrentTime
+            onCurrentTime: onCurrentTime,
+            onProviderBlocked: onProviderBlocked
         )
     }
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        // v0.21.1: always the shared persistent store (never ephemeral) — consent / visitor
+        // cookies survive relaunches. Source-guarded in VisaCoreChecks.
+        config.websiteDataStore = .default()
         config.preferences.isElementFullscreenEnabled = false
         // macOS: allow media without an extra gesture when parent/child already pressed Play.
         config.mediaTypesRequiringUserActionForPlayback = []
@@ -44,6 +50,35 @@ struct ScopedPlayerView: NSViewRepresentable {
             ScopedPlayerMessageProxy(target: context.coordinator),
             name: ScopedPlayerEvent.messageHandlerName
         )
+        // Cross-frame scan for the bot-check panel inside the YouTube iframe.
+        let scan = """
+        (function () {
+          if (window.__visaBlockedScan) { return; }
+          window.__visaBlockedScan = true;
+          // v0.21.2: visible error panel only (never raw node text — inline scripts carry
+          // localized bot-check strings on every normal embed page).
+          function dig() {
+            try {
+              var panels = document.querySelectorAll(".ytp-error, .ytp-error-content");
+              for (var i = 0; i < panels.length; i++) {
+                var el = panels[i];
+                if (!el.offsetParent && el.getClientRects().length === 0) { continue; }
+                var t = (el.innerText || "").toLowerCase();
+                if ((t.indexOf("not a bot") !== -1 || t.indexOf("sign in to confirm") !== -1)) {
+                  var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.visaPlayer;
+                  if (h) { h.postMessage({ event: "providerBlocked", videoID: "", via: "page" }); }
+                  return;
+                }
+              }
+            } catch (e) {}
+          }
+          setInterval(dig, 1500);
+        })();
+        """
+        config.userContentController.addUserScript(
+            WKUserScript(source: scan, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+        )
+        config.applicationNameForUserAgent = SafariUserAgent.applicationName()
         let view = WKWebView(frame: .zero, configuration: config)
         view.navigationDelegate = context.coordinator
         view.uiDelegate = context.coordinator
@@ -61,6 +96,7 @@ struct ScopedPlayerView: NSViewRepresentable {
         context.coordinator.onPlaybackEnded = onPlaybackEnded
         context.coordinator.onDurationKnown = onDurationKnown
         context.coordinator.onCurrentTime = onCurrentTime
+        context.coordinator.onProviderBlocked = onProviderBlocked
         context.coordinator.attach(nsView)
         let startChanged = context.coordinator.loadedStartSeconds != normalizedStart(startSeconds)
         if context.coordinator.loadedVideoID != videoID || startChanged {
@@ -91,10 +127,18 @@ struct ScopedPlayerView: NSViewRepresentable {
         var onPlaybackEnded: ((String) -> Void)?
         var onDurationKnown: ((String, TimeInterval) -> Void)?
         var onCurrentTime: ((String, TimeInterval) -> Void)?
+        var onProviderBlocked: ((String, String) -> Void)?
         private(set) var loadedVideoID: String?
         private(set) var loadedStartSeconds: TimeInterval = 0
         private var endLatch = PlaybackEndLatch()
         private weak var webView: WKWebView?
+        private var loadStartedAt: Date?
+        private var readySeen = false
+        private var readyAt: Date?
+        private var maxCurrentTime: TimeInterval = 0
+        private var playingSeen = false
+        private var blockedReported = false
+        private var watchdog: Timer?
 
         init(
             videoID: String,
@@ -102,7 +146,8 @@ struct ScopedPlayerView: NSViewRepresentable {
             onNavigationRejected: (() -> Void)?,
             onPlaybackEnded: ((String) -> Void)?,
             onDurationKnown: ((String, TimeInterval) -> Void)?,
-            onCurrentTime: ((String, TimeInterval) -> Void)?
+            onCurrentTime: ((String, TimeInterval) -> Void)?,
+            onProviderBlocked: ((String, String) -> Void)?
         ) {
             self.videoID = videoID
             self.startSeconds = startSeconds
@@ -110,6 +155,7 @@ struct ScopedPlayerView: NSViewRepresentable {
             self.onPlaybackEnded = onPlaybackEnded
             self.onDurationKnown = onDurationKnown
             self.onCurrentTime = onCurrentTime
+            self.onProviderBlocked = onProviderBlocked
         }
 
         func attach(_ view: WKWebView) {
@@ -126,32 +172,103 @@ struct ScopedPlayerView: NSViewRepresentable {
             onPlaybackEnded = nil
             onDurationKnown = nil
             onCurrentTime = nil
+            onProviderBlocked = nil
             loadedVideoID = nil
             loadedStartSeconds = 0
             endLatch.reset()
+            stopWatchdog()
+            readySeen = false
+            playingSeen = false
+            blockedReported = false
+            loadStartedAt = nil
+        }
+
+        private func stopWatchdog() {
+            watchdog?.invalidate()
+            watchdog = nil
+        }
+
+        private func startWatchdog() {
+            stopWatchdog()
+            let timeout = ProviderBlockedPolicy.watchdogSeconds
+            watchdog = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+                guard let self else { return }
+                DispatchQueue.main.async { self.checkWatchdog() }
+            }
+            // Keep the timer alive while scrolling / tracking run loops.
+            if let watchdog { RunLoop.main.add(watchdog, forMode: .common) }
+            _ = timeout
+        }
+
+        private func checkWatchdog() {
+            guard let ready = readyAt, let current = loadedVideoID, !blockedReported else { return }
+            let elapsed = Date().timeIntervalSince(ready)
+            if ProviderBlockedPolicy.watchdogFired(readySeen: readySeen, playingSeen: playingSeen, elapsed: elapsed,
+                                                   maxCurrentTime: maxCurrentTime) {
+                reportBlocked(via: ProviderBlockedPolicy.DetectVia.watchdog.rawValue, videoID: current)
+            }
+        }
+
+        private func reportBlocked(via: String, videoID: String) {
+            guard !blockedReported else { return }
+            if playingSeen {
+                ScopedPlayerLog.append("bot-check ignored (already playing) via=\(via) videoID=\(videoID)")
+                return
+            }
+            blockedReported = true
+            stopWatchdog()
+            let ms = Int(((loadStartedAt.map { Date().timeIntervalSince($0) }) ?? 0) * 1000)
+            ScopedPlayerLog.append("bot-check detected via=\(via) ms=\(ms) videoID=\(videoID)")
+            let callback = onProviderBlocked
+            DispatchQueue.main.async { callback?(videoID, via) }
         }
 
         /// IFrame API bridge (read-only). Called on the main thread by WebKit.
         func handleScriptMessage(_ message: WKScriptMessage) {
             guard message.name == ScopedPlayerEvent.messageHandlerName,
-                  message.frameInfo.isMainFrame,
-                  let current = loadedVideoID,
-                  let event = ScopedPlayerEvent.parse(message.body, expectedVideoID: current) else {
+                  let current = loadedVideoID else { return }
+            // providerBlocked may arrive from the YouTube iframe (non-main frame).
+            let host = message.frameInfo.securityOrigin.host.lowercased()
+            let youtubeHost = host.contains("youtube")
+            if !message.frameInfo.isMainFrame {
+                guard youtubeHost, let dict = message.body as? [String: Any],
+                      (dict["event"] as? String) == "providerBlocked" else { return }
+                let via = (dict["via"] as? String) ?? "page"
+                reportBlocked(via: via.isEmpty ? "page" : via, videoID: current)
                 return
             }
+            // Page-scan posts may omit / mismatch videoID — accept providerBlocked loosely.
+            if let dict = message.body as? [String: Any],
+               (dict["event"] as? String) == "providerBlocked" {
+                let via = (dict["via"] as? String) ?? "page"
+                reportBlocked(via: via, videoID: current)
+                return
+            }
+            guard let event = ScopedPlayerEvent.parse(message.body, expectedVideoID: current) else { return }
             switch event {
             case .stateChanged(let state):
                 ScopedPlayerLog.append("player state=\(YouTubePlayerState.label(state)) videoID=\(current)")
+                if state == YouTubePlayerState.playing {
+                    playingSeen = true
+                    stopWatchdog()
+                }
             case .ready(let duration):
+                readySeen = true
+                if readyAt == nil { readyAt = Date() }
                 ScopedPlayerLog.append("player ready duration=\(duration.map { String(Int($0.rounded())) } ?? "?") videoID=\(current)")
             case .duration(let seconds):
                 ScopedPlayerLog.append("player duration=\(Int(seconds.rounded()))s videoID=\(current)")
                 onDurationKnown?(current, seconds)
             case .currentTime(let seconds):
+                maxCurrentTime = max(maxCurrentTime, seconds)
+                if seconds > 0 { playingSeen = true; stopWatchdog() }
                 onCurrentTime?(current, seconds)
             case .apiUnavailable(let detail):
                 // Video still plays; only end detection is degraded (see PROGRESS UAT).
                 ScopedPlayerLog.append("player api-unavailable detail=\(detail) videoID=\(current)")
+            case .providerBlocked(let via):
+                reportBlocked(via: via, videoID: current)
+                return
             case .ended:
                 break
             }
@@ -181,8 +298,16 @@ struct ScopedPlayerView: NSViewRepresentable {
             loadedVideoID = videoID
             loadedStartSeconds = start
             endLatch.reset()
+            readySeen = false
+            readyAt = nil
+            maxCurrentTime = 0
+            playingSeen = false
+            blockedReported = false
+            loadStartedAt = Date()
+            startWatchdog()
+            let ua = SafariUserAgent.applicationName()
             ScopedPlayerLog.append(
-                "load mode=htmlString videoID=\(videoID) start=\(Int(start))s embed=\(embedURL.host ?? "")\(embedURL.path) base=\(baseURL.host ?? "")\(baseURL.path)"
+                "load mode=htmlString videoID=\(videoID) start=\(Int(start))s embed=\(embedURL.host ?? "")\(embedURL.path) base=\(baseURL.host ?? "")\(baseURL.path) ua=\(ua) store=default"
             )
             webView?.loadHTMLString(html, baseURL: baseURL)
         }

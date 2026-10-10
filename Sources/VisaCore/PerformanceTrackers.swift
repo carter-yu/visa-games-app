@@ -187,6 +187,8 @@ public enum PerfVideoStopReason: String, Sendable, Equatable, CaseIterable {
     /// D8 guard: a tap inside the embed tried to leave it (e.g. the YouTube logo).
     /// The app returns to the picker. Rare; technical, not a dislike signal.
     case navGuard = "nav_guard"
+    /// YouTube blocked the embed (bot-check). Information only — not a dislike.
+    case blocked
     /// A parent opened parent controls mid-play (the player is torn down).
     case parentUnlock = "parent_unlock"
     /// Parent stopped an inline 試播 preview (Stop, segment switch, ended preview, Return).

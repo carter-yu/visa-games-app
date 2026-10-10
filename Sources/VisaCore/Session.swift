@@ -94,6 +94,12 @@ public struct Session: Sendable {
         normalize(now: now)
     }
 
+    /// v0.21.1: push `endsAt` forward by `seconds` (provider-blocked credit). No-op without an active visa.
+    public mutating func creditVisaSeconds(_ seconds: TimeInterval, now: Date) {
+        guard seconds.isFinite, seconds > 0, let ends = snapshot.endsAt, ends > now else { return }
+        snapshot.endsAt = ends.addingTimeInterval(seconds)
+    }
+
     /// Set a visa deadline for an authenticated parent preview without entering child play.
     public mutating func extendVisaKeepingParent(seconds: TimeInterval, now: Date) {
         guard mode == .parent, snapshot.configured, seconds.isFinite,

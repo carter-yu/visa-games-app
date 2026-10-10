@@ -393,7 +393,7 @@ public enum PerfCSVExport {
       page, slot        揀片時喺第幾頁、第幾格（0 起計，4×2 由左至右、由上至下）/ picker page and slot (0-based)
       pick_s            嗰頁出咗幾耐先揀 / seconds on the page before the pick
       stop_reason       ended 睇完 · visa_expired 簽證時間到 · budget_exhausted 觀看時間用完 ·
-                        nav_guard 撳咗 YouTube 連結被擋（少見）· parent_unlock 家長打開設定 ·
+                        nav_guard 撳咗 YouTube 連結被擋（少見）· blocked YouTube 擋咗（例如要求登入驗證）· parent_unlock 家長打開設定 ·
                         preview_stopped 試播停止 · allowlist_removed 片被移除 ·
                         storage_reset 重設儲存 · storage_failure 儲存失敗 · app_terminate 離開程式 ·
                         superseded / unknown 後備（唔應該出現）· interrupted 冇結束紀錄（例如斷電）

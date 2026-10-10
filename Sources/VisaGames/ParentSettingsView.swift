@@ -17,7 +17,7 @@ struct ParentSettingsView: View {
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.21.0"
+    static let versionLabel = "Visa Games v0.21.3"
 
     /// v0.21.0: 表現 (Review) is the third parent segment (layout L5).
     private enum ParentLibrary { case videos, games, review }
@@ -25,21 +25,18 @@ struct ParentSettingsView: View {
     var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 18) {
-                    header
-                    notices
-                    quickActions
-                    librarySegment
+                // v0.21.3: pin 返回 / 離開 above the scroll so TV chrome + banners
+                // never push exit off-screen (one outer ScrollView below).
+                if model.playtestKind == nil {
+                    bottomBar
                 }
-                .padding(.horizontal, 28)
-                .padding(.top, 24)
-                .padding(.bottom, 8)
-                .frame(maxWidth: 940, alignment: .leading)
-                .frame(maxWidth: .infinity)
-
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 22) {
+                        VStack(alignment: .leading, spacing: 18) {
+                            header
+                            notices
+                            quickActions
+                            librarySegment
                             switch library {
                             case .videos:
                                 allowlistSection
@@ -51,15 +48,11 @@ struct ParentSettingsView: View {
                             advancedSection(proxy: proxy)
                         }
                         .padding(.horizontal, 28)
-                        .padding(.top, 8)
-                        .padding(.bottom, 24)
+                        .padding(.top, 16)
+                        .padding(.bottom, 32)
                         .frame(maxWidth: 940, alignment: .leading)
                         .frame(maxWidth: .infinity)
                     }
-                }
-                // Return stays hidden under a playtest cover so it cannot leaveParent mid-question.
-                if model.playtestKind == nil {
-                    bottomBar
                 }
             }
             if model.session.mode == .parent, let kind = model.playtestKind {
@@ -214,8 +207,16 @@ struct ParentSettingsView: View {
         if let message = model.message {
             ParentBanner(text: message, fill: Color(hex: DesignTokens.Palette.fireTicket))
         }
-        if let playbackMessage = model.playbackMessage {
+        if let playbackMessage = model.playbackMessage,
+           playbackMessage != model.providerBlockedParentHint {
             ParentBanner(text: playbackMessage, fill: Color(hex: DesignTokens.Palette.taxiTicket))
+        }
+        if let hint = model.providerBlockedParentHint {
+            ParentBanner(
+                text: hint,
+                fill: Color(hex: DesignTokens.Palette.taxiTicket),
+                onDismiss: { model.dismissProviderBlockedParentHint() }
+            )
         }
         if model.perfWriteFailed {
             ParentBanner(text: "表現紀錄未能儲存（唔影響小朋友玩）。 / Performance records could not be saved.",
@@ -446,7 +447,9 @@ struct ParentSettingsView: View {
                 videoID: videoID,
                 onNavigationRejected: { model.stopScopedPlayback(reason: .navigationRejected) },
                 onPlaybackEnded: { model.handleScopedPlaybackEnded(videoID: $0) },
-                onDurationKnown: { model.recordPlayerDuration(videoID: $0, seconds: $1) }
+                onDurationKnown: { model.recordPlayerDuration(videoID: $0, seconds: $1) },
+                onCurrentTime: { _, _ in model.noteProviderPlaybackProgress() },
+                onProviderBlocked: { model.handleProviderBlocked(videoID: $0, via: $1) }
             )
             .frame(height: 380)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -703,15 +706,27 @@ struct ParentPill: View {
 struct ParentBanner: View {
     let text: String
     let fill: Color
+    var onDismiss: (() -> Void)? = nil
 
     var body: some View {
-        Text(text)
-            .font(.system(size: 15, weight: .semibold, design: .rounded))
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .modifier(ChunkyPanel(fill: fill, cornerRadius: 14, shadowDepth: 3, lineWidth: 3))
+        HStack(alignment: .top, spacing: 10) {
+            Text(text)
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if let onDismiss {
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(Color.ink)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("關閉提示 Dismiss")
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .modifier(ChunkyPanel(fill: fill, cornerRadius: 14, shadowDepth: 3, lineWidth: 3))
     }
 }
 

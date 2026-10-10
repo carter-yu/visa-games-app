@@ -34,6 +34,8 @@ public enum ScopedPlayerEvent: Equatable, Sendable {
     /// Periodic player position while playing (v0.13.0 resume cursor).
     case currentTime(TimeInterval)
     case apiUnavailable(String)
+    /// YouTube blocked playback (bot-check panel, IFrame onError, or watchdog).
+    case providerBlocked(via: String)
 
     /// `window.webkit.messageHandlers.<name>.postMessage(...)` in the embed shell.
     public static let messageHandlerName = "visaPlayer"
@@ -72,6 +74,9 @@ public enum ScopedPlayerEvent: Equatable, Sendable {
         case "apiError":
             let detail = (dict["detail"] as? String) ?? "unknown"
             return .apiUnavailable(String(detail.prefix(80)))
+        case "providerBlocked":
+            let via = (dict["via"] as? String) ?? "page"
+            return .providerBlocked(via: String(via.prefix(40)))
         default:
             return nil
         }
