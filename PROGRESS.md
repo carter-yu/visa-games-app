@@ -1,5 +1,18 @@
 # Progress
 
+## v0.21.1 / 45 — YouTube blocked fallback (2026-10-10)
+
+Branch `fix/youtube-blocked-fallback-v0211` stacked on `feat/perf-review-v021` (PR #19).
+
+- Persistent `WKWebsiteDataStore.default()` + Safari `applicationNameForUserAgent`
+- Three-way blocked detection: page scan, IFrame `onError`, ~12s ready-never-playing watchdog
+- Child board 「呢條片而家睇唔到，揀過第二條啦！」→ picker; mark unavailable this visa
+- Credit ≤60s/load, ≤180s/visa; after 2 blocked → Time's up (leftover banked to viewing)
+- Parent banner mentions Mac mini NordVPN/network; `video_end` stop_reason `blocked`
+- Keep nocookie; no sign-in / no password; child never reaches Google pages
+- VisaCoreChecks: +7 provider-blocked
+
+
 - 2026-10-09: PR (pending) MINOR **v0.21.0 / build 44** — D10 **Review**: parent 「表現 / Review」 segment (layout L5, Carter's decisions all A: 5-round minimum, 7-day half-life). Branch `feat/perf-review-v021` from `main` @ 47410fe. Do not merge. No kiosk launch. No child-visible change; no adaptive dealing (v0.22).
   - **VisaCore:** `MasteryEstimator.swift` (decayed Beta–Binomial per kind, pooled prior m̄ clamped 0.2–0.8 / 0.5 below Σw 20, chance-corrected m̂ / m20 / m80, labels 熟手 / 學緊 / 要多練 / 未夠數據, 最近油用晒 flag, 7-day trend, ● ◐ ○ · dots); `VideoAppeal.swift` (expected picks from what was actually drawn on the page, slot model after 30 picks, appeal (O+1)/(E+1), labels 好鍾意 / 間中揀 / 少揀 / 見過未揀過 / 未夠數據 / 未出過; watch outcomes never change a label); `PerformanceReport.swift` (games, videos, paging rate, 4×2 slot map, sessions with exclusions; rollup days only where the raw day file is gone; 30-day / all window, labels always use all kept data).
   - **Rollup schema 2** (`rollup-v1.json`, schema 1 still loads): solved-round active-time histogram, impressions by page, picks per slot, expected picks, picker paging counts. Daily CSVs gain those columns; export adds `games_summary.csv` and `videos_summary.csv` (§5.10).

@@ -39,7 +39,7 @@ public enum IncompletePlaybackPolicy: Sendable {
         case .budgetExhausted, .sessionExpired:
             guard let positionSeconds, positionSeconds.isFinite, positionSeconds > 0 else { return false }
             return true
-        case .navigationRejected, .notAllowlisted, .invalidVideoID:
+        case .navigationRejected, .notAllowlisted, .invalidVideoID, .providerBlocked:
             return false
         }
     }

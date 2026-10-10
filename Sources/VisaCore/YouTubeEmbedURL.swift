@@ -214,7 +214,7 @@ public enum YouTubeEmbedURL: Sendable {
         }()
         return #"""
         <!DOCTYPE html>
-        <html lang="en">
+        <html lang="en" data-visa-id="\#(id)">
         <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -293,6 +293,28 @@ public enum YouTubeEmbedURL: Sendable {
               reportCurrentTime();
             }
           }
+          // v0.21.1: scan the shell document for bot-check copy (iframe title/body when readable).
+          var blockedSent = false;
+          function reportBlocked(via) {
+            if (blockedSent) { return; }
+            blockedSent = true;
+            post("providerBlocked", { via: via || "page" });
+          }
+          function scanBlockedText(root) {
+            try {
+              var text = (root && (root.innerText || root.textContent) || "").toLowerCase();
+              if (text.indexOf("not a bot") !== -1 || text.indexOf("sign in to confirm") !== -1) {
+                reportBlocked("page");
+              }
+            } catch (e) {}
+          }
+          setInterval(function () {
+            scanBlockedText(document.body);
+            try {
+              var frame = document.getElementById("\#(elementID)");
+              if (frame && frame.contentDocument) { scanBlockedText(frame.contentDocument.body); }
+            } catch (e) {}
+          }, 1500);
           window.onYouTubeIframeAPIReady = function () {
             try {
               player = new YT.Player("\#(elementID)", {
@@ -306,7 +328,10 @@ public enum YouTubeEmbedURL: Sendable {
                       try { event.target.seekTo(resumeStart, true); } catch (e) {}
                     }
                   },
-                  onStateChange: function (event) { reportState(event.data); }
+                  onStateChange: function (event) { reportState(event.data); },
+                  onError: function (event) {
+                    post("providerBlocked", { via: "player_error", code: event && event.data });
+                  }
                 }
               });
             } catch (e) {
