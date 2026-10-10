@@ -1,5 +1,9 @@
 # Progress
 
+## v0.21.2 / 46 — fix false-positive bot-check (2026-10-10)
+
+- Page scan read textContent (inline script i18n contains "Sign in to confirm you’re not a bot") → every load flagged ~1.5s with VPN off. Now visible `.ytp-error` panel only; ignore once playing; watchdog 20s from ready and disarmed by currentTime>0; one playVideo nudge at 8s.
+
 ## v0.21.1 / 45 — YouTube blocked fallback (2026-10-10)
 
 Branch `fix/youtube-blocked-fallback-v0211` stacked on `feat/perf-review-v021` (PR #19).

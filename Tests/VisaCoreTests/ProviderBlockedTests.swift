@@ -38,8 +38,15 @@ final class ProviderBlockedTests {
     func testWatchdogReadyNeverPlaying() {
         expectFalse(ProviderBlockedPolicy.watchdogFired(readySeen: false, playingSeen: false, elapsed: 20))
         expectFalse(ProviderBlockedPolicy.watchdogFired(readySeen: true, playingSeen: true, elapsed: 20))
-        expectFalse(ProviderBlockedPolicy.watchdogFired(readySeen: true, playingSeen: false, elapsed: 11))
-        expectTrue(ProviderBlockedPolicy.watchdogFired(readySeen: true, playingSeen: false, elapsed: 12))
+        expectFalse(ProviderBlockedPolicy.watchdogFired(readySeen: true, playingSeen: false, elapsed: 12))
+        expectFalse(ProviderBlockedPolicy.watchdogFired(readySeen: true, playingSeen: false, elapsed: 19))
+        expectTrue(ProviderBlockedPolicy.watchdogFired(readySeen: true, playingSeen: false, elapsed: 20))
+        // False positives: progress seen
+        expectFalse(ProviderBlockedPolicy.watchdogFired(readySeen: true, playingSeen: false, elapsed: 60, maxCurrentTime: 0.4))
+        // Page text
+        expectTrue(ProviderBlockedPolicy.pageTextIndicatesBotCheck("Sign in to confirm you\u{2019}re not a bot"))
+        expectFalse(ProviderBlockedPolicy.pageTextIndicatesBotCheck("Watch later  Share  More videos"))
+        expectFalse(ProviderBlockedPolicy.pageTextIndicatesBotCheck(""))
     }
 
     func testVisaCreditExtendsEndsAt() {
@@ -76,5 +83,9 @@ final class ProviderBlockedTests {
         expectTrue(text.contains("applicationNameForUserAgent"))
         expectTrue(text.contains("onProviderBlocked"))
         expectTrue(text.contains("bot-check detected"))
+        // v0.21.2 regression guard: never scan textContent (inline scripts hold the phrase).
+        expectFalse(text.contains("textContent"))
+        expectTrue(text.contains(".ytp-error"))
+        expectTrue(text.contains("bot-check ignored (already playing)"))
     }
 }

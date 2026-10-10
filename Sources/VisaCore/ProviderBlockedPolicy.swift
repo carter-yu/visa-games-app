@@ -5,7 +5,7 @@ import Foundation
 /// the 2-strike rule. Child never reaches Google account pages.
 public enum ProviderBlockedPolicy: Sendable {
     /// Ready / buffering without `playing` for this long → blocked (watchdog).
-    public static let watchdogSeconds: TimeInterval = 12
+    public static let watchdogSeconds: TimeInterval = 20
     /// Wall-clock seconds credited back per blocked load (visa `endsAt`).
     public static let creditPerLoadSeconds: TimeInterval = 60
     /// Cap on credited seconds per play visa.
@@ -65,8 +65,16 @@ public enum ProviderBlockedPolicy: Sendable {
 
     /// True when the IFrame API has reported ready (or equivalent) but never `playing`,
     /// and `elapsed` has reached the watchdog.
-    public static func watchdogFired(readySeen: Bool, playingSeen: Bool, elapsed: TimeInterval) -> Bool {
-        readySeen && !playingSeen && elapsed >= watchdogSeconds - 1e-9
+    /// `elapsed` is measured from player ready. Any playing state or currentTime > 0 disarms.
+    public static func watchdogFired(readySeen: Bool, playingSeen: Bool, elapsed: TimeInterval,
+                                     maxCurrentTime: TimeInterval = 0) -> Bool {
+        readySeen && !playingSeen && maxCurrentTime <= 0 && elapsed >= watchdogSeconds - 1e-9
+    }
+
+    /// Page-scan text match: exact bot-check phrases only, visible panel text.
+    public static func pageTextIndicatesBotCheck(_ visibleText: String) -> Bool {
+        let t = visibleText.lowercased()
+        return t.contains("not a bot") || t.contains("sign in to confirm")
     }
 }
 

@@ -55,18 +55,24 @@ struct ScopedPlayerView: NSViewRepresentable {
         (function () {
           if (window.__visaBlockedScan) { return; }
           window.__visaBlockedScan = true;
-          function dig(root) {
+          // v0.21.2: visible error panel only (never raw node text — inline scripts carry
+          // localized bot-check strings on every normal embed page).
+          function dig() {
             try {
-              var t = ((root && (root.innerText || root.textContent)) || "").toLowerCase();
-              if (t.indexOf("not a bot") !== -1 || t.indexOf("sign in to confirm") !== -1) {
-                var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.visaPlayer;
-                if (h) {
-                  h.postMessage({ event: "providerBlocked", videoID: document.documentElement.getAttribute("data-visa-id") || "", via: "page" });
+              var panels = document.querySelectorAll(".ytp-error, .ytp-error-content");
+              for (var i = 0; i < panels.length; i++) {
+                var el = panels[i];
+                if (!el.offsetParent && el.getClientRects().length === 0) { continue; }
+                var t = (el.innerText || "").toLowerCase();
+                if ((t.indexOf("not a bot") !== -1 || t.indexOf("sign in to confirm") !== -1)) {
+                  var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.visaPlayer;
+                  if (h) { h.postMessage({ event: "providerBlocked", videoID: "", via: "page" }); }
+                  return;
                 }
               }
             } catch (e) {}
           }
-          setInterval(function () { dig(document.body); }, 1500);
+          setInterval(dig, 1500);
         })();
         """
         config.userContentController.addUserScript(
@@ -128,6 +134,8 @@ struct ScopedPlayerView: NSViewRepresentable {
         private weak var webView: WKWebView?
         private var loadStartedAt: Date?
         private var readySeen = false
+        private var readyAt: Date?
+        private var maxCurrentTime: TimeInterval = 0
         private var playingSeen = false
         private var blockedReported = false
         private var watchdog: Timer?
@@ -193,15 +201,20 @@ struct ScopedPlayerView: NSViewRepresentable {
         }
 
         private func checkWatchdog() {
-            guard let started = loadStartedAt, let current = loadedVideoID, !blockedReported else { return }
-            let elapsed = Date().timeIntervalSince(started)
-            if ProviderBlockedPolicy.watchdogFired(readySeen: readySeen, playingSeen: playingSeen, elapsed: elapsed) {
+            guard let ready = readyAt, let current = loadedVideoID, !blockedReported else { return }
+            let elapsed = Date().timeIntervalSince(ready)
+            if ProviderBlockedPolicy.watchdogFired(readySeen: readySeen, playingSeen: playingSeen, elapsed: elapsed,
+                                                   maxCurrentTime: maxCurrentTime) {
                 reportBlocked(via: ProviderBlockedPolicy.DetectVia.watchdog.rawValue, videoID: current)
             }
         }
 
         private func reportBlocked(via: String, videoID: String) {
             guard !blockedReported else { return }
+            if playingSeen {
+                ScopedPlayerLog.append("bot-check ignored (already playing) via=\(via) videoID=\(videoID)")
+                return
+            }
             blockedReported = true
             stopWatchdog()
             let ms = Int(((loadStartedAt.map { Date().timeIntervalSince($0) }) ?? 0) * 1000)
@@ -241,11 +254,14 @@ struct ScopedPlayerView: NSViewRepresentable {
                 }
             case .ready(let duration):
                 readySeen = true
+                if readyAt == nil { readyAt = Date() }
                 ScopedPlayerLog.append("player ready duration=\(duration.map { String(Int($0.rounded())) } ?? "?") videoID=\(current)")
             case .duration(let seconds):
                 ScopedPlayerLog.append("player duration=\(Int(seconds.rounded()))s videoID=\(current)")
                 onDurationKnown?(current, seconds)
             case .currentTime(let seconds):
+                maxCurrentTime = max(maxCurrentTime, seconds)
+                if seconds > 0 { playingSeen = true; stopWatchdog() }
                 onCurrentTime?(current, seconds)
             case .apiUnavailable(let detail):
                 // Video still plays; only end detection is degraded (see PROGRESS UAT).
@@ -283,6 +299,8 @@ struct ScopedPlayerView: NSViewRepresentable {
             loadedStartSeconds = start
             endLatch.reset()
             readySeen = false
+            readyAt = nil
+            maxCurrentTime = 0
             playingSeen = false
             blockedReported = false
             loadStartedAt = Date()

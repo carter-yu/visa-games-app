@@ -293,28 +293,6 @@ public enum YouTubeEmbedURL: Sendable {
               reportCurrentTime();
             }
           }
-          // v0.21.1: scan the shell document for bot-check copy (iframe title/body when readable).
-          var blockedSent = false;
-          function reportBlocked(via) {
-            if (blockedSent) { return; }
-            blockedSent = true;
-            post("providerBlocked", { via: via || "page" });
-          }
-          function scanBlockedText(root) {
-            try {
-              var text = (root && (root.innerText || root.textContent) || "").toLowerCase();
-              if (text.indexOf("not a bot") !== -1 || text.indexOf("sign in to confirm") !== -1) {
-                reportBlocked("page");
-              }
-            } catch (e) {}
-          }
-          setInterval(function () {
-            scanBlockedText(document.body);
-            try {
-              var frame = document.getElementById("\#(elementID)");
-              if (frame && frame.contentDocument) { scanBlockedText(frame.contentDocument.body); }
-            } catch (e) {}
-          }, 1500);
           window.onYouTubeIframeAPIReady = function () {
             try {
               player = new YT.Player("\#(elementID)", {
@@ -324,6 +302,9 @@ public enum YouTubeEmbedURL: Sendable {
                     try { seconds = event.target.getDuration(); } catch (e) {}
                     post("ready", { duration: seconds });
                     reportDuration(seconds);
+                    setTimeout(function () {
+                      try { if (lastState !== 1 && typeof event.target.playVideo === "function") { event.target.playVideo(); } } catch (e) {}
+                    }, 8000);
                     if (resumeStart > 0 && typeof event.target.seekTo === "function") {
                       try { event.target.seekTo(resumeStart, true); } catch (e) {}
                     }
