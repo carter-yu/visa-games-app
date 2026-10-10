@@ -185,7 +185,7 @@ struct ScopedPlayerView: NSViewRepresentable {
             let timeout = ProviderBlockedPolicy.watchdogSeconds
             watchdog = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
                 guard let self else { return }
-                self.checkWatchdog()
+                DispatchQueue.main.async { self.checkWatchdog() }
             }
             // Keep the timer alive while scrolling / tracking run loops.
             if let watchdog { RunLoop.main.add(watchdog, forMode: .common) }
