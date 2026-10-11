@@ -139,7 +139,7 @@ final class PerformanceRecorder {
             do {
                 try store.append([event], synchronize: synchronize)
             } catch {
-                VisaGamesLog.append("perf write FAILED — 表現紀錄未能儲存 \(error.localizedDescription)")
+                VisaGamesLog.append("perf write FAILED — 表現紀錄未能儲存 \(ResilientSnapshotStore.describe(error))")
                 Task { @MainActor in self?.reportWriteFailure() }
             }
         }

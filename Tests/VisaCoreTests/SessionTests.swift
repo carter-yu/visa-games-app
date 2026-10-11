@@ -447,6 +447,10 @@ struct TestRunner {
         try blocked.testWebsiteDataStoreDefaultSourceGuard()
         try blocked.testParentSettingsScrollLayoutSourceGuard()
 
-        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 8 provider-blocked checks")
+        let saveFail = SaveFailureTests()
+        saveFail.testFailedWriteKeepsChildFlowAndPlaybackAllowed()
+        try saveFail.testAppModelNeverResetsSessionOrGatesChildOnSaveFailure()
+
+        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 8 provider-blocked + 2 save-failure checks")
     }
 }

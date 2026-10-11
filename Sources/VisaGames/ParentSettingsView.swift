@@ -17,7 +17,7 @@ struct ParentSettingsView: View {
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.21.3"
+    static let versionLabel = "Visa Games v0.21.4"
 
     /// v0.21.0: 表現 (Review) is the third parent segment (layout L5).
     private enum ParentLibrary { case videos, games, review }
@@ -217,6 +217,9 @@ struct ParentSettingsView: View {
                 fill: Color(hex: DesignTokens.Palette.taxiTicket),
                 onDismiss: { model.dismissProviderBlockedParentHint() }
             )
+        }
+        if let warning = model.storageSaveWarning {
+            ParentBanner(text: warning, fill: Color(hex: DesignTokens.Palette.sand))
         }
         if model.perfWriteFailed {
             ParentBanner(text: "表現紀錄未能儲存（唔影響小朋友玩）。 / Performance records could not be saved.",

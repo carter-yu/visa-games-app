@@ -1,5 +1,9 @@
 # Progress
 
+## v0.21.4 / 48 — save failure never blocks the child (2026-10-11)
+
+- `update()` used to reset the session to a fresh lock on any state.json write error (visa lost → no video) and every child action was gated on `storageFailed`. Now: in-memory snapshot is authoritative, failed writes queue in `ResilientSnapshotStore` and retry every 15 s; parent-only banner; no child toast; exact NSError logged. `storageFailed` = load failure only.
+
 ## v0.21.3 / 47 — parent scroll + preview (2026-10-10)
 
 - Pin 返回/離開 above one outer ScrollView (TV banners no longer push exit off-screen)

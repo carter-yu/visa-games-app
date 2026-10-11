@@ -149,7 +149,11 @@ final class AppModel: ObservableObject {
     private let shuffleStore = VideoPlaybackShuffleStore()
     private var playbackShuffle = VideoPlaybackShuffle()
     private var nextFeedbackID = 0
+    /// Load failure only (state.json unreadable). Save failures never set this (v0.21.4).
     private var storageFailed = false
+    /// Parent-only banner: saves are queued in memory and retried. Never gates the child.
+    @Published private(set) var storageSaveWarning: String? = nil
+    private lazy var resilientStore = ResilientSnapshotStore { [store] snapshot in try store.save(snapshot) }
     private var authentication: LAContext?
     private var parentDeadline: Date?
     private let parentAccessSeconds: TimeInterval = 600
@@ -223,23 +227,27 @@ final class AppModel: ObservableObject {
         )
     }
 
+    /// v0.21.4: log + parent-only banner; never touches routing or the child path.
+    private func noteSaveOutcome(_ outcome: ResilientSnapshotStore.Outcome, context: String) {
+        switch outcome {
+        case .saved:
+            break
+        case .recovered:
+            storageSaveWarning = nil
+            VisaGamesLog.append("storage save recovered — 儲存回復 ctx=\(context)")
+        case .queued(let error):
+            storageSaveWarning = "未能儲存（已記喺記憶體，會自動再試；小朋友可以照玩）。 / Save failed — kept in memory, retrying."
+            VisaGamesLog.append(
+                "storage save FAILED — 儲存失敗 (queued, child continues) ctx=\(context) n=\(resilientStore.consecutiveFailures) error=\(error)"
+            )
+        }
+    }
+
     func update(_ action: (inout Session) -> Void) {
         var next = session
         action(&next)
         if next.snapshot != session.snapshot {
-            do { try store.save(next.snapshot) }
-            catch {
-                storageFailed = true
-                message = "未能儲存，請家長處理。 / Could not save. Ask a parent."
-                VisaGamesLog.append("storage save FAILED — 儲存失敗 storageFailed=true")
-                perf.endPlay(reason: .storageFailure, resumeSaved: false)
-                perf.abandonRound(reason: "storage_failure")
-                perf.visaEnded(reason: "storage_failure")
-                session = Session(snapshot: Snapshot(configured: true), now: Date())
-                resetTaskRound()
-                changed?()
-                return
-            }
+            noteSaveOutcome(resilientStore.commit(next.snapshot), context: "update")
         }
         let visaEnded = session.snapshot.endsAt != nil && next.snapshot.endsAt == nil
         let incompleteToSave: IncompletePlayback? = {
@@ -258,17 +266,11 @@ final class AppModel: ObservableObject {
             // Persist cursor before clearing the in-memory player (visa tick expiry bypasses stopScopedPlayback).
             var stamped = session
             stamped.replaceLastIncomplete(incompleteToSave)
-            do {
-                try store.save(stamped.snapshot)
-                session = stamped
-                VisaGamesLog.append(
-                    "resume save — 簽證到期記進度 id=\(incompleteToSave.videoID) at=\(Int(incompleteToSave.positionSeconds))s"
-                )
-            } catch {
-                storageFailed = true
-                message = "未能儲存，請家長處理。 / Could not save. Ask a parent."
-                VisaGamesLog.append("resume save FAILED — 簽證到期儲存失敗")
-            }
+            session = stamped
+            noteSaveOutcome(resilientStore.commit(stamped.snapshot), context: "resume")
+            VisaGamesLog.append(
+                "resume save — 簽證到期記進度 id=\(incompleteToSave.videoID) at=\(Int(incompleteToSave.positionSeconds))s"
+            )
         }
         if visaEnded {
             awaitingDeparture = false
@@ -304,6 +306,9 @@ final class AppModel: ObservableObject {
         let current = now
         advanceThinkPauseIfNeeded(now: current)
         advancePlaytestThinkPauseIfNeeded(now: current)
+        if let outcome = resilientStore.retryIfDue(now: current) {
+            noteSaveOutcome(outcome, context: "retry")
+        }
         let modeBefore = session.mode
         update { $0.tick(now: current) }
         if session.mode != modeBefore {
@@ -450,7 +455,7 @@ final class AppModel: ObservableObject {
     }
 
     func triggerSuccessFeedback() {
-        guard session.mode == .lock || session.mode == .play, !storageFailed else { return }
+        guard session.mode == .lock || session.mode == .play else { return }
         nextFeedbackID += 1
         let id = nextFeedbackID
         successFeedbackID = id
@@ -693,7 +698,7 @@ final class AppModel: ObservableObject {
     var currentEmptyBayQuestion: EmptyBayQuestion { emptyBayQuestion }
 
     func selectDifficulty(stars: Int) {
-        guard !storageFailed, session.mode == .lock, !taskRoundOpen,
+        guard session.mode == .lock, !taskRoundOpen,
               let difficulty = ChildDifficulty(rawValue: stars) else { return }
         guideVoice.stop()
         resetTaskRound()
@@ -805,10 +810,6 @@ final class AppModel: ObservableObject {
     func selectEntryOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .twoPictureChoose else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectEntryOption blocked — 已封鎖 storageFailed=true id=\(id)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: twoPictureQuestion,
             selectedOptionID: id,
@@ -820,10 +821,6 @@ final class AppModel: ObservableObject {
     func selectFindSameOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .findTheSame else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectFindSameOption blocked — 已封鎖 storageFailed=true id=\(id)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: findSameQuestion,
             selectedOptionID: id,
@@ -835,10 +832,6 @@ final class AppModel: ObservableObject {
     func selectCountChoice(_ count: Int) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .countVehicles else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectCountChoice blocked — 已封鎖 storageFailed=true count=\(count)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: countQuestion,
             selectedCount: count,
@@ -850,10 +843,6 @@ final class AppModel: ObservableObject {
     func selectSequenceAsset(id assetID: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .sequenceShortToLong else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectSequenceAsset blocked — 已封鎖 storageFailed=true asset=\(assetID)")
-            return
-        }
         guard !sequenceTappedAssetIDs.contains(assetID) else { return }
         let expected = activityEvaluator.nextExpectedAssetID(
             question: sequenceQuestion,
@@ -892,10 +881,6 @@ final class AppModel: ObservableObject {
     func selectHalfMatchOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .halfMatch else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectHalfMatchOption blocked — 已封鎖 storageFailed=true id=\(id)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: halfMatchQuestion,
             selectedOptionID: id,
@@ -907,10 +892,6 @@ final class AppModel: ObservableObject {
     func selectShapeCousinOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .shapeCousin else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectShapeCousinOption blocked — 已封鎖 storageFailed=true id=\(id)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: shapeCousinQuestion,
             selectedOptionID: id,
@@ -922,10 +903,6 @@ final class AppModel: ObservableObject {
     func selectCapacityOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .capacityCompare else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectCapacityOption blocked — 已封鎖 storageFailed=true id=\(id)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: capacityCompareQuestion,
             selectedOptionID: id,
@@ -937,10 +914,6 @@ final class AppModel: ObservableObject {
     func selectMoreFewerSide(_ side: ParkingLotSide) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .moreFewer else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectMoreFewerSide blocked — 已封鎖 storageFailed=true side=\(side.rawValue)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: moreFewerQuestion,
             selectedSide: side,
@@ -952,10 +925,6 @@ final class AppModel: ObservableObject {
     func selectShadowMatchOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .shadowMatch else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectShadowMatchOption blocked — 已封鎖 storageFailed=true id=\(id)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: shadowMatchQuestion,
             selectedOptionID: id,
@@ -967,10 +936,6 @@ final class AppModel: ObservableObject {
     func selectEmptyBay(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .emptyBay else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectEmptyBay blocked — 已封鎖 storageFailed=true id=\(id)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: emptyBayQuestion,
             selectedBayID: id,
@@ -1065,7 +1030,7 @@ final class AppModel: ObservableObject {
             session.replaceRewardState(ledger.exportState())
             session.startPlayVisa(seconds: awardSeconds, now: now)
         }
-        guard !storageFailed, session.mode == .play else { return }
+        guard session.mode == .play else { return }
         perf.roundFinished(outcome: .solved, earnedMinutes: earnedMinutes, assisted: assisted)
         perf.visaStarted(id: completionID, source: .earned, seconds: awardSeconds,
                          endsAt: session.snapshot.endsAt, stars: stars)
@@ -1507,18 +1472,15 @@ final class AppModel: ObservableObject {
     func playAllowlisted(id: String) -> PlaybackDecision {
         // Not a policy verdict (storage / wrong mode): no stop reason, so callers never route it.
         let refused = PlaybackDecision(allowed: false, stopReason: nil)
-        guard !storageFailed else { return refused }
         guard session.mode == .parent || session.mode == .play else { return refused }
         let now = Date()
         let isParentPreview = session.mode == .parent
         if isParentPreview {
             if remainingViewingBudget(at: now) <= 0 {
                 seedTestViewingBudget()
-                guard !storageFailed else { return refused }
             }
             if session.snapshot.endsAt.map({ $0 <= now }) ?? true {
                 update { $0.extendVisaKeepingParent(seconds: 600, now: now) }
-                guard !storageFailed else { return refused }
             }
         }
         let decision = PlaybackPolicy().evaluateStart(
