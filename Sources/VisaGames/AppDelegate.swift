@@ -158,6 +158,10 @@ final class AppModel: ObservableObject {
     private var pendingVisaEndReason: String?
     /// Parent-only status line for export / clear.
     @Published var perfStatusMessage: String?
+    /// v0.21 表現 report (parent-only). Computed off-main when the segment opens / 更新.
+    @Published private(set) var perfReview: PerfReviewState = .idle
+    @Published private(set) var perfReviewWindow: PerfReportWindow = .days30
+    private var perfReviewGeneration = 0
     /// Convoy tap context for the answer being evaluated (step, expected asset, tapped before).
     private var pendingSequenceContext: (step: Int, expected: String?, tappedSoFar: [String])?
 
@@ -1579,7 +1583,7 @@ final class AppModel: ObservableObject {
         var titles: [String: String] = [:]
         for video in allowlist.videos { titles[video.id] = video.parentLabel }
         perfStatusMessage = "匯出緊…"
-        perf.export(titles: titles) { [weak self] result in
+        perf.export(titles: titles, order: allowlist.videos.map(\.id)) { [weak self] result in
             guard let self else { return }
             switch result {
             case .success(let url):
@@ -1591,11 +1595,42 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// 表現: (re)build the report off-main. Called when the segment opens, on 更新, on a window
+    /// change and after 唔計呢段 / 計返 — never from a view body.
+    func perfRefreshReview() {
+        guard session.mode == .parent else { return }
+        perfReviewGeneration += 1
+        let generation = perfReviewGeneration
+        perfReview = .computing(previous: perfReview.report)
+        var titles: [String: String] = [:]
+        for video in allowlist.videos { titles[video.id] = video.parentLabel }
+        perf.buildReport(window: perfReviewWindow, videoIDs: allowlist.videos.map(\.id), titles: titles) { [weak self] report in
+            guard let self, generation == self.perfReviewGeneration else { return }
+            self.perfReview = .ready(report)
+        }
+    }
+
+    func perfSetReviewWindow(_ window: PerfReportWindow) {
+        guard session.mode == .parent, window != perfReviewWindow else { return }
+        perfReviewWindow = window
+        perfRefreshReview()
+    }
+
+    /// 最近玩過 → 唔計呢段 / 計返 from the 表現 segment (state read back from the log).
+    func perfReviewSetSessionExcluded(_ id: String, excluded: Bool) {
+        guard session.mode == .parent else { return }
+        perf.setSessionExcluded(id, excluded: excluded)
+        VisaGamesLog.append("parent review — session \(excluded ? "exclude" : "include")")
+        perfRefreshReview()
+    }
+
     func perfClear() {
         guard session.mode == .parent else { return }
         perf.clearAll { [weak self] ok in
             guard let self else { return }
             if ok { self.perfWriteFailed = false }
+            self.perfReviewGeneration += 1
+            self.perfReview = .idle
             self.perfStatusMessage = ok
                 ? "已清除表現紀錄。 / Performance records cleared."
                 : "未能清除表現紀錄。 / Could not clear."

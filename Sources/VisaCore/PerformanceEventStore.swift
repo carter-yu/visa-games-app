@@ -135,8 +135,10 @@ public struct PerfEventStore: Sendable {
 
     public func loadRollup() -> PerfRollup {
         guard let data = try? Data(contentsOf: rollupURL),
-              let rollup = try? JSONDecoder().decode(PerfRollup.self, from: data),
-              rollup.rollupSchema == PerfRollup.currentSchema else { return PerfRollup() }
+              var rollup = try? JSONDecoder().decode(PerfRollup.self, from: data),
+              rollup.rollupSchema >= 1, rollup.rollupSchema <= PerfRollup.currentSchema else { return PerfRollup() }
+        // v0.21: schema 1 files load with the new counters at 0 and are rewritten as 2.
+        rollup.rollupSchema = PerfRollup.currentSchema
         return rollup
     }
 
@@ -161,7 +163,9 @@ public struct PerfEventStore: Sendable {
 
 /// Daily summaries kept after raw events expire (decision 2A: raw 90 days).
 public struct PerfRollup: Codable, Equatable, Sendable {
-    public static let currentSchema = 1
+    /// 1 = v0.20; 2 = v0.21 (active-time histogram, impressions by page, picks per slot,
+    /// expected picks, picker paging counts). Older files decode with the new counters at 0.
+    public static let currentSchema = 2
 
     public var rollupSchema: Int
     /// Days already folded. A listed day whose raw file still exists is deleted without
@@ -189,19 +193,37 @@ public struct PerfDaySummary: Codable, Equatable, Sendable {
     public var videos: [String: PerfVideoDayStats]
     public var uncountedRounds: Int
     public var uncountedPlays: Int
+    /// Schema 2: counted picker visits whose deck had ≥ 2 pages, and how many of those
+    /// reached page 2 (paging rate, §7.3).
+    public var multiPageVisits: Int
+    public var pagedVisits: Int
 
     public init(games: [String: PerfGameDayStats] = [:], videos: [String: PerfVideoDayStats] = [:],
-                uncountedRounds: Int = 0, uncountedPlays: Int = 0) {
+                uncountedRounds: Int = 0, uncountedPlays: Int = 0, multiPageVisits: Int = 0, pagedVisits: Int = 0) {
         self.games = games
         self.videos = videos
         self.uncountedRounds = uncountedRounds
         self.uncountedPlays = uncountedPlays
+        self.multiPageVisits = multiPageVisits
+        self.pagedVisits = pagedVisits
     }
 
     enum CodingKeys: String, CodingKey {
         case games, videos
         case uncountedRounds = "uncounted_rounds"
         case uncountedPlays = "uncounted_plays"
+        case multiPageVisits = "multi_page_visits"
+        case pagedVisits = "paged_visits"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        games = try c.decodeIfPresent([String: PerfGameDayStats].self, forKey: .games) ?? [:]
+        videos = try c.decodeIfPresent([String: PerfVideoDayStats].self, forKey: .videos) ?? [:]
+        uncountedRounds = try c.decodeIfPresent(Int.self, forKey: .uncountedRounds) ?? 0
+        uncountedPlays = try c.decodeIfPresent(Int.self, forKey: .uncountedPlays) ?? 0
+        multiPageVisits = try c.decodeIfPresent(Int.self, forKey: .multiPageVisits) ?? 0
+        pagedVisits = try c.decodeIfPresent(Int.self, forKey: .pagedVisits) ?? 0
     }
 }
 
@@ -215,6 +237,16 @@ public struct PerfGameDayStats: Codable, Equatable, Sendable {
     public var abandoned = 0
     public var hinted = 0
     public var activeMs = 0
+    /// Schema 2: solved rounds by active seconds, bins `activeBinUpperSeconds` (+ overflow).
+    public var activeHistogram: [Int] = Array(repeating: 0, count: PerfGameDayStats.activeBinUpperSeconds.count + 1)
+
+    /// < 5 s, < 10 s, < 20 s, < 40 s, < 80 s, ≥ 80 s.
+    public static let activeBinUpperSeconds: [Double] = [5, 10, 20, 40, 80]
+
+    public static func activeBin(ms: Int) -> Int {
+        let seconds = Double(ms) / 1000
+        return activeBinUpperSeconds.firstIndex(where: { seconds < $0 }) ?? activeBinUpperSeconds.count
+    }
 
     public init() {}
 
@@ -222,6 +254,23 @@ public struct PerfGameDayStats: Codable, Equatable, Sendable {
         case deals, answered, misses, solved, zeroed, abandoned, hinted
         case firstTry = "first_try"
         case activeMs = "active_ms"
+        case activeHistogram = "active_hist"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        deals = try c.decodeIfPresent(Int.self, forKey: .deals) ?? 0
+        answered = try c.decodeIfPresent(Int.self, forKey: .answered) ?? 0
+        firstTry = try c.decodeIfPresent(Int.self, forKey: .firstTry) ?? 0
+        misses = try c.decodeIfPresent(Int.self, forKey: .misses) ?? 0
+        solved = try c.decodeIfPresent(Int.self, forKey: .solved) ?? 0
+        zeroed = try c.decodeIfPresent(Int.self, forKey: .zeroed) ?? 0
+        abandoned = try c.decodeIfPresent(Int.self, forKey: .abandoned) ?? 0
+        hinted = try c.decodeIfPresent(Int.self, forKey: .hinted) ?? 0
+        activeMs = try c.decodeIfPresent(Int.self, forKey: .activeMs) ?? 0
+        let bins = Self.activeBinUpperSeconds.count + 1
+        let hist = try c.decodeIfPresent([Int].self, forKey: .activeHistogram) ?? []
+        activeHistogram = hist.count == bins ? hist : Array(repeating: 0, count: bins)
     }
 }
 
@@ -241,6 +290,14 @@ public struct PerfVideoDayStats: Codable, Equatable, Sendable {
     /// Plays with no player samples (`telemetry: none`).
     public var noTelemetryPlays = 0
     public var watchedSeconds: Double = 0
+    /// Schema 2: impressions by page (index 0–3, last bucket = page 4 or later).
+    public var impressionsByPage: [Int] = Array(repeating: 0, count: PerfVideoDayStats.pageBuckets)
+    /// Schema 2: accepted picks by 4×2 slot (0–7, row-major).
+    public var picksBySlot: [Int] = Array(repeating: 0, count: 8)
+    /// Schema 2: expected picks E with π = 1 (§7.3), so labels survive the raw prune.
+    public var expectedPicks: Double = 0
+
+    public static let pageBuckets = 4
 
     public init() {}
 
@@ -252,6 +309,9 @@ public struct PerfVideoDayStats: Codable, Equatable, Sendable {
         case navGuardStops = "nav_guard_stops"
         case noTelemetryPlays = "no_telemetry_plays"
         case watchedSeconds = "watched_s"
+        case impressionsByPage = "impressions_by_page"
+        case picksBySlot = "picks_by_slot"
+        case expectedPicks = "expected_picks"
     }
 
     public init(from decoder: Decoder) throws {
@@ -266,6 +326,11 @@ public struct PerfVideoDayStats: Codable, Equatable, Sendable {
         navGuardStops = try c.decodeIfPresent(Int.self, forKey: .navGuardStops) ?? 0
         noTelemetryPlays = try c.decodeIfPresent(Int.self, forKey: .noTelemetryPlays) ?? 0
         watchedSeconds = try c.decodeIfPresent(Double.self, forKey: .watchedSeconds) ?? 0
+        let pages = try c.decodeIfPresent([Int].self, forKey: .impressionsByPage) ?? []
+        impressionsByPage = pages.count == Self.pageBuckets ? pages : Array(repeating: 0, count: Self.pageBuckets)
+        let slots = try c.decodeIfPresent([Int].self, forKey: .picksBySlot) ?? []
+        picksBySlot = slots.count == 8 ? slots : Array(repeating: 0, count: 8)
+        expectedPicks = try c.decodeIfPresent(Double.self, forKey: .expectedPicks) ?? 0
     }
 }
 
@@ -309,6 +374,10 @@ public enum PerfSummaries {
         for event in ordered where event.type == .roundResult {
             if let round = event.string("round") { results[round] = event }
         }
+        // Schema 2 picker state: cards shown per visit (for E with π = 1) and paging.
+        var shownInVisit: [String: [String]] = [:]
+        var multiPageVisitDay: [String: String] = [:]
+        var pagedVisits: Set<String> = []
         for (index, event) in ordered.enumerated() {
             let day = PerfClock.dayStamp(event.timestamp, timeZone: timeZone)
             guard days.contains(day) else { continue }
@@ -331,7 +400,9 @@ public enum PerfSummaries {
                     if outcome.bool("hint_used") == true { stats.hinted += 1 }
                     stats.activeMs += outcome.int("active_ms") ?? 0
                     switch outcome.string("outcome") {
-                    case "solved": stats.solved += 1
+                    case "solved":
+                        stats.solved += 1
+                        stats.activeHistogram[PerfGameDayStats.activeBin(ms: outcome.int("active_ms") ?? 0)] += 1
                     case "zeroed": stats.zeroed += 1
                     default: stats.abandoned += 1
                     }
@@ -339,12 +410,39 @@ public enum PerfSummaries {
                     stats.abandoned += 1
                 }
                 summary.games[key] = stats
+            case .pickerVisit where counted:
+                if let visit = event.string("visit"), (event.int("page_count") ?? 1) >= 2, multiPageVisitDay[visit] == nil {
+                    multiPageVisitDay[visit] = day
+                    summary.multiPageVisits += 1
+                }
             case .videoImpressions where counted:
+                let page = event.int("page") ?? 0
+                let bucket = min(max(page, 0), PerfVideoDayStats.pageBuckets - 1)
                 for id in event["ids"]?.stringArray ?? [] {
                     summary.videos[id, default: PerfVideoDayStats()].impressions += 1
+                    summary.videos[id, default: PerfVideoDayStats()].impressionsByPage[bucket] += 1
+                }
+                if let visit = event.string("visit") {
+                    shownInVisit[visit, default: []].append(contentsOf: event["ids"]?.stringArray ?? [])
+                    if page >= 1, let visitDay = multiPageVisitDay[visit], !pagedVisits.contains(visit) {
+                        pagedVisits.insert(visit)
+                        if visitDay == day { summary.pagedVisits += 1 } else { result[visitDay]?.pagedVisits += 1 }
+                    }
                 }
             case .videoPick where counted && event.bool("accepted") == true:
-                if let id = event.string("video") { summary.videos[id, default: PerfVideoDayStats()].picks += 1 }
+                if let id = event.string("video") {
+                    summary.videos[id, default: PerfVideoDayStats()].picks += 1
+                    if let slot = event.int("slot"), (0..<8).contains(slot) {
+                        summary.videos[id, default: PerfVideoDayStats()].picksBySlot[slot] += 1
+                    }
+                    if let visit = event.string("visit") {
+                        let shown = Array(Set(shownInVisit[visit] ?? []))
+                        if !shown.isEmpty {
+                            let share = 1.0 / Double(shown.count)
+                            for card in shown { summary.videos[card, default: PerfVideoDayStats()].expectedPicks += share }
+                        }
+                    }
+                }
             case .videoStart:
                 guard counted else {
                     summary.uncountedPlays += 1

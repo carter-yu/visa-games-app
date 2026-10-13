@@ -221,6 +221,15 @@ func expectEqual<T: Equatable>(_ lhs: T, _ rhs: T, file: StaticString = #file, l
 func expectTrue(_ value: Bool, file: StaticString = #file, line: UInt = #line) {
     precondition(value, "Expected true", file: file, line: line)
 }
+func expectEqual<T: Equatable>(_ lhs: T, _ rhs: T, _ message: String, file: StaticString = #file, line: UInt = #line) {
+    precondition(lhs == rhs, "Expected \(rhs), got \(lhs) — \(message)", file: file, line: line)
+}
+func expectFalse(_ value: Bool, _ message: String, file: StaticString = #file, line: UInt = #line) {
+    precondition(!value, "Expected false — \(message)", file: file, line: line)
+}
+func expectTrue(_ value: Bool, _ message: String, file: StaticString = #file, line: UInt = #line) {
+    precondition(value, "Expected true — \(message)", file: file, line: line)
+}
 func expectFalse(_ value: Bool, file: StaticString = #file, line: UInt = #line) {
     precondition(!value, "Expected false", file: file, line: line)
 }
@@ -403,6 +412,27 @@ struct TestRunner {
         try perf.testPruneFoldsDailySummariesThenDeletesAndIsIdempotent()
         try perf.testPerformanceStringsAreTraditionalChineseOnly()
 
-        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log checks")
+        let review = PerformanceReviewTests()
+        review.testWorkedExampleA_ShadowConfident()
+        review.testWorkedExampleB_HalfPractiseWithFuelFlag()
+        review.testWorkedExampleC_InsufficientBelowFive()
+        review.testWorkedExampleD_TwoChoiceChanceCorrection()
+        review.testFreshDataLabelTable()
+        review.testHalfLifeSevenDays()
+        review.testPooledPriorFallbackAndClamp()
+        review.testPerStarCountsPooledLabel()
+        review.testTrendNeedsThreeRoundsPerWeek()
+        review.testExcludedSessionDropsOut()
+        review.testVideoLabels_NotShownVsSeenNeverPicked()
+        review.testAppealUsesImpressionsNotDeckPosition()
+        review.testPagingRate()
+        review.testWatchOutcomesNeverChangeVideoLabel()
+        review.testReportMergesRollupAndRaw()
+        try review.testRollupSchemaTwoLoadsV1AndFoldsNewCounters()
+        review.testEmptyReportAndSummaryCSVs()
+        review.testReportBuilds35kEventsUnderBudget()
+        try review.testReviewViewLayoutSafetySourceGuard()
+
+        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review checks")
     }
 }

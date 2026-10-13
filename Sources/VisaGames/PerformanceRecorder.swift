@@ -290,8 +290,28 @@ final class PerformanceRecorder {
         ], actorOverride: .parent)
     }
 
+    /// v0.21 表現: builds the report on the recorder queue (after any queued writes, so a
+    /// just-tapped 唔計呢段 is already on disk), then hands it to main. Never on the main thread.
+    func buildReport(window: PerfReportWindow, videoIDs: [String], titles: [String: String],
+                     completion: @escaping @MainActor @Sendable (PerfReport) -> Void) {
+        let store = self.store
+        queue.async {
+            let started = Date()
+            let read = store.read()
+            let report = PerfReportBuilder.build(
+                events: read.events, rollup: store.loadRollup(),
+                videos: videoIDs.map { (id: $0, title: titles[$0] ?? $0) },
+                now: Date(), window: window, timeZone: store.timeZone
+            )
+            let ms = Int(Date().timeIntervalSince(started) * 1000)
+            VisaGamesLog.append("parent review — built \(window.rawValue) from \(read.events.count) events in \(ms) ms")
+            Task { @MainActor in completion(report) }
+        }
+    }
+
     /// Writes the CSV export folder off the main thread, then reports the folder on main.
-    func export(titles: [String: String], completion: @escaping @MainActor @Sendable (Result<URL, Error>) -> Void) {
+    func export(titles: [String: String], order: [String] = [],
+                completion: @escaping @MainActor @Sendable (Result<URL, Error>) -> Void) {
         let store = self.store
         let stamp: String = {
             let now = Date()
@@ -304,7 +324,7 @@ final class PerformanceRecorder {
             do {
                 let read = store.read()
                 let files = PerfCSVExport.files(events: read.events, rollup: store.loadRollup(), titles: titles,
-                                                timeZone: store.timeZone)
+                                                order: order, now: Date(), timeZone: store.timeZone)
                 let folder = store.exportsDirectory.appendingPathComponent(stamp, isDirectory: true)
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 for (name, contents) in files {
