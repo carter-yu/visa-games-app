@@ -100,6 +100,14 @@ final class AppModel: ObservableObject {
     /// Board 5 park-and-sleep after visa expiry.
     @Published private(set) var showTimesUp = false
     @Published private(set) var timesUpTicket: MissionTicket? = nil
+    /// v0.21.1: YouTube blocked this embed — show the child board, then picker / Time's up.
+    @Published private(set) var showProviderBlocked = false
+    /// Videos that failed the bot-check this visa (hidden on the picker).
+    @Published private(set) var providerBlockedUnavailableIDs: Set<String> = []
+    /// Sticky parent banner after a bot-check (cleared on dismiss / return).
+    @Published private(set) var providerBlockedParentHint: String? = nil
+    private var providerBlockedState = ProviderBlockedPolicy.CreditState()
+    private var providerBlockedLoadStartedAt: Date?
     /// Skip board 5 when the child leaves play early (empty allowlist return).
     private var suppressNextTimesUp = false
     private var almostHomeSpoken = false
@@ -141,7 +149,11 @@ final class AppModel: ObservableObject {
     private let shuffleStore = VideoPlaybackShuffleStore()
     private var playbackShuffle = VideoPlaybackShuffle()
     private var nextFeedbackID = 0
+    /// Load failure only (state.json unreadable). Save failures never set this (v0.21.4).
     private var storageFailed = false
+    /// Parent-only banner: saves are queued in memory and retried. Never gates the child.
+    @Published private(set) var storageSaveWarning: String? = nil
+    private lazy var resilientStore = ResilientSnapshotStore { [store] snapshot in try store.save(snapshot) }
     private var authentication: LAContext?
     private var parentDeadline: Date?
     private let parentAccessSeconds: TimeInterval = 600
@@ -215,23 +227,27 @@ final class AppModel: ObservableObject {
         )
     }
 
+    /// v0.21.4: log + parent-only banner; never touches routing or the child path.
+    private func noteSaveOutcome(_ outcome: ResilientSnapshotStore.Outcome, context: String) {
+        switch outcome {
+        case .saved:
+            break
+        case .recovered:
+            storageSaveWarning = nil
+            VisaGamesLog.append("storage save recovered — 儲存回復 ctx=\(context)")
+        case .queued(let error):
+            storageSaveWarning = "未能儲存（已記喺記憶體，會自動再試；小朋友可以照玩）。 / Save failed — kept in memory, retrying."
+            VisaGamesLog.append(
+                "storage save FAILED — 儲存失敗 (queued, child continues) ctx=\(context) n=\(resilientStore.consecutiveFailures) error=\(error)"
+            )
+        }
+    }
+
     func update(_ action: (inout Session) -> Void) {
         var next = session
         action(&next)
         if next.snapshot != session.snapshot {
-            do { try store.save(next.snapshot) }
-            catch {
-                storageFailed = true
-                message = "未能儲存，請家長處理。 / Could not save. Ask a parent."
-                VisaGamesLog.append("storage save FAILED — 儲存失敗 storageFailed=true")
-                perf.endPlay(reason: .storageFailure, resumeSaved: false)
-                perf.abandonRound(reason: "storage_failure")
-                perf.visaEnded(reason: "storage_failure")
-                session = Session(snapshot: Snapshot(configured: true), now: Date())
-                resetTaskRound()
-                changed?()
-                return
-            }
+            noteSaveOutcome(resilientStore.commit(next.snapshot), context: "update")
         }
         let visaEnded = session.snapshot.endsAt != nil && next.snapshot.endsAt == nil
         let incompleteToSave: IncompletePlayback? = {
@@ -250,17 +266,11 @@ final class AppModel: ObservableObject {
             // Persist cursor before clearing the in-memory player (visa tick expiry bypasses stopScopedPlayback).
             var stamped = session
             stamped.replaceLastIncomplete(incompleteToSave)
-            do {
-                try store.save(stamped.snapshot)
-                session = stamped
-                VisaGamesLog.append(
-                    "resume save — 簽證到期記進度 id=\(incompleteToSave.videoID) at=\(Int(incompleteToSave.positionSeconds))s"
-                )
-            } catch {
-                storageFailed = true
-                message = "未能儲存，請家長處理。 / Could not save. Ask a parent."
-                VisaGamesLog.append("resume save FAILED — 簽證到期儲存失敗")
-            }
+            session = stamped
+            noteSaveOutcome(resilientStore.commit(stamped.snapshot), context: "resume")
+            VisaGamesLog.append(
+                "resume save — 簽證到期記進度 id=\(incompleteToSave.videoID) at=\(Int(incompleteToSave.positionSeconds))s"
+            )
         }
         if visaEnded {
             awaitingDeparture = false
@@ -296,6 +306,9 @@ final class AppModel: ObservableObject {
         let current = now
         advanceThinkPauseIfNeeded(now: current)
         advancePlaytestThinkPauseIfNeeded(now: current)
+        if let outcome = resilientStore.retryIfDue(now: current) {
+            noteSaveOutcome(outcome, context: "retry")
+        }
         let modeBefore = session.mode
         update { $0.tick(now: current) }
         if session.mode != modeBefore {
@@ -359,6 +372,7 @@ final class AppModel: ObservableObject {
     }
 
     func returnToChild(reason: String = "return") {
+        providerBlockedParentHint = nil
         // Auto-lock, sleep, and Return all come through here. Drop a playtest
         // before leaveParent so it cannot resume as a child round.
         discardPlaytestCover(reason: "leaveParent")
@@ -441,7 +455,7 @@ final class AppModel: ObservableObject {
     }
 
     func triggerSuccessFeedback() {
-        guard session.mode == .lock || session.mode == .play, !storageFailed else { return }
+        guard session.mode == .lock || session.mode == .play else { return }
         nextFeedbackID += 1
         let id = nextFeedbackID
         successFeedbackID = id
@@ -487,7 +501,9 @@ final class AppModel: ObservableObject {
     /// Full allowlist in this visit's order. Pure function of `videoPickerOrderSeed`,
     /// so a shell refresh does not roll the cards.
     var pickerVideosInVisitOrder: [ApprovedVideo] {
-        VideoPickerDeck.ordered(allowlist.videos, seed: videoPickerOrderSeed)
+        let ordered = VideoPickerDeck.ordered(allowlist.videos, seed: videoPickerOrderSeed)
+        guard !providerBlockedUnavailableIDs.isEmpty else { return ordered }
+        return ordered.filter { !providerBlockedUnavailableIDs.contains($0.id) }
     }
 
     private func mintVideoPickerOrderSeed(entry: String) {
@@ -602,10 +618,13 @@ final class AppModel: ObservableObject {
     }
 
     func notePlaybackCurrentTime(videoID: String, seconds: TimeInterval) {
-        guard session.mode == .play, activePlayVideoID == videoID,
+        guard activePlayVideoID == videoID,
               seconds.isFinite, seconds > 0 else { return }
-        lastKnownPlaybackSeconds = seconds
-        perf.playSample(video: videoID, seconds: seconds)
+        if session.mode == .play {
+            lastKnownPlaybackSeconds = seconds
+            perf.playSample(video: videoID, seconds: seconds)
+        }
+        noteProviderPlaybackProgress()
     }
 
     /// Log reason → design §5.5 `resume_cleared.reason`.
@@ -679,7 +698,7 @@ final class AppModel: ObservableObject {
     var currentEmptyBayQuestion: EmptyBayQuestion { emptyBayQuestion }
 
     func selectDifficulty(stars: Int) {
-        guard !storageFailed, session.mode == .lock, !taskRoundOpen,
+        guard session.mode == .lock, !taskRoundOpen,
               let difficulty = ChildDifficulty(rawValue: stars) else { return }
         guideVoice.stop()
         resetTaskRound()
@@ -791,10 +810,6 @@ final class AppModel: ObservableObject {
     func selectEntryOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .twoPictureChoose else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectEntryOption blocked — 已封鎖 storageFailed=true id=\(id)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: twoPictureQuestion,
             selectedOptionID: id,
@@ -806,10 +821,6 @@ final class AppModel: ObservableObject {
     func selectFindSameOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .findTheSame else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectFindSameOption blocked — 已封鎖 storageFailed=true id=\(id)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: findSameQuestion,
             selectedOptionID: id,
@@ -821,10 +832,6 @@ final class AppModel: ObservableObject {
     func selectCountChoice(_ count: Int) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .countVehicles else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectCountChoice blocked — 已封鎖 storageFailed=true count=\(count)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: countQuestion,
             selectedCount: count,
@@ -836,10 +843,6 @@ final class AppModel: ObservableObject {
     func selectSequenceAsset(id assetID: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .sequenceShortToLong else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectSequenceAsset blocked — 已封鎖 storageFailed=true asset=\(assetID)")
-            return
-        }
         guard !sequenceTappedAssetIDs.contains(assetID) else { return }
         let expected = activityEvaluator.nextExpectedAssetID(
             question: sequenceQuestion,
@@ -878,10 +881,6 @@ final class AppModel: ObservableObject {
     func selectHalfMatchOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .halfMatch else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectHalfMatchOption blocked — 已封鎖 storageFailed=true id=\(id)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: halfMatchQuestion,
             selectedOptionID: id,
@@ -893,10 +892,6 @@ final class AppModel: ObservableObject {
     func selectShapeCousinOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .shapeCousin else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectShapeCousinOption blocked — 已封鎖 storageFailed=true id=\(id)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: shapeCousinQuestion,
             selectedOptionID: id,
@@ -908,10 +903,6 @@ final class AppModel: ObservableObject {
     func selectCapacityOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .capacityCompare else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectCapacityOption blocked — 已封鎖 storageFailed=true id=\(id)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: capacityCompareQuestion,
             selectedOptionID: id,
@@ -923,10 +914,6 @@ final class AppModel: ObservableObject {
     func selectMoreFewerSide(_ side: ParkingLotSide) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .moreFewer else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectMoreFewerSide blocked — 已封鎖 storageFailed=true side=\(side.rawValue)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: moreFewerQuestion,
             selectedSide: side,
@@ -938,10 +925,6 @@ final class AppModel: ObservableObject {
     func selectShadowMatchOption(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .shadowMatch else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectShadowMatchOption blocked — 已封鎖 storageFailed=true id=\(id)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: shadowMatchQuestion,
             selectedOptionID: id,
@@ -953,10 +936,6 @@ final class AppModel: ObservableObject {
     func selectEmptyBay(id: String) {
         guard session.mode == .lock, taskRoundOpen, activeActivityKind == .emptyBay else { return }
         guard !choicesLocked else { perf.roundMashTap(); return }
-        guard !storageFailed else {
-            VisaGamesLog.append("selectEmptyBay blocked — 已封鎖 storageFailed=true id=\(id)")
-            return
-        }
         let evaluation = activityEvaluator.evaluate(
             question: emptyBayQuestion,
             selectedBayID: id,
@@ -1051,7 +1030,7 @@ final class AppModel: ObservableObject {
             session.replaceRewardState(ledger.exportState())
             session.startPlayVisa(seconds: awardSeconds, now: now)
         }
-        guard !storageFailed, session.mode == .play else { return }
+        guard session.mode == .play else { return }
         perf.roundFinished(outcome: .solved, earnedMinutes: earnedMinutes, assisted: assisted)
         perf.visaStarted(id: completionID, source: .earned, seconds: awardSeconds,
                          endsAt: session.snapshot.endsAt, stars: stars)
@@ -1080,6 +1059,7 @@ final class AppModel: ObservableObject {
 
     /// Board 3 Go button — reveal watch / empty-allowlist presentation.
     func confirmDeparture() {
+        clearProviderBlockedVisaState()
         guard session.mode == .play, awaitingDeparture else { return }
         awaitingDeparture = false
         guideVoice.speak(.departGo)
@@ -1091,6 +1071,7 @@ final class AppModel: ObservableObject {
 
     func dismissTimesUp() {
         showTimesUp = false
+        clearProviderBlockedVisaState()
         timesUpTicket = nil
         guideVoice.stop()
         VisaGamesLog.append("dismissTimesUp — 再揀車票 → depot")
@@ -1491,18 +1472,15 @@ final class AppModel: ObservableObject {
     func playAllowlisted(id: String) -> PlaybackDecision {
         // Not a policy verdict (storage / wrong mode): no stop reason, so callers never route it.
         let refused = PlaybackDecision(allowed: false, stopReason: nil)
-        guard !storageFailed else { return refused }
         guard session.mode == .parent || session.mode == .play else { return refused }
         let now = Date()
         let isParentPreview = session.mode == .parent
         if isParentPreview {
             if remainingViewingBudget(at: now) <= 0 {
                 seedTestViewingBudget()
-                guard !storageFailed else { return refused }
             }
             if session.snapshot.endsAt.map({ $0 <= now }) ?? true {
                 update { $0.extendVisaKeepingParent(seconds: 600, now: now) }
-                guard !storageFailed else { return refused }
             }
         }
         let decision = PlaybackPolicy().evaluateStart(
@@ -1521,12 +1499,16 @@ final class AppModel: ObservableObject {
             case .budgetExhausted: playbackMessage = "觀看時間用完。 / Viewing budget empty."
             case .sessionExpired: playbackMessage = "簽證已到期。 / Visa expired."
             case .navigationRejected: playbackMessage = "禁止導向。 / Navigation blocked."
+            case .providerBlocked: playbackMessage = "YouTube 暫時睇唔到。 / YouTube blocked."
             case .none: playbackMessage = "未能播放。 / Cannot play."
             }
             return decision
         }
         activePlayVideoID = id
         playbackMessage = nil
+        showProviderBlocked = false
+        // Keep a prior VPN hint until real progress; starting a new try is fine.
+        if session.mode == .play { providerBlockedLoadStartedAt = Date() }
         if isParentPreview {
             // Parent preview never resumes and never writes the incomplete cursor.
             activePlayStartSeconds = nil
@@ -1637,6 +1619,102 @@ final class AppModel: ObservableObject {
         }
     }
 
+
+    /// v0.21.1: YouTube bot-check / player error / ready-never-playing.
+    func handleProviderBlocked(videoID: String, via: String) {
+        guard activePlayVideoID == videoID else { return }
+        let now = Date()
+        let elapsed = providerBlockedLoadStartedAt.map { now.timeIntervalSince($0) } ?? ProviderBlockedPolicy.watchdogSeconds
+        let outcome = ProviderBlockedPolicy.applyBlocked(videoID: videoID, elapsed: elapsed, state: providerBlockedState)
+        switch outcome {
+        case .returnToPicker(let credit, let state):
+            providerBlockedState = state
+            providerBlockedUnavailableIDs = state.unavailableIDs
+            if credit > 0 { update { $0.creditVisaSeconds(credit, now: now) } }
+            VisaGamesLog.append(
+                "provider blocked — 片睇唔到 id=\(videoID) via=\(via) credit=\(Int(credit))s strikes=\(state.strikes) → board"
+            )
+            providerBlockedParentHint = "YouTube 要求驗證（可能係 Mac mini 嘅 NordVPN／網絡）。試關 VPN 或換伺服器。 / YouTube verification (Mac mini NordVPN/network?). Try VPN off or another server."
+            providerBlockedLoadStartedAt = nil
+            if session.mode == .play {
+                pendingVideoStopReason = .blocked
+                activePlayVideoID = nil
+                activePlayStartSeconds = nil
+                lastKnownPlaybackSeconds = nil
+                pendingVideoStopReason = nil
+                showProviderBlocked = true
+            } else {
+                // Parent 試播: keep the inline player so the parent can see the embed /
+                // retry; only surface a dismissible banner (v0.21.3).
+                pendingVideoStopReason = .previewStopped
+                pendingVideoStopReason = nil
+                playbackMessage = nil
+                VisaGamesLog.append("provider blocked — parent preview kept playing id=\(videoID)")
+            }
+        case .timesUp(let credit, let bank, let state):
+            providerBlockedState = state
+            providerBlockedUnavailableIDs = state.unavailableIDs
+            if credit > 0 { update { $0.creditVisaSeconds(credit, now: now) } }
+            let leftover = TimeInterval(max(0, session.remaining(at: now)))
+            if bank, session.mode == .play, leftover > 0 {
+                let calendar = budgetCalendar
+                var granted: TimeInterval = 0
+                update { session in
+                    var ledger: RewardLedger
+                    if let state = session.snapshot.reward {
+                        ledger = RewardLedger(state: state)
+                        ledger.normalizeAfterLoad(now: now, calendar: calendar)
+                    } else {
+                        ledger = RewardLedger(policy: RewardPolicy(initialAllowanceSeconds: 60, rewardCapSeconds: 1_200))
+                    }
+                    granted = ledger.creditViewingSeconds(leftover, now: now, calendar: calendar)
+                    session.replaceRewardState(ledger.exportState())
+                }
+                VisaGamesLog.append("provider blocked — banked leftover visa \(Int(granted))s into viewing")
+            }
+            VisaGamesLog.append(
+                "provider blocked — 片睇唔到 id=\(videoID) via=\(via) credit=\(Int(credit))s strikes=\(state.strikes) → timesUp"
+            )
+            showProviderBlocked = false
+            pendingVideoStopReason = .blocked
+            finishPlayVisaToTimesUp(reason: "provider-blocked-2strikes")
+            pendingVideoStopReason = nil
+            providerBlockedParentHint = "YouTube 要求驗證（可能係 Mac mini 嘅 NordVPN／網絡）。試過兩條片都唔得。 / YouTube verification (Mac mini NordVPN/network?). Two videos blocked."
+            playbackMessage = providerBlockedParentHint
+            clearProviderBlockedVisaState()
+        }
+    }
+
+    func dismissProviderBlockedParentHint() {
+        providerBlockedParentHint = nil
+        if playbackMessage?.contains("YouTube") == true {
+            playbackMessage = nil
+        }
+    }
+
+    /// Successful playback progress clears a stale VPN / bot-check banner.
+    func noteProviderPlaybackProgress() {
+        guard providerBlockedParentHint != nil || (playbackMessage?.contains("YouTube") == true) else { return }
+        providerBlockedParentHint = nil
+        if playbackMessage?.contains("YouTube") == true { playbackMessage = nil }
+        VisaGamesLog.append("provider blocked hint cleared — 有播到")
+    }
+
+    func dismissProviderBlocked() {
+        guard showProviderBlocked else { return }
+        showProviderBlocked = false
+        mintVideoPickerOrderSeed(entry: "provider_blocked")
+        VisaGamesLog.append("provider blocked dismiss — 返揀片 unavailable=\(providerBlockedUnavailableIDs.count)")
+        logShellBranch(context: "providerBlockedDismiss")
+    }
+
+    private func clearProviderBlockedVisaState() {
+        providerBlockedState = ProviderBlockedPolicy.CreditState()
+        providerBlockedUnavailableIDs = []
+        showProviderBlocked = false
+        providerBlockedLoadStartedAt = nil
+    }
+
     /// Policy (tick) or D8 navigation stop. v0.12.0: in child play, no time left → Time's up
     /// (was: clear id → picker with a dead budget while the road kept ticking).
     func stopScopedPlayback(reason: PlaybackStopReason) {
@@ -1646,6 +1724,7 @@ final class AppModel: ObservableObject {
         case .budgetExhausted: pendingVideoStopReason = isChild ? .budgetExhausted : .previewStopped
         case .sessionExpired: pendingVideoStopReason = isChild ? .visaExpired : .previewStopped
         case .navigationRejected: pendingVideoStopReason = isChild ? .navGuard : .previewStopped
+        case .providerBlocked: pendingVideoStopReason = isChild ? .blocked : .previewStopped
         case .notAllowlisted, .invalidVideoID: pendingVideoStopReason = .unknown
         }
         let route = VideoEndRouting.afterPlaybackStopped(reason: reason, isChildPlay: isChild)
@@ -1667,6 +1746,7 @@ final class AppModel: ObservableObject {
         case .budgetExhausted: playbackMessage = "觀看時間用完，已停止。 / Stopped: budget empty."
         case .sessionExpired: playbackMessage = "簽證到期，已停止。 / Stopped: visa expired."
         case .navigationRejected: playbackMessage = "已阻擋連結。 / Link blocked (D8)."
+        case .providerBlocked: playbackMessage = "YouTube 暫時睇唔到（網絡／VPN？）。 / YouTube blocked (network/VPN?)."
         default: playbackMessage = "已停止播放。 / Playback stopped."
         }
         VisaGamesLog.append(
@@ -2342,6 +2422,9 @@ struct ShellView: View {
         if model.session.mode == .parent {
             // v0.12.0: parent controls win over a pending Time's up board (shown again on Return).
             ParentSettingsView(model: model)
+        } else if model.showProviderBlocked {
+            ProviderBlockedView(onContinue: model.dismissProviderBlocked)
+                .ignoresSafeArea()
         } else if model.showTimesUp {
             TimesUpView(
                 ticket: model.timesUpTicket ?? model.resolvedPlayTicket,
@@ -2441,6 +2524,7 @@ struct ShellView: View {
                 onPlaybackEnded: { model.handleScopedPlaybackEnded(videoID: $0) },
                 onDurationKnown: { model.recordPlayerDuration(videoID: $0, seconds: $1) },
                 onCurrentTime: { model.notePlaybackCurrentTime(videoID: $0, seconds: $1) },
+                onProviderBlocked: { model.handleProviderBlocked(videoID: $0, via: $1) },
                 onParentUnlock: { model.unlock() }
             )
             .ignoresSafeArea()

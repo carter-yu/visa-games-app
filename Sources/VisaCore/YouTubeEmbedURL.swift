@@ -214,7 +214,7 @@ public enum YouTubeEmbedURL: Sendable {
         }()
         return #"""
         <!DOCTYPE html>
-        <html lang="en">
+        <html lang="en" data-visa-id="\#(id)">
         <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -302,11 +302,20 @@ public enum YouTubeEmbedURL: Sendable {
                     try { seconds = event.target.getDuration(); } catch (e) {}
                     post("ready", { duration: seconds });
                     reportDuration(seconds);
+                    // v0.21.3: nudge play (autoplay / parent 試播). Early + late.
+                    [1500, 8000].forEach(function (ms) {
+                      setTimeout(function () {
+                        try { if (lastState !== 1 && typeof event.target.playVideo === "function") { event.target.playVideo(); } } catch (e) {}
+                      }, ms);
+                    });
                     if (resumeStart > 0 && typeof event.target.seekTo === "function") {
                       try { event.target.seekTo(resumeStart, true); } catch (e) {}
                     }
                   },
-                  onStateChange: function (event) { reportState(event.data); }
+                  onStateChange: function (event) { reportState(event.data); },
+                  onError: function (event) {
+                    post("providerBlocked", { via: "player_error", code: event && event.data });
+                  }
                 }
               });
             } catch (e) {

@@ -7,6 +7,8 @@ public enum PlaybackStopReason: String, Sendable, Equatable {
     case budgetExhausted
     case sessionExpired
     case navigationRejected
+    /// YouTube blocked the embed (bot-check / player error / ready-never-playing).
+    case providerBlocked
 }
 
 public struct PlaybackDecision: Sendable, Equatable {

@@ -197,6 +197,14 @@ public struct RewardLedger: Sendable {
 
     /// Parent UAT only: clear the entry-activity flag so the child two-picture game can show again.
     /// Keeps viewing seconds, awards, success records, and parent-configured policy unchanged.
+    /// v0.21.1: bank leftover visa seconds after provider-blocked Time's up (daily cap still applies).
+    @discardableResult
+    public mutating func creditViewingSeconds(_ seconds: TimeInterval, now: Date, calendar: Calendar) -> TimeInterval {
+        normalizeDay(now: now, calendar: calendar)
+        guard seconds.isFinite, seconds > 0 else { return 0 }
+        return cappedAdd(seconds, now: now, calendar: calendar)
+    }
+
     public mutating func resetEntryActivityForParentUAT() {
         entryActivityCompleted = false
     }
