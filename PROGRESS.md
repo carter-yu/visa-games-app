@@ -1,5 +1,18 @@
 # Progress
 
+## v0.22.0 / 49 — S0 question variants for countVehicles + findTheSame (2026-10-14)
+
+Branch `feat/question-gen-v022` from `main` @ 4719f54. ADR 0009. Design `new-games/new-games-design.md` §7 (D1 A: ★ = question tier).
+
+- **VisaCore:** `QuestionGenerator.swift` (`ActivityLevel`, `QuestionRNG` FNV-1a → SplitMix64 with own bounded draw, `ActivityQuestionGenerator`, `QuestionGeneration` fixed_v0 / variants_v1); `HeroVehicle.swift` (10 heroes, paint / body families, lookalike pair nyTaxi + toyCar, `VehicleLook` asset ids `silhouette.<v>[+mirror][+star|+flag]`); `CountVehiclesGenerator.swift` (L1 n 1–3 row, L2 n 2–6 two rows, L3 n 4–10 scatter; numerals n−1 / n / n+1 inside 1–10); `FindTheSameGenerator.swift` (L1 131 / L2 47 / L3 180 items); `PerformanceQuestionFacts.swift` (`PerfDealFacts`, `gen` / `level` decode, rollup key, variants marker).
+- `CountQuestion` / `FindSameQuestion` gain optional `variant`; count well-formed up to 10, no 6 + 9 together, placements clear; find-the-same needs exactly one matching look. Fixed v0 catalog items unchanged.
+- **App:** `selectDifficulty` deals both kinds from (round seed, ★ level), avoiding the last item of the kind; hint text from the question; `game_dealt` adds `gen`, `level`, generator `item`, question-derived tags / assets; one-time `stats_marker{variants_v1}` at launch. Count board uses an 860×260 stimulus with `CountStimulusView`; find-the-same L3 draws mirrored heroes and vector star / flag stickers (`StyledVehicleView`). Playtest walks L1 → L2 → L3 per 試玩, tier shown on the cover. Parent card 「數車仔 / Count the vehicles」.
+- **Stats:** old lines (no `gen`) read as `fixed_v0`; rollup key `kind|stars|variants_v1` for generated rounds (schema stays 2); rounds CSV + `question_gen`, `level`; daily games CSV + `question_gen`. Review screens unchanged.
+- Kept: option shuffle, halve pending + 10 s pause, hint after 2 misses, save failure never blocks. No new input type, no text input, no new OS escape path.
+- Version: Info.plist **0.22.0 / 49**, parent footer **Visa Games v0.22.0**.
+- Tests: +20 question-generator (tier mapping, RNG determinism / uniformity, 1,000 seeds × 3 tiers well-formed and deterministic, tier ranges and layouts, no overlap, numerals, findTheSame exactly one match and per-tier similarity, lookalike safety, item counts, diff tags, look ids, no back-to-back repeat, shuffle kept, Traditional / ASCII copy, deal facts vs slots, old-line decode, marker, rollup split, CSV columns, source guards) → PASS banner adds **20 question-generator**.
+- Not run: Linux box has no Swift toolchain. `sh scripts/test.sh` and `sh scripts/bundle.sh` pending on the Mac mini. No kiosk launch. No push.
+
 ## v0.21.4 / 48 — save failure never blocks the child (2026-10-11)
 
 - `update()` used to reset the session to a fresh lock on any state.json write error (visa lost → no video) and every child action was gated on `storageFailed`. Now: in-memory snapshot is authoritative, failed writes queue in `ResilientSnapshotStore` and retry every 15 s; parent-only banner; no child toast; exact NSError logged. `storageFailed` = load failure only.
