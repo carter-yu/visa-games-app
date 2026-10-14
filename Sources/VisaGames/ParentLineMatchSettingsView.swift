@@ -7,6 +7,7 @@ import VisaCore
 struct ParentLineMatchSettingsView: View {
     let settings: LineMatchSettings
     let banner: String?
+    let onGuided: (Bool) -> Void
     let onTolerance: (LineMatchTolerance) -> Void
     let onAdjust: (LineMatchCategory, Int) -> Void
     let onResetMix: () -> Void
@@ -27,13 +28,23 @@ struct ParentLineMatchSettingsView: View {
                 ParentBanner(text: banner, fill: Color(hex: DesignTokens.Palette.taxiTicket))
             }
             VStack(alignment: .leading, spacing: 8) {
+                ParentLabel(LineMatchGuidedCopy.parentToggleTraditionalChinese, size: 15, weight: 800)
+                ParentLabel(LineMatchGuidedCopy.parentToggleEnglish, size: 12, weight: 600, color: .inkSoft)
+                HStack(spacing: 10) {
+                    guidedButton(true, zh: "開", en: "On")
+                    guidedButton(false, zh: "關", en: "Off")
+                }
+                ParentLabel("引導：每對字同圖已經有條路，小朋友揸車沿路送過去；唔會答錯，只係練習，唔計掌握度。 / Guided: each pair already has a road; the child drives along it. Practice only, never a miss or mastery.",
+                            size: 12, weight: 600, color: .inkSoft)
+            }
+            VStack(alignment: .leading, spacing: 8) {
                 ParentLabel("畫線寬容度 / Line tolerance", size: 15, weight: 800)
                 HStack(spacing: 10) {
                     ForEach(LineMatchTolerance.allCases, id: \.self) { tolerance in
                         toleranceButton(tolerance)
                     }
                 }
-                ParentLabel("判定範圍：點附近 \(Int(settings.tolerance.dotRadius))u（畫出嚟嘅點唔變） / Hit radius around each dot",
+                ParentLabel("判定範圍：點附近 \(Int(settings.tolerance.dotRadius))u；引導路面 ×\(String(format: "%.1f", settings.tolerance.roadWidthFactor))（畫出嚟嘅點同路唔變） / Hit radius around each dot; guided road corridor",
                             size: 12, weight: 600, color: .inkSoft)
             }
             VStack(alignment: .leading, spacing: 8) {
@@ -60,6 +71,23 @@ struct ParentLineMatchSettingsView: View {
         .padding(16)
         .modifier(ChunkyPanel(fill: Color(hex: DesignTokens.Palette.paper), cornerRadius: 18,
                               shadowDepth: 4, lineWidth: 3))
+    }
+
+    private func guidedButton(_ on: Bool, zh: String, en: String) -> some View {
+        let selected = settings.guided == on
+        return Button(action: { onGuided(on) }) {
+            VStack(spacing: 0) {
+                ParentLabel(zh, size: 18, weight: 900)
+                ParentLabel(en, size: 11, weight: 700, color: .inkSoft)
+            }
+            .frame(width: 96)
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(ChunkyButtonStyle(
+            fill: selected ? Color(hex: DesignTokens.Palette.sunny) : Color(hex: DesignTokens.Palette.paper),
+            cornerRadius: 12, shadowDepth: selected ? 2 : 3, lineWidth: 2))
+        .accessibilityLabel("引導連線 \(zh) / Guided match \(en)")
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func toleranceButton(_ tolerance: LineMatchTolerance) -> some View {

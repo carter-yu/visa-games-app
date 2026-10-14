@@ -430,6 +430,7 @@ private struct GameReviewRow: View {
         }
         parts.append("\(row.answered) 次 · 一次答啱 \(row.firstTry)")
         if let fuel = row.fuelOutFlag { parts.append("最近油用晒 \(fuel) 次") }
+        if row.guidedPractice > 0 { parts.append("\(LineMatchGuidedCopy.parentPracticeTraditionalChinese)：\(row.guidedPractice) 次") }
         return parts.joined(separator: " · ")
     }
 }
@@ -461,6 +462,11 @@ private struct GameReviewDetail: View {
                 ReviewText("第一下通常 \(ReviewFormat.seconds(seconds)) 秒", size: 14, weight: .regular)
             }
             ReviewText(row.trend?.zh ?? "近 7 日：未夠數據", size: 14, weight: .regular)
+            if row.guidedPractice > 0 {
+                // v0.24.0: guided rounds are exposure only, kept apart from the first-try numbers above.
+                ReviewText("\(LineMatchGuidedCopy.parentPracticeTraditionalChinese)：\(row.guidedPractice) 次（唔計掌握度同答錯）",
+                           size: 14, weight: .regular)
+            }
             if let last = row.lastPlayed {
                 ReviewText("上次玩：\(ReviewFormat.date(last))", size: 13, weight: .regular, color: .inkSoft)
             }
