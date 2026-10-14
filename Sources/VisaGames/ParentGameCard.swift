@@ -151,6 +151,20 @@ private struct ParentGameArtWell: View {
             HalfVehicleClip(assetID: asset, side: .left, mood: .happy)
         } else if kind == .shadowMatch, let asset = kind.parentHeroAssetIDs.first {
             ActivityAssetView(assetID: asset, mood: .calm, asShadow: true)
+        } else if kind == .lineMatch {
+            // 連一連: picture → word, the mini truck on a yellow line.
+            HStack(spacing: 6) {
+                VectorArtView(artwork: LineMatchArt.eye)
+                ZStack {
+                    Capsule().fill(Color.ink).frame(height: 10)
+                    Capsule().fill(Color(hex: DesignTokens.Palette.sunny)).frame(height: 6).padding(.horizontal, 2)
+                    VectorArtView(artwork: LineMatchArt.miniTruck).frame(height: 26).offset(y: -12)
+                }
+                Text("眼睛")
+                    .font(CanvasFont.font(size: 18, weight: 900))
+                    .foregroundStyle(Color.ink)
+                    .fixedSize()
+            }
         } else if kind == .emptyBay {
             HStack(spacing: 6) {
                 ActivityAssetView(assetID: "silhouette.hkTaxi", mood: .happy)

@@ -17,7 +17,7 @@ struct ParentSettingsView: View {
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.22.4"
+    static let versionLabel = "Visa Games v0.23.0"
 
     /// v0.21.0: 表現 (Review) is the third parent segment (layout L5).
     private enum ParentLibrary { case videos, games, review }
@@ -161,6 +161,13 @@ struct ParentSettingsView: View {
                     }
                 }
                 .padding(.bottom, 6)
+                ParentLineMatchSettingsView(
+                    settings: model.lineMatchSettings,
+                    banner: model.lineMatchSettingsBanner,
+                    onTolerance: { model.setLineMatchTolerance($0) },
+                    onAdjust: { category, steps in model.adjustLineMatchWeight(category, steps: steps) },
+                    onResetMix: { model.resetLineMatchMix() }
+                )
                 unbuiltRow
             }
         }

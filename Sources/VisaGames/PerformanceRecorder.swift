@@ -44,6 +44,9 @@ final class PerformanceRecorder {
     /// v0.22.0: item, tags and assets of the dealt question (generated or fixed).
     private var roundFacts: PerfDealFacts?
     private var playtestFacts: PerfDealFacts?
+    /// v0.23.0: kind-specific `round_result` fields (連一連 eraser / submit counts).
+    private var roundExtra: [String: PerfValue] = [:]
+    private var playtestExtra: [String: PerfValue] = [:]
     private var play: (tracker: PerfPlayTracker, actor: PerfActor, session: String)?
     private var lastProgressMono: Double?
     private var visa: (id: String, source: PerfVisaSource, startedAt: Date)?
@@ -303,6 +306,14 @@ final class PerformanceRecorder {
         emit(.allowlistChange, ["op": .string(op), "video": .string(video)], actorOverride: .parent)
     }
 
+    /// 連一連 parent settings (tolerance / category weights), so Review can split before / after.
+    func lineMatchSettingChanged(what: String, value: String, mix: String) {
+        emit(.configChange, [
+            "what": .string("lineMatch_\(what)"), "kind": .string(ActivityKind.lineMatch.rawValue),
+            "value": .string(value), "category_mix": .string(mix)
+        ], actorOverride: .parent)
+    }
+
     func assignmentChanged(kind: ActivityKind, star: Int, on: Bool) {
         emit(.configChange, [
             "what": .string("assignment"), "kind": .string(kind.rawValue),
@@ -442,15 +453,24 @@ final class PerformanceRecorder {
         round = (PerfRoundTracker(round: id, kind: kind, item: facts.item, stars: stars, pendingStart: pendingStart,
                                   slots: facts.slots, mono: Self.monoNow()), unit.actor, unit.session)
         roundFacts = facts
+        roundExtra = [:]
     }
 
-    /// One evaluated child tap. `sequence` carries the convoy step context.
+    /// Latest kind-specific `round_result` fields of the open round (replaces earlier ones).
+    func roundResultExtra(_ fields: [String: PerfValue]) {
+        guard round != nil else { return }
+        roundExtra = fields
+    }
+
+    /// One evaluated child tap. `sequence` carries the convoy step context; `record` the
+    /// tags / fields of a judged 連一連 完成.
     func roundAnswer(choice: String, correct: Bool, pendingBefore: Int, pendingAfter: Int, hintOn: Bool,
-                     sequence: (step: Int, expected: String?, tappedSoFar: [String])? = nil) {
+                     sequence: (step: Int, expected: String?, tappedSoFar: [String])? = nil,
+                     record: (tags: [String], fields: [String: PerfValue])? = nil) {
         guard var open = round else { return }
         let fields = answerFields(&open.tracker, facts: roundFacts, choice: choice, correct: correct,
                                   pendingBefore: pendingBefore, pendingAfter: pendingAfter, hintOn: hintOn,
-                                  sequence: sequence)
+                                  sequence: sequence, record: record)
         round = open
         emit(.answerAttempt, fields, unit: (open.actor, open.session))
     }
@@ -470,26 +490,33 @@ final class PerformanceRecorder {
     func roundFinished(outcome: PerfRoundTracker.Outcome, earnedMinutes: Int, assisted: Bool) {
         guard var open = round else { return }
         round = nil
-        let fields = open.tracker.result(outcome: outcome, earnedMinutes: earnedMinutes, assisted: assisted,
+        var fields = open.tracker.result(outcome: outcome, earnedMinutes: earnedMinutes, assisted: assisted,
                                          reason: nil, mono: Self.monoNow())
+        fields.merge(roundExtra) { current, _ in current }
+        roundExtra = [:]
         emit(.roundResult, fields, unit: (open.actor, open.session), synchronize: true)
     }
 
     func abandonRound(reason: String) {
         guard var open = round else { return }
         round = nil
-        let fields = open.tracker.result(outcome: .abandoned, earnedMinutes: 0, assisted: false,
+        var fields = open.tracker.result(outcome: .abandoned, earnedMinutes: 0, assisted: false,
                                          reason: reason, mono: Self.monoNow())
+        fields.merge(roundExtra) { current, _ in current }
+        roundExtra = [:]
         emit(.roundResult, fields, unit: (open.actor, open.session), synchronize: true)
     }
 
     private func answerFields(_ tracker: inout PerfRoundTracker, facts deal: PerfDealFacts?, choice: String,
                               correct: Bool, pendingBefore: Int, pendingAfter: Int, hintOn: Bool,
-                              sequence: (step: Int, expected: String?, tappedSoFar: [String])?) -> [String: PerfValue] {
+                              sequence: (step: Int, expected: String?, tappedSoFar: [String])?,
+                              record: (tags: [String], fields: [String: PerfValue])?) -> [String: PerfValue] {
         let facts = tracker.answer(choice: choice, correct: correct, mono: Self.monoNow())
         let kind = tracker.kind
         var tags: [String] = []
-        if !correct {
+        if let record {
+            tags = record.tags
+        } else if !correct {
             if kind == .sequenceShortToLong, let sequence {
                 tags = PerfChoiceCatalog.sequenceTags(tapped: choice, expected: sequence.expected,
                                                       tappedSoFar: sequence.tappedSoFar, presented: tracker.slots)
@@ -527,6 +554,9 @@ final class PerformanceRecorder {
             fields["step"] = .int(sequence.step)
             fields["expected"] = .optionalString(sequence.expected)
         }
+        if let record {
+            fields.merge(record.fields) { current, _ in current }
+        }
         return fields
     }
 
@@ -548,14 +578,21 @@ final class PerformanceRecorder {
         playtest = (PerfRoundTracker(round: id, kind: kind, item: facts.item, stars: 0, pendingStart: pendingStart,
                                      slots: facts.slots, mono: Self.monoNow()), unit.actor, unit.session)
         playtestFacts = facts
+        playtestExtra = [:]
+    }
+
+    func playtestResultExtra(_ fields: [String: PerfValue]) {
+        guard playtest != nil else { return }
+        playtestExtra = fields
     }
 
     func playtestAnswer(choice: String, correct: Bool, pendingBefore: Int, pendingAfter: Int, hintOn: Bool,
-                        sequence: (step: Int, expected: String?, tappedSoFar: [String])? = nil) {
+                        sequence: (step: Int, expected: String?, tappedSoFar: [String])? = nil,
+                        record: (tags: [String], fields: [String: PerfValue])? = nil) {
         guard var open = playtest else { return }
         let fields = answerFields(&open.tracker, facts: playtestFacts, choice: choice, correct: correct,
                                   pendingBefore: pendingBefore, pendingAfter: pendingAfter, hintOn: hintOn,
-                                  sequence: sequence)
+                                  sequence: sequence, record: record)
         if !correct { open.tracker.pauseStarted(mono: Self.monoNow()) }
         playtest = open
         emit(.answerAttempt, fields, unit: (open.actor, open.session))
@@ -574,16 +611,20 @@ final class PerformanceRecorder {
     func playtestSolved(earnedMinutes: Int, assisted: Bool) {
         guard var open = playtest else { return }
         playtest = nil
-        let fields = open.tracker.result(outcome: .solved, earnedMinutes: earnedMinutes, assisted: assisted,
+        var fields = open.tracker.result(outcome: .solved, earnedMinutes: earnedMinutes, assisted: assisted,
                                          reason: nil, mono: Self.monoNow())
+        fields.merge(playtestExtra) { current, _ in current }
+        playtestExtra = [:]
         emit(.roundResult, fields, unit: (open.actor, open.session))
     }
 
     func abandonPlaytest(reason: String) {
         guard var open = playtest else { return }
         playtest = nil
-        let fields = open.tracker.result(outcome: .abandoned, earnedMinutes: 0, assisted: false,
+        var fields = open.tracker.result(outcome: .abandoned, earnedMinutes: 0, assisted: false,
                                          reason: reason, mono: Self.monoNow())
+        fields.merge(playtestExtra) { current, _ in current }
+        playtestExtra = [:]
         emit(.roundResult, fields, unit: (open.actor, open.session))
     }
 
