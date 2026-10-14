@@ -96,3 +96,22 @@ A runtime crash cannot be reproduced offline. Confirm on the Mac mini: build, la
 lock → stamp → picker → watch → Time's up, and parent enter / leave / quit. Keep collecting
 `.ips` files. If a crash still shows up in `swift_task_isCurrentExecutor*`, the remaining call
 site is a hand-written check (none in the app today) or a check inside SwiftUI itself.
+
+## Follow-up (v0.22.2 / hang at depot)
+
+0.22.1 hung at the Visa Depot ticket screen. A `sample` of the hung process showed the
+main thread almost entirely idle in the run loop (not busy in generators, not in
+`timerFired`, not in `ShellView`). That points to taps not reaching the ticket buttons,
+not a livelock.
+
+Changes kept from this ADR: `-disable-dynamic-actor-isolation` stays on the app target.
+
+Changes reverted / adjusted after the hang:
+
+- The 0.5 s **selector Timer** was reverted to `Timer` + `Task { @MainActor in … }` (same
+  as pre-0.22.1). The selector rewrite was unnecessary for the crash and is a suspect for
+  the hang; prefer the known-good tick path.
+- `ShellView.body` no longer precomputes `let content = childOrLegacy`.
+- `ParentCornerLayer` no longer uses a full-screen `CanvasStage`. DepotHomeView already
+  has its own `ParentCornerEntry`; ShellView skips the overlay on the depot so a second
+  GeometryReader cannot swallow ticket taps.

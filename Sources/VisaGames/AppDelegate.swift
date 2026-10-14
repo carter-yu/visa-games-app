@@ -2326,10 +2326,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self?.penSpark.handle(event)
             return event
         }
-        // Selector timer on the main run loop: the 0.5 s tick runs straight from the run loop,
-        // not as a Swift task job, and needs no `Task { @MainActor }` hop (ADR 0010).
-        timer = Timer.scheduledTimer(timeInterval: 0.5, target: self, selector: #selector(timerFired(_:)),
-                                     userInfo: nil, repeats: true)
+        // v0.22.2: restore the Task hop. The 0.22.1 selector Timer coincided with a depot
+        // hang (idle main thread); keep ticks on MainActor the same way as before ADR 0010.
+        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.model.tick()
+                self?.penSpark.tick(now: Date())
+            }
+        }
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(willSleep),
             name: NSWorkspace.willSleepNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake),
@@ -2368,10 +2372,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         isChildPresentation = child
     }
 
-    @objc private func timerFired(_ timer: Timer) {
-        model.tick()
-        penSpark.tick(now: Date())
-    }
     @objc private func willSleep() { model.returnToChild(reason: "sleep") }
     @objc private func didWake() { model.tick() }
     @objc private func screenChanged() {
@@ -2444,16 +2444,18 @@ struct ShellView: View {
         !model.showTimesUp && model.session.mode == .play && playRoute == .watch
     }
 
-    /// v0.22.1 (ADR 0010): model-derived flags are read before the ZStack builder runs, and
-    /// actions are explicit closures (no unapplied `model.method` isolation thunks).
+    /// v0.22.2: build the ZStack in place (no precomputed `content`). Skip ParentCornerLayer
+    /// on the depot — DepotHomeView already embeds ParentCornerEntry; a second full-screen
+    /// CanvasStage/GeometryReader overlay can steal ticket taps (hang sample: idle main thread).
+    /// Actions stay explicit closures (ADR 0010).
     var body: some View {
-        let model = self.model
         let childMode = isChildMode
-        // On Watch the parent hold lives on the garage glyph (ADR 0007 §5); no second corner.
-        let showsParentCorner = childMode && !isWatching
-        let content = childOrLegacy
+        let watching = isWatching
+        // Depot has its own parent corner; Watch uses the garage glyph (ADR 0007 §5).
+        let onDepot = model.session.mode == .lock && !model.taskRoundOpen
+        let showsParentCorner = childMode && !watching && !onDepot
         return ZStack {
-            content
+            childOrLegacy
             if showsParentCorner {
                 ParentCornerLayer(onUnlock: { model.unlock() })
                     .ignoresSafeArea()

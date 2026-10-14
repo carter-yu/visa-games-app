@@ -3,7 +3,8 @@ import VisaCore
 
 /// v0.22.1 (ADR 0010): the Swift 6 runtime actor-isolation check at the top of the ZStack
 /// builder in `ShellView.body` crashed inside the runtime (main thread, SwiftUI transaction).
-/// Source guards; the app target has no unit tests.
+/// v0.22.2: depot hang fix — no precomputed content, skip ParentCornerLayer on depot, revert
+/// selector Timer. Source guards; the app target has no unit tests.
 final class ActorIsolationTests {
     private let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 
@@ -34,7 +35,6 @@ final class ActorIsolationTests {
             expectTrue(false, "Package.swift lacks -disable-dynamic-actor-isolation")
             return
         }
-        // The nearest target name before the flag is the app, not VisaCore or VisaCoreChecks.
         let before = package[package.startIndex..<flag.lowerBound]
         guard let name = before.range(of: "name: \"", options: .backwards) else {
             expectTrue(false, "no target name before the flag")
@@ -86,22 +86,31 @@ final class ActorIsolationTests {
             cursor = hit.upperBound
         }
         expectTrue(references > 30)
-        // Model-derived flags are read before the ZStack builder.
-        expectTrue(shell.contains("let showsParentCorner = childMode && !isWatching"))
-        expectTrue(shell.contains("let content = childOrLegacy"))
+        // v0.22.2: depot skips ParentCornerLayer; childOrLegacy is inlined in the ZStack.
+        expectTrue(shell.contains("let onDepot = model.session.mode == .lock && !model.taskRoundOpen"))
+        expectTrue(shell.contains("let showsParentCorner = childMode && !watching && !onDepot"))
+        expectTrue(shell.contains("childOrLegacy"))
+        expectFalse(shell.contains("let content = childOrLegacy"))
     }
 
     func testRecorderContextTimerAndRecorderStayOnMain() throws {
         let app = try source("Sources/VisaGames/AppDelegate.swift")
         expectTrue(app.contains("perf.contextProvider = { [weak self] in"))
         expectTrue(app.contains("guard let self else { return PerfRecorderContext(mode: .lock, isPlaytest: false) }"))
-        expectTrue(app.contains("selector: #selector(timerFired(_:))"))
-        expectFalse(app.contains("self?.model.tick()"))
+        // v0.22.2: selector Timer reverted after depot hang; ticks hop via Task { @MainActor }.
+        expectFalse(app.contains("selector: #selector(timerFired(_:))"))
+        expectTrue(app.contains("self?.model.tick()"))
         expectTrue(app.contains("@MainActor\nfinal class AppModel"))
         let recorder = try source("Sources/VisaGames/PerformanceRecorder.swift")
         expectTrue(recorder.contains("@MainActor\nfinal class PerformanceRecorder"))
-        // Only the Sendable store and the init are nonisolated; queue blocks never see AppModel.
         expectEqual(recorder.components(separatedBy: "nonisolated").count - 1, 2)
         expectTrue(recorder.contains("nonisolated let store: PerfEventStore"))
+    }
+
+    func testParentCornerLayerDoesNotHostFullScreenCanvasStage() throws {
+        let corner = try source("Sources/VisaGames/ParentCornerEntry.swift")
+        expectFalse(corner.contains("CanvasStage"), "ParentCornerLayer must not use CanvasStage (full-screen hit target)")
+        expectTrue(corner.contains("allowsHitTesting(false)"))
+        expectTrue(corner.contains("ParentCornerEntry(onUnlock: onUnlock)"))
     }
 }

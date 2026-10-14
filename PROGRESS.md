@@ -1,5 +1,13 @@
 # Progress
 
+
+## 2026-10-14 — v0.22.2 hang fix (depot tickets unresponsive)
+
+- **Symptom:** 0.22.1/50 hung at 揀一張車票; sample showed idle main thread (mach_msg), not a generator/timer busy loop.
+- **Cause (best fit):** ShellView overlaid a full-screen `ParentCornerLayer` (`CanvasStage`/GeometryReader) on `DepotHomeView`, which already has its own parent corner — empty artboard overlay can steal ticket taps. Precomputed `let content = childOrLegacy` and the selector-Timer rewrite from the crash fix were also reverted as caution.
+- **Fix:** skip ParentCornerLayer on depot; rewrite layer so only the corner control is hittable; restore Task-based 0.5 s tick; keep `-disable-dynamic-actor-isolation`. + generator termination tests. Build 51.
+- Claude Code was 403 at fix time; applied on the box by the executor against the hang sample.
+
 ## v0.22.1 / 50 — ShellView runtime isolation-check crash (2026-10-14)
 
 Branch `feat/question-gen-v022` on top of v0.22.0 / 49. ADR 0010.

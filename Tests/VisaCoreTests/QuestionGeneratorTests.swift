@@ -567,4 +567,36 @@ final class QuestionGeneratorTests {
         expectTrue(recorder.contains("markVariantsGoLiveOnce()"))
         expectTrue(recorder.contains("fields.merge(facts.dealtFields)"))
     }
+
+    /// Generators must always finish: every tier × many seeds, including avoid-rerolls.
+    /// `QuestionRNG.below` uses bounded rejection; pools are precomputed and non-empty.
+    func testGeneratorsTerminateForEveryTierAndSeed() {
+        expectTrue(QuestionGeneration.maxRerolls >= 1)
+        for level in ActivityLevel.allCases {
+            let findPool = FindTheSameGenerator.items(level)
+            expectTrue(findPool.count >= 3, "findTheSame \(level.code) pool empty/tiny: \(findPool.count)")
+            for seed in seeds {
+                let countQ = CountVehiclesGenerator.make(seed: seed, level: level, avoidingItem: nil)
+                expectTrue((CountVehiclesGenerator.countRange(level)).contains(countQ.correctCount))
+                expectEqual(countQ.vehicleAssetIDs.count, countQ.correctCount)
+                let findQ = FindTheSameGenerator.make(seed: seed, level: level, avoidingItem: nil)
+                expectTrue(findQ.hasExactlyOneMatch)
+                // Avoid path: re-roll stays bounded even when forced to skip the first item.
+                let avoidedCount = CountVehiclesGenerator.make(
+                    seed: seed, level: level, avoidingItem: countQ.itemID)
+                expectTrue(!avoidedCount.itemID.isEmpty)
+                let avoidedFind = FindTheSameGenerator.make(
+                    seed: seed, level: level, avoidingItem: findQ.itemID)
+                expectTrue(!avoidedFind.itemID.isEmpty)
+            }
+        }
+        // Unbiased below() never hangs for common bounds used by the generators.
+        var rng = QuestionRNG(seed: "term", salt: "below")
+        for bound in [1, 2, 3, 10, HeroVehicle.allCases.count, 100, 2_001] {
+            for _ in 0..<200 {
+                let value = rng.below(bound)
+                expectTrue((0..<bound).contains(value))
+            }
+        }
+    }
 }

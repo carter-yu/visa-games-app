@@ -472,13 +472,15 @@ struct TestRunner {
         try generator.testVariantsMarkerIsFoundAndOtherMarkersAreNot()
         generator.testRollupKeepsFixedAndVariantRoundsApart()
         try generator.testAppDealsByStarLevelAndDrawsVariantsSourceGuard()
+        generator.testGeneratorsTerminateForEveryTierAndSeed()
 
         let isolation = ActorIsolationTests()
         try isolation.testPackageDisablesDynamicActorIsolationForTheAppTargetOnly()
         try isolation.testAppSourcesHaveNoUnownedOrAssumeIsolated()
         try isolation.testShellViewPassesExplicitClosuresNotModelMethodReferences()
         try isolation.testRecorderContextTimerAndRecorderStayOnMain()
+        try isolation.testParentCornerLayerDoesNotHostFullScreenCanvasStage()
 
-        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 8 provider-blocked + 2 save-failure + 20 question-generator + 4 actor-isolation checks")
+        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation checks")
     }
 }

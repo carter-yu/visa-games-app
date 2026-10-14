@@ -117,7 +117,7 @@ public enum QuestionGeneration {
     /// Kinds whose questions come from a generator in this version.
     public static let generatedKinds: [ActivityKind] = [.countVehicles, .findTheSame]
 
-    static let maxRerolls = 8
+    public static let maxRerolls = 8
 
     public static func isGenerated(_ kind: ActivityKind) -> Bool {
         generatedKinds.contains(kind)
