@@ -25,6 +25,13 @@ struct CanvasActivityHost: View {
     private var choiceDealSeed: String {
         usingPlaytest ? model.playtestChoiceDealSeed : model.choiceDealSeed
     }
+    /// Generated questions: the playtest has its own copies (never the child round's).
+    private var findSameQuestion: FindSameQuestion {
+        usingPlaytest ? model.currentPlaytestFindSameQuestion : model.currentFindSameQuestion
+    }
+    private var countQuestion: CountQuestion {
+        usingPlaytest ? model.currentPlaytestCountQuestion : model.currentCountQuestion
+    }
     private var sequenceHint: String? {
         usingPlaytest ? model.playtestSequenceHintAssetID : model.sequenceHintAssetID
     }
@@ -113,7 +120,7 @@ struct CanvasActivityHost: View {
     }
 
     private var findSame: some View {
-        let q = model.currentFindSameQuestion
+        let q = findSameQuestion
         let options = q.presentedOptions(seed: choiceDealSeed)
         return board(promptZH: q.promptTraditionalChinese, promptEN: q.promptEnglish,
                      hintID: q.correctOptionID, choiceCount: options.count) {
@@ -131,17 +138,15 @@ struct CanvasActivityHost: View {
     }
 
     private var countVehicles: some View {
-        let q = model.currentCountQuestion
+        let q = countQuestion
         let counts = q.presentedChoiceCounts(seed: choiceDealSeed)
         let hintID = "count-\(q.correctCount)"
         return board(promptZH: q.promptTraditionalChinese, promptEN: q.promptEnglish,
-                     hintID: hintID, choiceCount: counts.count) {
+                     hintID: hintID, choiceCount: counts.count,
+                     stimulusSize: q.variant == nil ? ActivityBoardLayout.standardStimulus
+                                                    : ActivityBoardLayout.countStimulus) {
             StimulusPanel {
-                HStack(spacing: 8) {
-                    ForEach(Array(q.vehicleAssetIDs.enumerated()), id: \.offset) { _, assetID in
-                        ActivityAssetView(assetID: assetID, mood: .calm)
-                    }
-                }
+                CountStimulusView(question: q)
             }
         } choices: {
             // Discrete numeral buttons, not a 1–5 number line, so the slots shuffle.
@@ -336,6 +341,7 @@ struct CanvasActivityHost: View {
         promptEN: String,
         hintID: String,
         choiceCount: Int,
+        stimulusSize: CGSize = ActivityBoardLayout.standardStimulus,
         @ViewBuilder stimulus: @escaping () -> S,
         @ViewBuilder choices: @escaping () -> C
     ) -> some View {
@@ -353,6 +359,7 @@ struct CanvasActivityHost: View {
             fuelFeedback: fuelFeedback,
             choicesLocked: choicesAreLocked,
             onSpeak: speakPrompt,
+            stimulusSize: stimulusSize,
             stimulus: stimulus,
             choices: choices
         )

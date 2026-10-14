@@ -2,7 +2,9 @@ import Foundation
 
 /// Which mission tickets (★1 / ★2 / ★3) may deal each built activity.
 ///
-/// Stars are visa length, not a harder question. A kind may be on several stars.
+/// Stars are visa length. Since v0.22.0 (D1, ADR 0009) they are also the question tier for
+/// generated kinds (`QuestionGeneration.generatedKinds`): ★ = L1, ★★ = L2, ★★★ = L3.
+/// A kind may be on several stars.
 /// The last on-kind for a star cannot be turned off — the child ticket must always
 /// have a deal. A kind with every star off stays in the parent catalog (playtest)
 /// but is omitted from that star's pool.

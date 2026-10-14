@@ -34,6 +34,13 @@ final class AppModel: ObservableObject {
     @Published private(set) var playtestSequenceTaps: [String] = []
     /// New UUID each playtest. Choice order is a function of this, not the catalog id.
     @Published private(set) var playtestChoiceDealSeed = ""
+    /// v0.22.0: question tier of this playtest. Each 試玩 of a kind walks L1 → L2 → L3
+    /// (memory only), so a parent can review every tier without a ticket.
+    @Published private(set) var playtestLevel: ActivityLevel = .l1
+    private var playtestNextLevel: [ActivityKind: ActivityLevel] = [:]
+    /// Playtest copies of the generated questions. Never the child round's questions.
+    private var playtestFindSameQuestion = ActivityCatalog.findSameQuestion()
+    private var playtestCountQuestion = ActivityCatalog.countQuestion()
     private var playtestThinkEndsAt: Date?
     var isParentPlaytest: Bool { playtestKind != nil && session.mode == .parent }
     var playtestChoicesLocked: Bool { playtestThinkEndsAt != nil || playtestCompleted }
@@ -120,6 +127,8 @@ final class AppModel: ObservableObject {
     private var twoPictureQuestion = ActivityCatalog.twoPictureQuestion()
     private var findSameQuestion = ActivityCatalog.findSameQuestion()
     private var countQuestion = ActivityCatalog.countQuestion()
+    /// v0.22.0: last generated item per kind (memory only). The next deal of that kind avoids it.
+    private var lastDealtItem: [ActivityKind: String] = [:]
     private var sequenceQuestion = ActivityCatalog.sequenceQuestion()
     private var halfMatchQuestion = ActivityCatalog.halfMatchQuestion()
     private var shapeCousinQuestion = ActivityCatalog.shapeCousinQuestion()
@@ -689,6 +698,8 @@ final class AppModel: ObservableObject {
     var currentTwoPictureQuestion: TwoPictureQuestion { twoPictureQuestion }
     var currentFindSameQuestion: FindSameQuestion { findSameQuestion }
     var currentCountQuestion: CountQuestion { countQuestion }
+    var currentPlaytestFindSameQuestion: FindSameQuestion { playtestFindSameQuestion }
+    var currentPlaytestCountQuestion: CountQuestion { playtestCountQuestion }
     var currentSequenceQuestion: SequenceQuestion { sequenceQuestion }
     var currentHalfMatchQuestion: HalfMatchQuestion { halfMatchQuestion }
     var currentShapeCousinQuestion: ShapeCousinQuestion { shapeCousinQuestion }
@@ -709,10 +720,13 @@ final class AppModel: ObservableObject {
         let pool = gameAssignment.pool(for: difficulty)
         let kind = ActivityCatalog.kind(forRoundSeed: seed, pool: pool)
         activeActivityKind = kind
-        // Refresh catalog payloads each round (stable templates today; seam for future variants).
+        // D1 (v0.22.0): the ticket's stars are also the question tier for generated kinds.
+        let level = ActivityLevel(difficulty)
         twoPictureQuestion = ActivityCatalog.twoPictureQuestion()
-        findSameQuestion = ActivityCatalog.findSameQuestion()
-        countQuestion = ActivityCatalog.countQuestion()
+        findSameQuestion = ActivityCatalog.findSameQuestion(
+            seed: seed, level: level, avoidingItem: lastDealtItem[.findTheSame])
+        countQuestion = ActivityCatalog.countQuestion(
+            seed: seed, level: level, avoidingItem: lastDealtItem[.countVehicles])
         sequenceQuestion = ActivityCatalog.sequenceQuestion()
         halfMatchQuestion = ActivityCatalog.halfMatchQuestion()
         shapeCousinQuestion = ActivityCatalog.shapeCousinQuestion()
@@ -727,8 +741,11 @@ final class AppModel: ObservableObject {
         fuelFeedbackMessage = nil
         clearThinkPause()
         taskRoundOpen = true
-        perf.roundDealt(round: seed, kind: kind, stars: stars, pendingStart: difficulty.minutes, pool: pool)
-        VisaGamesLog.append("selectDifficulty — 選擇難度 stars=\(stars) kind=\(kind.rawValue) seed=\(seed) pendingMin=\(pendingAwardMinutes) pool=\(pool.count)")
+        let facts = dealFacts(kind: kind, seed: seed, findSame: findSameQuestion, count: countQuestion)
+        if QuestionGeneration.isGenerated(kind) { lastDealtItem[kind] = facts.item }
+        perf.roundDealt(round: seed, kind: kind, stars: stars, pendingStart: difficulty.minutes, pool: pool,
+                        facts: facts)
+        VisaGamesLog.append("selectDifficulty — 選擇難度 stars=\(stars) kind=\(kind.rawValue) level=\(level.code) item=\(facts.item) seed=\(seed) pendingMin=\(pendingAwardMinutes) pool=\(pool.count)")
     }
 
     private func resetTaskRound() {
@@ -760,7 +777,26 @@ final class AppModel: ObservableObject {
         guard session.mode == .lock, taskRoundOpen, let kind = activeActivityKind else { return }
         guard !choicesLocked else { return }
         entryHintUsed = true
-        entryRetryMessage = ActivityCatalog.hintTraditionalChinese(for: kind)
+        entryRetryMessage = hintText(for: kind, findSame: findSameQuestion, count: countQuestion)
+    }
+
+    /// Generated questions carry their own hint (it names the vehicle / the detail to check).
+    private func hintText(for kind: ActivityKind, findSame: FindSameQuestion, count: CountQuestion) -> String {
+        switch kind {
+        case .findTheSame: return findSame.hintTraditionalChinese
+        case .countVehicles: return count.hintTraditionalChinese
+        default: return ActivityCatalog.hintTraditionalChinese(for: kind)
+        }
+    }
+
+    /// Performance facts of the question actually dealt (item, slots, gen, level, tags).
+    private func dealFacts(kind: ActivityKind, seed: String, findSame: FindSameQuestion,
+                           count: CountQuestion) -> PerfDealFacts {
+        switch kind {
+        case .findTheSame: return PerfChoiceCatalog.facts(findSame: findSame, seed: seed)
+        case .countVehicles: return PerfChoiceCatalog.facts(count: count, seed: seed)
+        default: return PerfChoiceCatalog.facts(kind: kind, seed: seed)
+        }
     }
 
     func speakEntryPrompt() {
@@ -1886,9 +1922,17 @@ final class AppModel: ObservableObject {
         playtestFuelMessage = nil
         playtestSequenceTaps = []
         playtestChoiceDealSeed = UUID().uuidString
+        let level = playtestNextLevel[kind] ?? .l1
+        playtestNextLevel[kind] = level.cycled
+        playtestLevel = level
+        playtestFindSameQuestion = ActivityCatalog.findSameQuestion(seed: playtestChoiceDealSeed, level: level)
+        playtestCountQuestion = ActivityCatalog.countQuestion(seed: playtestChoiceDealSeed, level: level)
         clearPlaytestThinkPause()
-        perf.playtestStarted(round: playtestChoiceDealSeed, kind: kind, pendingStart: playtestStartingMinutes)
-        VisaGamesLog.append("playtest start — 試玩 kind=\(kind.rawValue) mode=parent visa=false")
+        let facts = dealFacts(kind: kind, seed: playtestChoiceDealSeed,
+                              findSame: playtestFindSameQuestion, count: playtestCountQuestion)
+        perf.playtestStarted(round: playtestChoiceDealSeed, kind: kind, pendingStart: playtestStartingMinutes,
+                             facts: facts)
+        VisaGamesLog.append("playtest start — 試玩 kind=\(kind.rawValue) level=\(level.code) item=\(facts.item) mode=parent visa=false")
     }
 
     /// 返回家長. Mode stays `.parent` until the settings bar Return / auto-lock says otherwise.
@@ -1907,11 +1951,11 @@ final class AppModel: ObservableObject {
             zh = twoPictureQuestion.promptTraditionalChinese
             en = twoPictureQuestion.promptEnglish
         case .findTheSame:
-            zh = findSameQuestion.promptTraditionalChinese
-            en = findSameQuestion.promptEnglish
+            zh = playtestFindSameQuestion.promptTraditionalChinese
+            en = playtestFindSameQuestion.promptEnglish
         case .countVehicles:
-            zh = countQuestion.promptTraditionalChinese
-            en = countQuestion.promptEnglish
+            zh = playtestCountQuestion.promptTraditionalChinese
+            en = playtestCountQuestion.promptEnglish
         case .sequenceShortToLong:
             zh = sequenceQuestion.promptTraditionalChinese
             en = sequenceQuestion.promptEnglish
@@ -1954,7 +1998,7 @@ final class AppModel: ObservableObject {
     func playtestSelectFindSame(id: String) {
         guard isParentPlaytest, playtestKind == .findTheSame, !playtestChoicesLocked else { return }
         let evaluation = activityEvaluator.evaluate(
-            question: findSameQuestion,
+            question: playtestFindSameQuestion,
             selectedOptionID: id,
             hintUsed: playtestHintUsed
         )
@@ -1964,7 +2008,7 @@ final class AppModel: ObservableObject {
     func playtestSelectCount(_ count: Int) {
         guard isParentPlaytest, playtestKind == .countVehicles, !playtestChoicesLocked else { return }
         let evaluation = activityEvaluator.evaluate(
-            question: countQuestion,
+            question: playtestCountQuestion,
             selectedCount: count,
             hintUsed: playtestHintUsed
         )

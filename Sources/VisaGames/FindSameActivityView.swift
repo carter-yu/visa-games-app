@@ -32,11 +32,10 @@ struct FindSameActivityView: View {
                     .fill(Color.white.opacity(0.55))
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .stroke(yellow, lineWidth: 5)
-                if let kind = SilhouetteAsset.kind(for: question.targetAssetID) {
-                    FriendlyVehicleView(kind: kind, mood: .calm, role: .hero)
-                        .padding(.horizontal, 36)
-                        .padding(.vertical, 22)
-                }
+                // v0.22.0: variant looks (flipped / sticker) resolve through ActivityAssetView.
+                ActivityAssetView(assetID: question.targetAssetID, mood: .calm)
+                    .padding(.horizontal, 36)
+                    .padding(.vertical, 22)
             }
             .frame(minWidth: 380, minHeight: 150)
             .shadow(color: Color.black.opacity(0.1), radius: 6, y: 3)
@@ -53,11 +52,9 @@ struct FindSameActivityView: View {
                                     .fill(Color.white.opacity(0.55))
                                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                                     .stroke(Color(red: 0.45, green: 0.28, blue: 0.14), lineWidth: 4)
-                                if let kind = SilhouetteAsset.kind(for: option.assetID) {
-                                    FriendlyVehicleView(kind: kind, mood: .happy, role: .hero)
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 22)
-                                }
+                                ActivityAssetView(assetID: option.assetID, mood: .happy)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 22)
                             }
                             .frame(minWidth: 220, minHeight: 170)
                             .contentShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
