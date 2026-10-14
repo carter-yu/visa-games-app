@@ -151,7 +151,7 @@ private struct ParentGameArtWell: View {
             HalfVehicleClip(assetID: asset, side: .left, mood: .happy)
         } else if kind == .shadowMatch, let asset = kind.parentHeroAssetIDs.first {
             ActivityAssetView(assetID: asset, mood: .calm, asShadow: true)
-        } else if kind == .lineMatch {
+        } else if kind.isLineMatchFamily {
             // 連一連: picture → word, the mini truck on a yellow line.
             HStack(spacing: 6) {
                 VectorArtView(artwork: LineMatchArt.eye)

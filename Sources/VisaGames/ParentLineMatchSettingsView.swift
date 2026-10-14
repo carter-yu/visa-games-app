@@ -1,9 +1,10 @@
 import SwiftUI
 import VisaCore
 
-/// 家長 → 遊戲 → 連一連設定 (v0.23.0, design §1.7 / §6): line tolerance 窄 / 標準 / 闊 and the
+/// 家長 → 遊戲 → 連一連設定 (v0.23.0 / v0.24.1): line tolerance 窄 / 標準 / 闊 and the
 /// category weights (0–100 in steps of 5; 0 = never; the last category cannot be turned off;
-/// 還原預設). Plain stacks and buttons only — no text input, no grids, no animation.
+/// 還原預設). Shared by 沿路送 / 沿路過橋 / 自己配. Plain stacks and buttons only — no text
+/// input, no grids, no animation.
 struct ParentLineMatchSettingsView: View {
     let settings: LineMatchSettings
     let banner: String?
@@ -19,7 +20,7 @@ struct ParentLineMatchSettingsView: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 0) {
                     ParentLabel("連一連設定", size: 20, weight: 900)
-                    ParentLabel("Line Match settings · 新遊戲預設唔會出，要喺上面開星級 / off until a star is on",
+                    ParentLabel("Line Match settings · 三個遊戲共用；每個要喺上面開星級 / shared by the three cards; each off until a star is on",
                                 size: 12, weight: 700, color: .inkSoft)
                 }
             }
@@ -33,7 +34,7 @@ struct ParentLineMatchSettingsView: View {
                         toleranceButton(tolerance)
                     }
                 }
-                ParentLabel("判定範圍：點附近 \(Int(settings.tolerance.dotRadius))u（畫出嚟嘅點唔變） / Hit radius around each dot",
+                ParentLabel("判定範圍：點附近 \(Int(settings.tolerance.dotRadius))u；引導路面 ×\(String(format: "%.1f", settings.tolerance.roadWidthFactor))（畫出嚟嘅點同路唔變） / Hit radius around each dot; guided road corridor",
                             size: 12, weight: 600, color: .inkSoft)
             }
             VStack(alignment: .leading, spacing: 8) {
@@ -53,7 +54,7 @@ struct ParentLineMatchSettingsView: View {
                 ForEach(LineMatchCategory.allCases, id: \.self) { category in
                     weightRow(category)
                 }
-                ParentLabel("★ 唔出十二生肖。0 = 唔出。 / ★ never deals the zodiac. 0 = never.",
+                ParentLabel("★ 唔出十二生肖。0 = 唔出。沿路送用 ★ 題庫；沿路過橋用 ★★ 題庫。 / ★ never deals the zodiac. 0 = never. Straight uses ★ items; bridge uses ★★.",
                             size: 12, weight: 600, color: .inkSoft)
             }
         }

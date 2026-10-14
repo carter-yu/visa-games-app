@@ -13,7 +13,7 @@ import Foundation
 /// `Snapshot`. `AppModel.resetStorage` must not clear this map. Missing store,
 /// corrupt JSON, or an empty on-set for a star → the default-on kinds (today's deal).
 /// A kind the store has never seen joins all three stars (opt-out), except the D7
-/// default-off kinds (`ActivityCatalog.defaultOffKinds`, v0.23.0 連一連), which join no star
+/// default-off kinds (`ActivityCatalog.defaultOffKinds`, v0.24.1 連一連 three cards), which join no star
 /// until a parent turns one on.
 public struct MissionGameAssignment: Equatable, Sendable {
     /// Stars that are ON. A missing key means "never stored" → all stars on.

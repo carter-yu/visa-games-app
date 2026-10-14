@@ -4,7 +4,7 @@ import VisaCore
 final class MissionGameAssignmentTests {
     func testDefaultsAllStarsOn() {
         let assignment = MissionGameAssignment.defaults
-        expectEqual(ActivityCatalog.playableKinds.count, 11)
+        expectEqual(ActivityCatalog.playableKinds.count, 13)
         for kind in ActivityCatalog.defaultOnKinds {
             for star in ChildDifficulty.allCases {
                 expectTrue(assignment.isEnabled(kind, star: star))
@@ -13,6 +13,8 @@ final class MissionGameAssignmentTests {
         }
         // D7: 連一連 starts off every ticket (playtest only) until a parent turns a star on.
         expectTrue(assignment.isHiddenFromMissions(.lineMatch))
+        expectTrue(assignment.isHiddenFromMissions(.lineMatchGuidedStraight))
+        expectTrue(assignment.isHiddenFromMissions(.lineMatchGuidedBridge))
         for star in ChildDifficulty.allCases {
             expectEqual(assignment.pool(for: star), ActivityCatalog.defaultOnKinds)
         }
@@ -132,7 +134,7 @@ final class MissionGameAssignmentTests {
     }
 
     func testParentCardNamesAreTraditionalAndUnbuiltAreNotKinds() {
-        expectEqual(ActivityKind.allCases.count, 11)
+        expectEqual(ActivityKind.allCases.count, 13)
         expectEqual(ActivityKind.twoPictureChoose.parentCardTitle, "邊架消防車")
         expectEqual(ActivityKind.findTheSame.parentShortLabel, "搵相同")
         expectEqual(ActivityKind.emptyBay.parentCardEnglish, "Empty parking bay")

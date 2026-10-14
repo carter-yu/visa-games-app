@@ -18,6 +18,26 @@ public enum LineMatchTolerance: String, CaseIterable, Sendable, Codable, Hashabl
         }
     }
 
+    /// Guided roads (design §1.7 路面判定闊度): the judged corridor is the drawn road width
+    /// times this. The road itself is drawn the same at every setting.
+    public var roadWidthFactor: Double {
+        switch self {
+        case .narrow: return 1.0
+        case .standard: return 1.5
+        case .wide: return 2.2
+        }
+    }
+
+    /// Guided roads (design §1.7 「到咗終點」誤差): a road counts as driven once the truck is
+    /// this close to the red dot (or past 97% of the road, whichever comes first).
+    public var arrivalSlack: Double {
+        switch self {
+        case .narrow: return 30
+        case .standard: return 50
+        case .wide: return 80
+        }
+    }
+
     public var labelTraditionalChinese: String {
         switch self {
         case .narrow: return "窄"
@@ -35,8 +55,10 @@ public enum LineMatchTolerance: String, CaseIterable, Sendable, Codable, Hashabl
     }
 }
 
-/// 連一連 parent settings: hit tolerance and category weights. UserDefaults, not the reward
-/// snapshot. Weights are relative (0–100 in steps of 5); 0 = never dealt; at least one stays > 0.
+/// 連一連 parent settings: hit tolerance and category weights, shared by the three 連一連
+/// cards (v0.24.1). UserDefaults, not the reward snapshot. Weights are relative (0–100 in
+/// steps of 5); 0 = never dealt; at least one stays > 0. Guided vs free is which ActivityKind
+/// is dealt, not a settings toggle.
 public struct LineMatchSettings: Equatable, Sendable {
     public static let weightStep = 5
     public static let maxWeight = 100
@@ -131,9 +153,13 @@ public struct LineMatchSettingsStore {
     private struct Payload: Codable {
         var tolerance: String?
         var weights: [String: Int]?
+        /// v0.24.0 toggle; ignored since v0.24.1 (guided is its own ActivityKind). Kept so old
+        /// stores still decode.
+        var guided: Bool?
 
         init(settings: LineMatchSettings) {
             tolerance = settings.tolerance.rawValue
+            guided = nil
             var map: [String: Int] = [:]
             for category in LineMatchCategory.allCases { map[category.rawValue] = settings.weight(category) }
             weights = map
@@ -193,10 +219,14 @@ public struct LineMatchQuestion: Sendable, Equatable, Codable {
     public var promptTraditionalChinese: String
     public var promptEnglish: String
     public var hintTraditionalChinese: String
+    /// v0.24.0 guided roads (★ / ★★): road colours and the bridge. Nil = free match.
+    /// Guided boards show the word on the LEFT and the picture on the RIGHT (school worksheet),
+    /// so `pairs` / `rightOrder` keep their meaning: left row `i` → the slot showing `pairs[i]`.
+    public var guided: LineMatchGuidedPlan?
 
     public init(level: ActivityLevel, category: LineMatchCategory, countObject: LineMatchCountObject?,
                 pairs: [LineMatchPair], rightOrder: [Int], itemID: String, promptTraditionalChinese: String,
-                promptEnglish: String, hintTraditionalChinese: String) {
+                promptEnglish: String, hintTraditionalChinese: String, guided: LineMatchGuidedPlan? = nil) {
         self.level = level
         self.category = category
         self.countObject = countObject
@@ -206,7 +236,11 @@ public struct LineMatchQuestion: Sendable, Equatable, Codable {
         self.promptTraditionalChinese = promptTraditionalChinese
         self.promptEnglish = promptEnglish
         self.hintTraditionalChinese = hintTraditionalChinese
+        self.guided = guided
     }
+
+    public var mode: LineMatchMode { guided == nil ? .free : .guided }
+    public var isGuided: Bool { guided != nil }
 
     public var completionID: String { itemID }
     public var pairCount: Int { pairs.count }
@@ -236,8 +270,15 @@ public struct LineMatchQuestion: Sendable, Equatable, Codable {
         guard n == LineMatchGenerator.pairCount(level), !itemID.isEmpty else { return false }
         guard Set(pairs.map(\.key)).count == n else { return false }
         guard rightOrder.count == n, Set(rightOrder) == Set(0..<n) else { return false }
-        // Design §6: no pair is straight across.
-        guard rightOrder.indices.allSatisfy({ rightOrder[$0] != $0 }) else { return false }
+        if let guided {
+            // Guided (design "Guided level"): ★ straight same-row roads; ★★ staggered picture
+            // column with exactly one crossing. Never ★★★.
+            guard LineMatchMode.isGuidedLevel(level), guided.isWellFormed(rightOrder: rightOrder, level: level)
+            else { return false }
+        } else {
+            // Design §6: no pair is straight across.
+            guard rightOrder.indices.allSatisfy({ rightOrder[$0] != $0 }) else { return false }
+        }
         guard pairs.allSatisfy({ !$0.iconKey.isEmpty && !$0.labelTraditionalChinese.isEmpty
                                  && !$0.labelEnglish.isEmpty && $0.count >= 1 }) else { return false }
         guard category.isDealt(at: level) else { return false }
@@ -297,6 +338,18 @@ public enum LineMatchGenerator: ActivityQuestionGenerator {
         avoiding(seed: seed, avoidingItem: avoidingItem) { build(seed: $0, level: level, settings: settings) }
     }
 
+    /// `mode` picks free matching or guided roads. Guided is only dealt at ★ / ★★; asking for
+    /// it at ★★★ deals free match (the ★★★ level is always free).
+    public static func make(seed: String, level: ActivityLevel, avoidingItem: String?,
+                            settings: LineMatchSettings, mode: LineMatchMode) -> LineMatchQuestion {
+        guard mode == .guided, LineMatchMode.isGuidedLevel(level) else {
+            return make(seed: seed, level: level, avoidingItem: avoidingItem, settings: settings)
+        }
+        return avoiding(seed: seed, avoidingItem: avoidingItem) {
+            buildGuided(seed: $0, level: level, settings: settings)
+        }
+    }
+
     public static func itemID(of question: LineMatchQuestion) -> String { question.itemID }
 
     /// The fixed reference item behind `PerfChoiceCatalog`'s per-kind facts (never dealt).
@@ -323,29 +376,7 @@ public enum LineMatchGenerator: ActivityQuestionGenerator {
 
     static func build(seed: String, level: ActivityLevel, settings: LineMatchSettings) -> LineMatchQuestion {
         var rng = QuestionRNG(seed: seed, salt: "gen.lineMatch.\(level.code)")
-        var category = drawCategory(level: level, settings: settings, rng: &rng)
-        if category != .numbers, wordSets(category, level: level).isEmpty { category = .numbers }
-        let pairs: [LineMatchPair]
-        var object: LineMatchCountObject?
-        switch category {
-        case .numbers:
-            let set = rng.pick(numberSets(level))
-            let chosen = rng.shuffled(set)
-            let counted = rng.pick(LineMatchCountObject.allCases)
-            object = counted
-            pairs = chosen.map { n in
-                LineMatchPair(key: "n\(n)", iconKey: counted.iconKey, count: n,
-                              labelTraditionalChinese: LineMatchCatalog.chineseNumeral(n),
-                              labelEnglish: LineMatchCatalog.englishNumber(n), numeral: n)
-            }
-        default:
-            let set = rng.pick(wordSets(category, level: level))
-            let chosen = rng.shuffled(set)
-            pairs = chosen.map { item in
-                LineMatchPair(key: item.id, iconKey: item.iconKey, count: 1,
-                              labelTraditionalChinese: item.labelTraditionalChinese, labelEnglish: item.labelEnglish)
-            }
-        }
+        let (category, pairs, object) = drawPairs(level: level, settings: settings, rng: &rng)
         let order = derangement(count: pairs.count, rng: &rng)
         var idParts = ["lineMatch", level.code, category.rawValue]
         if let object { idParts.append(object.rawValue) }
@@ -364,6 +395,66 @@ public enum LineMatchGenerator: ActivityQuestionGenerator {
             level: level, category: category, countObject: object, pairs: pairs, rightOrder: order,
             itemID: idParts.joined(separator: "."), promptTraditionalChinese: prompt.zh,
             promptEnglish: prompt.en, hintTraditionalChinese: prompt.hint
+        )
+    }
+
+    /// Category → item set → shuffled left order → count object (numbers). Shared by free and
+    /// guided deals. The draw order is the v0.23.0 one, so free questions are unchanged.
+    static func drawPairs(level: ActivityLevel, settings: LineMatchSettings, rng: inout QuestionRNG)
+        -> (category: LineMatchCategory, pairs: [LineMatchPair], object: LineMatchCountObject?) {
+        var category = drawCategory(level: level, settings: settings, rng: &rng)
+        if category != .numbers, wordSets(category, level: level).isEmpty { category = .numbers }
+        switch category {
+        case .numbers:
+            let set = rng.pick(numberSets(level))
+            let chosen = rng.shuffled(set)
+            let counted = rng.pick(LineMatchCountObject.allCases)
+            let pairs = chosen.map { n in
+                LineMatchPair(key: "n\(n)", iconKey: counted.iconKey, count: n,
+                              labelTraditionalChinese: LineMatchCatalog.chineseNumeral(n),
+                              labelEnglish: LineMatchCatalog.englishNumber(n), numeral: n)
+            }
+            return (category, pairs, counted)
+        default:
+            let set = rng.pick(wordSets(category, level: level))
+            let chosen = rng.shuffled(set)
+            let pairs = chosen.map { item in
+                LineMatchPair(key: item.id, iconKey: item.iconKey, count: 1,
+                              labelTraditionalChinese: item.labelTraditionalChinese, labelEnglish: item.labelEnglish)
+            }
+            return (category, pairs, nil)
+        }
+    }
+
+    /// Guided roads (design "Guided level"): same category weights, items and confusion rules
+    /// as free match; ★ joins each word to the picture on its own row, ★★ picks one of the
+    /// right-column orders with exactly one crossing (the picture column sits half a row lower,
+    /// so no pair shares a row). Road colours and the bridge come from the seed.
+    /// Item id: `lineMatch.G1.body.eye-hand`, `lineMatch.G2.numbers.chick.4-2-5.p213`.
+    static func buildGuided(seed: String, level: ActivityLevel, settings: LineMatchSettings) -> LineMatchQuestion {
+        var rng = QuestionRNG(seed: seed, salt: "gen.lineMatch.guided.\(level.code)")
+        let (category, pairs, object) = drawPairs(level: level, settings: settings, rng: &rng)
+        let n = pairs.count
+        let order: [Int]
+        switch LineMatchGuidedLayout.style(for: level) {
+        case .straight: order = Array(0..<n)
+        case .staggered: order = rng.pick(LineMatchGuidedGeometry.singleCrossingOrders(count: n))
+        }
+        let colors = rng.sample(Array(LineMatchRoadPalette.roads.indices), count: n)
+        var bridgeOverRow: Int?
+        if let crossing = LineMatchGuidedGeometry.invertedRows(rightOrder: order).first {
+            bridgeOverRow = rng.below(2) == 0 ? crossing.upper : crossing.lower
+        }
+        var idParts = ["lineMatch", LineMatchMode.guidedCode(level), category.rawValue]
+        if let object { idParts.append(object.rawValue) }
+        idParts.append(pairs.map { pair in pair.numeral.map { "\($0)" } ?? pair.key }.joined(separator: "-"))
+        if order != Array(0..<n) { idParts.append("p" + order.map { "\($0 + 1)" }.joined()) }
+        let prompt = LineMatchGuidedCopy.prompt(object: object)
+        return LineMatchQuestion(
+            level: level, category: category, countObject: object, pairs: pairs, rightOrder: order,
+            itemID: idParts.joined(separator: "."), promptTraditionalChinese: prompt.zh,
+            promptEnglish: prompt.en, hintTraditionalChinese: LineMatchGuidedCopy.hint,
+            guided: LineMatchGuidedPlan(colorIndices: colors, bridgeOverRow: bridgeOverRow)
         )
     }
 

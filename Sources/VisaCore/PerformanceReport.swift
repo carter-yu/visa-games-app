@@ -55,9 +55,11 @@ public struct PerfGameRow: Sendable, Equatable, Identifiable {
     public var lastPlayed: Date?
     public var topWrongTag: String?
     public var topWrongTagShare: Double?
+    /// v0.24.0 guided 連一連 rounds in the window (「引導練習：N 次」). Never in the counts above.
+    public var guidedPractice = 0
 
     public var firstTryRate: Double? { answered > 0 ? Double(firstTry) / Double(answered) : nil }
-    public var hasAnyRounds: Bool { evidence.rounds > 0 || deals > 0 }
+    public var hasAnyRounds: Bool { evidence.rounds > 0 || deals > 0 || guidedPractice > 0 }
 }
 
 public struct PerfVideoRow: Sendable, Equatable, Identifiable {
@@ -218,6 +220,7 @@ public enum PerfReportBuilder {
             var lastPlayed: Date?
             var wrongTags: [String: Int] = [:]
             var wrongAttempts = 0
+            var guidedPractice = 0
         }
         var acc: [ActivityKind: Acc] = [:]
         var results: [String: PerfEvent] = [:]
@@ -232,8 +235,14 @@ public enum PerfReportBuilder {
                 guard PerfFilter.countable(event, excludedSessions: excluded),
                       let kind = event.string("kind").flatMap(ActivityKind.init(rawValue:)) else { continue }
                 let round = event.string("round") ?? ""
-                roundKind[round] = kind
                 let age = clock.age(event.timestamp)
+                // v0.24.0: guided rounds are practice exposure only — no evidence, no deal or
+                // star counts, no dots, and (no `roundKind`) none of their attempts count.
+                if PerfQuestionGeneration.isPracticeOnly(event) {
+                    if window.contains(ageDays: age) { acc[kind, default: Acc()].guidedPractice += 1 }
+                    continue
+                }
+                roundKind[round] = kind
                 let result = results[round]
                 let answered = (result?.int("answers") ?? 0) > 0
                 let firstTry = result?.bool("first_try") == true
@@ -302,6 +311,11 @@ public enum PerfReportBuilder {
                 guard let first = parts.first, let kind = ActivityKind(rawValue: String(first)) else { continue }
                 let star = min(max(parts.count > 1 ? Int(parts[1]) ?? 1 : 1, 1), 3) - 1
                 var a = acc[kind] ?? Acc()
+                if PerfQuestionGeneration.isGuidedRollupKey(key) {
+                    if window.contains(ageDays: age) { a.guidedPractice += stats.deals }
+                    acc[kind] = a
+                    continue
+                }
                 a.evidence.add(ageDays: Double(age), firstTry: true, count: stats.firstTry)
                 a.evidence.add(ageDays: Double(age), firstTry: false, count: max(0, stats.answered - stats.firstTry))
                 for _ in 0..<min(stats.firstTry, 50) where age < 14 { a.trend.append((age, true)) }
@@ -349,6 +363,7 @@ public enum PerfReportBuilder {
             row.medianActiveSeconds = median(a.active)
             row.medianFirstTapSeconds = median(a.firstTap)
             row.lastPlayed = a.lastPlayed
+            row.guidedPractice = a.guidedPractice
             if let top = a.wrongTags.max(by: { ($0.value, $1.key) < ($1.value, $0.key) }), a.wrongAttempts > 0 {
                 row.topWrongTag = top.key
                 row.topWrongTagShare = Double(top.value) / Double(a.wrongAttempts)

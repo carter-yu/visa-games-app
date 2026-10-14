@@ -28,7 +28,8 @@ final class QuestionGeneratorTests {
         expectEqual([ActivityLevel.l1.cycled, ActivityLevel.l2.cycled, ActivityLevel.l3.cycled], [.l2, .l3, .l1])
         // Visa length per star is unchanged.
         expectEqual(ChildDifficulty.allCases.map(\.minutes), [5, 10, 15])
-        expectEqual(QuestionGeneration.generatedKinds, [.countVehicles, .findTheSame, .lineMatch])
+        expectEqual(QuestionGeneration.generatedKinds,
+                    [.countVehicles, .findTheSame, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch])
     }
 
     func testQuestionRNGIsDeterministicAndUniform() {

@@ -2,7 +2,7 @@ import SwiftUI
 import VisaCore
 
 /// Routes all 11 activity kinds into the board-2 shell with text-free choice cards
-/// (連一連 uses its own drag board, `LineMatchBoardView`).
+/// (連一連 uses its own drag boards, `LineMatchBoardView` and `LineMatchGuidedBoardView`).
 struct CanvasActivityHost: View {
     @ObservedObject var model: AppModel
 
@@ -94,7 +94,7 @@ struct CanvasActivityHost: View {
                 shadowMatch
             case .emptyBay:
                 emptyBay
-            case .lineMatch:
+            case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
                 lineMatch
             case .none:
                 EmptyView()
@@ -337,9 +337,30 @@ struct CanvasActivityHost: View {
         }
     }
 
-    /// v0.23.0 連一連: drag lines, 擦晒 / 完成. Rules in `VisaCore.LineMatchBoard`; the child
+    /// v0.23.0 / v0.24.1 連一連 family: free drag (自己配) or guided roads (沿路送 / 沿路過橋).
     /// round and the parent playtest each have their own board on the model.
+    /// Guided kinds show `LineMatchGuidedBoard`; free match shows the drag board.
+    @ViewBuilder
     private var lineMatch: some View {
+        if let guided = model.currentLineMatchGuidedBoard {
+            LineMatchGuidedBoardView(
+                board: guided,
+                ticketStars: usingPlaytest ? model.playtestLevel.rawValue : (model.selectedStars ?? 1),
+                pendingMinutes: pendingMinutes,
+                locked: justCompleted || guided.isComplete,
+                notice: model.lineMatchNotice,
+                now: model.now.timeIntervalSinceReferenceDate,
+                onSpeak: { speakPrompt() },
+                onCommit: { next in model.lineMatchGuidedCommit(next) },
+                onWrongStart: { model.lineMatchGuidedWrongStart() },
+                onHint: { row in model.lineMatchGuidedHintShown(row: row) }
+            )
+        } else {
+            freeLineMatch
+        }
+    }
+
+    private var freeLineMatch: some View {
         LineMatchBoardView(
             board: model.currentLineMatchBoard,
             ticketStars: usingPlaytest ? model.playtestLevel.rawValue : (model.selectedStars ?? 1),

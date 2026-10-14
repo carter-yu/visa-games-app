@@ -106,3 +106,29 @@ public enum CantoneseVoicePicker {
             .first
     }
 }
+
+/// English word after the Cantonese word in a guided 連一連 cue (v0.24.0, D6: en-GB).
+/// British English first, then any other English voice. Never a Chinese voice. Only used after
+/// a Cantonese voice was found: with no Cantonese voice the cue stays silent.
+public enum EnglishVoicePicker {
+    public static func isEnglish(_ language: String) -> Bool {
+        CantoneseVoicePicker.normalizedLanguage(language).hasPrefix("en-")
+            || CantoneseVoicePicker.normalizedLanguage(language) == "en"
+    }
+
+    public static func isBritish(_ language: String) -> Bool {
+        CantoneseVoicePicker.normalizedLanguage(language) == "en-gb"
+    }
+
+    public static func pick(from voices: [SpeechVoiceInfo]) -> SpeechVoiceInfo? {
+        voices
+            .filter { isEnglish($0.language) }
+            .sorted { lhs, rhs in
+                let lb = isBritish(lhs.language), rb = isBritish(rhs.language)
+                if lb != rb { return lb }
+                if lhs.qualityRank != rhs.qualityRank { return lhs.qualityRank > rhs.qualityRank }
+                return lhs.identifier < rhs.identifier
+            }
+            .first
+    }
+}
