@@ -12,9 +12,12 @@ public struct CanvasArtStyle: Equatable, Sendable {
     public var lineCap: LineCap
     public var lineJoin: LineJoin
     public var opacity: Double
+    /// SVG `stroke-dashoffset` (v0.23.0 snake scales). 0 = pattern starts at the path start.
+    public var dashPhase: Double
 
     public init(fill: UInt32? = nil, stroke: UInt32? = nil, lineWidth: Double = 0, dash: [Double] = [],
-                lineCap: LineCap = .butt, lineJoin: LineJoin = .miter, opacity: Double = 1) {
+                lineCap: LineCap = .butt, lineJoin: LineJoin = .miter, opacity: Double = 1,
+                dashPhase: Double = 0) {
         self.fill = fill
         self.stroke = stroke
         self.lineWidth = lineWidth
@@ -22,6 +25,7 @@ public struct CanvasArtStyle: Equatable, Sendable {
         self.lineCap = lineCap
         self.lineJoin = lineJoin
         self.opacity = opacity
+        self.dashPhase = dashPhase
     }
 }
 
@@ -35,6 +39,14 @@ public enum CanvasArtGeometry: Equatable, Sendable {
 public struct CanvasArtElement: Equatable, Sendable {
     public let geometry: CanvasArtGeometry
     public let style: CanvasArtStyle
+    /// Optional clip in the artwork's own space (SVG `clip-path` on a group, v0.23.0 icons).
+    public let clip: CanvasArtGeometry?
+
+    public init(geometry: CanvasArtGeometry, style: CanvasArtStyle, clip: CanvasArtGeometry? = nil) {
+        self.geometry = geometry
+        self.style = style
+        self.clip = clip
+    }
 }
 
 /// One piece of canvas artwork in its own SVG viewBox, painted back to front.
