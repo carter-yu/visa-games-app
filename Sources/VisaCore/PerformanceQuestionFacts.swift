@@ -115,23 +115,28 @@ extension PerfChoiceCatalog {
     /// A dealt 連一連 question (v0.23.0). One `answer_attempt` per judged 完成 with choice
     /// `submit`; its tags come from the wrong lines (`LineMatchBoard.submitRecord`). Slots are
     /// the right column top → bottom; chance is guessing every line: 1 / pairs!.
+    ///
+    /// v0.24.0: `match_mode` is `free` or `guided`. Guided rounds have no choice to guess
+    /// (chance 1, no correct choice) and are practice only (see `PerfQuestionGeneration`).
     public static func facts(lineMatch question: LineMatchQuestion, settings: LineMatchSettings) -> PerfDealFacts {
         let factorial = (1...max(1, question.pairCount)).reduce(1, *)
+        let guided = question.isGuided
         var extra: [String: PerfValue] = [
             "category": .string(question.category.rawValue),
             "pairs": .int(question.pairCount),
             "items": .strings(question.pairs.map(\.key)),
             "tolerance": .string(settings.tolerance.rawValue),
-            "category_mix": .string(settings.mixDescription)
+            "category_mix": .string(settings.mixDescription),
+            LineMatchMode.fieldKey: .string(question.mode.rawValue)
         ]
         if let object = question.countObject { extra["object"] = .string(object.rawValue) }
         return PerfDealFacts(
             item: question.itemID,
             gen: QuestionGeneration.variants,
             level: question.level,
-            chance: 1.0 / Double(factorial),
+            chance: guided ? 1 : 1.0 / Double(factorial),
             slots: question.rightKeys,
-            correctChoice: LineMatchSubmit.choice,
+            correctChoice: guided ? nil : LineMatchSubmit.choice,
             tagsByChoice: [:],
             assetByChoice: [:],
             extraDealtFields: extra
@@ -163,6 +168,18 @@ public enum PerfQuestionGeneration {
         gen(of: dealt) != QuestionGeneration.fixed
     }
 
+    /// `match_mode` of a `game_dealt` event. Everything before v0.24.0 (and every other kind)
+    /// reads as `free`, so old data is unchanged.
+    public static func matchMode(of dealt: PerfEvent) -> LineMatchMode {
+        dealt.string(LineMatchMode.fieldKey).flatMap(LineMatchMode.init(rawValue:)) ?? .free
+    }
+
+    /// Guided 連一連 rounds are practice exposure: never mastery evidence, never misses
+    /// (design "Guided level" → Stats). Review counts them on their own line.
+    public static func isPracticeOnly(_ dealt: PerfEvent) -> Bool {
+        matchMode(of: dealt) == .guided
+    }
+
     /// First `stats_marker{what: variants_v1}` (the go-live line), if any.
     public static func variantsMarker(in events: [PerfEvent]) -> PerfEvent? {
         PerfCodec.ordered(events).first { $0.type == .statsMarker && $0.string("what") == markerWhat }
@@ -173,6 +190,21 @@ public enum PerfQuestionGeneration {
     /// two parts, so they still read the new keys.
     public static func rollupKey(kind: String, stars: Int, gen: String) -> String {
         gen == QuestionGeneration.fixed ? "\(kind)|\(stars)" : "\(kind)|\(stars)|\(gen)"
+    }
+
+    /// v0.24.0: guided rounds get their own key, `lineMatch|1|variants_v1|guided`, so a
+    /// pruned day can never fold them into mastery. Free rounds keep the v0.22 key.
+    public static func rollupKey(kind: String, stars: Int, gen: String, matchMode: LineMatchMode) -> String {
+        let base = "\(kind)|\(stars)|\(gen)"
+        return matchMode == .guided ? "\(base)|\(guidedKeySuffix)" : rollupKey(kind: kind, stars: stars, gen: gen)
+    }
+
+    public static let guidedKeySuffix = LineMatchMode.guided.rawValue
+
+    /// True for a guided rollup key (4th part `guided`).
+    public static func isGuidedRollupKey(_ key: String) -> Bool {
+        let parts = key.split(separator: "|", omittingEmptySubsequences: false)
+        return parts.count > 3 && parts[3] == Substring(guidedKeySuffix)
     }
 
     public static func parseRollupKey(_ key: String) -> (kind: String, stars: Int?, gen: String) {

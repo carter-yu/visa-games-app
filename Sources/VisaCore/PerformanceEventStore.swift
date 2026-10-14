@@ -391,9 +391,11 @@ public enum PerfSummaries {
                     break
                 }
                 // v0.22.0: generated rounds get their own key so old and new data stay apart.
+                // v0.24.0: guided 連一連 rounds get their own key (practice only).
                 let key = PerfQuestionGeneration.rollupKey(kind: event.string("kind") ?? "unknown",
                                                            stars: event.int("stars") ?? 0,
-                                                           gen: PerfQuestionGeneration.gen(of: event))
+                                                           gen: PerfQuestionGeneration.gen(of: event),
+                                                           matchMode: PerfQuestionGeneration.matchMode(of: event))
                 var stats = summary.games[key] ?? PerfGameDayStats()
                 stats.deals += 1
                 if let round = event.string("round"), let outcome = results[round] {
