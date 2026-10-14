@@ -18,9 +18,12 @@ public struct PerfDealFacts: Sendable, Equatable {
     public var correctChoice: String?
     public var tagsByChoice: [String: [String]]
     public var assetByChoice: [String: String]
+    /// Kind-specific `game_dealt` fields (v0.23.0 連一連: category, pairs, items, tolerance…).
+    public var extraDealtFields: [String: PerfValue]
 
     public init(item: String, gen: String, level: ActivityLevel?, chance: Double, slots: [String],
-                correctChoice: String?, tagsByChoice: [String: [String]], assetByChoice: [String: String]) {
+                correctChoice: String?, tagsByChoice: [String: [String]], assetByChoice: [String: String],
+                extraDealtFields: [String: PerfValue] = [:]) {
         self.item = item
         self.gen = gen
         self.level = level
@@ -29,14 +32,17 @@ public struct PerfDealFacts: Sendable, Equatable {
         self.correctChoice = correctChoice
         self.tagsByChoice = tagsByChoice
         self.assetByChoice = assetByChoice
+        self.extraDealtFields = extraDealtFields
     }
 
     public func tags(for choice: String) -> [String] { tagsByChoice[choice] ?? [] }
     public func asset(for choice: String) -> String? { assetByChoice[choice] }
 
-    /// Extra `game_dealt` fields (`gen`, and `level` when the question has one).
+    /// Extra `game_dealt` fields (`gen`, and `level` when the question has one, plus any
+    /// kind-specific fields).
     public var dealtFields: [String: PerfValue] {
-        var fields: [String: PerfValue] = ["gen": .string(gen)]
+        var fields = extraDealtFields
+        fields["gen"] = .string(gen)
         if let level { fields["level"] = .int(level.rawValue) }
         return fields
     }
@@ -103,6 +109,39 @@ extension PerfChoiceCatalog {
             assetByChoice: assets
         )
     }
+}
+
+extension PerfChoiceCatalog {
+    /// A dealt 連一連 question (v0.23.0). One `answer_attempt` per judged 完成 with choice
+    /// `submit`; its tags come from the wrong lines (`LineMatchBoard.submitRecord`). Slots are
+    /// the right column top → bottom; chance is guessing every line: 1 / pairs!.
+    public static func facts(lineMatch question: LineMatchQuestion, settings: LineMatchSettings) -> PerfDealFacts {
+        let factorial = (1...max(1, question.pairCount)).reduce(1, *)
+        var extra: [String: PerfValue] = [
+            "category": .string(question.category.rawValue),
+            "pairs": .int(question.pairCount),
+            "items": .strings(question.pairs.map(\.key)),
+            "tolerance": .string(settings.tolerance.rawValue),
+            "category_mix": .string(settings.mixDescription)
+        ]
+        if let object = question.countObject { extra["object"] = .string(object.rawValue) }
+        return PerfDealFacts(
+            item: question.itemID,
+            gen: QuestionGeneration.variants,
+            level: question.level,
+            chance: 1.0 / Double(factorial),
+            slots: question.rightKeys,
+            correctChoice: LineMatchSubmit.choice,
+            tagsByChoice: [:],
+            assetByChoice: [:],
+            extraDealtFields: extra
+        )
+    }
+}
+
+/// Choice id of a judged 連一連 完成 in `answer_attempt`.
+public enum LineMatchSubmit {
+    public static let choice = "submit"
 }
 
 /// Reading `gen` / `level` back from records, and keeping them apart in the daily rollup.

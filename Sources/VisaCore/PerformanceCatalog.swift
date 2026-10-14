@@ -19,6 +19,7 @@ public enum PerfChoiceCatalog {
         case .moreFewer: return ActivityCatalog.moreFewerQuestion().completionID
         case .shadowMatch: return ActivityCatalog.shadowMatchQuestion().completionID
         case .emptyBay: return ActivityCatalog.emptyBayQuestion().completionID
+        case .lineMatch: return ActivityCatalog.lineMatchQuestion().itemID
         }
     }
 
@@ -31,6 +32,10 @@ public enum PerfChoiceCatalog {
             return 1.0 / 3.0
         case .sequenceShortToLong:
             return 1.0 / 24.0
+        case .lineMatch:
+            // Guessing every line right: 1 / pairs! (★ 1/2, ★★ 1/6, ★★★ 1/24). Per-kind
+            // mastery uses the ★★ value; dealt questions carry their own chance.
+            return 1.0 / 6.0
         }
     }
 
@@ -57,6 +62,8 @@ public enum PerfChoiceCatalog {
             return ActivityCatalog.shadowMatchQuestion().presentedOptions(seed: seed).map(\.id)
         case .emptyBay:
             return ActivityCatalog.emptyBayQuestion().presentedBays(seed: seed).map(\.id)
+        case .lineMatch:
+            return ActivityCatalog.lineMatchQuestion().rightKeys
         }
     }
 
@@ -73,10 +80,12 @@ public enum PerfChoiceCatalog {
         case .moreFewer: return ["lot-left", "lot-right"]
         case .shadowMatch: return ActivityCatalog.shadowMatchQuestion().options.map(\.id)
         case .emptyBay: return ActivityCatalog.emptyBayQuestion().bays.map(\.id)
+        case .lineMatch: return ActivityCatalog.lineMatchQuestion().pairs.map(\.key)
         }
     }
 
-    /// The right answer's choice id. Sequence has no single right choice (nil).
+    /// The right answer's choice id. Sequence and line match (multi-step, judged at 完成) have
+    /// no single right choice (nil).
     public static func correctChoice(for kind: ActivityKind) -> String? {
         switch kind {
         case .twoPictureChoose: return ActivityCatalog.twoPictureQuestion().correctOptionID
@@ -89,6 +98,7 @@ public enum PerfChoiceCatalog {
         case .moreFewer: return "lot-\(ActivityCatalog.moreFewerQuestion().correctSide.rawValue)"
         case .shadowMatch: return ActivityCatalog.shadowMatchQuestion().correctOptionID
         case .emptyBay: return ActivityCatalog.emptyBayQuestion().correctBayID
+        case .lineMatch: return nil
         }
     }
 
@@ -113,6 +123,7 @@ public enum PerfChoiceCatalog {
                 return nil
             }
             return bay.vehicleAssetID ?? "empty"
+        case .lineMatch: return nil
         }
     }
 

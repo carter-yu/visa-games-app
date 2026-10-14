@@ -47,6 +47,8 @@ public enum ActivityKind: String, CaseIterable, Sendable, Codable, Equatable, Ha
     case shadowMatch
     /// Three depot bays — tap the empty one (v0.8).
     case emptyBay
+    /// 連一連: drag a line from each picture to its word / number (v0.23.0, design §6).
+    case lineMatch
 }
 
 extension ActivityKind {
@@ -63,6 +65,7 @@ extension ActivityKind {
         case .moreFewer: return "邊邊車多啲"
         case .shadowMatch: return "邊個影子"
         case .emptyBay: return "空車位"
+        case .lineMatch: return "連一連"
         }
     }
 
@@ -79,6 +82,7 @@ extension ActivityKind {
         case .moreFewer: return "Which lot has more"
         case .shadowMatch: return "Match the shadow"
         case .emptyBay: return "Empty parking bay"
+        case .lineMatch: return "Line Match"
         }
     }
 
@@ -95,6 +99,7 @@ extension ActivityKind {
         case .moreFewer: return "多定少"
         case .shadowMatch: return "影子"
         case .emptyBay: return "空位"
+        case .lineMatch: return "連線"
         }
     }
 
@@ -111,6 +116,7 @@ extension ActivityKind {
         case .moreFewer: return "邊邊停車場嘅車多啲？"
         case .shadowMatch: return "邊架啱呢個影子？"
         case .emptyBay: return "邊個車位係空嘅？"
+        case .lineMatch: return "幫小貨車將圖仔連去啱嘅字！"
         }
     }
 
@@ -126,6 +132,7 @@ extension ActivityKind {
         case .moreFewer: return "Which parking lot has more vehicles?"
         case .shadowMatch: return "Which vehicle matches this shadow?"
         case .emptyBay: return "Which parking bay is empty?"
+        case .lineMatch: return "Help the truck join each picture to its word!"
         }
     }
 
@@ -152,6 +159,8 @@ extension ActivityKind {
             return ["silhouette.metroTrain"]
         case .emptyBay:
             return ["silhouette.hkTaxi", "silhouette.fireEngine"]
+        case .lineMatch:
+            return ["lineMatch.eye", "lineMatch.rabbit"]
         }
     }
 }
@@ -763,8 +772,18 @@ public enum ActivityCatalog {
         .capacityCompare,
         .moreFewer,
         .shadowMatch,
-        .emptyBay
+        .emptyBay,
+        .lineMatch
     ]
+
+    /// D7 (Carter 2026-10-13, option B): new kinds join no ticket until a parent turns a star on
+    /// in 家長 → 遊戲 (after 試玩). They stay playable from the parent catalog.
+    public static let defaultOffKinds: [ActivityKind] = [.lineMatch]
+
+    /// Kinds every ticket deals before a parent changes anything (the v0.22 rotation).
+    public static var defaultOnKinds: [ActivityKind] {
+        playableKinds.filter { !defaultOffKinds.contains($0) }
+    }
 
     /// Reserved for future genres (path-trace, maze-lite, inside/outside, …).
     public static let stubKinds: [ActivityKind] = []
@@ -787,15 +806,16 @@ public enum ActivityCatalog {
         UnbuiltParentActivity(traditionalChinese: "連點", english: "Connect the dots")
     ]
 
-    /// Deterministic rotation from the round UUID / seed string across every playable kind.
+    /// Deterministic rotation from the round UUID / seed string across the default-on kinds.
     public static func kind(forRoundSeed seed: String) -> ActivityKind {
-        kind(forRoundSeed: seed, pool: playableKinds)
+        kind(forRoundSeed: seed, pool: defaultOnKinds)
     }
 
     /// Same hash as `kind(forRoundSeed:)`, modulo `pool` only.
-    /// Empty pool falls back to all playable kinds (corrupt / empty star must still deal).
+    /// Empty pool falls back to the default-on kinds (corrupt / empty star must still deal;
+    /// a D7 default-off kind never appears that way).
     public static func kind(forRoundSeed seed: String, pool: [ActivityKind]) -> ActivityKind {
-        let kinds = pool.isEmpty ? playableKinds : pool
+        let kinds = pool.isEmpty ? defaultOnKinds : pool
         let hash = seed.unicodeScalars.reduce(into: 0) { partial, scalar in
             partial = partial &* 31 &+ Int(scalar.value)
         }
@@ -820,6 +840,18 @@ public enum ActivityCatalog {
     public static func countQuestion(seed: String, level: ActivityLevel,
                                      avoidingItem: String? = nil) -> CountQuestion {
         CountVehiclesGenerator.make(seed: seed, level: level, avoidingItem: avoidingItem)
+    }
+
+    /// v0.23.0 連一連 (design §6): seeded question for the ticket's ★ tier and the parent's
+    /// category weights.
+    public static func lineMatchQuestion(seed: String, level: ActivityLevel, avoidingItem: String? = nil,
+                                         settings: LineMatchSettings = .defaults) -> LineMatchQuestion {
+        LineMatchGenerator.make(seed: seed, level: level, avoidingItem: avoidingItem, settings: settings)
+    }
+
+    /// Fixed reference item (placeholder before the first deal; per-kind perf facts).
+    public static func lineMatchQuestion() -> LineMatchQuestion {
+        LineMatchGenerator.reference
     }
 
     /// Target HK taxi; options fire / HK taxi / NY taxi. Original silhouettes only.
@@ -1063,6 +1095,8 @@ public enum ActivityCatalog {
             return "提示：影子好長，似地鐵。 / Hint: the long shadow looks like the metro."
         case .emptyBay:
             return "提示：邊格冇車停。 / Hint: find the bay with no vehicle."
+        case .lineMatch:
+            return "提示：由綠點拉去閃緊嘅字卡。 / Hint: draw from the green dot to the shining word."
         }
     }
 }

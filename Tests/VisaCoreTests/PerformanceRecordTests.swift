@@ -247,7 +247,8 @@ final class PerformanceRecordTests {
     }
 
     func testEveryWrongOptionHasConfusionTagsAndTheRightOneHasNone() {
-        for kind in ActivityKind.allCases where kind != .sequenceShortToLong {
+        // Multi-step kinds have no single right choice (line match tags come per 完成).
+        for kind in ActivityKind.allCases where kind != .sequenceShortToLong && kind != .lineMatch {
             guard let correct = PerfChoiceCatalog.correctChoice(for: kind) else {
                 preconditionFailure("no correct choice for \(kind)")
             }
@@ -530,8 +531,8 @@ final class PerformanceRecordTests {
         }
         let version = plistValue("CFBundleShortVersionString") ?? "?"
         expectTrue(view.contains("static let versionLabel = \"Visa Games v\(version)\""))
-        expectEqual(version, "0.22.4")
-        expectEqual(plistValue("CFBundleVersion"), "53")
+        expectEqual(version, "0.23.0")
+        expectEqual(plistValue("CFBundleVersion"), "54")
         guard let start = view.range(of: "private func advancedSection("),
               let end = view.range(of: "private var advancedContent", range: start.upperBound..<view.endIndex) else {
             expectTrue(false)

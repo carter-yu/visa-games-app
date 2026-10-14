@@ -136,7 +136,7 @@ final class ActivityTests {
     }
 
     func testCatalogPlayableKindsAndRotation() {
-        expectEqual(ActivityCatalog.playableKinds.count, 10)
+        expectEqual(ActivityCatalog.playableKinds.count, 11)
         expectTrue(ActivityCatalog.playableKinds.contains(.twoPictureChoose))
         expectTrue(ActivityCatalog.playableKinds.contains(.findTheSame))
         expectTrue(ActivityCatalog.playableKinds.contains(.countVehicles))
@@ -147,15 +147,19 @@ final class ActivityTests {
         expectTrue(ActivityCatalog.playableKinds.contains(.moreFewer))
         expectTrue(ActivityCatalog.playableKinds.contains(.shadowMatch))
         expectTrue(ActivityCatalog.playableKinds.contains(.emptyBay))
+        expectTrue(ActivityCatalog.playableKinds.contains(.lineMatch))
+        expectEqual(ActivityCatalog.defaultOffKinds, [.lineMatch])
+        expectEqual(ActivityCatalog.defaultOnKinds.count, 10)
         expectEqual(ActivityCatalog.stubKinds, [])
-        // Deterministic: same seed → same kind; covering seeds hit all playable kinds.
+        // Deterministic: same seed → same kind; covering seeds hit every default-on kind (D7:
+        // the unrestricted rotation never deals a default-off kind).
         let a = ActivityCatalog.kind(forRoundSeed: "seed-alpha")
         expectEqual(ActivityCatalog.kind(forRoundSeed: "seed-alpha"), a)
         var seen = Set<ActivityKind>()
         for i in 0..<200 {
             seen.insert(ActivityCatalog.kind(forRoundSeed: "round-\(i)"))
         }
-        expectEqual(seen, Set(ActivityCatalog.playableKinds))
+        expectEqual(seen, Set(ActivityCatalog.defaultOnKinds))
     }
 
     func testFindSameQuestionWellFormedAndEvaluation() {
