@@ -244,7 +244,7 @@ final class LineMatchTests {
         for line in LineMatchCopy.allTraditionalLines { checkChinese(line) }
         for line in LineMatchCopy.allEnglishLines { checkEnglish(line) }
         checkChinese(ActivityKind.lineMatch.parentCardTitle + ActivityKind.lineMatch.parentHelpTraditionalChinese)
-        expectEqual(ActivityKind.lineMatch.parentCardTitle, "連一連")
+        expectEqual(ActivityKind.lineMatch.parentCardTitle, "連一連 · 自己配")
         expectEqual(LineMatchCatalog.body.map(\.labelTraditionalChinese), ["眼睛", "耳仔", "口", "鼻", "手", "腳"])
         expectEqual(LineMatchCatalog.animals.map(\.labelTraditionalChinese), ["貓仔", "狗仔", "牛仔", "兔仔", "鹿仔", "馬騮仔"])
         expectEqual(LineMatchCatalog.zodiac.map(\.labelTraditionalChinese),
