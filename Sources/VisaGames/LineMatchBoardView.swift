@@ -198,9 +198,14 @@ private struct StageContent: View {
         }
         .onChange(of: gestureActive) { active in
             // Gesture cancelled by the system (no onEnded): drop the live line.
-            if !active, dragSeen {
-                view.onCancelDrag()
-                resetDrag()
+            // Defer one main-queue turn so onEnded (if any) runs first regardless of SwiftUI's
+            // ordering of gesture-state reset vs onEnded; only a true cancel is left with dragSeen.
+            guard !active else { return }
+            DispatchQueue.main.async {
+                if dragSeen {
+                    view.onCancelDrag()
+                    resetDrag()
+                }
             }
         }
     }
