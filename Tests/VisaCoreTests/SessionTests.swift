@@ -511,7 +511,7 @@ struct TestRunner {
         guided.testEveryDealCompletesTopToBottomAndTerminates()
         guided.testGuidedRoundsArePracticeOnlyInReviewAndRollups()
         guided.testGuidedCopyAndCuesAreHongKongTraditional()
-        guided.testGuidedSettingDefaultsOnAndPersists()
+        guided.testThreeLineMatchKindsDefaultOffAndSharedSettingsPersist()
         try guided.testGuidedAppWiringSourceGuards()
 
         let kiosk = KioskPresentationTests()
