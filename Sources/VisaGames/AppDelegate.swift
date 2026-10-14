@@ -14,7 +14,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var successFeedbackID: Int? = nil
     @Published private(set) var allowlist = VideoAllowlist()
     /// Which games each star may deal. UserDefaults, not the reward snapshot.
-    @Published private(set) var gameAssignment = MissionGameAssignment.allOn
+    @Published private(set) var gameAssignment = MissionGameAssignment.defaults
     /// Shown when the parent tries to turn off the last game on a star.
     @Published private(set) var gameAssignmentBanner: String?
     /// Playtest cover. Nil unless a parent is reviewing a game. Never a child round.
@@ -41,6 +41,8 @@ final class AppModel: ObservableObject {
     /// Playtest copies of the generated questions. Never the child round's questions.
     private var playtestFindSameQuestion = ActivityCatalog.findSameQuestion()
     private var playtestCountQuestion = ActivityCatalog.countQuestion()
+    /// v0.23.0 連一連 playtest board (never the child round's board).
+    @Published private(set) var playtestLineMatchBoard = LineMatchBoard(question: ActivityCatalog.lineMatchQuestion())
     private var playtestThinkEndsAt: Date?
     var isParentPlaytest: Bool { playtestKind != nil && session.mode == .parent }
     var playtestChoicesLocked: Bool { playtestThinkEndsAt != nil || playtestCompleted }
@@ -127,6 +129,17 @@ final class AppModel: ObservableObject {
     private var twoPictureQuestion = ActivityCatalog.twoPictureQuestion()
     private var findSameQuestion = ActivityCatalog.findSameQuestion()
     private var countQuestion = ActivityCatalog.countQuestion()
+    /// v0.23.0 連一連 child board: question + unjudged / locked lines + eraser (VisaCore rules).
+    @Published private(set) var lineMatchBoard = LineMatchBoard(question: ActivityCatalog.lineMatchQuestion())
+    /// Parent 連一連 settings (tolerance, category weights). UserDefaults, not the snapshot.
+    @Published private(set) var lineMatchSettings = LineMatchSettings.defaults
+    /// Parent-only line when a weight change is refused (last category on).
+    @Published private(set) var lineMatchSettingsBanner: String?
+    /// Gentle line under the 連一連 board (start from green / not all joined / try Done). Never a miss.
+    @Published private(set) var lineMatchNotice: SpokenPrompt?
+    private let lineMatchSettingsStore = LineMatchSettingsStore()
+    /// Tags + fields of the 完成 being evaluated (consumed by the answer record).
+    private var pendingAnswerRecord: (tags: [String], fields: [String: PerfValue])?
     /// v0.22.0: last generated item per kind (memory only). The next deal of that kind avoids it.
     private var lastDealtItem: [ActivityKind: String] = [:]
     private var sequenceQuestion = ActivityCatalog.sequenceQuestion()
@@ -193,6 +206,7 @@ final class AppModel: ObservableObject {
         themePaletteID = ThemePreferenceStore().load()
         allowlist = VideoAllowlistStore().load()
         gameAssignment = MissionGameAssignmentStore().load()
+        lineMatchSettings = LineMatchSettingsStore().load()
         playbackShuffle = VideoPlaybackShuffleStore().load()
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         store = SnapshotStore(url: directory.appendingPathComponent("VisaGames/state.json"))
@@ -745,6 +759,11 @@ final class AppModel: ObservableObject {
             seed: seed, level: level, avoidingItem: lastDealtItem[.findTheSame])
         countQuestion = ActivityCatalog.countQuestion(
             seed: seed, level: level, avoidingItem: lastDealtItem[.countVehicles])
+        lineMatchBoard = LineMatchBoard(
+            question: ActivityCatalog.lineMatchQuestion(
+                seed: seed, level: level, avoidingItem: lastDealtItem[.lineMatch], settings: lineMatchSettings),
+            tolerance: lineMatchSettings.tolerance)
+        lineMatchNotice = nil
         sequenceQuestion = ActivityCatalog.sequenceQuestion()
         halfMatchQuestion = ActivityCatalog.halfMatchQuestion()
         shapeCousinQuestion = ActivityCatalog.shapeCousinQuestion()
@@ -759,7 +778,8 @@ final class AppModel: ObservableObject {
         fuelFeedbackMessage = nil
         clearThinkPause()
         taskRoundOpen = true
-        let facts = dealFacts(kind: kind, seed: seed, findSame: findSameQuestion, count: countQuestion)
+        let facts = dealFacts(kind: kind, seed: seed, findSame: findSameQuestion, count: countQuestion,
+                              lineMatch: lineMatchBoard.question)
         if QuestionGeneration.isGenerated(kind) { lastDealtItem[kind] = facts.item }
         perf.roundDealt(round: seed, kind: kind, stars: stars, pendingStart: difficulty.minutes, pool: pool,
                         facts: facts)
@@ -803,16 +823,18 @@ final class AppModel: ObservableObject {
         switch kind {
         case .findTheSame: return findSame.hintTraditionalChinese
         case .countVehicles: return count.hintTraditionalChinese
+        case .lineMatch: return lineMatchBoard.question.hintTraditionalChinese
         default: return ActivityCatalog.hintTraditionalChinese(for: kind)
         }
     }
 
     /// Performance facts of the question actually dealt (item, slots, gen, level, tags).
     private func dealFacts(kind: ActivityKind, seed: String, findSame: FindSameQuestion,
-                           count: CountQuestion) -> PerfDealFacts {
+                           count: CountQuestion, lineMatch: LineMatchQuestion) -> PerfDealFacts {
         switch kind {
         case .findTheSame: return PerfChoiceCatalog.facts(findSame: findSame, seed: seed)
         case .countVehicles: return PerfChoiceCatalog.facts(count: count, seed: seed)
+        case .lineMatch: return PerfChoiceCatalog.facts(lineMatch: lineMatch, settings: lineMatchSettings)
         default: return PerfChoiceCatalog.facts(kind: kind, seed: seed)
         }
     }
@@ -853,6 +875,9 @@ final class AppModel: ObservableObject {
         case .emptyBay:
             zh = emptyBayQuestion.promptTraditionalChinese
             en = emptyBayQuestion.promptEnglish
+        case .lineMatch:
+            zh = lineMatchBoard.question.promptTraditionalChinese
+            en = lineMatchBoard.question.promptEnglish
         }
         guideVoice.speak(SpokenPrompt(
             key: "activity.\(kind.rawValue)",
@@ -1015,7 +1040,7 @@ final class AppModel: ObservableObject {
             fuelFeedbackMessage = WrongAnswerCopy.fuelHalvedTraditionalChinese
             perf.roundAnswer(choice: selectionLabel, correct: false, pendingBefore: before,
                              pendingAfter: pendingAwardMinutes, hintOn: entryHintUsed,
-                             sequence: pendingSequenceContext)
+                             sequence: pendingSequenceContext, record: pendingAnswerRecord)
             VisaGamesLog.append(
                 "activity incorrect — 答錯 selection=\(selectionLabel) kind=\(activeActivityKind?.rawValue ?? "nil") misses=\(entryMissCount) pending \(before)→\(pendingAwardMinutes) hintUsed=\(entryHintUsed)"
             )
@@ -1031,7 +1056,7 @@ final class AppModel: ObservableObject {
                 ? (sequenceTappedAssetIDs.last ?? selectionLabel) : selectionLabel
             perf.roundAnswer(choice: answeredChoice, correct: true, pendingBefore: pendingAwardMinutes,
                              pendingAfter: pendingAwardMinutes, hintOn: entryHintUsed,
-                             sequence: pendingSequenceContext)
+                             sequence: pendingSequenceContext, record: pendingAnswerRecord)
             guard pendingAwardMinutes > 0 else {
                 // Should not reach stamp with 0 fuel; send to Depot safely.
                 VisaGamesLog.append("activity correct blocked — pending=0 → depot")
@@ -1152,6 +1177,8 @@ final class AppModel: ObservableObject {
     }
 
     private func beginThinkPause(now: Date) {
+        // A line being drawn when the pause starts springs back (design §1.2).
+        lineMatchBoard.cancelDrag()
         thinkPauseEndsAt = now.addingTimeInterval(TimeInterval(WrongAnswerPolicy.thinkPauseSeconds))
         thinkPauseRemainingSeconds = WrongAnswerPolicy.thinkPauseSeconds
         perf.roundPauseStarted()
@@ -1185,6 +1212,9 @@ final class AppModel: ObservableObject {
         VisaGamesLog.append(
             "think-pause end — unlock pendingMin=\(pendingAwardMinutes) misses=\(entryMissCount)"
         )
+        if activeActivityKind == .lineMatch {
+            lineMatchBoard.noteUnlocked(now: now.timeIntervalSinceReferenceDate)
+        }
         // Existing assisted/hint rescue still helps when fuel remains.
         if ActivityHintPolicy.shouldAutoHint(afterMissCount: entryMissCount), !entryHintUsed {
             useEntryHint()
@@ -1903,6 +1933,167 @@ final class AppModel: ObservableObject {
         VisaGamesLog.append("openLogsFolder — 開啟日誌 path=\(path)")
     }
 
+    // MARK: - 連一連 / Line Match (v0.23.0, ADR 0012)
+
+    /// The 連一連 board on screen: the playtest copy while a parent is reviewing it.
+    var currentLineMatchBoard: LineMatchBoard {
+        lineMatchUsesPlaytest ? playtestLineMatchBoard : lineMatchBoard
+    }
+
+    private var lineMatchUsesPlaytest: Bool { isParentPlaytest && playtestKind == .lineMatch }
+
+    /// Runs one board change when input is open (round on 連一連, not in a Think Pause), then
+    /// refreshes the round's `round_result` extras. Nil = input ignored.
+    private func changeLineMatchBoard<T>(_ change: (inout LineMatchBoard) -> T) -> T? {
+        if lineMatchUsesPlaytest {
+            guard !playtestChoicesLocked else { return nil }
+            var board = playtestLineMatchBoard
+            let result = change(&board)
+            playtestLineMatchBoard = board
+            perf.playtestResultExtra(board.resultFields)
+            return result
+        }
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .lineMatch else { return nil }
+        guard !choicesLocked else {
+            perf.roundMashTap()
+            return nil
+        }
+        var board = lineMatchBoard
+        let result = change(&board)
+        lineMatchBoard = board
+        perf.roundResultExtra(board.resultFields)
+        return result
+    }
+
+    private func showLineMatchNotice(_ prompt: SpokenPrompt) {
+        lineMatchNotice = prompt
+        guideVoice.speak(prompt)
+    }
+
+    /// Pen down at a stage point (1280 × 720 units). Returns the row the truck draws from.
+    func lineMatchBeginDrag(x: Double, y: Double) -> Int? {
+        let start = changeLineMatchBoard { $0.beginDrag(at: LineMatchPoint(x: x, y: y)) }
+        switch start {
+        case .started(let row)?:
+            lineMatchNotice = nil
+            return row
+        case .wrongDirection?:
+            // Motor slip, never a miss (design §6 step 6; counted as `wrong_direction`).
+            showLineMatchNotice(SpokenPrompt(key: "lineMatch.startGreen",
+                                             traditionalChinese: LineMatchCopy.startGreenTraditionalChinese,
+                                             english: LineMatchCopy.startGreenEnglish))
+            VisaGamesLog.append("lineMatch wrong direction — 由綠點開始 (no miss)")
+            return nil
+        default:
+            return nil
+        }
+    }
+
+    /// Pen up. Joins the line or lets it spring back; never judged here (D3).
+    func lineMatchEndDrag(x: Double, y: Double) {
+        guard let outcome = changeLineMatchBoard({ $0.endDrag(at: LineMatchPoint(x: x, y: y)) }) else { return }
+        let board = currentLineMatchBoard
+        switch outcome {
+        case .joined(_, let slot, _), .unchanged(_, let slot):
+            // Read the card that was joined, never whether it is right (design §6 step 4–5).
+            if let pair = board.question.rightPair(atSlot: slot) {
+                guideVoice.speak(SpokenPrompt(key: "lineMatch.word.\(pair.key)",
+                                              traditionalChinese: pair.labelTraditionalChinese,
+                                              english: pair.labelEnglish))
+            }
+        case .retracted:
+            VisaGamesLog.append("lineMatch line retracted — 彈返 (incomplete_stroke, no miss)")
+        case .ignored:
+            break
+        }
+    }
+
+    /// Gesture lost (window change, system cancel): the live line is dropped.
+    func lineMatchCancelDrag() {
+        if lineMatchUsesPlaytest {
+            playtestLineMatchBoard.cancelDrag()
+        } else {
+            lineMatchBoard.cancelDrag()
+        }
+    }
+
+    /// 擦晒: clears unjudged lines only. 3 s cooldown, 4th use nudges 完成, 6th hides it.
+    func lineMatchErase() {
+        let clock = Date().timeIntervalSinceReferenceDate
+        guard let outcome = changeLineMatchBoard({ $0.erase(now: clock) }) else { return }
+        guard case .cleared(let lines, let nudge, let hidden) = outcome else { return }
+        if nudge {
+            showLineMatchNotice(SpokenPrompt(key: "lineMatch.tryDone",
+                                             traditionalChinese: LineMatchCopy.tryDoneTraditionalChinese,
+                                             english: LineMatchCopy.tryDoneEnglish))
+        } else {
+            lineMatchNotice = nil
+        }
+        VisaGamesLog.append(
+            "lineMatch erase — 擦晒 lines=\(lines) uses=\(currentLineMatchBoard.eraserUses) nudge=\(nudge) hidden=\(hidden)"
+        )
+    }
+
+    /// 完成: judged once. Any wrong line = one miss (existing wrong-answer policy); right lines
+    /// stay green, wrong ones clear. All right = the existing success flow.
+    func lineMatchSubmit() {
+        guard let outcome = changeLineMatchBoard({ $0.submit() }) else { return }
+        let board = currentLineMatchBoard
+        switch outcome {
+        case .notReady(let missing):
+            showLineMatchNotice(SpokenPrompt(key: "lineMatch.notReady",
+                                             traditionalChinese: LineMatchCopy.notReadyTraditionalChinese,
+                                             english: LineMatchCopy.notReadyEnglish))
+            VisaGamesLog.append("lineMatch done not ready — 仲有未連 missing=\(missing) (no miss)")
+        case .judged(let judgement):
+            lineMatchNotice = nil
+            pendingAnswerRecord = board.submitRecord(judgement)
+            VisaGamesLog.append(
+                "lineMatch done — 完成 submit=\(board.submits) right=\(judgement.correct.count) wrong=\(judgement.wrong.count) item=\(board.question.itemID)"
+            )
+            if lineMatchUsesPlaytest {
+                let evaluation: ActivityEvaluation = judgement.solved ? .correct(assisted: playtestHintUsed) : .incorrect
+                playtestHandle(evaluation, selectionLabel: LineMatchSubmit.choice)
+            } else {
+                let evaluation: ActivityEvaluation = judgement.solved ? .correct(assisted: entryHintUsed) : .incorrect
+                handleEvaluation(evaluation, selectionLabel: LineMatchSubmit.choice)
+            }
+            pendingAnswerRecord = nil
+        case .ignored:
+            break
+        }
+    }
+
+    // MARK: 連一連 parent settings
+
+    func setLineMatchTolerance(_ tolerance: LineMatchTolerance) {
+        guard session.mode == .parent, tolerance != lineMatchSettings.tolerance else { return }
+        saveLineMatchSettings(lineMatchSettings.withTolerance(tolerance), what: "tolerance",
+                              value: tolerance.rawValue)
+    }
+
+    func adjustLineMatchWeight(_ category: LineMatchCategory, steps: Int) {
+        guard session.mode == .parent else { return }
+        guard let next = lineMatchSettings.adjusting(category, steps: steps) else {
+            lineMatchSettingsBanner = "最少要留一個類別 / Keep at least one category"
+            return
+        }
+        saveLineMatchSettings(next, what: "category_weight", value: "\(category.rawValue):\(next.weight(category))")
+    }
+
+    func resetLineMatchMix() {
+        guard session.mode == .parent else { return }
+        saveLineMatchSettings(lineMatchSettings.withDefaultMix(), what: "category_mix", value: "default")
+    }
+
+    private func saveLineMatchSettings(_ next: LineMatchSettings, what: String, value: String) {
+        lineMatchSettings = next
+        lineMatchSettingsStore.save(next)
+        lineMatchSettingsBanner = nil
+        perf.lineMatchSettingChanged(what: what, value: value, mix: next.mixDescription)
+        VisaGamesLog.append("lineMatch settings — 連一連設定 \(what)=\(value) mix=\(next.mixDescription) tolerance=\(next.tolerance.rawValue)")
+    }
+
     // MARK: - Parent game catalog + playtest (no visa)
 
     func toggleMissionStar(kind: ActivityKind, star: ChildDifficulty) {
@@ -1945,9 +2136,15 @@ final class AppModel: ObservableObject {
         playtestLevel = level
         playtestFindSameQuestion = ActivityCatalog.findSameQuestion(seed: playtestChoiceDealSeed, level: level)
         playtestCountQuestion = ActivityCatalog.countQuestion(seed: playtestChoiceDealSeed, level: level)
+        playtestLineMatchBoard = LineMatchBoard(
+            question: ActivityCatalog.lineMatchQuestion(seed: playtestChoiceDealSeed, level: level,
+                                                        settings: lineMatchSettings),
+            tolerance: lineMatchSettings.tolerance)
+        lineMatchNotice = nil
         clearPlaytestThinkPause()
         let facts = dealFacts(kind: kind, seed: playtestChoiceDealSeed,
-                              findSame: playtestFindSameQuestion, count: playtestCountQuestion)
+                              findSame: playtestFindSameQuestion, count: playtestCountQuestion,
+                              lineMatch: playtestLineMatchBoard.question)
         perf.playtestStarted(round: playtestChoiceDealSeed, kind: kind, pendingStart: playtestStartingMinutes,
                              facts: facts)
         VisaGamesLog.append("playtest start — 試玩 kind=\(kind.rawValue) level=\(level.code) item=\(facts.item) mode=parent visa=false")
@@ -1995,6 +2192,9 @@ final class AppModel: ObservableObject {
         case .emptyBay:
             zh = emptyBayQuestion.promptTraditionalChinese
             en = emptyBayQuestion.promptEnglish
+        case .lineMatch:
+            zh = playtestLineMatchBoard.question.promptTraditionalChinese
+            en = playtestLineMatchBoard.question.promptEnglish
         }
         guideVoice.speak(SpokenPrompt(
             key: "playtest.\(kind.rawValue)",
@@ -2146,7 +2346,7 @@ final class AppModel: ObservableObject {
             playtestFuelMessage = WrongAnswerCopy.fuelHalvedTraditionalChinese
             perf.playtestAnswer(choice: selectionLabel, correct: false, pendingBefore: before,
                                 pendingAfter: playtestPendingMinutes, hintOn: playtestHintUsed,
-                                sequence: pendingSequenceContext)
+                                sequence: pendingSequenceContext, record: pendingAnswerRecord)
             VisaGamesLog.append(
                 "playtest incorrect — 試玩答錯 local selection=\(selectionLabel) pending \(before)→\(playtestPendingMinutes) misses=\(playtestMissCount)"
             )
@@ -2162,7 +2362,7 @@ final class AppModel: ObservableObject {
                 ? (playtestSequenceTaps.last ?? selectionLabel) : selectionLabel
             perf.playtestAnswer(choice: answeredChoice, correct: true, pendingBefore: playtestPendingMinutes,
                                 pendingAfter: playtestPendingMinutes, hintOn: playtestHintUsed,
-                                sequence: pendingSequenceContext)
+                                sequence: pendingSequenceContext, record: pendingAnswerRecord)
             perf.playtestSolved(earnedMinutes: playtestPendingMinutes, assisted: assisted)
             playtestLastCorrectID = selectionLabel
             playtestLastIncorrectID = nil
@@ -2175,6 +2375,7 @@ final class AppModel: ObservableObject {
     }
 
     private func beginPlaytestThinkPause(now: Date) {
+        playtestLineMatchBoard.cancelDrag()
         playtestThinkEndsAt = now.addingTimeInterval(TimeInterval(WrongAnswerPolicy.thinkPauseSeconds))
         playtestThinkRemaining = WrongAnswerPolicy.thinkPauseSeconds
     }
@@ -2200,6 +2401,9 @@ final class AppModel: ObservableObject {
         playtestFuelMessage = nil
         guard playtestKind != nil, !playtestCompleted else { return }
         perf.playtestPauseEnded()
+        if playtestKind == .lineMatch {
+            playtestLineMatchBoard.noteUnlocked(now: Date().timeIntervalSinceReferenceDate)
+        }
         // Fuel may hit 0. Stay on the cover — do not speak the depot line or end the visa.
         if ActivityHintPolicy.shouldAutoHint(afterMissCount: playtestMissCount), !playtestHintUsed {
             playtestHintUsed = true
@@ -2912,7 +3116,8 @@ struct ShellView: View {
                     onHint: { model.useEntryHint() },
                     onSpeakPrompt: { model.speakEntryPrompt() }
                 )
-            case .twoPictureChoose, .none:
+            case .twoPictureChoose, .lineMatch, .none:
+                // Legacy shell is setup / parent only; 連一連 is canvas-only (CanvasActivityHost).
                 EntryActivityView(
                     question: model.currentTwoPictureQuestion,
                     dealSeed: model.choiceDealSeed,

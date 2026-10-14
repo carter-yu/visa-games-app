@@ -3,21 +3,23 @@ import VisaCore
 
 final class MissionGameAssignmentTests {
     func testDefaultsAllStarsOn() {
-        let assignment = MissionGameAssignment.allOn
-        expectEqual(ActivityCatalog.playableKinds.count, 10)
-        for kind in ActivityCatalog.playableKinds {
+        let assignment = MissionGameAssignment.defaults
+        expectEqual(ActivityCatalog.playableKinds.count, 11)
+        for kind in ActivityCatalog.defaultOnKinds {
             for star in ChildDifficulty.allCases {
                 expectTrue(assignment.isEnabled(kind, star: star))
             }
             expectFalse(assignment.isHiddenFromMissions(kind))
         }
+        // D7: 連一連 starts off every ticket (playtest only) until a parent turns a star on.
+        expectTrue(assignment.isHiddenFromMissions(.lineMatch))
         for star in ChildDifficulty.allCases {
-            expectEqual(assignment.pool(for: star), ActivityCatalog.playableKinds)
+            expectEqual(assignment.pool(for: star), ActivityCatalog.defaultOnKinds)
         }
     }
 
     func testMultiStarDoesNotClearOthers() {
-        var assignment = MissionGameAssignment.allOn
+        var assignment = MissionGameAssignment.defaults
         guard case .updated(let off) = assignment.toggling(.twoPictureChoose, star: .medium) else {
             preconditionFailure("turning off one star must succeed")
         }
@@ -36,8 +38,8 @@ final class MissionGameAssignmentTests {
     }
 
     func testRejectsEmptyTier() {
-        var assignment = MissionGameAssignment.allOn
-        let kinds = ActivityCatalog.playableKinds
+        var assignment = MissionGameAssignment.defaults
+        let kinds = ActivityCatalog.defaultOnKinds
         for kind in kinds.dropLast() {
             guard case .updated(let next) = assignment.toggling(kind, star: .easy) else {
                 preconditionFailure("off while another kind remains")
@@ -53,7 +55,7 @@ final class MissionGameAssignmentTests {
     }
 
     func testHiddenKindLeavesOtherStarsIntact() {
-        var assignment = MissionGameAssignment.allOn
+        var assignment = MissionGameAssignment.defaults
         for star in ChildDifficulty.allCases {
             guard case .updated(let next) = assignment.toggling(.emptyBay, star: star) else {
                 preconditionFailure("hiding one kind must succeed")
@@ -72,16 +74,16 @@ final class MissionGameAssignmentTests {
         let defaults = UserDefaults(suiteName: suite)!
         defaults.removePersistentDomain(forName: suite)
         let store = MissionGameAssignmentStore(defaults: defaults)
-        expectEqual(store.load(), MissionGameAssignment.allOn)
+        expectEqual(store.load(), MissionGameAssignment.defaults)
         defaults.set(Data("not-json".utf8), forKey: MissionGameAssignmentStore.key)
-        expectEqual(store.load(), MissionGameAssignment.allOn)
+        expectEqual(store.load(), MissionGameAssignment.defaults)
         defaults.set(Data("{}".utf8), forKey: MissionGameAssignmentStore.key)
-        expectEqual(store.load(), MissionGameAssignment.allOn)
+        expectEqual(store.load(), MissionGameAssignment.defaults)
         defaults.removePersistentDomain(forName: suite)
     }
 
     func testUnseenKindOptsIntoAllStars() {
-        var enabled = MissionGameAssignment.allOn.enabledStars
+        var enabled = MissionGameAssignment.defaults.enabledStars
         enabled.removeValue(forKey: .shadowMatch)
         let assignment = MissionGameAssignment(enabledStars: enabled).normalized()
         for star in ChildDifficulty.allCases {
@@ -97,15 +99,15 @@ final class MissionGameAssignmentTests {
             enabled[kind] = onlyHard
         }
         let assignment = MissionGameAssignment(enabledStars: enabled).normalized()
-        expectEqual(assignment.pool(for: .easy), ActivityCatalog.playableKinds)
-        expectEqual(assignment.pool(for: .medium).count, 10)
+        expectEqual(assignment.pool(for: .easy), ActivityCatalog.defaultOnKinds)
+        expectEqual(assignment.pool(for: .medium).count, ActivityCatalog.playableKinds.count)
         expectFalse(assignment.pool(for: .medium).isEmpty)
     }
 
     func testRotationStaysInsidePool() {
-        var assignment = MissionGameAssignment.allOn
+        var assignment = MissionGameAssignment.defaults
         let keep: Set<ActivityKind> = [.findTheSame, .countVehicles]
-        for kind in ActivityCatalog.playableKinds where !keep.contains(kind) {
+        for kind in ActivityCatalog.defaultOnKinds where !keep.contains(kind) {
             guard case .updated(let next) = assignment.toggling(kind, star: .easy) else {
                 preconditionFailure("pool shrink")
             }
@@ -125,12 +127,12 @@ final class MissionGameAssignmentTests {
         for i in 0..<200 {
             all.insert(ActivityCatalog.kind(forRoundSeed: "round-\(i)"))
         }
-        expectEqual(all, Set(ActivityCatalog.playableKinds))
+        expectEqual(all, Set(ActivityCatalog.defaultOnKinds))
         expectEqual(ActivityCatalog.kind(forRoundSeed: "seed-alpha", pool: []), ActivityCatalog.kind(forRoundSeed: "seed-alpha"))
     }
 
     func testParentCardNamesAreTraditionalAndUnbuiltAreNotKinds() {
-        expectEqual(ActivityKind.allCases.count, 10)
+        expectEqual(ActivityKind.allCases.count, 11)
         expectEqual(ActivityKind.twoPictureChoose.parentCardTitle, "邊架消防車")
         expectEqual(ActivityKind.findTheSame.parentShortLabel, "搵相同")
         expectEqual(ActivityKind.emptyBay.parentCardEnglish, "Empty parking bay")
@@ -155,7 +157,7 @@ final class MissionGameAssignmentTests {
         let suite = "VisaGames.assignment.round.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defaults.removePersistentDomain(forName: suite)
-        var assignment = MissionGameAssignment.allOn
+        var assignment = MissionGameAssignment.defaults
         guard case .updated(let next) = assignment.toggling(.halfMatch, star: .challenge) else {
             preconditionFailure("toggle")
         }

@@ -1,7 +1,8 @@
 import SwiftUI
 import VisaCore
 
-/// Routes all 10 activity kinds into the board-2 shell with text-free choice cards.
+/// Routes all 11 activity kinds into the board-2 shell with text-free choice cards
+/// (連一連 uses its own drag board, `LineMatchBoardView`).
 struct CanvasActivityHost: View {
     @ObservedObject var model: AppModel
 
@@ -93,6 +94,8 @@ struct CanvasActivityHost: View {
                 shadowMatch
             case .emptyBay:
                 emptyBay
+            case .lineMatch:
+                lineMatch
             case .none:
                 EmptyView()
             }
@@ -332,6 +335,29 @@ struct CanvasActivityHost: View {
                 }
             } onSelect: { selectBay($0) }
         }
+    }
+
+    /// v0.23.0 連一連: drag lines, 擦晒 / 完成. Rules in `VisaCore.LineMatchBoard`; the child
+    /// round and the parent playtest each have their own board on the model.
+    private var lineMatch: some View {
+        LineMatchBoardView(
+            board: model.currentLineMatchBoard,
+            ticketStars: usingPlaytest ? model.playtestLevel.rawValue : (model.selectedStars ?? 1),
+            pendingMinutes: pendingMinutes,
+            startingMinutes: startingMinutes,
+            thinkPauseRemaining: thinkRemaining,
+            fuelFeedback: fuelFeedback,
+            locked: choicesAreLocked,
+            hintOn: hintUsed,
+            notice: model.lineMatchNotice,
+            now: model.now.timeIntervalSinceReferenceDate,
+            onSpeak: { speakPrompt() },
+            onBeginDrag: { x, y in model.lineMatchBeginDrag(x: x, y: y) },
+            onEndDrag: { x, y in model.lineMatchEndDrag(x: x, y: y) },
+            onCancelDrag: { model.lineMatchCancelDrag() },
+            onErase: { model.lineMatchErase() },
+            onSubmit: { model.lineMatchSubmit() }
+        )
     }
 
     // MARK: - Shared builders

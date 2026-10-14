@@ -11,8 +11,10 @@ import Foundation
 ///
 /// Persistence is UserDefaults beside the video allowlist, **not** the reward
 /// `Snapshot`. `AppModel.resetStorage` must not clear this map. Missing store,
-/// corrupt JSON, or an empty on-set for a star → all playable kinds (today's deal).
-/// A kind the store has never seen joins all three stars (opt-out).
+/// corrupt JSON, or an empty on-set for a star → the default-on kinds (today's deal).
+/// A kind the store has never seen joins all three stars (opt-out), except the D7
+/// default-off kinds (`ActivityCatalog.defaultOffKinds`, v0.23.0 連一連), which join no star
+/// until a parent turns one on.
 public struct MissionGameAssignment: Equatable, Sendable {
     /// Stars that are ON. A missing key means "never stored" → all stars on.
     /// An empty set means the parent hid this game from every mission.
@@ -22,28 +24,33 @@ public struct MissionGameAssignment: Equatable, Sendable {
         self.enabledStars = enabledStars
     }
 
-    public static var allOn: MissionGameAssignment {
-        let all = Set(ChildDifficulty.allCases)
-        let pairs = ActivityCatalog.playableKinds.map { ($0, all) }
+    /// Fresh install: every default-on kind on all three stars, D7 default-off kinds on none.
+    public static var defaults: MissionGameAssignment {
+        let pairs = ActivityCatalog.playableKinds.map { ($0, defaultStars(for: $0)) }
         return MissionGameAssignment(enabledStars: Dictionary(uniqueKeysWithValues: pairs))
+    }
+
+    /// Stars a kind has before the parent changes it (D7: none for default-off kinds).
+    public static func defaultStars(for kind: ActivityKind) -> Set<ChildDifficulty> {
+        ActivityCatalog.defaultOffKinds.contains(kind) ? [] : Set(ChildDifficulty.allCases)
     }
 
     public static let emptyTierBanner =
         "每個星級至少要有一個遊戲 / Each star needs at least one game"
 
-    /// Fill unseen playable kinds with all three stars. Drop unknown keys.
+    /// Fill unseen playable kinds with their default stars (all three; none for D7 kinds).
+    /// Drop unknown keys.
     public func normalized() -> MissionGameAssignment {
         var next = self
-        let all = Set(ChildDifficulty.allCases)
         for kind in ActivityCatalog.playableKinds where next.enabledStars[kind] == nil {
-            next.enabledStars[kind] = all
+            next.enabledStars[kind] = Self.defaultStars(for: kind)
         }
         next.enabledStars = next.enabledStars.filter { ActivityCatalog.playableKinds.contains($0.key) }
         return next
     }
 
     public func isEnabled(_ kind: ActivityKind, star: ChildDifficulty) -> Bool {
-        let stars = enabledStars[kind] ?? Set(ChildDifficulty.allCases)
+        let stars = enabledStars[kind] ?? Self.defaultStars(for: kind)
         return stars.contains(star)
     }
 
@@ -52,10 +59,10 @@ public struct MissionGameAssignment: Equatable, Sendable {
         ChildDifficulty.allCases.allSatisfy { !isEnabled(kind, star: $0) }
     }
 
-    /// Kinds this ticket may deal, in catalog order. Empty on-set → all playable kinds.
+    /// Kinds this ticket may deal, in catalog order. Empty on-set → the default-on kinds.
     public func pool(for star: ChildDifficulty) -> [ActivityKind] {
         let on = ActivityCatalog.playableKinds.filter { isEnabled($0, star: star) }
-        return on.isEmpty ? ActivityCatalog.playableKinds : on
+        return on.isEmpty ? ActivityCatalog.defaultOnKinds : on
     }
 
     public enum ToggleOutcome: Equatable {
@@ -67,7 +74,7 @@ public struct MissionGameAssignment: Equatable, Sendable {
     public func toggling(_ kind: ActivityKind, star: ChildDifficulty) -> ToggleOutcome {
         guard ActivityCatalog.playableKinds.contains(kind) else { return .rejectedLastStar }
         var next = normalized()
-        var set = next.enabledStars[kind] ?? Set(ChildDifficulty.allCases)
+        var set = next.enabledStars[kind] ?? Self.defaultStars(for: kind)
         if set.contains(star) {
             let othersOn = ActivityCatalog.playableKinds.contains { other in
                 other != kind && next.isEnabled(other, star: star)
@@ -92,8 +99,8 @@ public struct MissionGameAssignmentStore {
     }
 
     public func load() -> MissionGameAssignment {
-        guard let data = defaults.data(forKey: Self.key) else { return .allOn }
-        guard let payload = try? JSONDecoder().decode(Payload.self, from: data) else { return .allOn }
+        guard let data = defaults.data(forKey: Self.key) else { return .defaults }
+        guard let payload = try? JSONDecoder().decode(Payload.self, from: data) else { return .defaults }
         return payload.assignment.normalized()
     }
 

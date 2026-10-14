@@ -33,6 +33,9 @@ enum VectorArtRenderer {
     private static func draw(_ element: CanvasArtElement, in context: GraphicsContext) {
         var layer = context
         layer.opacity = context.opacity * element.style.opacity
+        if let clip = element.clip {
+            layer.clip(to: Path(canvasGeometry: clip))
+        }
         let path = Path(canvasGeometry: element.geometry)
         if let fill = element.style.fill {
             layer.fill(path, with: .color(Color(hex: fill)))
@@ -42,7 +45,8 @@ enum VectorArtRenderer {
                 lineWidth: element.style.lineWidth,
                 lineCap: element.style.lineCap == .round ? .round : .butt,
                 lineJoin: element.style.lineJoin == .round ? .round : .miter,
-                dash: element.style.dash.map { CGFloat($0) }
+                dash: element.style.dash.map { CGFloat($0) },
+                dashPhase: CGFloat(element.style.dashPhase)
             ))
         }
     }
