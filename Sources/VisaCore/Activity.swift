@@ -843,10 +843,11 @@ public enum ActivityCatalog {
     }
 
     /// v0.23.0 連一連 (design §6): seeded question for the ticket's ★ tier and the parent's
-    /// category weights.
+    /// category weights. v0.24.0: `mode` `.guided` deals guided roads at ★ / ★★ (★★★ stays free).
     public static func lineMatchQuestion(seed: String, level: ActivityLevel, avoidingItem: String? = nil,
-                                         settings: LineMatchSettings = .defaults) -> LineMatchQuestion {
-        LineMatchGenerator.make(seed: seed, level: level, avoidingItem: avoidingItem, settings: settings)
+                                         settings: LineMatchSettings = .defaults,
+                                         mode: LineMatchMode = .free) -> LineMatchQuestion {
+        LineMatchGenerator.make(seed: seed, level: level, avoidingItem: avoidingItem, settings: settings, mode: mode)
     }
 
     /// Fixed reference item (placeholder before the first deal; per-kind perf facts).
