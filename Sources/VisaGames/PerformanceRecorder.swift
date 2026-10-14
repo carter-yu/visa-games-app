@@ -555,7 +555,8 @@ final class PerformanceRecorder {
             fields["expected"] = .optionalString(sequence.expected)
         }
         if let record {
-            fields.merge(record.fields) { current, _ in current }
+            // The judged 完成 knows better than the tracker (e.g. `repeat_wrong` by line).
+            fields.merge(record.fields) { _, judged in judged }
         }
         return fields
     }

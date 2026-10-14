@@ -471,6 +471,8 @@ final class LineMatchTests {
         draw(&b, row: 1, slot: right0)
         guard case .judged(let second) = b.submit() else { preconditionFailure("judged") }
         expectFalse(second.solved)
+        // `repeat_wrong` comes from the lines, not the constant `submit` choice id.
+        expectEqual(b.submitRecord(second).fields["repeat_wrong"], .bool(true))
         misses += 1
         expectTrue(ActivityHintPolicy.shouldAutoHint(afterMissCount: misses))
         expectEqual(b.wrongSubmits, 2)
@@ -613,6 +615,7 @@ final class LineMatchTests {
         guard case .judged(let judgement) = b.submit() else { preconditionFailure("judged") }
         let record = b.submitRecord(judgement)
         expectTrue(record.tags.contains("wrong_target"))
+        expectEqual(record.fields["repeat_wrong"], .bool(false), "first wrong 完成 is never a repeat")
         expectEqual(record.fields["submit"], .int(1))
         expectEqual(record.fields["tolerance"], .string("wide"))
         expectEqual(record.fields["wrong_lines"]?.stringArray.count, judgement.wrong.count)

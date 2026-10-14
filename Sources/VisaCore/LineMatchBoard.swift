@@ -239,6 +239,11 @@ public struct LineMatchBoard: Sendable, Equatable {
 
     public private(set) var submits = 0
     public private(set) var wrongSubmits = 0
+    /// Every line judged wrong so far in this question.
+    public private(set) var judgedWrongLines: Set<LineMatchLine> = []
+    /// The last 完成 repeated a line already judged wrong (`answer_attempt.repeat_wrong`; the
+    /// choice id is always `submit`, so the tracker's own check would flag every 2nd miss).
+    public private(set) var lastSubmitRepeatedWrong = false
     /// Lines the child replaced or moved before a 完成 (self-correction; design §1.6 stats).
     public private(set) var preSubmitChanges = 0
     public private(set) var incompleteStrokes = 0
@@ -393,6 +398,8 @@ public struct LineMatchBoard: Sendable, Equatable {
         rejectedRows = wrong.map(\.row)
         rejectedSlots = wrong.map(\.slot)
         rejectFlashUntil = nil
+        lastSubmitRepeatedWrong = wrong.contains { judgedWrongLines.contains($0) }
+        judgedWrongLines.formUnion(wrong)
         if wrong.isEmpty {
             solved = true
         } else {
@@ -446,6 +453,7 @@ public struct LineMatchBoard: Sendable, Equatable {
             "locked": .int(locked.count),
             "eraser_uses": .int(eraserUses),
             "pre_submit_changes": .int(preSubmitChanges),
+            "repeat_wrong": .bool(lastSubmitRepeatedWrong),
             "tolerance": .string(tolerance.rawValue)
         ]
         return (tags, fields)
