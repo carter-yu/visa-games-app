@@ -1,5 +1,15 @@
 # Progress
 
+## v0.21.5 / 49 — constant kiosk presentation (2026-10-14)
+
+Branch `hotfix/presentation-constant-v0215` from `main` @ 4719f54 (v0.21.4 / 48). Not pushed. No Swift on the Linux box: tests and build not run here. Commit 1 is meant to be cherry-picked onto `feat/question-gen-v022`.
+
+- macOS 27.0 (26A428): repeated crashes in `swift_task_isCurrentExecutor` (ShellView.body; once MenuBarClientCore), mostly on parent → child. Mitigation, not a proven root-cause fix (ADR 0011).
+- Presentation options, window level `.mainMenu + 1`, borderless style and full-screen frame are set once at launch and never toggled. Parent settings show in the same full-screen window. `applyPresentation` / `parentWindowFrame` removed; `model.changed` unassigned. Screen-change refit is coalesced and deferred (`DispatchQueue.main.async`). `applicationWillTerminate` still resets presentation options; 「離開程式」 unchanged. No NSMenu code.
+- Parent mode now keeps the Dock / menu bar hidden and app switching disabled. Finder (performance export, log folder) is expected to open behind the window.
+- Debug soak: `VISAGAMES_SOAK=1` (+ `VISAGAMES_SOAK_CYCLES`, default 50) toggles parent ↔ child every 1.5 s on an AppKit Timer, auth bypassed only there; logs `soak cycle i` / `soak done`.
+- Tests: +3 kiosk-presentation source guards → PASS banner adds **3 kiosk-presentation**. Info.plist **0.21.5 / 49**, parent footer **Visa Games v0.21.5**.
+
 ## v0.21.4 / 48 — save failure never blocks the child (2026-10-11)
 
 - `update()` used to reset the session to a fresh lock on any state.json write error (visa lost → no video) and every child action was gated on `storageFailed`. Now: in-memory snapshot is authoritative, failed writes queue in `ResilientSnapshotStore` and retry every 15 s; parent-only banner; no child toast; exact NSError logged. `storageFailed` = load failure only.
