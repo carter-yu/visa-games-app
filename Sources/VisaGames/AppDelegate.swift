@@ -201,8 +201,9 @@ final class AppModel: ObservableObject {
             message = "儲存資料有問題，請家長處理。 / Storage needs parent attention."
             VisaGamesLog.append("storage load FAILED — 載入失敗 storageFailed=true")
         }
-        perf.contextProvider = { [unowned self] in
-            PerfRecorderContext(mode: self.session.mode, isPlaytest: self.isParentPlaytest)
+        perf.contextProvider = { [weak self] in
+            guard let self else { return PerfRecorderContext(mode: .lock, isPlaytest: false) }
+            return PerfRecorderContext(mode: self.session.mode, isPlaytest: self.isParentPlaytest)
         }
         perf.onWriteFailed = { [weak self] in self?.perfWriteFailed = true }
         perf.launch(
@@ -2325,12 +2326,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self?.penSpark.handle(event)
             return event
         }
-        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.model.tick()
-                self?.penSpark.tick(now: Date())
-            }
-        }
+        // Selector timer on the main run loop: the 0.5 s tick runs straight from the run loop,
+        // not as a Swift task job, and needs no `Task { @MainActor }` hop (ADR 0010).
+        timer = Timer.scheduledTimer(timeInterval: 0.5, target: self, selector: #selector(timerFired(_:)),
+                                     userInfo: nil, repeats: true)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(willSleep),
             name: NSWorkspace.willSleepNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake),
@@ -2369,6 +2368,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         isChildPresentation = child
     }
 
+    @objc private func timerFired(_ timer: Timer) {
+        model.tick()
+        penSpark.tick(now: Date())
+    }
     @objc private func willSleep() { model.returnToChild(reason: "sleep") }
     @objc private func didWake() { model.tick() }
     @objc private func screenChanged() {
@@ -2441,17 +2444,21 @@ struct ShellView: View {
         !model.showTimesUp && model.session.mode == .play && playRoute == .watch
     }
 
+    /// v0.22.1 (ADR 0010): model-derived flags are read before the ZStack builder runs, and
+    /// actions are explicit closures (no unapplied `model.method` isolation thunks).
     var body: some View {
+        let model = self.model
         let childMode = isChildMode
-        let watching = isWatching
+        // On Watch the parent hold lives on the garage glyph (ADR 0007 §5); no second corner.
+        let showsParentCorner = childMode && !isWatching
+        let content = childOrLegacy
         return ZStack {
-            childOrLegacy
+            content
+            if showsParentCorner {
+                ParentCornerLayer(onUnlock: { model.unlock() })
+                    .ignoresSafeArea()
+            }
             if childMode {
-                // On Watch the parent hold lives on the garage glyph (ADR 0007 §5); no second corner.
-                if !watching {
-                    ParentCornerLayer(onUnlock: { model.unlock() })
-                        .ignoresSafeArea()
-                }
                 PenSparkOverlay(model: penSpark)
                     .ignoresSafeArea()
             }
@@ -2467,21 +2474,21 @@ struct ShellView: View {
             // v0.12.0: parent controls win over a pending Time's up board (shown again on Return).
             ParentSettingsView(model: model)
         } else if model.showProviderBlocked {
-            ProviderBlockedView(onContinue: model.dismissProviderBlocked)
+            ProviderBlockedView(onContinue: { model.dismissProviderBlocked() })
                 .ignoresSafeArea()
         } else if model.showTimesUp {
             TimesUpView(
                 ticket: model.timesUpTicket ?? model.resolvedPlayTicket,
                 dockLeadingX: CGFloat(BayDock.chosen(seed: model.timesUpDockSeed).leadingX),
-                onNewMission: model.dismissTimesUp,
+                onNewMission: { model.dismissTimesUp() },
                 onSpeak: { model.guideSpeakTimesUp() }
             )
             .ignoresSafeArea()
         } else if model.session.mode == .lock && !model.taskRoundOpen {
             DepotHomeView(
                 onSelect: { model.selectDifficulty(stars: $0.rawValue) },
-                onSpeakPrompt: model.speakDepotPrompt,
-                onParentUnlock: model.unlock
+                onSpeakPrompt: { model.speakDepotPrompt() },
+                onParentUnlock: { model.unlock() }
             )
             .ignoresSafeArea()
             parentNotice
@@ -2506,13 +2513,13 @@ struct ShellView: View {
                     ? model.earnedAwardMinutes
                     : (model.targetVisaMinutes ?? ticket.difficulty.minutes),
                 dockLeadingX: CGFloat(BayDock.chosen(seed: model.departureDockSeed).leadingX),
-                onGo: model.confirmDeparture,
+                onGo: { model.confirmDeparture() },
                 onSpeak: { model.guideSpeakStamped() }
             )
             .ignoresSafeArea()
         case .emptyAllowlist:
             EmptyAllowlistView(
-                onReturn: model.returnFromEmptyAllowlist,
+                onReturn: { model.returnFromEmptyAllowlist() },
                 onSpeak: { model.guideSpeakEmptyAllowlist() }
             )
             .ignoresSafeArea()
@@ -2521,11 +2528,11 @@ struct ShellView: View {
                 ResumeChoiceView(
                     ticket: ticket,
                     incomplete: incomplete,
-                    onContinue: model.continueIncompleteVideo,
-                    onPickOther: model.pickOtherFromResumeChoice,
+                    onContinue: { model.continueIncompleteVideo() },
+                    onPickOther: { model.pickOtherFromResumeChoice() },
                     onSpeak: { model.guideSpeakResumeChoice() },
                     onSpeakOrPick: { model.guideSpeakResumeChoiceOrPick() },
-                    onAppearLog: model.resumeChoiceOpened
+                    onAppearLog: { model.resumeChoiceOpened() }
                 )
                 .ignoresSafeArea()
             } else {
@@ -2538,7 +2545,7 @@ struct ShellView: View {
                     onPick: { model.pickVideo(id: $0) },
                     onContinue: nil,
                     onSpeak: { model.guideSpeakPickVideo() },
-                    onAppearLog: model.videoPickerOpened,
+                    onAppearLog: { model.videoPickerOpened() },
                     onPageShown: { model.videoPickerPageShown(page: $0, via: $1) }
                 )
                 .ignoresSafeArea()
@@ -2554,7 +2561,7 @@ struct ShellView: View {
                 onPick: { model.pickVideo(id: $0) },
                 onContinue: model.resumeCandidate == nil ? nil : { model.continueIncompleteVideo() },
                 onSpeak: { model.guideSpeakPickVideo() },
-                onAppearLog: model.videoPickerOpened,
+                onAppearLog: { model.videoPickerOpened() },
                 onPageShown: { model.videoPickerPageShown(page: $0, via: $1) }
             )
             .ignoresSafeArea()
@@ -2585,7 +2592,7 @@ struct ShellView: View {
                     .foregroundStyle(Color.ink)
                     .multilineTextAlignment(.center)
                 if model.needsParentAttention {
-                    Button("家長 / Parent", action: model.unlock)
+                    Button("家長 / Parent", action: { model.unlock() })
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
                         .disabled(model.authenticating)
@@ -2643,7 +2650,7 @@ struct ShellView: View {
                 }
                 // Child screens use the 3-second parent corner; setup and storage failures keep a visible button.
                 if model.session.mode == .setup || (model.session.mode != .parent && model.needsParentAttention) {
-                    Button("家長 / Parent", action: model.unlock)
+                    Button("家長 / Parent", action: { model.unlock() })
                         .disabled(model.authenticating)
                         .tint(accent)
                 }
@@ -2729,8 +2736,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelect: { model.selectFindSameOption(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .countVehicles:
                 CountActivityView(
@@ -2743,8 +2750,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelectCount: { model.selectCountChoice($0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .sequenceShortToLong:
                 SequenceActivityView(
@@ -2758,8 +2765,8 @@ struct ShellView: View {
                     hintUsed: model.entryHintUsed,
                     tappedAssetIDs: model.sequenceTappedAssetIDs,
                     onTapAsset: { model.selectSequenceAsset(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .halfMatch:
                 HalfMatchActivityView(
@@ -2772,8 +2779,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelect: { model.selectHalfMatchOption(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .shapeCousin:
                 ShapeCousinActivityView(
@@ -2786,8 +2793,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelect: { model.selectShapeCousinOption(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .capacityCompare:
                 CapacityCompareActivityView(
@@ -2800,8 +2807,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelect: { model.selectCapacityOption(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .moreFewer:
                 MoreFewerActivityView(
@@ -2814,8 +2821,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelectSide: { model.selectMoreFewerSide($0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .shadowMatch:
                 ShadowMatchActivityView(
@@ -2828,8 +2835,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelect: { model.selectShadowMatchOption(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .emptyBay:
                 EmptyBayActivityView(
@@ -2842,8 +2849,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelectBay: { model.selectEmptyBay(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .twoPictureChoose, .none:
                 EntryActivityView(
@@ -2856,8 +2863,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelect: { model.selectEntryOption(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             }
         }

@@ -1,5 +1,18 @@
 # Progress
 
+## v0.22.1 / 50 — ShellView runtime isolation-check crash (2026-10-14)
+
+Branch `feat/question-gen-v022` on top of v0.22.0 / 49. ADR 0010.
+
+- **Crash:** v0.22.0 / 49 main thread EXC_BAD_ACCESS 0x220 in `swift_getObjectType` ← `swift_task_isMainExecutorImpl` ← `swift_task_isCurrentExecutorWithFlagsImpl` ← `closure #1 in ShellView.body.getter` ← `ZStack.init`, from the `NSHostingView.beginTransaction` run-loop observer. Same closure as v0.11.6 / 33 (0x1e) and the v0.17.0 SIGBUS. The Swift 6 compiler puts a runtime executor check at the top of the `@MainActor` ZStack builder; the runtime crashed inside that check on the main thread. v0.12.0's closure-for-method-reference swap did not remove it.
+- **Fix:** `Package.swift` app target `.unsafeFlags(["-Xfrontend", "-disable-dynamic-actor-isolation"])` (root package only; Swift 6 language mode and compile-time checks kept; VisaCore / VisaCoreChecks unchanged). Fallback if the flag is rejected: `.swiftLanguageMode(.v5)` on the app target (ADR 0010).
+- **Hardening:** `ShellView.body` reads `childMode` / `showsParentCorner` / `childOrLegacy` before the ZStack; 33 unapplied `model.method` references in `ShellView` → explicit closures. `perf.contextProvider` `[unowned self]` → `[weak self]` with a lock / not-playtest default. 0.5 s tick is a selector `Timer` (`timerFired(_:)`), no `Task { @MainActor }` job per tick. No `unowned` or `assumeIsolated` left in `Sources/VisaGames`.
+- **v0.22 off-main audit:** generators and `PerformanceQuestionFacts` are pure VisaCore; `stats_marker{variants_v1}` and playtest tier cycling run on the `@MainActor` model; `PerformanceRecorder` nonisolated members are only `store` (Sendable struct) and `init`. No AppModel mutation off main found.
+- No child-visible change. No new input type, no text input, no new OS escape path.
+- Version: Info.plist **0.22.1 / 50**, parent footer **Visa Games v0.22.1**.
+- Tests: +4 actor-isolation source guards (flag on app target only, no `unowned` / `assumeIsolated`, no unapplied model method refs in ShellView, weak context + selector timer + recorder isolation) → PASS banner adds **4 actor-isolation**.
+- Not run: Linux box has no Swift toolchain. `sh scripts/test.sh`, `sh scripts/bundle.sh` and a kiosk run pending on the Mac mini. No push.
+
 ## v0.22.0 / 49 — S0 question variants for countVehicles + findTheSame (2026-10-14)
 
 Branch `feat/question-gen-v022` from `main` @ 4719f54. ADR 0009. Design `new-games/new-games-design.md` §7 (D1 A: ★ = question tier).
