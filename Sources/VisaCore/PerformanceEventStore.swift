@@ -187,7 +187,8 @@ public struct PerfRollup: Codable, Equatable, Sendable {
 }
 
 public struct PerfDaySummary: Codable, Equatable, Sendable {
-    /// Key "kind|stars", e.g. "findTheSame|2". Countable child rounds only.
+    /// Key "kind|stars", e.g. "findTheSame|2"; generated rounds (v0.22.0) add the generation,
+    /// e.g. "findTheSame|2|variants_v1". Countable child rounds only.
     public var games: [String: PerfGameDayStats]
     /// Key video id. Countable child activity only.
     public var videos: [String: PerfVideoDayStats]
@@ -389,7 +390,10 @@ public enum PerfSummaries {
                     summary.uncountedRounds += 1
                     break
                 }
-                let key = "\(event.string("kind") ?? "unknown")|\(event.int("stars") ?? 0)"
+                // v0.22.0: generated rounds get their own key so old and new data stay apart.
+                let key = PerfQuestionGeneration.rollupKey(kind: event.string("kind") ?? "unknown",
+                                                           stars: event.int("stars") ?? 0,
+                                                           gen: PerfQuestionGeneration.gen(of: event))
                 var stats = summary.games[key] ?? PerfGameDayStats()
                 stats.deals += 1
                 if let round = event.string("round"), let outcome = results[round] {

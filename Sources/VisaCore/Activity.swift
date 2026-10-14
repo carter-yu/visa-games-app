@@ -55,7 +55,7 @@ extension ActivityKind {
         switch self {
         case .twoPictureChoose: return "邊架消防車"
         case .findTheSame: return "搵同一個"
-        case .countVehicles: return "數消防車"
+        case .countVehicles: return "數車仔"
         case .sequenceShortToLong: return "短到長車隊"
         case .halfMatch: return "搵另一半"
         case .shapeCousin: return "圓圓嘅"
@@ -71,7 +71,7 @@ extension ActivityKind {
         switch self {
         case .twoPictureChoose: return "Which fire truck"
         case .findTheSame: return "Find the same"
-        case .countVehicles: return "Count the fire trucks"
+        case .countVehicles: return "Count the vehicles"
         case .sequenceShortToLong: return "Short-to-long convoy"
         case .halfMatch: return "Find the other half"
         case .shapeCousin: return "Round like the sun"
@@ -103,7 +103,7 @@ extension ActivityKind {
         switch self {
         case .twoPictureChoose: return "邊架係消防車呀？"
         case .findTheSame: return "搵同一個！邊架同上面一樣？"
-        case .countVehicles: return "數一數有幾架消防車呀？"
+        case .countVehicles: return "數一數有幾多架車呀？"
         case .sequenceShortToLong: return "由短到長排車隊。"
         case .halfMatch: return "搵另一半！"
         case .shapeCousin: return "太陽圓圓嘅，邊樣都係圓圓嘅？"
@@ -118,7 +118,7 @@ extension ActivityKind {
         switch self {
         case .twoPictureChoose: return "Which one is the fire truck?"
         case .findTheSame: return "Which one matches the one above?"
-        case .countVehicles: return "How many fire trucks?"
+        case .countVehicles: return "How many vehicles?"
         case .sequenceShortToLong: return "Line the convoy up from short to long."
         case .halfMatch: return "Find the other half!"
         case .shapeCousin: return "The sun is round — which one is also round?"
@@ -197,6 +197,8 @@ public struct FindSameQuestion: Sendable, Equatable, Codable {
     public var options: [ActivityOption]
     public var correctOptionID: String
     public var completionID: String
+    /// v0.22.0 generated variant (level, target look, item id, hint). Nil = fixed v0 item.
+    public var variant: FindSameVariant?
 
     public init(
         promptTraditionalChinese: String,
@@ -204,7 +206,8 @@ public struct FindSameQuestion: Sendable, Equatable, Codable {
         targetAssetID: String,
         options: [ActivityOption],
         correctOptionID: String,
-        completionID: String
+        completionID: String,
+        variant: FindSameVariant? = nil
     ) {
         self.promptTraditionalChinese = promptTraditionalChinese
         self.promptEnglish = promptEnglish
@@ -212,6 +215,7 @@ public struct FindSameQuestion: Sendable, Equatable, Codable {
         self.options = options
         self.correctOptionID = correctOptionID
         self.completionID = completionID
+        self.variant = variant
     }
 
     public var isWellFormed: Bool {
@@ -223,6 +227,9 @@ public struct FindSameQuestion: Sendable, Equatable, Codable {
         guard ids.count == options.count, ids.contains(correctOptionID) else { return false }
         guard let correct = options.first(where: { $0.id == correctOptionID }),
               correct.assetID == targetAssetID else { return false }
+        // Exactly one option may look like the target, and no two options may look alike.
+        guard hasExactlyOneMatch, Set(options.map(\.assetID)).count == options.count else { return false }
+        if let variant, variant.target.assetID != targetAssetID { return false }
         return options.allSatisfy { !$0.id.isEmpty && !$0.assetID.isEmpty }
     }
 }
@@ -235,6 +242,8 @@ public struct CountQuestion: Sendable, Equatable, Codable {
     public var correctCount: Int
     public var choiceCounts: [Int]
     public var completionID: String
+    /// v0.22.0 generated variant (level, vehicle, layout, item id, hint). Nil = fixed v0 item.
+    public var variant: CountVariant?
 
     public init(
         promptTraditionalChinese: String,
@@ -242,7 +251,8 @@ public struct CountQuestion: Sendable, Equatable, Codable {
         vehicleAssetIDs: [String],
         correctCount: Int,
         choiceCounts: [Int],
-        completionID: String
+        completionID: String,
+        variant: CountVariant? = nil
     ) {
         self.promptTraditionalChinese = promptTraditionalChinese
         self.promptEnglish = promptEnglish
@@ -250,18 +260,23 @@ public struct CountQuestion: Sendable, Equatable, Codable {
         self.correctCount = correctCount
         self.choiceCounts = choiceCounts
         self.completionID = completionID
+        self.variant = variant
     }
 
+    /// Design §7: counts up to 10 (was ≤ 5 while the catalog had one 3-truck item).
     public var isWellFormed: Bool {
+        let maxCount = CountVehiclesGenerator.maxCount
         guard !completionID.isEmpty else { return false }
-        guard correctCount >= 1, correctCount <= 5 else { return false }
+        guard correctCount >= 1, correctCount <= maxCount else { return false }
         guard vehicleAssetIDs.count == correctCount else { return false }
         guard vehicleAssetIDs.allSatisfy({ !$0.isEmpty }) else { return false }
         guard choiceCounts.count >= 2, choiceCounts.count <= 5 else { return false }
         guard Set(choiceCounts).count == choiceCounts.count else { return false }
         guard choiceCounts.contains(correctCount) else { return false }
-        guard choiceCounts.allSatisfy({ $0 >= 1 && $0 <= 5 }) else { return false }
-        return true
+        guard choiceCounts.allSatisfy({ $0 >= 1 && $0 <= maxCount }) else { return false }
+        // 6 and 9 look alike upside down: never both on the numeral cards.
+        guard !(choiceCounts.contains(6) && choiceCounts.contains(9)) else { return false }
+        return placementsAreClear
     }
 }
 
@@ -792,6 +807,19 @@ public enum ActivityCatalog {
 
     public static func twoPictureQuestion() -> TwoPictureQuestion {
         FirstEntryActivity.question
+    }
+
+    /// v0.22.0: seeded variant for the ticket's ★ tier (design §7, D1).
+    /// The no-argument form below stays the fixed v0 item (old records, tests).
+    public static func findSameQuestion(seed: String, level: ActivityLevel,
+                                        avoidingItem: String? = nil) -> FindSameQuestion {
+        FindTheSameGenerator.make(seed: seed, level: level, avoidingItem: avoidingItem)
+    }
+
+    /// v0.22.0: seeded variant for the ticket's ★ tier (design §7, D1).
+    public static func countQuestion(seed: String, level: ActivityLevel,
+                                     avoidingItem: String? = nil) -> CountQuestion {
+        CountVehiclesGenerator.make(seed: seed, level: level, avoidingItem: avoidingItem)
     }
 
     /// Target HK taxi; options fire / HK taxi / NY taxi. Original silhouettes only.

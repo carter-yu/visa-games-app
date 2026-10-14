@@ -41,6 +41,9 @@ final class PerformanceRecorder {
 
     private var round: (tracker: PerfRoundTracker, actor: PerfActor, session: String)?
     private var playtest: (tracker: PerfRoundTracker, actor: PerfActor, session: String)?
+    /// v0.22.0: item, tags and assets of the dealt question (generated or fixed).
+    private var roundFacts: PerfDealFacts?
+    private var playtestFacts: PerfDealFacts?
     private var play: (tracker: PerfPlayTracker, actor: PerfActor, session: String)?
     private var lastProgressMono: Double?
     private var visa: (id: String, source: PerfVisaSource, startedAt: Date)?
@@ -52,6 +55,8 @@ final class PerformanceRecorder {
     private(set) var excludedSessions: Set<String> = []
 
     static let visaMarkerKey = "VisaGames.perfVisaMarker.v1"
+    /// Set once the `stats_marker{variants_v1}` go-live line is written (design §7).
+    static let variantsMarkerKey = "VisaGames.perfMarker.variants_v1"
     static let progressEverySeconds: Double = 60
 
     nonisolated init(store: PerfEventStore = PerfEventStore(directory: PerfEventStore.defaultDirectory())) {
@@ -210,6 +215,7 @@ final class PerformanceRecorder {
             "deal_mode": .string("off"),
             "visa_source": .optionalString(visa?.source.rawValue)
         ], actorOverride: .system)
+        markVariantsGoLiveOnce()
         let store = self.store
         queue.async {
             do {
@@ -277,6 +283,20 @@ final class PerformanceRecorder {
 
     func marker(_ what: String) {
         emit(.statsMarker, ["what": .string(what)], actorOverride: .parent, synchronize: true)
+    }
+
+    /// Design §7 data continuity: one `stats_marker{variants_v1}` the first time a build with
+    /// generated questions launches, so Review can split fixed-question rounds from variants.
+    /// Every `game_dealt` also carries `gen`, so the split never depends on this line alone.
+    private func markVariantsGoLiveOnce() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: Self.variantsMarkerKey) else { return }
+        emit(.statsMarker, [
+            "what": .string(PerfQuestionGeneration.markerWhat),
+            "auto": .bool(true),
+            "kinds": .strings(QuestionGeneration.generatedKinds.map(\.rawValue))
+        ], actorOverride: .system, synchronize: true)
+        defaults.set(true, forKey: Self.variantsMarkerKey)
     }
 
     func allowlistChanged(op: String, video: String) {
@@ -402,30 +422,35 @@ final class PerformanceRecorder {
 
     // MARK: Rounds (child / UAT)
 
-    func roundDealt(round id: String, kind: ActivityKind, stars: Int, pendingStart: Int, pool: [ActivityKind]) {
+    /// `facts` come from the question actually dealt (v0.22.0), so `item`, `slots`, `gen`,
+    /// `level` and the answer tags describe what the child saw.
+    func roundDealt(round id: String, kind: ActivityKind, stars: Int, pendingStart: Int, pool: [ActivityKind],
+                    facts: PerfDealFacts) {
         abandonRound(reason: "superseded")
-        let slots = PerfChoiceCatalog.slots(kind: kind, seed: id)
-        let item = PerfChoiceCatalog.item(for: kind)
-        let unit = emit(.gameDealt, [
+        var fields: [String: PerfValue] = [
             "round": .string(id),
             "kind": .string(kind.rawValue),
-            "item": .string(item),
+            "item": .string(facts.item),
             "stars": .int(stars),
             "pending_start": .int(pendingStart),
             "pool": .strings(pool.map(\.rawValue)),
             "deal_mode": .string("off"),
-            "slots": .strings(slots)
-        ])
-        round = (PerfRoundTracker(round: id, kind: kind, item: item, stars: stars, pendingStart: pendingStart,
-                                  slots: slots, mono: Self.monoNow()), unit.actor, unit.session)
+            "slots": .strings(facts.slots)
+        ]
+        fields.merge(facts.dealtFields) { current, _ in current }
+        let unit = emit(.gameDealt, fields)
+        round = (PerfRoundTracker(round: id, kind: kind, item: facts.item, stars: stars, pendingStart: pendingStart,
+                                  slots: facts.slots, mono: Self.monoNow()), unit.actor, unit.session)
+        roundFacts = facts
     }
 
     /// One evaluated child tap. `sequence` carries the convoy step context.
     func roundAnswer(choice: String, correct: Bool, pendingBefore: Int, pendingAfter: Int, hintOn: Bool,
                      sequence: (step: Int, expected: String?, tappedSoFar: [String])? = nil) {
         guard var open = round else { return }
-        let fields = answerFields(&open.tracker, choice: choice, correct: correct, pendingBefore: pendingBefore,
-                                  pendingAfter: pendingAfter, hintOn: hintOn, sequence: sequence)
+        let fields = answerFields(&open.tracker, facts: roundFacts, choice: choice, correct: correct,
+                                  pendingBefore: pendingBefore, pendingAfter: pendingAfter, hintOn: hintOn,
+                                  sequence: sequence)
         round = open
         emit(.answerAttempt, fields, unit: (open.actor, open.session))
     }
@@ -458,8 +483,8 @@ final class PerformanceRecorder {
         emit(.roundResult, fields, unit: (open.actor, open.session), synchronize: true)
     }
 
-    private func answerFields(_ tracker: inout PerfRoundTracker, choice: String, correct: Bool,
-                              pendingBefore: Int, pendingAfter: Int, hintOn: Bool,
+    private func answerFields(_ tracker: inout PerfRoundTracker, facts deal: PerfDealFacts?, choice: String,
+                              correct: Bool, pendingBefore: Int, pendingAfter: Int, hintOn: Bool,
                               sequence: (step: Int, expected: String?, tappedSoFar: [String])?) -> [String: PerfValue] {
         let facts = tracker.answer(choice: choice, correct: correct, mono: Self.monoNow())
         let kind = tracker.kind
@@ -468,9 +493,17 @@ final class PerformanceRecorder {
             if kind == .sequenceShortToLong, let sequence {
                 tags = PerfChoiceCatalog.sequenceTags(tapped: choice, expected: sequence.expected,
                                                       tappedSoFar: sequence.tappedSoFar, presented: tracker.slots)
+            } else if let deal {
+                tags = deal.tags(for: choice)
             } else {
                 tags = PerfChoiceCatalog.tags(kind: kind, choice: choice)
             }
+        }
+        let asset: String?
+        if let deal {
+            asset = deal.asset(for: choice)
+        } else {
+            asset = PerfChoiceCatalog.asset(kind: kind, choice: choice)
         }
         var fields: [String: PerfValue] = [
             "round": .string(tracker.round),
@@ -478,7 +511,7 @@ final class PerformanceRecorder {
             "item": .string(tracker.item),
             "n": .int(facts.n),
             "choice": .string(choice),
-            "asset": .optionalString(PerfChoiceCatalog.asset(kind: kind, choice: choice)),
+            "asset": .optionalString(asset),
             "slot": .optionalInt(facts.slot),
             "correct": .bool(correct),
             "pending_before": .int(pendingBefore),
@@ -499,28 +532,30 @@ final class PerformanceRecorder {
 
     // MARK: Playtest (parent cover; never counted)
 
-    func playtestStarted(round id: String, kind: ActivityKind, pendingStart: Int) {
+    func playtestStarted(round id: String, kind: ActivityKind, pendingStart: Int, facts: PerfDealFacts) {
         abandonPlaytest(reason: "superseded")
-        let slots = PerfChoiceCatalog.slots(kind: kind, seed: id)
-        let item = PerfChoiceCatalog.item(for: kind)
-        let unit = emit(.gameDealt, [
+        var fields: [String: PerfValue] = [
             "round": .string(id),
             "kind": .string(kind.rawValue),
-            "item": .string(item),
+            "item": .string(facts.item),
             "stars": .int(0),
             "pending_start": .int(pendingStart),
             "deal_mode": .string("playtest"),
-            "slots": .strings(slots)
-        ], actorOverride: .parentPlaytest)
-        playtest = (PerfRoundTracker(round: id, kind: kind, item: item, stars: 0, pendingStart: pendingStart,
-                                     slots: slots, mono: Self.monoNow()), unit.actor, unit.session)
+            "slots": .strings(facts.slots)
+        ]
+        fields.merge(facts.dealtFields) { current, _ in current }
+        let unit = emit(.gameDealt, fields, actorOverride: .parentPlaytest)
+        playtest = (PerfRoundTracker(round: id, kind: kind, item: facts.item, stars: 0, pendingStart: pendingStart,
+                                     slots: facts.slots, mono: Self.monoNow()), unit.actor, unit.session)
+        playtestFacts = facts
     }
 
     func playtestAnswer(choice: String, correct: Bool, pendingBefore: Int, pendingAfter: Int, hintOn: Bool,
                         sequence: (step: Int, expected: String?, tappedSoFar: [String])? = nil) {
         guard var open = playtest else { return }
-        let fields = answerFields(&open.tracker, choice: choice, correct: correct, pendingBefore: pendingBefore,
-                                  pendingAfter: pendingAfter, hintOn: hintOn, sequence: sequence)
+        let fields = answerFields(&open.tracker, facts: playtestFacts, choice: choice, correct: correct,
+                                  pendingBefore: pendingBefore, pendingAfter: pendingAfter, hintOn: hintOn,
+                                  sequence: sequence)
         if !correct { open.tracker.pauseStarted(mono: Self.monoNow()) }
         playtest = open
         emit(.answerAttempt, fields, unit: (open.actor, open.session))

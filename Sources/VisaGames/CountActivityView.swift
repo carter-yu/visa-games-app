@@ -27,24 +27,30 @@ struct CountActivityView: View {
             Text("用筆畫 / Draw with your pen")
                 .font(.system(size: 20, weight: .medium, design: .rounded))
 
-            HStack(spacing: 18) {
-                ForEach(Array(question.vehicleAssetIDs.enumerated()), id: \.offset) { index, assetID in
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .fill(Color.white.opacity(0.55))
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .stroke(Color(red: 0.45, green: 0.28, blue: 0.14), lineWidth: 3)
-                        if let kind = SilhouetteAsset.kind(for: assetID) {
-                            FriendlyVehicleView(
-                                kind: kind,
-                                mood: index % 2 == 0 ? .happy : .calm,
-                                role: .hero
-                            )
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 18)
+            if question.variant != nil {
+                // v0.22.0: generated row / two rows / scatter (up to 10 vehicles).
+                CountStimulusView(question: question)
+                    .frame(maxWidth: 900, minHeight: 240, maxHeight: 260)
+            } else {
+                HStack(spacing: 18) {
+                    ForEach(Array(question.vehicleAssetIDs.enumerated()), id: \.offset) { index, assetID in
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .fill(Color.white.opacity(0.55))
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(Color(red: 0.45, green: 0.28, blue: 0.14), lineWidth: 3)
+                            if let kind = SilhouetteAsset.kind(for: assetID) {
+                                FriendlyVehicleView(
+                                    kind: kind,
+                                    mood: index % 2 == 0 ? .happy : .calm,
+                                    role: .hero
+                                )
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 18)
+                            }
                         }
+                        .frame(minWidth: 170, minHeight: 130)
                     }
-                    .frame(minWidth: 170, minHeight: 130)
                 }
             }
 

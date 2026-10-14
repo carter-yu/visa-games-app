@@ -28,11 +28,22 @@ struct ParentPlaytestCover: View {
         .background(Color(hex: DesignTokens.Palette.sand).ignoresSafeArea())
     }
 
+    /// Generated kinds (v0.22.0) show the tier; each 試玩 of the same game moves to the next ★.
+    private var isGenerated: Bool { QuestionGeneration.isGenerated(kind) }
+
+    private var title: String {
+        isGenerated ? "試玩 · \(kind.parentCardTitle) · \(model.playtestLevel.stars)" : "試玩 · \(kind.parentCardTitle)"
+    }
+
+    private var subtitle: String {
+        isGenerated ? "Playtest · level \(model.playtestLevel.rawValue) · 再試玩轉下一級 / next playtest moves up" : "Playtest"
+    }
+
     private var bar: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 0) {
-                ParentLabel("試玩 · \(kind.parentCardTitle)", size: 20, weight: 900)
-                ParentLabel("Playtest", size: 12, weight: 700, color: .inkSoft)
+                ParentLabel(title, size: 20, weight: 900)
+                ParentLabel(subtitle, size: 12, weight: 700, color: .inkSoft)
             }
             Text("冇簽證 / No visa")
                 .font(.system(size: 12, weight: .bold, design: .rounded))

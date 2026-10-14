@@ -34,6 +34,13 @@ final class AppModel: ObservableObject {
     @Published private(set) var playtestSequenceTaps: [String] = []
     /// New UUID each playtest. Choice order is a function of this, not the catalog id.
     @Published private(set) var playtestChoiceDealSeed = ""
+    /// v0.22.0: question tier of this playtest. Each 試玩 of a kind walks L1 → L2 → L3
+    /// (memory only), so a parent can review every tier without a ticket.
+    @Published private(set) var playtestLevel: ActivityLevel = .l1
+    private var playtestNextLevel: [ActivityKind: ActivityLevel] = [:]
+    /// Playtest copies of the generated questions. Never the child round's questions.
+    private var playtestFindSameQuestion = ActivityCatalog.findSameQuestion()
+    private var playtestCountQuestion = ActivityCatalog.countQuestion()
     private var playtestThinkEndsAt: Date?
     var isParentPlaytest: Bool { playtestKind != nil && session.mode == .parent }
     var playtestChoicesLocked: Bool { playtestThinkEndsAt != nil || playtestCompleted }
@@ -120,6 +127,8 @@ final class AppModel: ObservableObject {
     private var twoPictureQuestion = ActivityCatalog.twoPictureQuestion()
     private var findSameQuestion = ActivityCatalog.findSameQuestion()
     private var countQuestion = ActivityCatalog.countQuestion()
+    /// v0.22.0: last generated item per kind (memory only). The next deal of that kind avoids it.
+    private var lastDealtItem: [ActivityKind: String] = [:]
     private var sequenceQuestion = ActivityCatalog.sequenceQuestion()
     private var halfMatchQuestion = ActivityCatalog.halfMatchQuestion()
     private var shapeCousinQuestion = ActivityCatalog.shapeCousinQuestion()
@@ -157,6 +166,9 @@ final class AppModel: ObservableObject {
     private var authentication: LAContext?
     private var parentDeadline: Date?
     private let parentAccessSeconds: TimeInterval = 600
+    /// Not assigned by AppDelegate since v0.21.5 (ADR 0011): kiosk presentation is constant.
+    /// Any future AppKit work hung here must be coalesced and deferred with
+    /// `DispatchQueue.main.async`, never run inside the model mutation.
     var changed: (() -> Void)?
     /// D10 performance records (v0.20.0). Local, parent-only, never blocks the child flow.
     let perf = PerformanceRecorder()
@@ -192,8 +204,9 @@ final class AppModel: ObservableObject {
             message = "儲存資料有問題，請家長處理。 / Storage needs parent attention."
             VisaGamesLog.append("storage load FAILED — 載入失敗 storageFailed=true")
         }
-        perf.contextProvider = { [unowned self] in
-            PerfRecorderContext(mode: self.session.mode, isPlaytest: self.isParentPlaytest)
+        perf.contextProvider = { [weak self] in
+            guard let self else { return PerfRecorderContext(mode: .lock, isPlaytest: false) }
+            return PerfRecorderContext(mode: self.session.mode, isPlaytest: self.isParentPlaytest)
         }
         perf.onWriteFailed = { [weak self] in self?.perfWriteFailed = true }
         perf.launch(
@@ -358,17 +371,31 @@ final class AppModel: ObservableObject {
                 message = "未能確認家長身份。 / Parent authentication cancelled or failed."
                 return
             }
-            parentDeadline = Date().addingTimeInterval(parentAccessSeconds)
-            if !storageFailed { message = nil }
-            guideVoice.stop()
-            let modeBeforeParent = session.mode
-            // The player is torn down under parent controls: close the child play first.
-            perf.endPlay(reason: .parentUnlock, resumeSaved: false)
-            update { $0.enterParent(authenticated: true, now: Date()) }
-            perf.parentEntered(fromMode: modeBeforeParent)
-            VisaGamesLog.append("mode → parent — 進入家長模式")
-            logShellBranch(context: "enterParent")
+            enterParentAfterAuthentication()
         }
+    }
+
+    /// The LAContext success branch. The debug soak hook is the only other caller (ADR 0011).
+    private func enterParentAfterAuthentication() {
+        parentDeadline = Date().addingTimeInterval(parentAccessSeconds)
+        if !storageFailed { message = nil }
+        guideVoice.stop()
+        let modeBeforeParent = session.mode
+        // The player is torn down under parent controls: close the child play first.
+        perf.endPlay(reason: .parentUnlock, resumeSaved: false)
+        update { $0.enterParent(authenticated: true, now: Date()) }
+        perf.parentEntered(fromMode: modeBeforeParent)
+        VisaGamesLog.append("mode → parent — 進入家長模式")
+        logShellBranch(context: "enterParent")
+    }
+
+    /// Debug soak only (ADR 0011): enter parent without LAContext. No-op unless the launch
+    /// environment opted in; called only from AppDelegate's soak timer, never from a view.
+    func soakEnterParent() {
+        guard KioskSoak.isEnabled else { return }
+        guard !authenticating, session.mode != .parent else { return }
+        VisaGamesLog.append("soak — enter parent (auth bypassed, soak only)")
+        enterParentAfterAuthentication()
     }
 
     func returnToChild(reason: String = "return") {
@@ -689,6 +716,8 @@ final class AppModel: ObservableObject {
     var currentTwoPictureQuestion: TwoPictureQuestion { twoPictureQuestion }
     var currentFindSameQuestion: FindSameQuestion { findSameQuestion }
     var currentCountQuestion: CountQuestion { countQuestion }
+    var currentPlaytestFindSameQuestion: FindSameQuestion { playtestFindSameQuestion }
+    var currentPlaytestCountQuestion: CountQuestion { playtestCountQuestion }
     var currentSequenceQuestion: SequenceQuestion { sequenceQuestion }
     var currentHalfMatchQuestion: HalfMatchQuestion { halfMatchQuestion }
     var currentShapeCousinQuestion: ShapeCousinQuestion { shapeCousinQuestion }
@@ -709,10 +738,13 @@ final class AppModel: ObservableObject {
         let pool = gameAssignment.pool(for: difficulty)
         let kind = ActivityCatalog.kind(forRoundSeed: seed, pool: pool)
         activeActivityKind = kind
-        // Refresh catalog payloads each round (stable templates today; seam for future variants).
+        // D1 (v0.22.0): the ticket's stars are also the question tier for generated kinds.
+        let level = ActivityLevel(difficulty)
         twoPictureQuestion = ActivityCatalog.twoPictureQuestion()
-        findSameQuestion = ActivityCatalog.findSameQuestion()
-        countQuestion = ActivityCatalog.countQuestion()
+        findSameQuestion = ActivityCatalog.findSameQuestion(
+            seed: seed, level: level, avoidingItem: lastDealtItem[.findTheSame])
+        countQuestion = ActivityCatalog.countQuestion(
+            seed: seed, level: level, avoidingItem: lastDealtItem[.countVehicles])
         sequenceQuestion = ActivityCatalog.sequenceQuestion()
         halfMatchQuestion = ActivityCatalog.halfMatchQuestion()
         shapeCousinQuestion = ActivityCatalog.shapeCousinQuestion()
@@ -727,8 +759,11 @@ final class AppModel: ObservableObject {
         fuelFeedbackMessage = nil
         clearThinkPause()
         taskRoundOpen = true
-        perf.roundDealt(round: seed, kind: kind, stars: stars, pendingStart: difficulty.minutes, pool: pool)
-        VisaGamesLog.append("selectDifficulty — 選擇難度 stars=\(stars) kind=\(kind.rawValue) seed=\(seed) pendingMin=\(pendingAwardMinutes) pool=\(pool.count)")
+        let facts = dealFacts(kind: kind, seed: seed, findSame: findSameQuestion, count: countQuestion)
+        if QuestionGeneration.isGenerated(kind) { lastDealtItem[kind] = facts.item }
+        perf.roundDealt(round: seed, kind: kind, stars: stars, pendingStart: difficulty.minutes, pool: pool,
+                        facts: facts)
+        VisaGamesLog.append("selectDifficulty — 選擇難度 stars=\(stars) kind=\(kind.rawValue) level=\(level.code) item=\(facts.item) seed=\(seed) pendingMin=\(pendingAwardMinutes) pool=\(pool.count)")
     }
 
     private func resetTaskRound() {
@@ -760,7 +795,26 @@ final class AppModel: ObservableObject {
         guard session.mode == .lock, taskRoundOpen, let kind = activeActivityKind else { return }
         guard !choicesLocked else { return }
         entryHintUsed = true
-        entryRetryMessage = ActivityCatalog.hintTraditionalChinese(for: kind)
+        entryRetryMessage = hintText(for: kind, findSame: findSameQuestion, count: countQuestion)
+    }
+
+    /// Generated questions carry their own hint (it names the vehicle / the detail to check).
+    private func hintText(for kind: ActivityKind, findSame: FindSameQuestion, count: CountQuestion) -> String {
+        switch kind {
+        case .findTheSame: return findSame.hintTraditionalChinese
+        case .countVehicles: return count.hintTraditionalChinese
+        default: return ActivityCatalog.hintTraditionalChinese(for: kind)
+        }
+    }
+
+    /// Performance facts of the question actually dealt (item, slots, gen, level, tags).
+    private func dealFacts(kind: ActivityKind, seed: String, findSame: FindSameQuestion,
+                           count: CountQuestion) -> PerfDealFacts {
+        switch kind {
+        case .findTheSame: return PerfChoiceCatalog.facts(findSame: findSame, seed: seed)
+        case .countVehicles: return PerfChoiceCatalog.facts(count: count, seed: seed)
+        default: return PerfChoiceCatalog.facts(kind: kind, seed: seed)
+        }
     }
 
     func speakEntryPrompt() {
@@ -1886,9 +1940,17 @@ final class AppModel: ObservableObject {
         playtestFuelMessage = nil
         playtestSequenceTaps = []
         playtestChoiceDealSeed = UUID().uuidString
+        let level = playtestNextLevel[kind] ?? .l1
+        playtestNextLevel[kind] = level.cycled
+        playtestLevel = level
+        playtestFindSameQuestion = ActivityCatalog.findSameQuestion(seed: playtestChoiceDealSeed, level: level)
+        playtestCountQuestion = ActivityCatalog.countQuestion(seed: playtestChoiceDealSeed, level: level)
         clearPlaytestThinkPause()
-        perf.playtestStarted(round: playtestChoiceDealSeed, kind: kind, pendingStart: playtestStartingMinutes)
-        VisaGamesLog.append("playtest start — 試玩 kind=\(kind.rawValue) mode=parent visa=false")
+        let facts = dealFacts(kind: kind, seed: playtestChoiceDealSeed,
+                              findSame: playtestFindSameQuestion, count: playtestCountQuestion)
+        perf.playtestStarted(round: playtestChoiceDealSeed, kind: kind, pendingStart: playtestStartingMinutes,
+                             facts: facts)
+        VisaGamesLog.append("playtest start — 試玩 kind=\(kind.rawValue) level=\(level.code) item=\(facts.item) mode=parent visa=false")
     }
 
     /// 返回家長. Mode stays `.parent` until the settings bar Return / auto-lock says otherwise.
@@ -1907,11 +1969,11 @@ final class AppModel: ObservableObject {
             zh = twoPictureQuestion.promptTraditionalChinese
             en = twoPictureQuestion.promptEnglish
         case .findTheSame:
-            zh = findSameQuestion.promptTraditionalChinese
-            en = findSameQuestion.promptEnglish
+            zh = playtestFindSameQuestion.promptTraditionalChinese
+            en = playtestFindSameQuestion.promptEnglish
         case .countVehicles:
-            zh = countQuestion.promptTraditionalChinese
-            en = countQuestion.promptEnglish
+            zh = playtestCountQuestion.promptTraditionalChinese
+            en = playtestCountQuestion.promptEnglish
         case .sequenceShortToLong:
             zh = sequenceQuestion.promptTraditionalChinese
             en = sequenceQuestion.promptEnglish
@@ -1954,7 +2016,7 @@ final class AppModel: ObservableObject {
     func playtestSelectFindSame(id: String) {
         guard isParentPlaytest, playtestKind == .findTheSame, !playtestChoicesLocked else { return }
         let evaluation = activityEvaluator.evaluate(
-            question: findSameQuestion,
+            question: playtestFindSameQuestion,
             selectedOptionID: id,
             hintUsed: playtestHintUsed
         )
@@ -1964,7 +2026,7 @@ final class AppModel: ObservableObject {
     func playtestSelectCount(_ count: Int) {
         guard isParentPlaytest, playtestKind == .countVehicles, !playtestChoicesLocked else { return }
         let evaluation = activityEvaluator.evaluate(
-            question: countQuestion,
+            question: playtestCountQuestion,
             selectedCount: count,
             hintUsed: playtestHintUsed
         )
@@ -2242,6 +2304,21 @@ final class KioskWindow: NSWindow {
     override var canBecomeMain: Bool { true }
 }
 
+/// Debug soak (ADR 0011). Off unless the process was launched with VISAGAMES_SOAK=1.
+/// No shipped launch path (Info.plist, scripts, Desktop alias) sets it.
+enum KioskSoak {
+    static var isEnabled: Bool {
+        ProcessInfo.processInfo.environment["VISAGAMES_SOAK"] == "1"
+    }
+
+    /// Parent → child round trips before the soak stops. Default 50.
+    static var cycles: Int {
+        guard let raw = ProcessInfo.processInfo.environment["VISAGAMES_SOAK_CYCLES"],
+              let value = Int(raw), value > 0 else { return 50 }
+        return value
+    }
+}
+
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let model = AppModel()
@@ -2250,9 +2327,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var timer: Timer?
     private var keyMonitor: Any?
     private var pointerMonitor: Any?
-    private var isChildPresentation: Bool?
-    private var parentWindowFrame: NSRect?
     private var didPrepareTerminate = false
+    private var screenRefitPending = false
+    private var soakTimer: Timer?
+    private var soakCycle = 0
+
+    /// v0.21.5 (ADR 0011): set once at launch, never toggled on parent enter / exit.
+    private static let kioskPresentationOptions: NSApplication.PresentationOptions = [
+        .hideDock, .hideMenuBar, .disableAppleMenu, .disableProcessSwitching,
+        .disableForceQuit, .disableSessionTermination, .disableHideApplication
+    ]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         VisaGamesLog.append("fonts — 字型 canvas=\(CanvasFont.isAvailable)")
@@ -2263,9 +2347,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.collectionBehavior = [.fullScreenDisallowsTiling]
         window.acceptsMouseMovedEvents = true
+        // Constant kiosk presentation (ADR 0011): borderless, full screen, above the menu bar,
+        // for setup, child and parent alike. Parent settings render inside this same window.
+        // macOS 27: toggling these on parent exit, inside the model mutation, crashed in the
+        // Swift runtime executor check (ShellView.body / MenuBarClientCore).
+        window.level = .mainMenu + 1
         window.contentView = NSHostingView(rootView: ShellView(model: model, penSpark: penSpark))
-        model.changed = { [weak self] in self?.applyPresentation() }
-        applyPresentation()
+        NSApp.presentationOptions = Self.kioskPresentationOptions
+        fitWindowToScreen()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -2281,6 +2370,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self?.penSpark.handle(event)
             return event
         }
+        // v0.22.2: restore the Task hop. The 0.22.1 selector Timer coincided with a depot
+        // hang (idle main thread); keep ticks on MainActor the same way as before ADR 0010.
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.model.tick()
@@ -2293,45 +2384,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             name: NSWorkspace.didWakeNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(screenChanged),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
-    }
-
-    private func applyPresentation() {
-        let child = !model.session.allowsExit
-        guard child != isChildPresentation else { return }
-        NSApp.presentationOptions = child ? [.hideDock, .hideMenuBar, .disableAppleMenu,
-            .disableProcessSwitching, .disableForceQuit, .disableSessionTermination, .disableHideApplication] : []
-        window.level = child ? .mainMenu + 1 : .normal
-        if child {
-            if isChildPresentation == false { parentWindowFrame = window.frame }
-            if window.isMiniaturized { window.deminiaturize(nil) }
-            window.styleMask = [.borderless]
-            window.minSize = .zero
-            if let screen = window.screen ?? NSScreen.main {
-                window.setFrame(screen.frame, display: true)
-            }
-        } else {
-            window.styleMask = [.titled, .miniaturizable, .resizable]
-            window.minSize = NSSize(width: 640, height: 480)
-            let visible = (window.screen ?? NSScreen.main)?.visibleFrame
-                ?? NSRect(x: 0, y: 0, width: 1280, height: 720)
-            let preferred = parentWindowFrame?.size ?? NSSize(width: 960, height: 800)
-            let size = NSSize(width: min(preferred.width, visible.width),
-                              height: min(preferred.height, visible.height))
-            let frame = NSRect(x: visible.midX - size.width / 2,
-                               y: visible.midY - size.height / 2,
-                               width: size.width, height: size.height)
-            window.setFrame(frame, display: true)
-        }
-        isChildPresentation = child
+        startSoakIfRequested()
     }
 
     @objc private func willSleep() { model.returnToChild(reason: "sleep") }
     @objc private func didWake() { model.tick() }
+    /// Coalesced and deferred: never resize inside AppKit's screen-change callout.
     @objc private func screenChanged() {
-        if !model.session.allowsExit, let screen = window.screen ?? NSScreen.main {
-            window.setFrame(screen.frame, display: true)
+        guard !screenRefitPending else { return }
+        screenRefitPending = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.screenRefitPending = false
+            self.fitWindowToScreen()
         }
     }
+
+    /// Full-screen frame in every mode. Launch and the deferred screen-change refit only.
+    private func fitWindowToScreen() {
+        guard !didPrepareTerminate, let window = self.window,
+              let screen = window.screen ?? NSScreen.main else { return }
+        guard window.frame != screen.frame else { return }
+        window.setFrame(screen.frame, display: true)
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard model.session.allowsExit else { return .terminateCancel }
         prepareForTerminate()
@@ -2352,6 +2428,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         VisaGamesLog.append("terminate — 準備離開 teardown timer/monitors/hosting")
         timer?.invalidate()
         timer = nil
+        soakTimer?.invalidate()
+        soakTimer = nil
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
             self.keyMonitor = nil
@@ -2366,6 +2444,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Dismantle SwiftUI + WKWebView before AppKit continues terminate layout.
         window?.contentView = nil
         window?.delegate = nil
+    }
+
+    // MARK: Debug soak (ADR 0011)
+
+    /// Alternates parent ↔ child every 1.5 s on an AppKit timer to reproduce the macOS 27
+    /// executor crash. Only when launched with VISAGAMES_SOAK=1; stays running when done.
+    private func startSoakIfRequested() {
+        guard KioskSoak.isEnabled else { return }
+        VisaGamesLog.append("soak start cycles=\(KioskSoak.cycles)")
+        soakTimer = Timer.scheduledTimer(timeInterval: 1.5, target: self, selector: #selector(soakStep),
+                                         userInfo: nil, repeats: true)
+    }
+
+    @objc private func soakStep() {
+        guard KioskSoak.isEnabled, !didPrepareTerminate else { return }
+        if model.session.mode == .parent {
+            model.returnToChild(reason: "soak")
+            if soakCycle >= KioskSoak.cycles {
+                soakTimer?.invalidate()
+                soakTimer = nil
+                VisaGamesLog.append("soak done")
+            }
+        } else {
+            soakCycle += 1
+            VisaGamesLog.append("soak cycle \(soakCycle)")
+            model.soakEnterParent()
+        }
     }
 }
 
@@ -2397,17 +2502,23 @@ struct ShellView: View {
         !model.showTimesUp && model.session.mode == .play && playRoute == .watch
     }
 
+    /// v0.22.2: build the ZStack in place (no precomputed `content`). Skip ParentCornerLayer
+    /// on the depot — DepotHomeView already embeds ParentCornerEntry; a second full-screen
+    /// CanvasStage/GeometryReader overlay can steal ticket taps (hang sample: idle main thread).
+    /// Actions stay explicit closures (ADR 0010).
     var body: some View {
         let childMode = isChildMode
         let watching = isWatching
+        // Depot has its own parent corner; Watch uses the garage glyph (ADR 0007 §5).
+        let onDepot = model.session.mode == .lock && !model.taskRoundOpen
+        let showsParentCorner = childMode && !watching && !onDepot
         return ZStack {
             childOrLegacy
+            if showsParentCorner {
+                ParentCornerLayer(onUnlock: { model.unlock() })
+                    .ignoresSafeArea()
+            }
             if childMode {
-                // On Watch the parent hold lives on the garage glyph (ADR 0007 §5); no second corner.
-                if !watching {
-                    ParentCornerLayer(onUnlock: { model.unlock() })
-                        .ignoresSafeArea()
-                }
                 PenSparkOverlay(model: penSpark)
                     .ignoresSafeArea()
             }
@@ -2423,21 +2534,21 @@ struct ShellView: View {
             // v0.12.0: parent controls win over a pending Time's up board (shown again on Return).
             ParentSettingsView(model: model)
         } else if model.showProviderBlocked {
-            ProviderBlockedView(onContinue: model.dismissProviderBlocked)
+            ProviderBlockedView(onContinue: { model.dismissProviderBlocked() })
                 .ignoresSafeArea()
         } else if model.showTimesUp {
             TimesUpView(
                 ticket: model.timesUpTicket ?? model.resolvedPlayTicket,
                 dockLeadingX: CGFloat(BayDock.chosen(seed: model.timesUpDockSeed).leadingX),
-                onNewMission: model.dismissTimesUp,
+                onNewMission: { model.dismissTimesUp() },
                 onSpeak: { model.guideSpeakTimesUp() }
             )
             .ignoresSafeArea()
         } else if model.session.mode == .lock && !model.taskRoundOpen {
             DepotHomeView(
                 onSelect: { model.selectDifficulty(stars: $0.rawValue) },
-                onSpeakPrompt: model.speakDepotPrompt,
-                onParentUnlock: model.unlock
+                onSpeakPrompt: { model.speakDepotPrompt() },
+                onParentUnlock: { model.unlock() }
             )
             .ignoresSafeArea()
             parentNotice
@@ -2462,13 +2573,13 @@ struct ShellView: View {
                     ? model.earnedAwardMinutes
                     : (model.targetVisaMinutes ?? ticket.difficulty.minutes),
                 dockLeadingX: CGFloat(BayDock.chosen(seed: model.departureDockSeed).leadingX),
-                onGo: model.confirmDeparture,
+                onGo: { model.confirmDeparture() },
                 onSpeak: { model.guideSpeakStamped() }
             )
             .ignoresSafeArea()
         case .emptyAllowlist:
             EmptyAllowlistView(
-                onReturn: model.returnFromEmptyAllowlist,
+                onReturn: { model.returnFromEmptyAllowlist() },
                 onSpeak: { model.guideSpeakEmptyAllowlist() }
             )
             .ignoresSafeArea()
@@ -2477,11 +2588,11 @@ struct ShellView: View {
                 ResumeChoiceView(
                     ticket: ticket,
                     incomplete: incomplete,
-                    onContinue: model.continueIncompleteVideo,
-                    onPickOther: model.pickOtherFromResumeChoice,
+                    onContinue: { model.continueIncompleteVideo() },
+                    onPickOther: { model.pickOtherFromResumeChoice() },
                     onSpeak: { model.guideSpeakResumeChoice() },
                     onSpeakOrPick: { model.guideSpeakResumeChoiceOrPick() },
-                    onAppearLog: model.resumeChoiceOpened
+                    onAppearLog: { model.resumeChoiceOpened() }
                 )
                 .ignoresSafeArea()
             } else {
@@ -2494,7 +2605,7 @@ struct ShellView: View {
                     onPick: { model.pickVideo(id: $0) },
                     onContinue: nil,
                     onSpeak: { model.guideSpeakPickVideo() },
-                    onAppearLog: model.videoPickerOpened,
+                    onAppearLog: { model.videoPickerOpened() },
                     onPageShown: { model.videoPickerPageShown(page: $0, via: $1) }
                 )
                 .ignoresSafeArea()
@@ -2510,7 +2621,7 @@ struct ShellView: View {
                 onPick: { model.pickVideo(id: $0) },
                 onContinue: model.resumeCandidate == nil ? nil : { model.continueIncompleteVideo() },
                 onSpeak: { model.guideSpeakPickVideo() },
-                onAppearLog: model.videoPickerOpened,
+                onAppearLog: { model.videoPickerOpened() },
                 onPageShown: { model.videoPickerPageShown(page: $0, via: $1) }
             )
             .ignoresSafeArea()
@@ -2541,7 +2652,7 @@ struct ShellView: View {
                     .foregroundStyle(Color.ink)
                     .multilineTextAlignment(.center)
                 if model.needsParentAttention {
-                    Button("家長 / Parent", action: model.unlock)
+                    Button("家長 / Parent", action: { model.unlock() })
                         .buttonStyle(.borderedProminent)
                         .controlSize(.large)
                         .disabled(model.authenticating)
@@ -2599,7 +2710,7 @@ struct ShellView: View {
                 }
                 // Child screens use the 3-second parent corner; setup and storage failures keep a visible button.
                 if model.session.mode == .setup || (model.session.mode != .parent && model.needsParentAttention) {
-                    Button("家長 / Parent", action: model.unlock)
+                    Button("家長 / Parent", action: { model.unlock() })
                         .disabled(model.authenticating)
                         .tint(accent)
                 }
@@ -2685,8 +2796,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelect: { model.selectFindSameOption(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .countVehicles:
                 CountActivityView(
@@ -2699,8 +2810,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelectCount: { model.selectCountChoice($0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .sequenceShortToLong:
                 SequenceActivityView(
@@ -2714,8 +2825,8 @@ struct ShellView: View {
                     hintUsed: model.entryHintUsed,
                     tappedAssetIDs: model.sequenceTappedAssetIDs,
                     onTapAsset: { model.selectSequenceAsset(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .halfMatch:
                 HalfMatchActivityView(
@@ -2728,8 +2839,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelect: { model.selectHalfMatchOption(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .shapeCousin:
                 ShapeCousinActivityView(
@@ -2742,8 +2853,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelect: { model.selectShapeCousinOption(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .capacityCompare:
                 CapacityCompareActivityView(
@@ -2756,8 +2867,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelect: { model.selectCapacityOption(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .moreFewer:
                 MoreFewerActivityView(
@@ -2770,8 +2881,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelectSide: { model.selectMoreFewerSide($0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .shadowMatch:
                 ShadowMatchActivityView(
@@ -2784,8 +2895,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelect: { model.selectShadowMatchOption(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .emptyBay:
                 EmptyBayActivityView(
@@ -2798,8 +2909,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelectBay: { model.selectEmptyBay(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .twoPictureChoose, .none:
                 EntryActivityView(
@@ -2812,8 +2923,8 @@ struct ShellView: View {
                     retryMessage: model.entryRetryMessage,
                     hintUsed: model.entryHintUsed,
                     onSelect: { model.selectEntryOption(id: $0) },
-                    onHint: model.useEntryHint,
-                    onSpeakPrompt: model.speakEntryPrompt
+                    onHint: { model.useEntryHint() },
+                    onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             }
         }

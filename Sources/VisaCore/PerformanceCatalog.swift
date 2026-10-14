@@ -5,7 +5,8 @@ import Foundation
 /// Pure functions of the catalog and the round's deal seed — the same `presented*`
 /// functions the child views use — so a recorded slot is the slot the child saw.
 public enum PerfChoiceCatalog {
-    /// Catalog `completionID` of the one item each kind deals today.
+    /// Catalog `completionID` of each kind's fixed v0 item. Generated kinds (v0.22.0) take
+    /// their item from the dealt question: `facts(count:seed:)` / `facts(findSame:seed:)`.
     public static func item(for kind: ActivityKind) -> String {
         switch kind {
         case .twoPictureChoose: return ActivityCatalog.twoPictureQuestion().completionID

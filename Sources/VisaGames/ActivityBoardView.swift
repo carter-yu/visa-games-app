@@ -14,6 +14,9 @@ struct ActivityBoardView<Stimulus: View, Choice: View>: View {
     let fuelFeedback: String?
     let choicesLocked: Bool
     let onSpeak: () -> Void
+    /// Stimulus panel size in stage units, centred horizontally. Count (v0.22.0) uses a
+    /// wider, taller panel so up to 10 vehicles stay countable.
+    var stimulusSize: CGSize = ActivityBoardLayout.standardStimulus
     @ViewBuilder let stimulus: () -> Stimulus
     @ViewBuilder let choices: () -> Choice
     @Environment(\.canvasMetrics) private var metrics
@@ -61,8 +64,9 @@ struct ActivityBoardView<Stimulus: View, Choice: View>: View {
                 .canvasPlaced(x: 980, y: 28)
 
                 stimulus()
-                    .frame(width: metrics.u(420), height: metrics.u(220))
-                    .canvasPlaced(x: 430, y: 160)
+                    .frame(width: metrics.u(stimulusSize.width), height: metrics.u(stimulusSize.height))
+                    .canvasPlaced(x: ActivityBoardLayout.stageCenterX - stimulusSize.width / 2,
+                                  y: ActivityBoardLayout.stimulusTop(for: stimulusSize))
 
                 choices()
                     .canvasPlaced(x: 110, y: 430)
@@ -76,6 +80,18 @@ struct ActivityBoardView<Stimulus: View, Choice: View>: View {
         }
         .animation(.easeInOut(duration: 0.2), value: thinkPauseRemaining > 0)
         .onAppear(perform: onSpeak)
+    }
+}
+
+/// Stimulus panel geometry on the 1280 × 720 stage.
+enum ActivityBoardLayout {
+    static let stageCenterX: CGFloat = 640
+    static let standardStimulus = CGSize(width: 420, height: 220)
+    /// Count board: clear of Stampy / fuel gauge above (≤ 140) and the choice row below (430).
+    static let countStimulus = CGSize(width: 860, height: 260)
+
+    static func stimulusTop(for size: CGSize) -> CGFloat {
+        size.height > standardStimulus.height ? 152 : 160
     }
 }
 
