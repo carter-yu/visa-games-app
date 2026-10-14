@@ -241,9 +241,14 @@ final class GuidedLineMatchTests {
                 }
                 // Every label of the level fits (zh 34 / 32pt, English ≈ 0.58 em per letter).
                 for (zh, en) in labels(level) {
-                    let text = layout.bubbleStacked[slot]
-                        ? 16 + 32 + 10 + max(Double(zh.count) * 32, Double(en.count) * 0.58 * 24) + 16
-                        : 24 + 40 + 10 + Double(zh.count + 1) * 34 + Double(en.count) * 0.58 * 30 + 24
+                    let zhCount: Double = Double(zh.count)
+                    let enCount: Double = Double(en.count)
+                    let stackedText: Double = max(zhCount * 32.0, enCount * 0.58 * 24.0)
+                    let stackedWidth: Double = 74.0 + stackedText
+                    let inlineZh: Double = (zhCount + 1.0) * 34.0
+                    let inlineEn: Double = enCount * 0.58 * 30.0
+                    let inlineWidth: Double = 98.0 + inlineZh + inlineEn
+                    let text: Double = layout.bubbleStacked[slot] ? stackedWidth : inlineWidth
                     expectTrue(text <= bubble.width, "bubble \(slot) too narrow for \(zh) \(en)")
                 }
                 expectTrue(layout.bubbleTails[slot].distance(to: LineMatchPoint(x: bubble.midX, y: bubble.midY)) < 260)
