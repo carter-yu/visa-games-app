@@ -65,7 +65,8 @@ recorded unless noted.
 | Display change | Disconnect/reconnect TV and change resolution; window resizes to its screen. | Not tested |
 | Parent corner (v0.9.0) | On lock and play, a tap on the faint bottom-right corner does nothing; a 3-second hold opens the macOS authentication prompt. A visible Parent button appears only in setup or after a storage error. The corner is not cut off by TV overscan. | Pending Mac mini UAT |
 | Pen glow monitor (v0.9.0) | The pointer monitor only observes: Escape, Cmd-Q, Cmd-W and Cmd-Tab stay blocked in every child state; taps still reach buttons; the glow never blocks a tap. | Pending Mac mini UAT |
-| Performance export (v0.20.0) | Parent controls → Advanced → 匯出表現 (CSV): Finder opens `~/Library/Application Support/VisaGames/stats/exports/…` above the kiosk window; Return to the app restores the kiosk; no Finder window is reachable from child screens. | Pending Mac mini UAT |
+| Performance export (v0.20.0) | Parent controls → Advanced → 匯出表現 (CSV): files are written to `~/Library/Application Support/VisaGames/stats/exports/…`. Since v0.21.5 (ADR 0011) Finder opens behind the kiosk window; quit with 「離開程式」 to see it. No Finder window is reachable from child screens. | Pending Mac mini UAT |
+| Constant presentation (v0.21.5) | Open and leave parent controls repeatedly (and the `VISAGAMES_SOAK=1` soak, ADR 0011): the window stays borderless and full screen, Dock and menu bar stay hidden in parent mode, no crash. 「離開程式」 quits and restores the Dock / menu bar. | Pending Mac mini UAT (macOS 27) |
 
 ## Remaining OS and physical escape paths
 
@@ -87,7 +88,8 @@ must be measured with the table above.
   identity. Keep those credentials parent-only and do not enroll child biometrics.
   The authentication dialog itself is an explicit parent system surface and may
   use the macOS system language. It is not a child text-entry task.
-- Authenticated parent mode deliberately restores normal macOS presentation.
+- Since v0.21.5 (ADR 0011) authenticated parent mode keeps the kiosk presentation (no Dock,
+  menu bar or app switching). Leaving needs 「離開程式」.
   Supervise this interval. Parent access is memory-only and expires after two
   minutes, on sleep, or when the app loses activation.
 - State is local, unencrypted JSON under the current user's Application Support

@@ -157,6 +157,9 @@ final class AppModel: ObservableObject {
     private var authentication: LAContext?
     private var parentDeadline: Date?
     private let parentAccessSeconds: TimeInterval = 600
+    /// Not assigned by AppDelegate since v0.21.5 (ADR 0011): kiosk presentation is constant.
+    /// Any future AppKit work hung here must be coalesced and deferred with
+    /// `DispatchQueue.main.async`, never run inside the model mutation.
     var changed: (() -> Void)?
     /// D10 performance records (v0.20.0). Local, parent-only, never blocks the child flow.
     let perf = PerformanceRecorder()
@@ -358,17 +361,31 @@ final class AppModel: ObservableObject {
                 message = "未能確認家長身份。 / Parent authentication cancelled or failed."
                 return
             }
-            parentDeadline = Date().addingTimeInterval(parentAccessSeconds)
-            if !storageFailed { message = nil }
-            guideVoice.stop()
-            let modeBeforeParent = session.mode
-            // The player is torn down under parent controls: close the child play first.
-            perf.endPlay(reason: .parentUnlock, resumeSaved: false)
-            update { $0.enterParent(authenticated: true, now: Date()) }
-            perf.parentEntered(fromMode: modeBeforeParent)
-            VisaGamesLog.append("mode → parent — 進入家長模式")
-            logShellBranch(context: "enterParent")
+            enterParentAfterAuthentication()
         }
+    }
+
+    /// The LAContext success branch. The debug soak hook is the only other caller (ADR 0011).
+    private func enterParentAfterAuthentication() {
+        parentDeadline = Date().addingTimeInterval(parentAccessSeconds)
+        if !storageFailed { message = nil }
+        guideVoice.stop()
+        let modeBeforeParent = session.mode
+        // The player is torn down under parent controls: close the child play first.
+        perf.endPlay(reason: .parentUnlock, resumeSaved: false)
+        update { $0.enterParent(authenticated: true, now: Date()) }
+        perf.parentEntered(fromMode: modeBeforeParent)
+        VisaGamesLog.append("mode → parent — 進入家長模式")
+        logShellBranch(context: "enterParent")
+    }
+
+    /// Debug soak only (ADR 0011): enter parent without LAContext. No-op unless the launch
+    /// environment opted in; called only from AppDelegate's soak timer, never from a view.
+    func soakEnterParent() {
+        guard KioskSoak.isEnabled else { return }
+        guard !authenticating, session.mode != .parent else { return }
+        VisaGamesLog.append("soak — enter parent (auth bypassed, soak only)")
+        enterParentAfterAuthentication()
     }
 
     func returnToChild(reason: String = "return") {
@@ -2242,6 +2259,21 @@ final class KioskWindow: NSWindow {
     override var canBecomeMain: Bool { true }
 }
 
+/// Debug soak (ADR 0011). Off unless the process was launched with VISAGAMES_SOAK=1.
+/// No shipped launch path (Info.plist, scripts, Desktop alias) sets it.
+enum KioskSoak {
+    static var isEnabled: Bool {
+        ProcessInfo.processInfo.environment["VISAGAMES_SOAK"] == "1"
+    }
+
+    /// Parent → child round trips before the soak stops. Default 50.
+    static var cycles: Int {
+        guard let raw = ProcessInfo.processInfo.environment["VISAGAMES_SOAK_CYCLES"],
+              let value = Int(raw), value > 0 else { return 50 }
+        return value
+    }
+}
+
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let model = AppModel()
@@ -2250,9 +2282,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var timer: Timer?
     private var keyMonitor: Any?
     private var pointerMonitor: Any?
-    private var isChildPresentation: Bool?
-    private var parentWindowFrame: NSRect?
     private var didPrepareTerminate = false
+    private var screenRefitPending = false
+    private var soakTimer: Timer?
+    private var soakCycle = 0
+
+    /// v0.21.5 (ADR 0011): set once at launch, never toggled on parent enter / exit.
+    private static let kioskPresentationOptions: NSApplication.PresentationOptions = [
+        .hideDock, .hideMenuBar, .disableAppleMenu, .disableProcessSwitching,
+        .disableForceQuit, .disableSessionTermination, .disableHideApplication
+    ]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         VisaGamesLog.append("fonts — 字型 canvas=\(CanvasFont.isAvailable)")
@@ -2263,9 +2302,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.collectionBehavior = [.fullScreenDisallowsTiling]
         window.acceptsMouseMovedEvents = true
+        // Constant kiosk presentation (ADR 0011): borderless, full screen, above the menu bar,
+        // for setup, child and parent alike. Parent settings render inside this same window.
+        // macOS 27: toggling these on parent exit, inside the model mutation, crashed in the
+        // Swift runtime executor check (ShellView.body / MenuBarClientCore).
+        window.level = .mainMenu + 1
         window.contentView = NSHostingView(rootView: ShellView(model: model, penSpark: penSpark))
-        model.changed = { [weak self] in self?.applyPresentation() }
-        applyPresentation()
+        NSApp.presentationOptions = Self.kioskPresentationOptions
+        fitWindowToScreen()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -2293,45 +2337,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             name: NSWorkspace.didWakeNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(screenChanged),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
-    }
-
-    private func applyPresentation() {
-        let child = !model.session.allowsExit
-        guard child != isChildPresentation else { return }
-        NSApp.presentationOptions = child ? [.hideDock, .hideMenuBar, .disableAppleMenu,
-            .disableProcessSwitching, .disableForceQuit, .disableSessionTermination, .disableHideApplication] : []
-        window.level = child ? .mainMenu + 1 : .normal
-        if child {
-            if isChildPresentation == false { parentWindowFrame = window.frame }
-            if window.isMiniaturized { window.deminiaturize(nil) }
-            window.styleMask = [.borderless]
-            window.minSize = .zero
-            if let screen = window.screen ?? NSScreen.main {
-                window.setFrame(screen.frame, display: true)
-            }
-        } else {
-            window.styleMask = [.titled, .miniaturizable, .resizable]
-            window.minSize = NSSize(width: 640, height: 480)
-            let visible = (window.screen ?? NSScreen.main)?.visibleFrame
-                ?? NSRect(x: 0, y: 0, width: 1280, height: 720)
-            let preferred = parentWindowFrame?.size ?? NSSize(width: 960, height: 800)
-            let size = NSSize(width: min(preferred.width, visible.width),
-                              height: min(preferred.height, visible.height))
-            let frame = NSRect(x: visible.midX - size.width / 2,
-                               y: visible.midY - size.height / 2,
-                               width: size.width, height: size.height)
-            window.setFrame(frame, display: true)
-        }
-        isChildPresentation = child
+        startSoakIfRequested()
     }
 
     @objc private func willSleep() { model.returnToChild(reason: "sleep") }
     @objc private func didWake() { model.tick() }
+    /// Coalesced and deferred: never resize inside AppKit's screen-change callout.
     @objc private func screenChanged() {
-        if !model.session.allowsExit, let screen = window.screen ?? NSScreen.main {
-            window.setFrame(screen.frame, display: true)
+        guard !screenRefitPending else { return }
+        screenRefitPending = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.screenRefitPending = false
+            self.fitWindowToScreen()
         }
     }
+
+    /// Full-screen frame in every mode. Launch and the deferred screen-change refit only.
+    private func fitWindowToScreen() {
+        guard !didPrepareTerminate, let window = self.window,
+              let screen = window.screen ?? NSScreen.main else { return }
+        guard window.frame != screen.frame else { return }
+        window.setFrame(screen.frame, display: true)
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard model.session.allowsExit else { return .terminateCancel }
         prepareForTerminate()
@@ -2352,6 +2381,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         VisaGamesLog.append("terminate — 準備離開 teardown timer/monitors/hosting")
         timer?.invalidate()
         timer = nil
+        soakTimer?.invalidate()
+        soakTimer = nil
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
             self.keyMonitor = nil
@@ -2366,6 +2397,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Dismantle SwiftUI + WKWebView before AppKit continues terminate layout.
         window?.contentView = nil
         window?.delegate = nil
+    }
+
+    // MARK: Debug soak (ADR 0011)
+
+    /// Alternates parent ↔ child every 1.5 s on an AppKit timer to reproduce the macOS 27
+    /// executor crash. Only when launched with VISAGAMES_SOAK=1; stays running when done.
+    private func startSoakIfRequested() {
+        guard KioskSoak.isEnabled else { return }
+        VisaGamesLog.append("soak start cycles=\(KioskSoak.cycles)")
+        soakTimer = Timer.scheduledTimer(timeInterval: 1.5, target: self, selector: #selector(soakStep),
+                                         userInfo: nil, repeats: true)
+    }
+
+    @objc private func soakStep() {
+        guard KioskSoak.isEnabled, !didPrepareTerminate else { return }
+        if model.session.mode == .parent {
+            model.returnToChild(reason: "soak")
+            if soakCycle >= KioskSoak.cycles {
+                soakTimer?.invalidate()
+                soakTimer = nil
+                VisaGamesLog.append("soak done")
+            }
+        } else {
+            soakCycle += 1
+            VisaGamesLog.append("soak cycle \(soakCycle)")
+            model.soakEnterParent()
+        }
     }
 }
 
