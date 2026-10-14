@@ -43,6 +43,8 @@ final class AppModel: ObservableObject {
     private var playtestCountQuestion = ActivityCatalog.countQuestion()
     /// v0.23.0 連一連 playtest board (never the child round's board).
     @Published private(set) var playtestLineMatchBoard = LineMatchBoard(question: ActivityCatalog.lineMatchQuestion())
+    /// v0.24.0 guided 連一連 playtest board (nil when the playtest deal is free match).
+    @Published private(set) var playtestLineMatchGuidedBoard: LineMatchGuidedBoard?
     private var playtestThinkEndsAt: Date?
     var isParentPlaytest: Bool { playtestKind != nil && session.mode == .parent }
     var playtestChoicesLocked: Bool { playtestThinkEndsAt != nil || playtestCompleted }
@@ -138,6 +140,11 @@ final class AppModel: ObservableObject {
     /// Gentle line under the 連一連 board (start from green / not all joined / try Done). Never a miss.
     @Published private(set) var lineMatchNotice: SpokenPrompt?
     private let lineMatchSettingsStore = LineMatchSettingsStore()
+    /// v0.24.0 guided 連一連 child board (★ / ★★ with 引導連線 on). Nil = free match.
+    /// The question is also on `lineMatchBoard`, so prompts / deal facts read one place.
+    @Published private(set) var lineMatchGuidedBoard: LineMatchGuidedBoard?
+    /// Rows whose off-road hint was already spoken (at most once per road).
+    private var guidedHintSpokenRows: Set<Int> = []
     /// Tags + fields of the 完成 being evaluated (consumed by the answer record).
     private var pendingAnswerRecord: (tags: [String], fields: [String: PerfValue])?
     /// v0.22.0: last generated item per kind (memory only). The next deal of that kind avoids it.
@@ -759,10 +766,13 @@ final class AppModel: ObservableObject {
             seed: seed, level: level, avoidingItem: lastDealtItem[.findTheSame])
         countQuestion = ActivityCatalog.countQuestion(
             seed: seed, level: level, avoidingItem: lastDealtItem[.countVehicles])
-        lineMatchBoard = LineMatchBoard(
-            question: ActivityCatalog.lineMatchQuestion(
-                seed: seed, level: level, avoidingItem: lastDealtItem[.lineMatch], settings: lineMatchSettings),
-            tolerance: lineMatchSettings.tolerance)
+        let lineMatchQuestion = ActivityCatalog.lineMatchQuestion(
+            seed: seed, level: level, avoidingItem: lastDealtItem[.lineMatch], settings: lineMatchSettings,
+            mode: lineMatchSettings.mode(for: level))
+        lineMatchBoard = LineMatchBoard(question: lineMatchQuestion, tolerance: lineMatchSettings.tolerance)
+        lineMatchGuidedBoard = lineMatchQuestion.isGuided
+            ? LineMatchGuidedBoard(question: lineMatchQuestion, tolerance: lineMatchSettings.tolerance) : nil
+        guidedHintSpokenRows = []
         lineMatchNotice = nil
         sequenceQuestion = ActivityCatalog.sequenceQuestion()
         halfMatchQuestion = ActivityCatalog.halfMatchQuestion()
@@ -1945,6 +1955,8 @@ final class AppModel: ObservableObject {
     /// Runs one board change when input is open (round on 連一連, not in a Think Pause), then
     /// refreshes the round's `round_result` extras. Nil = input ignored.
     private func changeLineMatchBoard<T>(_ change: (inout LineMatchBoard) -> T) -> T? {
+        // Guided rounds have no free lines, 擦晒 or 完成.
+        guard currentLineMatchGuidedBoard == nil else { return nil }
         if lineMatchUsesPlaytest {
             guard !playtestChoicesLocked else { return nil }
             var board = playtestLineMatchBoard
@@ -2064,6 +2076,103 @@ final class AppModel: ObservableObject {
         }
     }
 
+    // MARK: 連一連 guided roads (v0.24.0, ADR 0013)
+
+    /// The guided board on screen (playtest copy while a parent reviews it). Nil = free match.
+    var currentLineMatchGuidedBoard: LineMatchGuidedBoard? {
+        lineMatchUsesPlaytest ? playtestLineMatchGuidedBoard : lineMatchGuidedBoard
+    }
+
+    /// Guided input is open: the round (or playtest) is on 連一連 and not finished.
+    private var guidedInputOpen: Bool {
+        if lineMatchUsesPlaytest { return !playtestCompleted && playtestLineMatchGuidedBoard != nil }
+        return session.mode == .lock && taskRoundOpen && activeActivityKind == .lineMatch
+            && !activityJustCompleted && lineMatchGuidedBoard != nil
+    }
+
+    /// The view drives the truck locally and hands the board over on pen-up and when a road is
+    /// done. Only a board that grew from the current one is taken (never a stale copy). A newly
+    /// finished road reads its word (Cantonese, then English); the last one ends the round.
+    func lineMatchGuidedCommit(_ next: LineMatchGuidedBoard) {
+        guard guidedInputOpen, let current = currentLineMatchGuidedBoard else { return }
+        guard next.isMonotonicSuccessor(of: current) else {
+            VisaGamesLog.append("lineMatch guided commit refused — 舊版本 item=\(next.question.itemID)")
+            return
+        }
+        guard next != current else { return }
+        if lineMatchUsesPlaytest {
+            playtestLineMatchGuidedBoard = next
+            perf.playtestResultExtra(next.resultFields)
+        } else {
+            lineMatchGuidedBoard = next
+            perf.roundResultExtra(next.resultFields)
+        }
+        if lineMatchNotice != nil, next.progress != current.progress { lineMatchNotice = nil }
+        let finished = next.doneRows.dropFirst(current.doneRows.count)
+        guard let row = finished.last, next.question.pairs.indices.contains(row) else { return }
+        let pair = next.question.pairs[row]
+        guideVoice.speakWordCue(LineMatchGuidedCopy.cue(pair))
+        VisaGamesLog.append(
+            "lineMatch guided road — 送到 row=\(row) word=\(pair.key) done=\(next.doneRows.count)/\(next.roads.count) offPath=\(next.offPathCount) (no miss)"
+        )
+        guard next.isComplete, !current.isComplete else { return }
+        // Let the word be heard, then the existing success flow (no 完成 in guided mode).
+        let token = lineMatchUsesPlaytest ? playtestChoiceDealSeed : choiceDealSeed
+        let playtest = lineMatchUsesPlaytest
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            self?.finishGuidedRound(token: token, playtest: playtest)
+        }
+    }
+
+    /// Every road is driven. Practice only: no `answer_attempt`, no miss, no Think Pause —
+    /// the child round goes straight to the usual stamp / visa (not assisted).
+    private func finishGuidedRound(token: String, playtest: Bool) {
+        if playtest {
+            guard isParentPlaytest, playtestKind == .lineMatch, playtestChoiceDealSeed == token,
+                  !playtestCompleted, playtestLineMatchGuidedBoard?.isComplete == true else { return }
+            perf.playtestSolved(earnedMinutes: playtestPendingMinutes, assisted: false)
+            playtestLastCorrectID = LineMatchMode.guided.rawValue
+            playtestCompleted = true
+            playtestFuelMessage = nil
+            VisaGamesLog.append("playtest guided done — 試玩引導完成 local no visa")
+            return
+        }
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .lineMatch, choiceDealSeed == token,
+              !activityJustCompleted, lineMatchGuidedBoard?.isComplete == true else { return }
+        guard pendingAwardMinutes > 0 else {
+            VisaGamesLog.append("lineMatch guided done blocked — pending=0 → depot")
+            returnToDepotOutOfFuel()
+            return
+        }
+        lastCorrectChoiceID = LineMatchMode.guided.rawValue
+        lastIncorrectChoiceID = nil
+        activityJustCompleted = true
+        VisaGamesLog.append(
+            "lineMatch guided done — 全部送到 item=\(lineMatchBoard.question.itemID) earnedMin=\(pendingAwardMinutes) (practice, no mastery)"
+        )
+        applyEntrySuccess(assisted: false)
+    }
+
+    /// Pen down on a red dot / picture: 「由綠點開始啊！」. Never a miss.
+    func lineMatchGuidedWrongStart() {
+        guard guidedInputOpen else { return }
+        showLineMatchNotice(LineMatchGuidedCopy.wrongStartPrompt)
+        VisaGamesLog.append("lineMatch guided wrong start — 由綠點開始 (no miss)")
+    }
+
+    /// The off-road hint just appeared: Stampy says it at most once per road.
+    func lineMatchGuidedHintShown(row: Int) {
+        guard guidedInputOpen else { return }
+        guard guidedHintSpokenRows.insert(row).inserted else { return }
+        guideVoice.speak(LineMatchGuidedCopy.offRoadPrompt)
+        VisaGamesLog.append("lineMatch guided hint — 架車等緊你 row=\(row) (no miss)")
+    }
+
+    func setLineMatchGuided(_ on: Bool) {
+        guard session.mode == .parent, on != lineMatchSettings.guided else { return }
+        saveLineMatchSettings(lineMatchSettings.withGuided(on), what: "guided", value: on ? "on" : "off")
+    }
+
     // MARK: 連一連 parent settings
 
     func setLineMatchTolerance(_ tolerance: LineMatchTolerance) {
@@ -2091,7 +2200,7 @@ final class AppModel: ObservableObject {
         lineMatchSettingsStore.save(next)
         lineMatchSettingsBanner = nil
         perf.lineMatchSettingChanged(what: what, value: value, mix: next.mixDescription)
-        VisaGamesLog.append("lineMatch settings — 連一連設定 \(what)=\(value) mix=\(next.mixDescription) tolerance=\(next.tolerance.rawValue)")
+        VisaGamesLog.append("lineMatch settings — 連一連設定 \(what)=\(value) mix=\(next.mixDescription) tolerance=\(next.tolerance.rawValue) guided=\(next.guided)")
     }
 
     // MARK: - Parent game catalog + playtest (no visa)
@@ -2136,10 +2245,14 @@ final class AppModel: ObservableObject {
         playtestLevel = level
         playtestFindSameQuestion = ActivityCatalog.findSameQuestion(seed: playtestChoiceDealSeed, level: level)
         playtestCountQuestion = ActivityCatalog.countQuestion(seed: playtestChoiceDealSeed, level: level)
-        playtestLineMatchBoard = LineMatchBoard(
-            question: ActivityCatalog.lineMatchQuestion(seed: playtestChoiceDealSeed, level: level,
-                                                        settings: lineMatchSettings),
-            tolerance: lineMatchSettings.tolerance)
+        let playtestLineMatchQuestion = ActivityCatalog.lineMatchQuestion(
+            seed: playtestChoiceDealSeed, level: level, settings: lineMatchSettings,
+            mode: lineMatchSettings.mode(for: level))
+        playtestLineMatchBoard = LineMatchBoard(question: playtestLineMatchQuestion,
+                                                tolerance: lineMatchSettings.tolerance)
+        playtestLineMatchGuidedBoard = playtestLineMatchQuestion.isGuided
+            ? LineMatchGuidedBoard(question: playtestLineMatchQuestion, tolerance: lineMatchSettings.tolerance) : nil
+        guidedHintSpokenRows = []
         lineMatchNotice = nil
         clearPlaytestThinkPause()
         let facts = dealFacts(kind: kind, seed: playtestChoiceDealSeed,

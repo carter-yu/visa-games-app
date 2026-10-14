@@ -50,7 +50,7 @@ struct LineMatchBoardView: View {
 
 // MARK: - Palette (mockup colours)
 
-private enum LM {
+enum LM {
     static let ink = Color(hex: 0x2B2630)
     static let soft = Color(hex: 0x6B6170)
     static let card = Color(hex: 0xFFF9EC)
@@ -80,7 +80,7 @@ private enum LM {
 
 // MARK: - Backdrop (sky + sand band aligned to stage y 540)
 
-private struct LineMatchBackdrop: View {
+struct LineMatchBackdrop: View {
     var body: some View {
         GeometryReader { proxy in
             let layout = DesignTokens.stageLayout(screenWidth: Double(proxy.size.width),
@@ -532,7 +532,7 @@ private struct StageContent: View {
 // MARK: - Pieces
 
 /// Header ticket: coloured stub with the live fuel minutes, stars and 「簽證 Visa」.
-private struct VisaTicketBadge: View {
+struct VisaTicketBadge: View {
     let stars: Int
     let minutes: Int
     @Environment(\.canvasMetrics) private var metrics
@@ -690,7 +690,7 @@ private struct DoneFace: View {
 }
 
 /// Tick from the mockup (M32 82 L58 108 L104 54 inside a 96 × 80 box, inset for the stroke).
-private struct CheckShape: Shape {
+struct CheckShape: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         path.move(to: CGPoint(x: rect.minX + rect.width * 0.12, y: rect.minY + rect.height * 0.52))

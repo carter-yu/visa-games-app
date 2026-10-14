@@ -2,7 +2,7 @@ import SwiftUI
 import VisaCore
 
 /// Routes all 11 activity kinds into the board-2 shell with text-free choice cards
-/// (連一連 uses its own drag board, `LineMatchBoardView`).
+/// (連一連 uses its own drag boards, `LineMatchBoardView` and `LineMatchGuidedBoardView`).
 struct CanvasActivityHost: View {
     @ObservedObject var model: AppModel
 
@@ -339,7 +339,28 @@ struct CanvasActivityHost: View {
 
     /// v0.23.0 連一連: drag lines, 擦晒 / 完成. Rules in `VisaCore.LineMatchBoard`; the child
     /// round and the parent playtest each have their own board on the model.
+    /// v0.24.0: ★ / ★★ with 引導連線 on show guided roads instead (`LineMatchGuidedBoard`).
+    @ViewBuilder
     private var lineMatch: some View {
+        if let guided = model.currentLineMatchGuidedBoard {
+            LineMatchGuidedBoardView(
+                board: guided,
+                ticketStars: usingPlaytest ? model.playtestLevel.rawValue : (model.selectedStars ?? 1),
+                pendingMinutes: pendingMinutes,
+                locked: justCompleted || guided.isComplete,
+                notice: model.lineMatchNotice,
+                now: model.now.timeIntervalSinceReferenceDate,
+                onSpeak: { speakPrompt() },
+                onCommit: { next in model.lineMatchGuidedCommit(next) },
+                onWrongStart: { model.lineMatchGuidedWrongStart() },
+                onHint: { row in model.lineMatchGuidedHintShown(row: row) }
+            )
+        } else {
+            freeLineMatch
+        }
+    }
+
+    private var freeLineMatch: some View {
         LineMatchBoardView(
             board: model.currentLineMatchBoard,
             ticketStars: usingPlaytest ? model.playtestLevel.rawValue : (model.selectedStars ?? 1),

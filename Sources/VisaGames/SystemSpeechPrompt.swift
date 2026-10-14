@@ -8,6 +8,8 @@ import VisaCore
 final class SystemSpeechPrompt {
     private let synthesizer = AVSpeechSynthesizer()
     private let voice: AVSpeechSynthesisVoice?
+    /// v0.24.0 guided 連一連 cue: the English word after the Cantonese one (en-GB first, D6).
+    private let englishVoice: AVSpeechSynthesisVoice?
 
     init() {
         let installed = AVSpeechSynthesisVoice.speechVoices()
@@ -36,6 +38,9 @@ final class SystemSpeechPrompt {
         }
 
         voice = resolved
+        let english = EnglishVoicePicker.pick(from: candidates)
+        englishVoice = english.flatMap { AVSpeechSynthesisVoice(identifier: $0.identifier) }
+            ?? AVSpeechSynthesisVoice(language: "en-GB")
         let cantonese = candidates.filter { CantoneseVoicePicker.isHongKongCantonese($0.language) }.map(\.name)
         let pickedName = picked?.name ?? "none"
         let pickedLang = picked?.language ?? "none"
@@ -60,6 +65,33 @@ final class SystemSpeechPrompt {
         utterance.volume = 1.0
         synthesizer.speak(utterance)
         VisaGamesLog.append("voice speak — 朗讀 key=\(prompt.key) voice=\(voice.name)")
+    }
+
+    /// Guided 連一連 road done: the Cantonese word, then the English word (「眼睛、eye」).
+    /// With no Hong Kong Cantonese voice nothing is spoken at all (the bubble still shows);
+    /// it never falls back to Mandarin.
+    func speakWordCue(_ cue: SpokenPrompt) {
+        guard let voice else {
+            VisaGamesLog.append("voice skip — 無粵語語音 key=\(cue.key)")
+            return
+        }
+        if synthesizer.isSpeaking {
+            synthesizer.stopSpeaking(at: .immediate)
+        }
+        let word = AVSpeechUtterance(string: cue.traditionalChinese)
+        word.voice = voice
+        word.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
+        word.postUtteranceDelay = 0.2
+        synthesizer.speak(word)
+        if let englishVoice, !cue.english.isEmpty {
+            let english = AVSpeechUtterance(string: cue.english)
+            english.voice = englishVoice
+            english.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
+            synthesizer.speak(english)
+        }
+        VisaGamesLog.append(
+            "voice cue — 朗讀 key=\(cue.key) voice=\(voice.name) english=\(englishVoice?.name ?? "none")"
+        )
     }
 
     func stop() {
