@@ -500,12 +500,26 @@ struct TestRunner {
         lineMatch.testDefaultOffUntilParentEnablesAndSettingsPersist()
         try lineMatch.testAppWiringSourceGuards()
 
+        let guided = GuidedLineMatchTests()
+        guided.testGuidedGeneratorIsDeterministicAndLabelled()
+        guided.testGuidedTiersAreWellFormedForThousandsOfSeeds()
+        guided.testStarOneRoadsAreStraightSameRowAndWide()
+        guided.testStarTwoEveryLayoutHasExactlyOneCrossing()
+        guided.testLayoutKeepsParentZoneBubblesAndStatusClear()
+        guided.testProgressIsMonotonicAndOffRoadIsNeverAMiss()
+        guided.testToleranceWidensOnlyTheJudgedCorridor()
+        guided.testEveryDealCompletesTopToBottomAndTerminates()
+        guided.testGuidedRoundsArePracticeOnlyInReviewAndRollups()
+        guided.testGuidedCopyAndCuesAreHongKongTraditional()
+        guided.testGuidedSettingDefaultsOnAndPersists()
+        try guided.testGuidedAppWiringSourceGuards()
+
         let kiosk = KioskPresentationTests()
         try kiosk.testPresentationOptionsSetOnlyAtLaunchAndTerminate()
         try kiosk.testWindowChromeIsConstantAfterLaunch()
         try kiosk.testSoakHookIsGatedOnEnvironmentAndOnlyBypassesAuthThere()
 
 
-        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match checks")
+        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match + 12 guided-line-match checks")
     }
 }
