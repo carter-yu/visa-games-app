@@ -94,7 +94,7 @@ struct CanvasActivityHost: View {
                 shadowMatch
             case .emptyBay:
                 emptyBay
-            case .lineMatch:
+            case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
                 lineMatch
             case .none:
                 EmptyView()
@@ -337,9 +337,9 @@ struct CanvasActivityHost: View {
         }
     }
 
-    /// v0.23.0 連一連: drag lines, 擦晒 / 完成. Rules in `VisaCore.LineMatchBoard`; the child
+    /// v0.23.0 / v0.24.1 連一連 family: free drag (自己配) or guided roads (沿路送 / 沿路過橋).
     /// round and the parent playtest each have their own board on the model.
-    /// v0.24.0: ★ / ★★ with 引導連線 on show guided roads instead (`LineMatchGuidedBoard`).
+    /// Guided kinds show `LineMatchGuidedBoard`; free match shows the drag board.
     @ViewBuilder
     private var lineMatch: some View {
         if let guided = model.currentLineMatchGuidedBoard {

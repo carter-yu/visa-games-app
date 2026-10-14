@@ -641,9 +641,11 @@ final class LineMatchTests {
 
     func testDefaultOffUntilParentEnablesAndSettingsPersist() {
         let defaults = MissionGameAssignment.defaults
-        for star in ChildDifficulty.allCases {
-            expectFalse(defaults.isEnabled(.lineMatch, star: star))
-            expectFalse(defaults.pool(for: star).contains(.lineMatch))
+        for kind in [ActivityKind.lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge] {
+            for star in ChildDifficulty.allCases {
+                expectFalse(defaults.isEnabled(kind, star: star))
+                expectFalse(defaults.pool(for: star).contains(kind))
+            }
         }
         // A v0.22 store (no lineMatch key) loads with 連一連 off.
         var old = defaults.enabledStars
@@ -662,9 +664,12 @@ final class LineMatchTests {
         store.removePersistentDomain(forName: suite)
         MissionGameAssignmentStore(defaults: store).save(on)
         expectTrue(MissionGameAssignmentStore(defaults: store).load().isEnabled(.lineMatch, star: .medium))
-        // Rotation without a pool never deals it.
-        for i in 0..<500 { expectTrue(ActivityCatalog.kind(forRoundSeed: "r\(i)") != .lineMatch) }
-        expectTrue(ActivityCatalog.kind(forRoundSeed: "r", pool: []) != .lineMatch)
+        // Rotation without a pool never deals any 連一連 kind.
+        for i in 0..<500 {
+            let dealt = ActivityCatalog.kind(forRoundSeed: "r\(i)")
+            expectFalse(dealt.isLineMatchFamily)
+        }
+        expectFalse(ActivityCatalog.kind(forRoundSeed: "r", pool: []).isLineMatchFamily)
         // Settings store.
         let settingsStore = LineMatchSettingsStore(defaults: store)
         expectEqual(settingsStore.load(), LineMatchSettings.defaults)
@@ -699,7 +704,8 @@ final class LineMatchTests {
         expectTrue(host.contains("LineMatchBoardView("))
         expectTrue(host.contains("board: model.currentLineMatchBoard"))
         let app = try source("Sources/VisaGames/AppDelegate.swift")
-        expectTrue(app.contains("avoidingItem: lastDealtItem[.lineMatch], settings: lineMatchSettings"))
+        expectTrue(app.contains("kind.lineMatchDeal(missionLevel:"))
+        expectTrue(app.contains("avoidingItem: lastDealtItem[kind], settings: lineMatchSettings"))
         expectTrue(app.contains("lineMatchSettings = LineMatchSettingsStore().load()"))
         expectTrue(app.contains("lineMatchBoard.cancelDrag()"))
         expectTrue(app.contains("playtestLineMatchBoard.cancelDrag()"))

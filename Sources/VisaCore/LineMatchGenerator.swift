@@ -55,25 +55,19 @@ public enum LineMatchTolerance: String, CaseIterable, Sendable, Codable, Hashabl
     }
 }
 
-/// 連一連 parent settings: hit tolerance, category weights and guided mode. UserDefaults, not
-/// the reward snapshot. Weights are relative (0–100 in steps of 5); 0 = never dealt; at least
-/// one stays > 0.
+/// 連一連 parent settings: hit tolerance and category weights, shared by the three 連一連
+/// cards (v0.24.1). UserDefaults, not the reward snapshot. Weights are relative (0–100 in
+/// steps of 5); 0 = never dealt; at least one stays > 0. Guided vs free is which ActivityKind
+/// is dealt, not a settings toggle.
 public struct LineMatchSettings: Equatable, Sendable {
     public static let weightStep = 5
     public static let maxWeight = 100
-    /// v0.24.0 (Carter 2026-10-14 21:26): ★ and ★★ are guided roads, ★★★ stays free match.
-    /// The parent can switch guided off (then every star is free match, as in v0.23).
-    public static let defaultGuided = true
 
     public var tolerance: LineMatchTolerance
     public private(set) var weights: [LineMatchCategory: Int]
-    /// 引導連線: ★ / ★★ deal guided roads instead of free matching.
-    public var guided: Bool
 
-    public init(tolerance: LineMatchTolerance = .standard, weights: [LineMatchCategory: Int] = [:],
-                guided: Bool = LineMatchSettings.defaultGuided) {
+    public init(tolerance: LineMatchTolerance = .standard, weights: [LineMatchCategory: Int] = [:]) {
         self.tolerance = tolerance
-        self.guided = guided
         var filled: [LineMatchCategory: Int] = [:]
         for category in LineMatchCategory.allCases {
             let raw = weights[category] ?? category.defaultWeight
@@ -101,24 +95,15 @@ public struct LineMatchSettings: Equatable, Sendable {
         let value = min(max(weight(category) + steps * Self.weightStep, 0), Self.maxWeight)
         next[category] = value
         if next.values.allSatisfy({ $0 == 0 }) { return nil }
-        return LineMatchSettings(tolerance: tolerance, weights: next, guided: guided)
+        return LineMatchSettings(tolerance: tolerance, weights: next)
     }
 
     public func withTolerance(_ value: LineMatchTolerance) -> LineMatchSettings {
-        LineMatchSettings(tolerance: value, weights: weights, guided: guided)
+        LineMatchSettings(tolerance: value, weights: weights)
     }
 
     public func withDefaultMix() -> LineMatchSettings {
-        LineMatchSettings(tolerance: tolerance, guided: guided)
-    }
-
-    public func withGuided(_ value: Bool) -> LineMatchSettings {
-        LineMatchSettings(tolerance: tolerance, weights: weights, guided: value)
-    }
-
-    /// Guided roads at ★ / ★★ when 引導連線 is on; ★★★ is always free match.
-    public func mode(for level: ActivityLevel) -> LineMatchMode {
-        guided && LineMatchMode.isGuidedLevel(level) ? .guided : .free
+        LineMatchSettings(tolerance: tolerance)
     }
 
     /// Categories and weights a question of `level` is drawn from, in `allCases` order.
@@ -168,12 +153,13 @@ public struct LineMatchSettingsStore {
     private struct Payload: Codable {
         var tolerance: String?
         var weights: [String: Int]?
-        /// v0.24.0. Missing (a v0.23 store) → `LineMatchSettings.defaultGuided`.
+        /// v0.24.0 toggle; ignored since v0.24.1 (guided is its own ActivityKind). Kept so old
+        /// stores still decode.
         var guided: Bool?
 
         init(settings: LineMatchSettings) {
             tolerance = settings.tolerance.rawValue
-            guided = settings.guided
+            guided = nil
             var map: [String: Int] = [:]
             for category in LineMatchCategory.allCases { map[category.rawValue] = settings.weight(category) }
             weights = map
@@ -186,7 +172,7 @@ public struct LineMatchSettingsStore {
                 parsed[category] = value
             }
             let level = tolerance.flatMap(LineMatchTolerance.init(rawValue:)) ?? .standard
-            return LineMatchSettings(tolerance: level, weights: parsed, guided: guided ?? LineMatchSettings.defaultGuided)
+            return LineMatchSettings(tolerance: level, weights: parsed)
         }
     }
 }

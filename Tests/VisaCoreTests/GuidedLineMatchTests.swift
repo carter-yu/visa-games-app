@@ -1,12 +1,12 @@
 import Foundation
 import VisaCore
 
-/// v0.24.0 guided 連一連 (design "Guided level（引導連線）", ADR 0013): ★ straight same-row roads,
-/// ★★ staggered S-roads with exactly one crossing, forwards-only truck, off-road never a miss,
-/// tolerance widens the road corridor, practice only in stats. All offline.
+/// v0.24.0 / v0.24.1 guided 連一連 (ADR 0013): straight (沿路送) and bridge (沿路過橋) kinds,
+/// forwards-only truck, off-road never a miss, tolerance widens the road corridor, practice
+/// only in stats. Free match is its own card (自己配). All offline.
 final class GuidedLineMatchTests {
     private let seeds = (0..<1_000).map { "guided-\($0)" }
-    private let guidedOn = LineMatchSettings(guided: true)
+    private let guidedOn = LineMatchSettings.defaults
 
     private func guided(_ level: ActivityLevel, seed: String = "g", settings: LineMatchSettings? = nil) -> LineMatchQuestion {
         LineMatchGenerator.make(seed: seed, level: level, avoidingItem: nil, settings: settings ?? guidedOn,
@@ -63,13 +63,13 @@ final class GuidedLineMatchTests {
         expectFalse(three.isGuided)
         expectEqual(three, LineMatchGenerator.make(seed: "same", level: .l3, avoidingItem: nil, settings: guidedOn))
         expectTrue(three.itemID.hasPrefix("lineMatch.L3."))
-        // Settings decide the mode per star.
-        expectEqual(guidedOn.mode(for: .l1), .guided)
-        expectEqual(guidedOn.mode(for: .l2), .guided)
-        expectEqual(guidedOn.mode(for: .l3), .free)
-        let off = guidedOn.withGuided(false)
-        for level in ActivityLevel.allCases { expectEqual(off.mode(for: level), .free) }
-        // Free questions are unchanged by v0.24.0 (same draw order).
+        // v0.24.1: ActivityKind decides guided vs free (not a settings toggle).
+        expectEqual(ActivityKind.lineMatchGuidedStraight.lineMatchDeal(missionLevel: .l3)?.mode, .guided)
+        expectEqual(ActivityKind.lineMatchGuidedStraight.lineMatchDeal(missionLevel: .l3)?.level, .l1)
+        expectEqual(ActivityKind.lineMatchGuidedBridge.lineMatchDeal(missionLevel: .l1)?.level, .l2)
+        expectEqual(ActivityKind.lineMatch.lineMatchDeal(missionLevel: .l3)?.mode, .free)
+        expectEqual(ActivityKind.lineMatch.lineMatchDeal(missionLevel: .l2)?.level, .l2)
+        // Free questions are unchanged by guided kinds (same draw order).
         expectEqual(ActivityCatalog.lineMatchQuestion(seed: "x", level: .l1),
                     LineMatchGenerator.make(seed: "x", level: .l1, avoidingItem: nil))
         expectEqual(ActivityCatalog.lineMatchQuestion(seed: "x", level: .l2, settings: guidedOn, mode: .guided),
@@ -113,7 +113,7 @@ final class GuidedLineMatchTests {
         // Zodiac is dealt at ★★ (same weights as free match).
         expectEqual(Set(categories.keys), Set(LineMatchCategory.allCases))
         // Parent weights apply.
-        let onlyAnimals = LineMatchSettings(weights: [.numbers: 0, .body: 0, .animals: 10, .zodiac: 0], guided: true)
+        let onlyAnimals = LineMatchSettings(weights: [.numbers: 0, .body: 0, .animals: 10, .zodiac: 0])
         for seed in seeds.prefix(100) { expectEqual(guided(.l2, seed: seed, settings: onlyAnimals).category, .animals) }
         // A free question is never accepted as guided and vice versa.
         var broken = guided(.l2)
@@ -559,29 +559,32 @@ final class GuidedLineMatchTests {
         expectTrue(CantoneseVoicePicker.pick(from: voices) == nil, "no Cantonese voice → no Mandarin either")
     }
 
-    func testGuidedSettingDefaultsOnAndPersists() {
-        expectTrue(LineMatchSettings.defaults.guided)
+    func testThreeLineMatchKindsDefaultOffAndSharedSettingsPersist() {
+        // v0.24.1: three ActivityKinds, all default-off; settings are tolerance + weights only.
+        for kind in [ActivityKind.lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch] {
+            expectTrue(ActivityCatalog.defaultOffKinds.contains(kind))
+            expectTrue(kind.isLineMatchFamily)
+            for star in ChildDifficulty.allCases {
+                expectFalse(MissionGameAssignment.defaults.isEnabled(kind, star: star))
+            }
+        }
+        expectEqual(ActivityKind.lineMatchGuidedStraight.parentCardTitle, "連一連 · 沿路送")
+        expectEqual(ActivityKind.lineMatchGuidedBridge.parentCardTitle, "連一連 · 沿路過橋")
+        expectEqual(ActivityKind.lineMatch.parentCardTitle, "連一連 · 自己配")
         let suite = "VisaGames.guided.\(UUID().uuidString)"
         let store = UserDefaults(suiteName: suite)!
         store.removePersistentDomain(forName: suite)
         let settingsStore = LineMatchSettingsStore(defaults: store)
-        expectTrue(settingsStore.load().guided)
-        // Every settings change keeps the guided switch.
-        let off = LineMatchSettings.defaults.withGuided(false)
-        expectFalse(off.withTolerance(.wide).guided)
-        expectFalse(off.adjusting(.body, steps: 1)!.guided)
-        expectFalse(off.withDefaultMix().guided)
-        settingsStore.save(off)
-        expectFalse(settingsStore.load().guided)
-        // A v0.23 payload (no `guided` key) loads with the default.
-        store.set(Data(#"{"tolerance":"wide","weights":{"numbers":35,"body":30,"animals":20,"zodiac":0}}"#.utf8),
+        let wide = LineMatchSettings.defaults.withTolerance(.wide)
+        expectEqual(wide.adjusting(.body, steps: 1)!.tolerance, .wide)
+        settingsStore.save(wide)
+        expectEqual(settingsStore.load().tolerance, .wide)
+        // A v0.23 / v0.24.0 payload (optional `guided` key) still loads tolerance and weights.
+        store.set(Data(#"{"tolerance":"wide","weights":{"numbers":35,"body":30,"animals":20,"zodiac":0},"guided":true}"#.utf8),
                   forKey: LineMatchSettingsStore.key)
         let migrated = settingsStore.load()
-        expectTrue(migrated.guided)
         expectEqual(migrated.tolerance, .wide)
         expectEqual(migrated.weight(.zodiac), 0)
-        // lineMatch itself is still off on every star until a parent turns it on (D7).
-        for star in ChildDifficulty.allCases { expectFalse(MissionGameAssignment.defaults.isEnabled(.lineMatch, star: star)) }
         store.removePersistentDomain(forName: suite)
     }
 
@@ -604,9 +607,11 @@ final class GuidedLineMatchTests {
         let host = try source("Sources/VisaGames/CanvasActivityHost.swift")
         expectTrue(host.contains("LineMatchGuidedBoardView("))
         let app = try source("Sources/VisaGames/AppDelegate.swift")
-        expectTrue(app.contains("mode: lineMatchSettings.mode(for: level)"))
+        expectTrue(app.contains("kind.lineMatchDeal(missionLevel:"))
         expectTrue(app.contains("isMonotonicSuccessor(of:"))
         expectTrue(app.contains("guideVoice.speakWordCue("))
+        expectFalse(app.contains("setLineMatchGuided"))
+        expectFalse(app.contains("withGuided"))
         // Guided completion never goes through the wrong-answer path or an answer record.
         let finish = app.components(separatedBy: "func finishGuidedRound").last ?? ""
         let body = finish.components(separatedBy: "\n    }\n").first ?? ""
@@ -618,8 +623,12 @@ final class GuidedLineMatchTests {
         expectTrue(speech.contains("func speakWordCue"))
         expectTrue(speech.contains("EnglishVoicePicker.pick(from: candidates)"))
         let settings = try source("Sources/VisaGames/ParentLineMatchSettingsView.swift")
-        expectTrue(settings.contains("LineMatchGuidedCopy.parentToggleTraditionalChinese"))
+        expectFalse(settings.contains("LineMatchGuidedCopy.parentToggleTraditionalChinese"))
+        expectFalse(settings.contains("onGuided"))
+        expectTrue(settings.contains("三個遊戲共用"))
         expectFalse(settings.contains("TextField"))
+        expectEqual(ActivityCatalog.defaultOffKinds,
+                    [.lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch])
         let review = try source("Sources/VisaGames/ParentReviewView.swift")
         expectTrue(review.contains("guidedPractice"))
     }

@@ -1,9 +1,10 @@
 import Foundation
 
-// 連一連 guided level (v0.24.0, design "Guided level（引導連線）", ADR 0013; mockups 07a–07c).
-// ★ and ★★ join every word to its picture with a pre-drawn road. The child drives a small truck
-// along each road, top → bottom. Nothing can be wrong, so there is no 完成, no 擦晒, no miss and
-// no Think Pause: guided rounds are practice exposure, never mastery evidence.
+// 連一連 guided roads (v0.24.0 / v0.24.1, design "Guided level（引導連線）", ADR 0013; mockups 07a–07c).
+// v0.24.1: own ActivityKinds — lineMatchGuidedStraight (L1 roads) and lineMatchGuidedBridge (L2).
+// Each word joins its picture with a pre-drawn road. The child drives a small truck along each
+// road, top → bottom. Nothing can be wrong, so there is no 完成, no 擦晒, no miss and no Think
+// Pause: guided rounds are practice exposure, never mastery evidence.
 
 // MARK: - Mode
 
@@ -712,8 +713,9 @@ public enum LineMatchGuidedCopy {
     public static let wrongStartEnglish = "Start from the green dot!"
     public static let doneTraditionalChinese = "全部送到！好叻呀！"
     public static let doneEnglish = "All delivered! Well done!"
-    public static let parentToggleTraditionalChinese = "引導連線（★ 同 ★★ 用；★★★ 照舊自由連線）"
-    public static let parentToggleEnglish = "Guided match (1 and 2 stars; 3 stars stay free match)"
+    /// Kept for copy audits; the parent toggle was removed in v0.24.1 (three cards).
+    public static let parentToggleTraditionalChinese = "引導連線（已拆成三個遊戲卡）"
+    public static let parentToggleEnglish = "Guided match (split into three game cards in v0.24.1)"
     public static let parentPracticeTraditionalChinese = "引導練習"
 
     /// 「數吓有幾多隻，沿住條路揸！」 for numbers (measure word follows the object).

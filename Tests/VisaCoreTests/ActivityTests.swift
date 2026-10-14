@@ -148,7 +148,10 @@ final class ActivityTests {
         expectTrue(ActivityCatalog.playableKinds.contains(.shadowMatch))
         expectTrue(ActivityCatalog.playableKinds.contains(.emptyBay))
         expectTrue(ActivityCatalog.playableKinds.contains(.lineMatch))
-        expectEqual(ActivityCatalog.defaultOffKinds, [.lineMatch])
+        expectTrue(ActivityCatalog.playableKinds.contains(.lineMatchGuidedStraight))
+        expectTrue(ActivityCatalog.playableKinds.contains(.lineMatchGuidedBridge))
+        expectEqual(ActivityCatalog.defaultOffKinds,
+                    [.lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch])
         expectEqual(ActivityCatalog.defaultOnKinds.count, 10)
         expectEqual(ActivityCatalog.stubKinds, [])
         // Deterministic: same seed → same kind; covering seeds hit every default-on kind (D7:

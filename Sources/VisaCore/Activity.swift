@@ -47,8 +47,33 @@ public enum ActivityKind: String, CaseIterable, Sendable, Codable, Equatable, Ha
     case shadowMatch
     /// Three depot bays — tap the empty one (v0.8).
     case emptyBay
-    /// 連一連: drag a line from each picture to its word / number (v0.23.0, design §6).
+    /// 連一連 · 自己配: free drag matching (v0.23.0 free match; v0.24.1 own card).
     case lineMatch
+    /// 連一連 · 沿路送: guided straight wide same-row roads (v0.24.1; was ★ guided).
+    case lineMatchGuidedStraight
+    /// 連一連 · 沿路過橋: guided narrower curved roads with one bridge (v0.24.1; was ★★ guided).
+    case lineMatchGuidedBridge
+}
+
+extension ActivityKind {
+    /// The three 連一連 parent cards (shared settings; separate star assignment).
+    public var isLineMatchFamily: Bool {
+        switch self {
+        case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge: return true
+        default: return false
+        }
+    }
+
+    /// How this kind deals a line-match question. Guided kinds pin geometry (straight = L1,
+    /// bridge = L2); free match uses the mission star's level. Nil when not a line-match kind.
+    public func lineMatchDeal(missionLevel: ActivityLevel) -> (level: ActivityLevel, mode: LineMatchMode)? {
+        switch self {
+        case .lineMatchGuidedStraight: return (.l1, .guided)
+        case .lineMatchGuidedBridge: return (.l2, .guided)
+        case .lineMatch: return (missionLevel, .free)
+        default: return nil
+        }
+    }
 }
 
 extension ActivityKind {
@@ -65,7 +90,9 @@ extension ActivityKind {
         case .moreFewer: return "邊邊車多啲"
         case .shadowMatch: return "邊個影子"
         case .emptyBay: return "空車位"
-        case .lineMatch: return "連一連"
+        case .lineMatch: return "連一連 · 自己配"
+        case .lineMatchGuidedStraight: return "連一連 · 沿路送"
+        case .lineMatchGuidedBridge: return "連一連 · 沿路過橋"
         }
     }
 
@@ -82,7 +109,9 @@ extension ActivityKind {
         case .moreFewer: return "Which lot has more"
         case .shadowMatch: return "Match the shadow"
         case .emptyBay: return "Empty parking bay"
-        case .lineMatch: return "Line Match"
+        case .lineMatch: return "Line Match · Free match"
+        case .lineMatchGuidedStraight: return "Line Match · Straight road"
+        case .lineMatchGuidedBridge: return "Line Match · Bridge road"
         }
     }
 
@@ -99,7 +128,9 @@ extension ActivityKind {
         case .moreFewer: return "多定少"
         case .shadowMatch: return "影子"
         case .emptyBay: return "空位"
-        case .lineMatch: return "連線"
+        case .lineMatch: return "自己配"
+        case .lineMatchGuidedStraight: return "沿路送"
+        case .lineMatchGuidedBridge: return "過橋"
         }
     }
 
@@ -117,6 +148,8 @@ extension ActivityKind {
         case .shadowMatch: return "邊架啱呢個影子？"
         case .emptyBay: return "邊個車位係空嘅？"
         case .lineMatch: return "幫小貨車將圖仔連去啱嘅字！"
+        case .lineMatchGuidedStraight: return "沿住條路揸，將字送去啱嘅圖！"
+        case .lineMatchGuidedBridge: return "沿住條路過橋，將字送去啱嘅圖！"
         }
     }
 
@@ -133,6 +166,8 @@ extension ActivityKind {
         case .shadowMatch: return "Which vehicle matches this shadow?"
         case .emptyBay: return "Which parking bay is empty?"
         case .lineMatch: return "Help the truck join each picture to its word!"
+        case .lineMatchGuidedStraight: return "Drive along the road to take each word to its picture!"
+        case .lineMatchGuidedBridge: return "Drive over the bridge to take each word to its picture!"
         }
     }
 
@@ -161,6 +196,10 @@ extension ActivityKind {
             return ["silhouette.hkTaxi", "silhouette.fireEngine"]
         case .lineMatch:
             return ["lineMatch.eye", "lineMatch.rabbit"]
+        case .lineMatchGuidedStraight:
+            return ["lineMatch.eye", "lineMatch.hand"]
+        case .lineMatchGuidedBridge:
+            return ["lineMatch.cat", "lineMatch.rabbit"]
         }
     }
 }
@@ -773,12 +812,14 @@ public enum ActivityCatalog {
         .moreFewer,
         .shadowMatch,
         .emptyBay,
+        .lineMatchGuidedStraight,
+        .lineMatchGuidedBridge,
         .lineMatch
     ]
 
     /// D7 (Carter 2026-10-13, option B): new kinds join no ticket until a parent turns a star on
     /// in 家長 → 遊戲 (after 試玩). They stay playable from the parent catalog.
-    public static let defaultOffKinds: [ActivityKind] = [.lineMatch]
+    public static let defaultOffKinds: [ActivityKind] = [.lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch]
 
     /// Kinds every ticket deals before a parent changes anything (the v0.22 rotation).
     public static var defaultOnKinds: [ActivityKind] {
@@ -842,8 +883,9 @@ public enum ActivityCatalog {
         CountVehiclesGenerator.make(seed: seed, level: level, avoidingItem: avoidingItem)
     }
 
-    /// v0.23.0 連一連 (design §6): seeded question for the ticket's ★ tier and the parent's
-    /// category weights. v0.24.0: `mode` `.guided` deals guided roads at ★ / ★★ (★★★ stays free).
+    /// v0.23.0 連一連 (design §6): seeded question for a deal level and the parent's category
+    /// weights. v0.24.1: three kinds — guided straight (L1 roads), guided bridge (L2 roads),
+    /// free match (mission star level). `mode` `.guided` only at L1/L2; L3 guided falls back to free.
     public static func lineMatchQuestion(seed: String, level: ActivityLevel, avoidingItem: String? = nil,
                                          settings: LineMatchSettings = .defaults,
                                          mode: LineMatchMode = .free) -> LineMatchQuestion {
@@ -1098,6 +1140,8 @@ public enum ActivityCatalog {
             return "提示：邊格冇車停。 / Hint: find the bay with no vehicle."
         case .lineMatch:
             return "提示：由綠點拉去閃緊嘅字卡。 / Hint: draw from the green dot to the shining word."
+        case .lineMatchGuidedStraight, .lineMatchGuidedBridge:
+            return LineMatchGuidedCopy.hint
         }
     }
 }

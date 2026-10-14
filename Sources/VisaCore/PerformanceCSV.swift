@@ -282,7 +282,7 @@ public enum PerfCSVExport {
                     number(Double(stats.activeMs) / 1000),
                     stats.activeHistogram.map(String.init).joined(separator: "|"),
                     PerfQuestionGeneration.isGuidedRollupKey(key) ? LineMatchMode.guided.rawValue
-                        : (kind == ActivityKind.lineMatch.rawValue ? LineMatchMode.free.rawValue : ""),
+                        : (ActivityKind(rawValue: kind)?.isLineMatchFamily == true ? LineMatchMode.free.rawValue : ""),
                     parsed.gen
                 ])
             }

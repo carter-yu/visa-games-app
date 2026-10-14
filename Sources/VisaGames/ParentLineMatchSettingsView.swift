@@ -1,13 +1,13 @@
 import SwiftUI
 import VisaCore
 
-/// 家長 → 遊戲 → 連一連設定 (v0.23.0, design §1.7 / §6): line tolerance 窄 / 標準 / 闊 and the
+/// 家長 → 遊戲 → 連一連設定 (v0.23.0 / v0.24.1): line tolerance 窄 / 標準 / 闊 and the
 /// category weights (0–100 in steps of 5; 0 = never; the last category cannot be turned off;
-/// 還原預設). Plain stacks and buttons only — no text input, no grids, no animation.
+/// 還原預設). Shared by 沿路送 / 沿路過橋 / 自己配. Plain stacks and buttons only — no text
+/// input, no grids, no animation.
 struct ParentLineMatchSettingsView: View {
     let settings: LineMatchSettings
     let banner: String?
-    let onGuided: (Bool) -> Void
     let onTolerance: (LineMatchTolerance) -> Void
     let onAdjust: (LineMatchCategory, Int) -> Void
     let onResetMix: () -> Void
@@ -20,22 +20,12 @@ struct ParentLineMatchSettingsView: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 0) {
                     ParentLabel("連一連設定", size: 20, weight: 900)
-                    ParentLabel("Line Match settings · 新遊戲預設唔會出，要喺上面開星級 / off until a star is on",
+                    ParentLabel("Line Match settings · 三個遊戲共用；每個要喺上面開星級 / shared by the three cards; each off until a star is on",
                                 size: 12, weight: 700, color: .inkSoft)
                 }
             }
             if let banner {
                 ParentBanner(text: banner, fill: Color(hex: DesignTokens.Palette.taxiTicket))
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                ParentLabel(LineMatchGuidedCopy.parentToggleTraditionalChinese, size: 15, weight: 800)
-                ParentLabel(LineMatchGuidedCopy.parentToggleEnglish, size: 12, weight: 600, color: .inkSoft)
-                HStack(spacing: 10) {
-                    guidedButton(true, zh: "開", en: "On")
-                    guidedButton(false, zh: "關", en: "Off")
-                }
-                ParentLabel("引導：每對字同圖已經有條路，小朋友揸車沿路送過去；唔會答錯，只係練習，唔計掌握度。 / Guided: each pair already has a road; the child drives along it. Practice only, never a miss or mastery.",
-                            size: 12, weight: 600, color: .inkSoft)
             }
             VStack(alignment: .leading, spacing: 8) {
                 ParentLabel("畫線寬容度 / Line tolerance", size: 15, weight: 800)
@@ -64,30 +54,13 @@ struct ParentLineMatchSettingsView: View {
                 ForEach(LineMatchCategory.allCases, id: \.self) { category in
                     weightRow(category)
                 }
-                ParentLabel("★ 唔出十二生肖。0 = 唔出。 / ★ never deals the zodiac. 0 = never.",
+                ParentLabel("★ 唔出十二生肖。0 = 唔出。沿路送用 ★ 題庫；沿路過橋用 ★★ 題庫。 / ★ never deals the zodiac. 0 = never. Straight uses ★ items; bridge uses ★★.",
                             size: 12, weight: 600, color: .inkSoft)
             }
         }
         .padding(16)
         .modifier(ChunkyPanel(fill: Color(hex: DesignTokens.Palette.paper), cornerRadius: 18,
                               shadowDepth: 4, lineWidth: 3))
-    }
-
-    private func guidedButton(_ on: Bool, zh: String, en: String) -> some View {
-        let selected = settings.guided == on
-        return Button(action: { onGuided(on) }) {
-            VStack(spacing: 0) {
-                ParentLabel(zh, size: 18, weight: 900)
-                ParentLabel(en, size: 11, weight: 700, color: .inkSoft)
-            }
-            .frame(width: 96)
-            .padding(.vertical, 6)
-        }
-        .buttonStyle(ChunkyButtonStyle(
-            fill: selected ? Color(hex: DesignTokens.Palette.sunny) : Color(hex: DesignTokens.Palette.paper),
-            cornerRadius: 12, shadowDepth: selected ? 2 : 3, lineWidth: 2))
-        .accessibilityLabel("引導連線 \(zh) / Guided match \(en)")
-        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func toleranceButton(_ tolerance: LineMatchTolerance) -> some View {

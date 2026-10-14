@@ -43,7 +43,7 @@ final class AppModel: ObservableObject {
     private var playtestCountQuestion = ActivityCatalog.countQuestion()
     /// v0.23.0 連一連 playtest board (never the child round's board).
     @Published private(set) var playtestLineMatchBoard = LineMatchBoard(question: ActivityCatalog.lineMatchQuestion())
-    /// v0.24.0 guided 連一連 playtest board (nil when the playtest deal is free match).
+    /// Guided 連一連 playtest board (nil when the playtest kind is free match / 自己配).
     @Published private(set) var playtestLineMatchGuidedBoard: LineMatchGuidedBoard?
     private var playtestThinkEndsAt: Date?
     var isParentPlaytest: Bool { playtestKind != nil && session.mode == .parent }
@@ -140,7 +140,7 @@ final class AppModel: ObservableObject {
     /// Gentle line under the 連一連 board (start from green / not all joined / try Done). Never a miss.
     @Published private(set) var lineMatchNotice: SpokenPrompt?
     private let lineMatchSettingsStore = LineMatchSettingsStore()
-    /// v0.24.0 guided 連一連 child board (★ / ★★ with 引導連線 on). Nil = free match.
+    /// Guided 連一連 child board (沿路送 / 沿路過橋). Nil = free match (自己配).
     /// The question is also on `lineMatchBoard`, so prompts / deal facts read one place.
     @Published private(set) var lineMatchGuidedBoard: LineMatchGuidedBoard?
     /// Rows whose off-road hint was already spoken (at most once per road).
@@ -766,9 +766,14 @@ final class AppModel: ObservableObject {
             seed: seed, level: level, avoidingItem: lastDealtItem[.findTheSame])
         countQuestion = ActivityCatalog.countQuestion(
             seed: seed, level: level, avoidingItem: lastDealtItem[.countVehicles])
-        let lineMatchQuestion = ActivityCatalog.lineMatchQuestion(
-            seed: seed, level: level, avoidingItem: lastDealtItem[.lineMatch], settings: lineMatchSettings,
-            mode: lineMatchSettings.mode(for: level))
+        let lineMatchQuestion: LineMatchQuestion
+        if let deal = kind.lineMatchDeal(missionLevel: level) {
+            lineMatchQuestion = ActivityCatalog.lineMatchQuestion(
+                seed: seed, level: deal.level, avoidingItem: lastDealtItem[kind], settings: lineMatchSettings,
+                mode: deal.mode)
+        } else {
+            lineMatchQuestion = ActivityCatalog.lineMatchQuestion()
+        }
         lineMatchBoard = LineMatchBoard(question: lineMatchQuestion, tolerance: lineMatchSettings.tolerance)
         lineMatchGuidedBoard = lineMatchQuestion.isGuided
             ? LineMatchGuidedBoard(question: lineMatchQuestion, tolerance: lineMatchSettings.tolerance) : nil
@@ -833,7 +838,8 @@ final class AppModel: ObservableObject {
         switch kind {
         case .findTheSame: return findSame.hintTraditionalChinese
         case .countVehicles: return count.hintTraditionalChinese
-        case .lineMatch: return lineMatchBoard.question.hintTraditionalChinese
+        case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
+            return lineMatchBoard.question.hintTraditionalChinese
         default: return ActivityCatalog.hintTraditionalChinese(for: kind)
         }
     }
@@ -844,7 +850,8 @@ final class AppModel: ObservableObject {
         switch kind {
         case .findTheSame: return PerfChoiceCatalog.facts(findSame: findSame, seed: seed)
         case .countVehicles: return PerfChoiceCatalog.facts(count: count, seed: seed)
-        case .lineMatch: return PerfChoiceCatalog.facts(lineMatch: lineMatch, settings: lineMatchSettings)
+        case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
+            return PerfChoiceCatalog.facts(lineMatch: lineMatch, settings: lineMatchSettings)
         default: return PerfChoiceCatalog.facts(kind: kind, seed: seed)
         }
     }
@@ -885,7 +892,7 @@ final class AppModel: ObservableObject {
         case .emptyBay:
             zh = emptyBayQuestion.promptTraditionalChinese
             en = emptyBayQuestion.promptEnglish
-        case .lineMatch:
+        case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
             zh = lineMatchBoard.question.promptTraditionalChinese
             en = lineMatchBoard.question.promptEnglish
         }
@@ -1222,7 +1229,7 @@ final class AppModel: ObservableObject {
         VisaGamesLog.append(
             "think-pause end — unlock pendingMin=\(pendingAwardMinutes) misses=\(entryMissCount)"
         )
-        if activeActivityKind == .lineMatch {
+        if activeActivityKind?.isLineMatchFamily == true {
             lineMatchBoard.noteUnlocked(now: now.timeIntervalSinceReferenceDate)
         }
         // Existing assisted/hint rescue still helps when fuel remains.
@@ -1950,7 +1957,7 @@ final class AppModel: ObservableObject {
         lineMatchUsesPlaytest ? playtestLineMatchBoard : lineMatchBoard
     }
 
-    private var lineMatchUsesPlaytest: Bool { isParentPlaytest && playtestKind == .lineMatch }
+    private var lineMatchUsesPlaytest: Bool { isParentPlaytest && playtestKind?.isLineMatchFamily == true }
 
     /// Runs one board change when input is open (round on 連一連, not in a Think Pause), then
     /// refreshes the round's `round_result` extras. Nil = input ignored.
@@ -1965,7 +1972,7 @@ final class AppModel: ObservableObject {
             perf.playtestResultExtra(board.resultFields)
             return result
         }
-        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .lineMatch else { return nil }
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind?.isLineMatchFamily == true else { return nil }
         guard !choicesLocked else {
             perf.roundMashTap()
             return nil
@@ -2086,7 +2093,7 @@ final class AppModel: ObservableObject {
     /// Guided input is open: the round (or playtest) is on 連一連 and not finished.
     private var guidedInputOpen: Bool {
         if lineMatchUsesPlaytest { return !playtestCompleted && playtestLineMatchGuidedBoard != nil }
-        return session.mode == .lock && taskRoundOpen && activeActivityKind == .lineMatch
+        return session.mode == .lock && taskRoundOpen && activeActivityKind?.isLineMatchFamily == true
             && !activityJustCompleted && lineMatchGuidedBoard != nil
     }
 
@@ -2128,7 +2135,7 @@ final class AppModel: ObservableObject {
     /// the child round goes straight to the usual stamp / visa (not assisted).
     private func finishGuidedRound(token: String, playtest: Bool) {
         if playtest {
-            guard isParentPlaytest, playtestKind == .lineMatch, playtestChoiceDealSeed == token,
+            guard isParentPlaytest, playtestKind?.isLineMatchFamily == true, playtestChoiceDealSeed == token,
                   !playtestCompleted, playtestLineMatchGuidedBoard?.isComplete == true else { return }
             perf.playtestSolved(earnedMinutes: playtestPendingMinutes, assisted: false)
             playtestLastCorrectID = LineMatchMode.guided.rawValue
@@ -2137,7 +2144,7 @@ final class AppModel: ObservableObject {
             VisaGamesLog.append("playtest guided done — 試玩引導完成 local no visa")
             return
         }
-        guard session.mode == .lock, taskRoundOpen, activeActivityKind == .lineMatch, choiceDealSeed == token,
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind?.isLineMatchFamily == true, choiceDealSeed == token,
               !activityJustCompleted, lineMatchGuidedBoard?.isComplete == true else { return }
         guard pendingAwardMinutes > 0 else {
             VisaGamesLog.append("lineMatch guided done blocked — pending=0 → depot")
@@ -2168,12 +2175,8 @@ final class AppModel: ObservableObject {
         VisaGamesLog.append("lineMatch guided hint — 架車等緊你 row=\(row) (no miss)")
     }
 
-    func setLineMatchGuided(_ on: Bool) {
-        guard session.mode == .parent, on != lineMatchSettings.guided else { return }
-        saveLineMatchSettings(lineMatchSettings.withGuided(on), what: "guided", value: on ? "on" : "off")
-    }
+    // MARK: 連一連 parent settings (shared by 沿路送 / 沿路過橋 / 自己配)
 
-    // MARK: 連一連 parent settings
 
     func setLineMatchTolerance(_ tolerance: LineMatchTolerance) {
         guard session.mode == .parent, tolerance != lineMatchSettings.tolerance else { return }
@@ -2200,7 +2203,7 @@ final class AppModel: ObservableObject {
         lineMatchSettingsStore.save(next)
         lineMatchSettingsBanner = nil
         perf.lineMatchSettingChanged(what: what, value: value, mix: next.mixDescription)
-        VisaGamesLog.append("lineMatch settings — 連一連設定 \(what)=\(value) mix=\(next.mixDescription) tolerance=\(next.tolerance.rawValue) guided=\(next.guided)")
+        VisaGamesLog.append("lineMatch settings — 連一連設定 \(what)=\(value) mix=\(next.mixDescription) tolerance=\(next.tolerance.rawValue)")
     }
 
     // MARK: - Parent game catalog + playtest (no visa)
@@ -2245,9 +2248,14 @@ final class AppModel: ObservableObject {
         playtestLevel = level
         playtestFindSameQuestion = ActivityCatalog.findSameQuestion(seed: playtestChoiceDealSeed, level: level)
         playtestCountQuestion = ActivityCatalog.countQuestion(seed: playtestChoiceDealSeed, level: level)
-        let playtestLineMatchQuestion = ActivityCatalog.lineMatchQuestion(
-            seed: playtestChoiceDealSeed, level: level, settings: lineMatchSettings,
-            mode: lineMatchSettings.mode(for: level))
+        let playtestLineMatchQuestion: LineMatchQuestion
+        if let deal = kind.lineMatchDeal(missionLevel: level) {
+            // Guided kinds pin geometry (straight = L1, bridge = L2); free match cycles L1→L2→L3.
+            playtestLineMatchQuestion = ActivityCatalog.lineMatchQuestion(
+                seed: playtestChoiceDealSeed, level: deal.level, settings: lineMatchSettings, mode: deal.mode)
+        } else {
+            playtestLineMatchQuestion = ActivityCatalog.lineMatchQuestion()
+        }
         playtestLineMatchBoard = LineMatchBoard(question: playtestLineMatchQuestion,
                                                 tolerance: lineMatchSettings.tolerance)
         playtestLineMatchGuidedBoard = playtestLineMatchQuestion.isGuided
@@ -2305,7 +2313,7 @@ final class AppModel: ObservableObject {
         case .emptyBay:
             zh = emptyBayQuestion.promptTraditionalChinese
             en = emptyBayQuestion.promptEnglish
-        case .lineMatch:
+        case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
             zh = playtestLineMatchBoard.question.promptTraditionalChinese
             en = playtestLineMatchBoard.question.promptEnglish
         }
@@ -2514,7 +2522,7 @@ final class AppModel: ObservableObject {
         playtestFuelMessage = nil
         guard playtestKind != nil, !playtestCompleted else { return }
         perf.playtestPauseEnded()
-        if playtestKind == .lineMatch {
+        if playtestKind?.isLineMatchFamily == true {
             playtestLineMatchBoard.noteUnlocked(now: Date().timeIntervalSinceReferenceDate)
         }
         // Fuel may hit 0. Stay on the cover — do not speak the depot line or end the visa.
@@ -3229,7 +3237,7 @@ struct ShellView: View {
                     onHint: { model.useEntryHint() },
                     onSpeakPrompt: { model.speakEntryPrompt() }
                 )
-            case .twoPictureChoose, .lineMatch, .none:
+            case .twoPictureChoose, .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .none:
                 // Legacy shell is setup / parent only; 連一連 is canvas-only (CanvasActivityHost).
                 EntryActivityView(
                     question: model.currentTwoPictureQuestion,
