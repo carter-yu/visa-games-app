@@ -475,7 +475,7 @@ struct TestRunner {
         generator.testGeneratorsTerminateForEveryTierAndSeed()
 
         let isolation = ActorIsolationTests()
-        try isolation.testPackageDisablesDynamicActorIsolationForTheAppTargetOnly()
+        try isolation.testPackageHasNoUnsafeFlagsOrLanguageModeOverride()
         try isolation.testAppSourcesHaveNoUnownedOrAssumeIsolated()
         try isolation.testShellViewPassesExplicitClosuresNotModelMethodReferences()
         try isolation.testRecorderContextTimerAndRecorderStayOnMain()

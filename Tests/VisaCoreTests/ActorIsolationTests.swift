@@ -4,7 +4,8 @@ import VisaCore
 /// v0.22.1 (ADR 0010): the Swift 6 runtime actor-isolation check at the top of the ZStack
 /// builder in `ShellView.body` crashed inside the runtime (main thread, SwiftUI transaction).
 /// v0.22.2: depot hang fix — no precomputed content, skip ParentCornerLayer on depot, revert
-/// selector Timer. Source guards; the app target has no unit tests.
+/// selector Timer. v0.22.3: compiler flag reverted (same crash from Apple code). Source guards;
+/// the app target has no unit tests.
 final class ActorIsolationTests {
     private let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 
@@ -27,21 +28,17 @@ final class ActorIsolationTests {
         return (String(text[start..<end]), end)
     }
 
-    func testPackageDisablesDynamicActorIsolationForTheAppTargetOnly() throws {
+    /// v0.22.3: the 0.22.1 `-disable-dynamic-actor-isolation` flag is reverted. v0.22.2 still
+    /// crashed in the same runtime main-executor check, called from Apple's MenuBarClientCore,
+    /// so the flag could not prevent it. Package.swift is main's plain target again.
+    func testPackageHasNoUnsafeFlagsOrLanguageModeOverride() throws {
         let package = try source("Package.swift")
         expectTrue(package.hasPrefix("// swift-tools-version: 6.0"))
         expectFalse(package.contains("swiftLanguageMode"), "app stays in Swift 6 language mode")
-        guard let flag = package.range(of: ".unsafeFlags([\"-Xfrontend\", \"-disable-dynamic-actor-isolation\"])") else {
-            expectTrue(false, "Package.swift lacks -disable-dynamic-actor-isolation")
-            return
-        }
-        let before = package[package.startIndex..<flag.lowerBound]
-        guard let name = before.range(of: "name: \"", options: .backwards) else {
-            expectTrue(false, "no target name before the flag")
-            return
-        }
-        expectTrue(before[name.upperBound...].hasPrefix("VisaGames\""))
-        expectEqual(package.components(separatedBy: "unsafeFlags").count, 2)
+        expectFalse(package.contains("unsafeFlags"), "no unsafe compiler flags (ADR 0010, superseded)")
+        expectFalse(package.contains("disable-dynamic-actor-isolation"))
+        expectFalse(package.contains("swiftSettings"))
+        expectTrue(package.contains(".executableTarget(name: \"VisaGames\", dependencies: [\"VisaCore\"])"))
     }
 
     func testAppSourcesHaveNoUnownedOrAssumeIsolated() throws {

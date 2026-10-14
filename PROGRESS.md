@@ -1,6 +1,15 @@
 # Progress
 
 
+## 2026-10-14 — v0.22.3 / 52 — revert `-disable-dynamic-actor-isolation` (ADR 0010 superseded)
+
+- **Evidence:** v0.22.2 / 51 (built with the flag) crashed at 12:05 on main, right after leaving the parent page: pc 0x7c8 in `SerialExecutor._isSameExecutor` ← `isMainExecutor.getter` ← `_swift_task_isMainExecutorSwift` ← `swift_task_isCurrentExecutorWithFlagsImpl` ← **MenuBarClientCore** (Apple) ← `__CFRunLoopDoBlocks`; x3 = DispatchMainExecutor witness table. No app frame. The flag only removes checks our compiler emits, so it cannot prevent this.
+- **Change:** `Package.swift` back to main's plain app target (no `swiftSettings`, no `unsafeFlags`). `ActorIsolationTests.testPackageHasNoUnsafeFlagsOrLanguageModeOverride` replaces the flag guard (still 5 actor-isolation checks).
+- **Kept:** S0 generators, explicit closures in ShellView, `[weak self]` contextProvider, Task-based 0.5 s tick, depot ParentCornerLayer skip + pass-through layer, generator termination tests.
+- **Analysis (ADR 0010):** in the public Swift 6.3+ runtime the main executor is created once (`swift::once`) and held strongly; both crashes came minutes into a session, after thousands of main-executor jobs. Best fit: the executor ref handed to the check is no longer a valid live object (stale / corrupt). Not proven. Early executor touch, sync `@main` and async `@main` are written up as candidates; **none applied** (the first two have no expected effect; async main changes the startup model).
+- Version: Info.plist **0.22.3 / 52**, parent footer **Visa Games v0.22.3**.
+- Not run: Linux box has no Swift toolchain. `sh scripts/test.sh`, `sh scripts/bundle.sh`, ASan / MallocScribble run and kiosk run pending on the Mac mini. No push.
+
 ## 2026-10-14 — v0.22.2 hang fix (depot tickets unresponsive)
 
 - **Symptom:** 0.22.1/50 hung at 揀一張車票; sample showed idle main thread (mach_msg), not a generator/timer busy loop.
