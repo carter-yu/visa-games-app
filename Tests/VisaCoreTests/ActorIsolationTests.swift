@@ -112,5 +112,6 @@ final class ActorIsolationTests {
         expectFalse(corner.contains("CanvasStage"), "ParentCornerLayer must not use CanvasStage (full-screen hit target)")
         expectTrue(corner.contains("allowsHitTesting(false)"))
         expectTrue(corner.contains("ParentCornerEntry(onUnlock: onUnlock)"))
+        expectTrue(corner.contains("struct ParentCornerLayer"))
     }
 }

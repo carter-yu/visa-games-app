@@ -37,7 +37,7 @@ struct ParentCornerEntry: View {
 /// Parent corner for child screens that are not yet canvas boards, at the same spot as board 1.
 ///
 /// v0.22.2: hittable region is only the corner control. Do not wrap it in a full-screen
-/// hittable `CanvasStage`/`GeometryReader` content stack — that overlay could swallow ticket
+/// hittable full-screen stage/GeometryReader content stack — that overlay could swallow ticket
 /// taps on the board underneath (0.22.1 depot hang sample: idle main thread, no app frames
 /// past `main`). DepotHomeView already embeds `ParentCornerEntry`; ShellView skips this layer
 /// on the depot.
