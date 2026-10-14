@@ -67,6 +67,7 @@ recorded unless noted.
 | Pen glow monitor (v0.9.0) | The pointer monitor only observes: Escape, Cmd-Q, Cmd-W and Cmd-Tab stay blocked in every child state; taps still reach buttons; the glow never blocks a tap. | Pending Mac mini UAT |
 | Performance export (v0.20.0) | Parent controls → Advanced → 匯出表現 (CSV): files are written to `~/Library/Application Support/VisaGames/stats/exports/…`. Since v0.21.5 (ADR 0011) Finder opens behind the kiosk window; quit with 「離開程式」 to see it. No Finder window is reachable from child screens. | Pending Mac mini UAT |
 | Constant presentation (v0.21.5) | Open and leave parent controls repeatedly (and the `VISAGAMES_SOAK=1` soak, ADR 0011): the window stays borderless and full screen, Dock and menu bar stay hidden in parent mode, no crash. 「離開程式」 quits and restores the Dock / menu bar. | Pending Mac mini UAT (macOS 27) |
+| 連一連 pen drag (v0.23.0) | On a 連一連 board, drag a line with the Wacom pen and with a finger: from a green dot to a red dot, then off every screen edge and corner (Dock, hot corners, Mission Control) and into the bottom-right parent corner. Expected: the line follows, letting go off a dot springs it back (no miss); no Dock, menu bar, Mission Control or other OS surface appears; holding still in the corner for 3 s only opens the parent prompt (an explicit parent surface, not an escape). Pen side button (right click) on the board opens no context menu. Record whether Wacom drags arrive as `leftMouseDragged` and whether finger drags work (D8). | Pending Mac mini UAT |
 
 ## Remaining OS and physical escape paths
 
@@ -77,6 +78,11 @@ must be measured with the table above.
 - Mission Control, Spaces, Stage Manager, hot corners, system shortcuts,
   Spotlight, Siri, accessibility shortcuts, notification/system overlays,
   screen locking, and external devices may provide OS-owned surfaces.
+- Wacom ExpressKeys, Touch Ring and pen side buttons can be mapped to any key or
+  app in the Wacom driver. The app cannot block them; disable or neutralise them in
+  the Wacom Tablet preferences on the Mac mini (design §8.5, v0.23.0 連一連).
+- A pen or finger drag that ends at a screen edge can still reach OS edge features
+  (hot corners, Dock reveal) wherever macOS ignores the presentation options.
 - A second display is not covered by another kiosk window. Use one TV/display;
   verify mirroring and display changes on the target.
 - Force termination through other sessions, Activity Monitor, remote access,
