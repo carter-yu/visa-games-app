@@ -14,6 +14,8 @@ import argparse
 import os
 import sys
 
+# Never leave scripts/__pycache__ behind: the kiosk checks read every entry in scripts/ as a file.
+sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import svg_to_canvasart as base  # noqa: E402
 
