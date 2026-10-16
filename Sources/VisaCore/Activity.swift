@@ -53,6 +53,10 @@ public enum ActivityKind: String, CaseIterable, Sendable, Codable, Equatable, Ha
     case lineMatchGuidedStraight
     /// 連一連 · 沿路過橋: guided narrower curved roads with one bridge (v0.24.1; was ★★ guided).
     case lineMatchGuidedBridge
+    /// 畫線畫形 · 畫直線 · 熱身: across, down (and slant) lines with a vehicle (v0.25.0).
+    case traceLines
+    /// 畫線畫形 · 畫形狀 · 跟虛線: circle, square, ★ spire on dotted lanes (v0.25.0).
+    case traceShapesDotted
 }
 
 extension ActivityKind {
@@ -63,6 +67,14 @@ extension ActivityKind {
         default: return false
         }
     }
+
+    /// The 畫線畫形 cards (shared 畫形狀設定; practice only, never mastery — design D10).
+    public var isShapeTraceFamily: Bool {
+        self == .traceLines || self == .traceShapesDotted
+    }
+
+    /// D11: a parent plays the card through once in 試玩 before a star can be turned on.
+    public var requiresPlaytestBeforeStars: Bool { isShapeTraceFamily }
 
     /// How this kind deals a line-match question. Guided kinds pin geometry (straight = L1,
     /// bridge = L2); free match uses the mission star's level. Nil when not a line-match kind.
@@ -93,6 +105,8 @@ extension ActivityKind {
         case .lineMatch: return "連一連 · 自己配"
         case .lineMatchGuidedStraight: return "連一連 · 沿路送"
         case .lineMatchGuidedBridge: return "連一連 · 沿路過橋"
+        case .traceLines: return "畫直線 · 熱身"
+        case .traceShapesDotted: return "畫形狀 · 跟虛線"
         }
     }
 
@@ -112,6 +126,8 @@ extension ActivityKind {
         case .lineMatch: return "Line Match · Free match"
         case .lineMatchGuidedStraight: return "Line Match · Straight road"
         case .lineMatchGuidedBridge: return "Line Match · Bridge road"
+        case .traceLines: return "Lines · Warm-up"
+        case .traceShapesDotted: return "Shapes · Follow the dots"
         }
     }
 
@@ -131,6 +147,8 @@ extension ActivityKind {
         case .lineMatch: return "自己配"
         case .lineMatchGuidedStraight: return "沿路送"
         case .lineMatchGuidedBridge: return "過橋"
+        case .traceLines: return "直線"
+        case .traceShapesDotted: return "虛線"
         }
     }
 
@@ -150,6 +168,8 @@ extension ActivityKind {
         case .lineMatch: return "幫小貨車將圖仔連去啱嘅字！"
         case .lineMatchGuidedStraight: return "沿住條路揸，將字送去啱嘅圖！"
         case .lineMatchGuidedBridge: return "沿住條路過橋，將字送去啱嘅圖！"
+        case .traceLines: return "由綠色箭嘴畫去紅色箭嘴！"
+        case .traceShapesDotted: return "跟住虛線，畫圓形、正方形同尖頂！"
         }
     }
 
@@ -168,6 +188,8 @@ extension ActivityKind {
         case .lineMatch: return "Help the truck join each picture to its word!"
         case .lineMatchGuidedStraight: return "Drive along the road to take each word to its picture!"
         case .lineMatchGuidedBridge: return "Drive over the bridge to take each word to its picture!"
+        case .traceLines: return "Draw from the green arrow to the red arrow!"
+        case .traceShapesDotted: return "Follow the dots to draw circles, squares and roofs!"
         }
     }
 
@@ -200,6 +222,10 @@ extension ActivityKind {
             return ["lineMatch.eye", "lineMatch.hand"]
         case .lineMatchGuidedBridge:
             return ["lineMatch.cat", "lineMatch.rabbit"]
+        case .traceLines:
+            return ["shapeTrace.lines"]
+        case .traceShapesDotted:
+            return ["shapeTrace.dotted"]
         }
     }
 }
@@ -814,12 +840,16 @@ public enum ActivityCatalog {
         .emptyBay,
         .lineMatchGuidedStraight,
         .lineMatchGuidedBridge,
-        .lineMatch
+        .lineMatch,
+        .traceLines,
+        .traceShapesDotted
     ]
 
     /// D7 (Carter 2026-10-13, option B): new kinds join no ticket until a parent turns a star on
     /// in 家長 → 遊戲 (after 試玩). They stay playable from the parent catalog.
-    public static let defaultOffKinds: [ActivityKind] = [.lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch]
+    public static let defaultOffKinds: [ActivityKind] = [
+        .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch, .traceLines, .traceShapesDotted
+    ]
 
     /// Kinds every ticket deals before a parent changes anything (the v0.22 rotation).
     public static var defaultOnKinds: [ActivityKind] {
@@ -841,7 +871,6 @@ public enum ActivityCatalog {
     }
 
     public static let unbuiltParentActivities: [UnbuiltParentActivity] = [
-        UnbuiltParentActivity(traditionalChinese: "描線", english: "Path trace"),
         UnbuiltParentActivity(traditionalChinese: "迷宮", english: "Maze"),
         UnbuiltParentActivity(traditionalChinese: "形狀分類", english: "Shape sort"),
         UnbuiltParentActivity(traditionalChinese: "連點", english: "Connect the dots")
@@ -1142,6 +1171,8 @@ public enum ActivityCatalog {
             return "提示：由綠點拉去閃緊嘅字卡。 / Hint: draw from the green dot to the shining word."
         case .lineMatchGuidedStraight, .lineMatchGuidedBridge:
             return LineMatchGuidedCopy.hint
+        case .traceLines, .traceShapesDotted:
+            return ShapeTraceCopy.hint
         }
     }
 }

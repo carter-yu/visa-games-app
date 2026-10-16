@@ -115,7 +115,10 @@ public enum QuestionGeneration {
     /// Seeded variants with ★-tier levels (v0.22.0, design §7).
     public static let variants = "variants_v1"
     /// Kinds whose questions come from a generator in this version.
-    public static let generatedKinds: [ActivityKind] = [.countVehicles, .findTheSame, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch]
+    public static let generatedKinds: [ActivityKind] = [
+        .countVehicles, .findTheSame, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch,
+        .traceLines, .traceShapesDotted
+    ]
 
     public static let maxRerolls = 8
 

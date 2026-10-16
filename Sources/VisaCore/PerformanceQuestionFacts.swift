@@ -144,6 +144,40 @@ extension PerfChoiceCatalog {
     }
 }
 
+extension PerfChoiceCatalog {
+    /// A dealt 畫線畫形 round (v0.25.0). Practice only (design D10): chance 1, no correct
+    /// choice, and `match_mode: guided` so the rollup and review treat it exactly like guided
+    /// 連一連 (own `|guided` key, counted on the 引導練習 line, never mastery evidence).
+    public static func facts(shapeTrace question: ShapeTraceQuestion, settings: ShapeTraceSettings,
+                             tolerance: LineMatchTolerance) -> PerfDealFacts {
+        var extra: [String: PerfValue] = [
+            "practice": .string("shape_trace"),
+            "scene": .string(question.scene.rawValue),
+            "shapes": .strings(question.shapes.map(\.kind.rawValue)),
+            "slots_drawn": .strings(question.shapes.map(\.slot)),
+            "shape_trace_level": .string(question.level.code),
+            "tolerance": .string(tolerance.rawValue),
+            "direction_coaching": .bool(settings.directionHint),
+            "stop_coaching": .bool(settings.cornerStop),
+            "slant_enabled": .bool(settings.slantLines),
+            "dot_style": .string(settings.dotStyle.rawValue),
+            LineMatchMode.fieldKey: .string(LineMatchMode.guided.rawValue)
+        ]
+        if question.kind == .traceShapesDotted { extra["shape_mix"] = .string(settings.mixDescription) }
+        return PerfDealFacts(
+            item: question.itemID,
+            gen: QuestionGeneration.variants,
+            level: question.level,
+            chance: 1,
+            slots: question.shapes.map(\.slot),
+            correctChoice: nil,
+            tagsByChoice: [:],
+            assetByChoice: [:],
+            extraDealtFields: extra
+        )
+    }
+}
+
 /// Choice id of a judged 連一連 完成 in `answer_attempt`.
 public enum LineMatchSubmit {
     public static let choice = "submit"
@@ -177,7 +211,8 @@ public enum PerfQuestionGeneration {
     /// Guided 連一連 rounds are practice exposure: never mastery evidence, never misses
     /// (design "Guided level" → Stats). Review counts them on their own line.
     public static func isPracticeOnly(_ dealt: PerfEvent) -> Bool {
-        matchMode(of: dealt) == .guided
+        if let kind = dealt.string("kind").flatMap(ActivityKind.init(rawValue:)), kind.isShapeTraceFamily { return true }
+        return matchMode(of: dealt) == .guided
     }
 
     /// First `stats_marker{what: variants_v1}` (the go-live line), if any.
