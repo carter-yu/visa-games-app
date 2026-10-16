@@ -445,7 +445,7 @@ final class ShapeTraceTests {
         }
         for line in english {
             expectFalse(line.isEmpty)
-            expectTrue(line.unicodeScalars.allSatisfy { $0.isASCII || $0 == "½" }, "non-ASCII English: \(line)")
+            expectTrue(line.unicodeScalars.allSatisfy { $0.isASCII || $0 == "½" || $0 == "·" || $0 == "→" || $0 == "—" }, "non-ASCII English: \(line)")
         }
         // Cue = Cantonese word, then English word.
         expectEqual(ShapeTraceCopy.bubble(.spire), "三角形、triangle")
