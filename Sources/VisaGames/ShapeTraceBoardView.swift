@@ -6,8 +6,8 @@ import VisaCore
 /// 畫直線 · 熱身: a fire engine, a crane hook and a taxi follow the pen along wide lanes.
 /// 畫形狀 · 跟虛線: a little paint car follows the pen along dotted circles, square windows (「口」
 /// order) and ★ spires (∧). The vehicle only goes forwards, waits at every corner (「停！轉彎！」)
-/// and waits whenever the pen leaves the lane — never a miss. Each shape auto-completes; no 完成,
-/// no 擦晒. Nothing is drawn in the bottom-right parent corner.
+/// and waits whenever the pen leaves the lane — never a miss. Each shape auto-completes; no done button,
+/// no clear-all button. Nothing is drawn in the bottom-right parent corner.
 ///
 /// All rules live in `VisaCore.ShapeTraceBoard`. This view runs it on a local copy per pen event
 /// and hands it to the model on pen-up and at every milestone (corner, stroke, shape).
