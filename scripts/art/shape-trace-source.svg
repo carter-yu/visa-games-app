@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 畫線畫形 art source (v0.25.0). Every element is copied from the approved Opus mockups in
+     visa-games-design/shape-trace/mockups (01 lines warm-up, 02 towers, 03 snow town,
+     04 castle windows). Only mechanical edits: <use> inlined as translated groups, the tower-C
+     dome arc written as two cubics, the arch window's 0.9 scale baked in, and <text> removed
+     (drawn by the app with CanvasText). Converted by scripts/svg_to_shapetraceart.py. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+<defs>
+  <!-- markers (01 #go #end #tick, 02 #tick-s, 03 #end-ring, 04 #stop-sign without 停) -->
+  <g id="go"><circle r="28" fill="#5DBB63" stroke="#2B2630" stroke-width="6"/><path d="M-14 -5 H1 V-13 L15 0 L1 13 V5 H-14 Z" fill="#FFFFFF" stroke="#2B2630" stroke-width="2.5" stroke-linejoin="round"/></g>
+  <g id="end"><circle r="28" fill="#EE5A4C" stroke="#2B2630" stroke-width="6"/><path d="M-16 -5 H-3 V-12 L9 0 L-3 12 V5 H-16 Z" fill="#FFFFFF" stroke="#2B2630" stroke-width="2.5" stroke-linejoin="round"/><rect x="11" y="-14" width="6" height="28" rx="3" fill="#FFFFFF" stroke="#2B2630" stroke-width="2.5"/></g>
+  <g id="tick"><circle r="30" fill="#5DBB63" stroke="#2B2630" stroke-width="6"/><path d="M-14 1 L-4 12 L16 -12" fill="none" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g id="tick-s"><circle r="20" fill="#5DBB63" stroke="#2B2630" stroke-width="5"/><path d="M-9 1 L-3 8 L10 -8" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g id="end-ring"><circle r="20" fill="#2B2630"/><circle r="15.5" fill="#FFFFFF" stroke="#EE5A4C" stroke-width="6"/><path d="M-6 -7 L2 0 L-6 7" fill="none" stroke="#EE5A4C" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 -8 V8" stroke="#EE5A4C" stroke-width="4.5" stroke-linecap="round"/></g>
+  <g id="stop-sign">
+    <path d="M-13 -31 H13 L31 -13 V13 L13 31 H-13 L-31 13 V-13 Z" fill="#E8473C" stroke="#2B2630" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M-10 -25 H10 L25 -10 V10 L10 25 H-10 L-25 10 V-10 Z" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round"/>
+  </g>
+
+  <!-- vehicles (01 #fire-engine #taxi: origin = ground centre; 02 #paint-car: origin = centre) -->
+  <g id="fire-engine" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="-104" y="-112" width="138" height="14" rx="5" fill="#E9E4EC" stroke="#2B2630" stroke-width="5"/>
+    <g stroke="#2B2630" stroke-width="4"><path d="M-84 -112 V-98 M-62 -112 V-98 M-40 -112 V-98 M-18 -112 V-98 M4 -112 V-98"/></g>
+    <path d="M-112 -30 V-90 Q-112 -98 -104 -98 H42 V-110 Q42 -118 50 -118 H82 Q100 -118 106 -96 L112 -60 V-30 Q112 -20 102 -20 H-102 Q-112 -20 -112 -30 Z" fill="#E8473C" stroke="#2B2630" stroke-width="6"/>
+    <rect x="-108" y="-62" width="150" height="10" fill="#FFF4D6"/>
+    <path d="M54 -108 H80 Q92 -108 96 -94 L99 -80 H54 Z" fill="#CDEBFB" stroke="#2B2630" stroke-width="5"/>
+    <rect x="-94" y="-88" width="40" height="22" rx="5" fill="#9C2F27" stroke="#2B2630" stroke-width="4"/>
+    <rect x="-44" y="-88" width="40" height="22" rx="5" fill="#9C2F27" stroke="#2B2630" stroke-width="4"/>
+    <rect x="58" y="-128" width="22" height="12" rx="5" fill="#4C8FE0" stroke="#2B2630" stroke-width="4"/>
+    <circle cx="74" cy="-44" r="4.5" fill="#2B2630"/><circle cx="94" cy="-44" r="4.5" fill="#2B2630"/>
+    <path d="M74 -34 Q84 -28 94 -34" fill="none" stroke="#2B2630" stroke-width="4"/>
+    <ellipse cx="104" cy="-36" rx="4" ry="3" fill="#F9B4C2"/>
+    <circle cx="-62" cy="-20" r="20" fill="#2B2630"/><circle cx="-62" cy="-20" r="8" fill="#D9D6DE"/>
+    <circle cx="62" cy="-20" r="20" fill="#2B2630"/><circle cx="62" cy="-20" r="8" fill="#D9D6DE"/>
+  </g>
+  <g id="taxi" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="-22" y="-92" width="44" height="16" rx="5" fill="#FFF4D6" stroke="#2B2630" stroke-width="4"/>
+    <path d="M-86 -28 V-46 Q-86 -56 -74 -58 L-50 -60 L-30 -80 Q-24 -86 -14 -86 H30 Q40 -86 48 -78 L64 -60 L80 -58 Q90 -56 90 -44 V-28 Q90 -20 82 -20 H-78 Q-86 -20 -86 -28 Z" fill="#E8473C" stroke="#2B2630" stroke-width="6"/>
+    <path d="M-40 -60 L-24 -76 H4 V-60 Z M12 -76 H34 L50 -60 H12 Z" fill="#CDEBFB" stroke="#2B2630" stroke-width="4"/>
+    <rect x="-86" y="-40" width="176" height="7" fill="#E9E4EC"/>
+    <circle cx="66" cy="-48" r="4" fill="#2B2630"/><path d="M60 -38 Q68 -34 76 -38" fill="none" stroke="#2B2630" stroke-width="3.5"/>
+    <circle cx="-50" cy="-20" r="17" fill="#2B2630"/><circle cx="-50" cy="-20" r="7" fill="#D9D6DE"/>
+    <circle cx="52" cy="-20" r="17" fill="#2B2630"/><circle cx="52" cy="-20" r="7" fill="#D9D6DE"/>
+  </g>
+  <g id="paint-car" stroke="#2B2630" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="-28" y="-30" width="16" height="9" rx="3" fill="#2B2630"/><rect x="14" y="-30" width="16" height="9" rx="3" fill="#2B2630"/>
+    <rect x="-28" y="21" width="16" height="9" rx="3" fill="#2B2630"/><rect x="14" y="21" width="16" height="9" rx="3" fill="#2B2630"/>
+    <path d="M-40 0 H-30" stroke-width="6"/>
+    <rect x="-50" y="-26" width="12" height="52" rx="5" fill="#F49AB0" stroke-width="4.5"/>
+    <rect x="-34" y="-23" width="72" height="46" rx="16" fill="#FFC93C" stroke-width="5"/>
+    <rect x="-18" y="-17" width="26" height="34" rx="8" fill="#FFE68F" stroke-width="3.5"/>
+    <path d="M12 -16 Q22 -14 24 0 Q22 14 12 16 Z" fill="#CDEBFB" stroke-width="3.5"/>
+    <circle cx="33" cy="-11" r="5" fill="#FFFFFF" stroke-width="2.5"/><circle cx="34" cy="-11" r="2.2" fill="#2B2630" stroke="none"/>
+    <circle cx="33" cy="11" r="5" fill="#FFFFFF" stroke-width="2.5"/><circle cx="34" cy="11" r="2.2" fill="#2B2630" stroke="none"/>
+  </g>
+
+  <!-- 01: crane hook block + hook, origin = cable end (170, 346) -->
+  <g id="crane-hook" stroke="#2B2630" stroke-linecap="round" stroke-linejoin="round" transform="translate(-170 -346)">
+    <path d="M158 346 H182 V360 Q182 372 170 372 Q158 372 158 360 Z" fill="#7A6F80" stroke-width="4"/>
+    <path d="M170 372 V384 Q170 396 160 396 Q152 396 150 388" fill="none" stroke-width="6"/>
+  </g>
+
+  <!-- 03 #pine, origin = trunk base -->
+  <g id="pine" stroke="#2B2630" stroke-linejoin="round" stroke-width="5">
+    <rect x="-9" y="-10" width="18" height="34" fill="#8A5A3B"/>
+    <path d="M0 -150 L-46 -70 H46 Z M0 -110 L-58 -10 H58 Z" fill="#5DBB63"/>
+    <path d="M0 -150 L-18 -118 Q0 -110 18 -118 Z M-58 -10 Q-30 -22 0 -14 Q30 -22 58 -10 Z" fill="#FFFFFF" stroke-width="4"/>
+  </g>
+
+  <!-- 03 snowman arms, origin = body centre (600, 430) -->
+  <g id="snow-arms" stroke="#2B2630" stroke-linecap="round" stroke-width="7" transform="translate(-600 -430)"><path d="M498 404 L446 362 M456 370 L440 378"/><path d="M702 404 L754 362 M744 370 L760 378"/></g>
+</defs>
+
+<!-- ======== stage-sized scenery (1280 × 720, origin top-left) ======== -->
+
+<!-- 01: fire station (destination of ①); 消防局 drawn by the app -->
+<g id="fire-station" stroke="#2B2630" stroke-linejoin="round">
+  <rect x="968" y="150" width="284" height="150" rx="10" fill="#FFF4E2" stroke-width="6"/>
+  <path d="M956 160 L1110 124 L1264 160 Z" fill="#E8473C" stroke-width="6"/>
+  <rect x="1006" y="184" width="170" height="116" rx="16" fill="#5A5160" stroke-width="5"/>
+  <g stroke="#7A6F80" stroke-width="3"><path d="M1012 210 H1170 M1012 236 H1170 M1012 262 H1170"/></g>
+  <rect x="1190" y="190" width="44" height="40" rx="6" fill="#CDEBFB" stroke-width="4"/>
+  <rect x="1050" y="134" width="120" height="34" rx="10" fill="#E8473C" stroke-width="4"/>
+</g>
+
+<!-- 01: hill for ③ (slant on) -->
+<g id="hill">
+  <path d="M440 540 C446 400 480 338 540 336 C590 334 630 350 690 396 C760 450 850 500 905 540 Z" fill="#9ED36A" stroke="#2B2630" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M500 470 Q520 450 540 470 M590 510 Q610 490 630 510" fill="none" stroke="#5E9E3E" stroke-width="5" stroke-linecap="round"/>
+</g>
+
+<!-- 01: ② crane boom (under the lanes) -->
+<g id="crane-boom" stroke="#2B2630" stroke-linecap="round">
+  <path d="M318 448 L178 150" stroke-width="30"/>
+  <path d="M318 448 L178 150" stroke="#FFC93C" stroke-width="18"/>
+  <g stroke-width="3"><path d="M296 402 L284 376 M270 346 L258 320 M244 290 L232 264 M218 234 L206 208"/></g>
+</g>
+
+<!-- 01: ② crane truck (cable and hook drawn by the app) -->
+<g id="crane-truck" stroke="#2B2630" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="178" cy="150" r="13" fill="#E9E4EC" stroke-width="5"/>
+  <path d="M232 520 V470 Q232 458 244 458 H350 Q362 458 362 446 V430 Q362 420 372 420 H400 Q414 420 418 434 L424 470 V520 Z" fill="#FFC93C" stroke-width="6"/>
+  <rect x="370" y="430" width="38" height="28" rx="6" fill="#CDEBFB" stroke-width="4"/>
+  <circle cx="318" cy="448" r="16" fill="#F5963C" stroke-width="5"/>
+  <circle cx="270" cy="522" r="18" fill="#2B2630"/><circle cx="270" cy="522" r="7" fill="#D9D6DE" stroke="none"/>
+  <circle cx="390" cy="522" r="18" fill="#2B2630"/><circle cx="390" cy="522" r="7" fill="#D9D6DE" stroke="none"/>
+  <circle cx="392" cy="476" r="4" fill="#2B2630" stroke="none"/><path d="M388 488 Q396 492 404 488" fill="none" stroke-width="3.5"/>
+</g>
+
+<!-- 01: ② the box waiting at the bottom -->
+<g id="crane-box" stroke="#2B2630" stroke-linejoin="round">
+  <rect x="130" y="494" width="80" height="48" rx="6" fill="#E3B37A" stroke-width="5"/>
+  <path d="M170 494 V542" stroke="#C98B52" stroke-width="10"/>
+  <circle cx="170" cy="494" r="7" fill="#7A6F80" stroke-width="3"/>
+</g>
+
+<!-- 02: grass, castle walls and the three towers (spires drawn by the app) -->
+<g id="castle-towers">
+  <path d="M0 540 C120 470 240 470 380 520 C520 470 760 460 900 510 C1040 466 1180 470 1280 500 V540 Z" fill="#B9E08F"/>
+  <g stroke="#2B2630" stroke-linejoin="round">
+    <path d="M355 540 V462 H378 V446 H404 V462 H430 V446 H456 V462 H482 V446 H508 V462 H535 V540 Z" fill="#E9D5B0" stroke-width="5"/>
+    <path d="M745 540 V462 H770 V446 H796 V462 H822 V446 H848 V462 H890 V540 Z" fill="#E9D5B0" stroke-width="5"/>
+    <path d="M415 540 V506 Q415 482 445 482 Q475 482 475 506 V540 Z" fill="#8A5A3B" stroke-width="5"/>
+  </g>
+  <g stroke="#2B2630" stroke-linejoin="round">
+    <rect x="145" y="430" width="210" height="110" fill="#F3E3C6" stroke-width="6"/>
+    <g fill="none" stroke="#D9C29A" stroke-width="3"><path d="M148 480 H352 M148 515 H352 M200 480 V515 M300 480 V515 M250 515 V538"/></g>
+    <path d="M232 473 V456.8 Q232 440.6 250 440.6 Q268 440.6 268 456.8 V473 Z" fill="#5A5160" stroke-width="5"/>
+  </g>
+  <g stroke="#2B2630" stroke-linejoin="round">
+    <rect x="535" y="380" width="210" height="160" fill="#F3E3C6" stroke-width="6"/>
+    <g fill="none" stroke="#D9C29A" stroke-width="3"><path d="M538 450 H742 M538 490 H742 M590 450 V490 M690 450 V490 M640 490 V538 M590 410 V450"/></g>
+    <path d="M670 432 V414 Q670 396 690 396 Q710 396 710 414 V432 Z" fill="#5A5160" stroke-width="5"/>
+  </g>
+  <g stroke="#2B2630" stroke-linejoin="round">
+    <rect x="890" y="380" width="150" height="160" fill="#F3E3C6" stroke-width="6"/>
+    <g fill="none" stroke="#D9C29A" stroke-width="3"><path d="M893 470 H1037 M893 505 H1037 M965 470 V505"/></g>
+    <path d="M890 380 C890 338.58 923.58 305 965 305 C1006.42 305 1040 338.58 1040 380 Z" fill="#7FC4E8" stroke-width="6"/>
+    <circle cx="965" cy="430" r="20" fill="#5A5160" stroke-width="5"/>
+    <path d="M965 305 V280" stroke-width="5"/><circle cx="965" cy="276" r="7" fill="#FFC93C" stroke-width="4"/>
+  </g>
+</g>
+
+<!-- 04: castle facade with side towers and their ready-made spires -->
+<g id="castle-facade">
+  <g stroke="#2B2630" stroke-linejoin="round">
+    <rect x="40" y="290" width="148" height="250" fill="#E3CB9F" stroke-width="6"/>
+    <rect x="1092" y="290" width="148" height="250" fill="#E3CB9F" stroke-width="6"/>
+    <path d="M188 540 V196 H214 V172 H250 V196 H286 V172 H322 V196 H358 V172 H394 V196 H430 V172 H466 V196 H502 V172 H538 V196 H574 V172 H610 V196 H646 V172 H682 V196 H718 V172 H754 V196 H790 V172 H826 V196 H862 V172 H898 V196 H934 V172 H970 V196 H1006 V172 H1042 V196 H1092 V540 Z" fill="#F3E3C6" stroke-width="6"/>
+    <g fill="none" stroke="#D9C29A" stroke-width="3"><path d="M191 500 H1089 M240 500 V537 M380 500 V537 M820 500 V537 M960 500 V537 M191 236 H230 M1050 236 H1089"/></g>
+    <path d="M560 540 V482 Q560 434 610 434 Q660 434 660 482 V540 Z" fill="#8A5A3B" stroke-width="6"/>
+    <g stroke="#5E3B24" stroke-width="4"><path d="M585 446 V540 M610 434 V540 M635 446 V540 M562 480 H658 M561 510 H659"/></g>
+    <path d="M90 372 V346 Q90 330 114 330 Q138 330 138 346 V372 Z M1142 372 V346 Q1142 330 1166 330 Q1190 330 1190 346 V372 Z" fill="#5A5160" stroke-width="5"/>
+  </g>
+  <g transform="translate(114 290)" stroke="#2B2630" stroke-linejoin="round"><path d="M-74 0 L0 -120 L74 0 Z" fill="#4C8FE0" stroke-width="6"/><path d="M0 -120 V-150" stroke-width="5"/><path d="M2 -150 L36 -141 L2 -130 Z" fill="#F49AB0" stroke-width="4"/></g>
+  <g transform="translate(1166 290)" stroke="#2B2630" stroke-linejoin="round"><path d="M-74 0 L0 -120 L74 0 Z" fill="#4C8FE0" stroke-width="6"/><path d="M0 -120 V-150" stroke-width="5"/><path d="M2 -150 L36 -141 L2 -130 Z" fill="#F49AB0" stroke-width="4"/></g>
+</g>
+
+<!-- 03: snow ground -->
+<g id="snow-ground">
+  <path d="M0 540 V500 C160 470 320 486 460 500 C640 476 860 470 1040 494 C1140 478 1220 480 1280 486 V540 Z" fill="#FFFFFF" stroke="#C9DCEB" stroke-width="4"/>
+</g>
+
+<!-- 03: church with its clock tower (the clock stays scenery in phase 1) -->
+<g id="church" stroke="#2B2630" stroke-linejoin="round">
+  <path d="M136 222 L205 152 L274 222 Z" fill="#A98BE0" stroke-width="6"/>
+  <rect x="140" y="218" width="130" height="190" fill="#FFF4E2" stroke-width="6"/>
+  <path d="M40 420 L120 360 H300 L380 420 Z" fill="#A98BE0" stroke-width="6"/>
+  <rect x="56" y="416" width="308" height="124" fill="#FFF4E2" stroke-width="6"/>
+  <path d="M182 540 V488 Q182 462 210 462 Q238 462 238 488 V540 Z" fill="#8A5A3B" stroke-width="5"/>
+  <path d="M86 476 V458 Q86 444 100 444 Q114 444 114 458 V476 Z M306 476 V458 Q306 444 320 444 Q334 444 334 458 V476 Z" fill="#7FC4E8" stroke-width="4"/>
+  <path d="M205 152 V128 M195 138 H215" stroke-width="5" stroke-linecap="round"/>
+</g>
+</svg>

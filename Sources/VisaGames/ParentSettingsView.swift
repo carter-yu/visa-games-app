@@ -17,7 +17,7 @@ struct ParentSettingsView: View {
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.24.1"
+    static let versionLabel = "Visa Games v0.25.0"
 
     /// v0.21.0: 表現 (Review) is the third parent segment (layout L5).
     private enum ParentLibrary { case videos, games, review }
@@ -155,6 +155,7 @@ struct ParentSettingsView: View {
                             kind: kind,
                             assignment: model.gameAssignment,
                             isHighlighted: model.playtestHighlightedKind == kind,
+                            playtestedOn: model.parentPlaytestLog.playtestedOn(kind),
                             onToggleStar: { model.toggleMissionStar(kind: kind, star: $0) },
                             onPlaytest: { model.startPlaytest(kind: kind) }
                         )
@@ -167,6 +168,18 @@ struct ParentSettingsView: View {
                     onTolerance: { model.setLineMatchTolerance($0) },
                     onAdjust: { category, steps in model.adjustLineMatchWeight(category, steps: steps) },
                     onResetMix: { model.resetLineMatchMix() }
+                )
+                ParentShapeTraceSettingsView(
+                    settings: model.shapeTraceSettings,
+                    lineMatchTolerance: model.lineMatchSettings.tolerance,
+                    banner: model.shapeTraceSettingsBanner,
+                    onAdjust: { shape, steps in model.adjustShapeTraceWeight(shape, steps: steps) },
+                    onResetMix: { model.resetShapeTraceMix() },
+                    onTolerance: { model.setShapeTraceTolerance($0) },
+                    onDirectionHint: { model.setShapeTraceDirectionHint($0) },
+                    onCornerStop: { model.setShapeTraceCornerStop($0) },
+                    onSlantLines: { model.setShapeTraceSlantLines($0) },
+                    onDotStyle: { model.setShapeTraceDotStyle($0) }
                 )
                 unbuiltRow
             }

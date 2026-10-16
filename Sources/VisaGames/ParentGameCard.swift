@@ -8,6 +8,8 @@ struct ParentGameCard: View {
     let kind: ActivityKind
     let assignment: MissionGameAssignment
     let isHighlighted: Bool
+    /// D11 (v0.25.0): when a full 試玩 finished (nil = not yet). Only read for cards that need it.
+    var playtestedOn: Date? = nil
     let onToggleStar: (ChildDifficulty) -> Void
     let onPlaytest: () -> Void
 
@@ -36,6 +38,10 @@ struct ParentGameCard: View {
                     .padding(.vertical, 3)
                     .background(Capsule().fill(Color(hex: DesignTokens.Palette.sand)))
                     .overlay(Capsule().strokeBorder(Color.ink.opacity(0.45), lineWidth: 1.5))
+            }
+
+            if kind.requiresPlaytestBeforeStars {
+                playtestStatus
             }
 
             HStack(spacing: 6) {
@@ -71,6 +77,31 @@ struct ParentGameCard: View {
         ))
     }
 
+    /// Stars stay grey until one full 試玩 (tapping one says 「試玩一次先開」).
+    private var starsLocked: Bool { kind.requiresPlaytestBeforeStars && playtestedOn == nil }
+
+    private var playtestStatus: some View {
+        let text: String
+        if let playtestedOn {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "zh_Hant_HK")
+            formatter.dateFormat = "M月d日"
+            text = ShapeTraceCopy.playtested(formatter.string(from: playtestedOn))
+        } else {
+            text = ShapeTraceCopy.notPlaytested
+        }
+        return Text(text)
+            .font(.system(size: 11, weight: .bold, design: .rounded))
+            .foregroundStyle(Color.ink)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(playtestedOn == nil ? Color(hex: DesignTokens.Palette.sand)
+                                                            : Color(hex: DesignTokens.Palette.sunnyPale)))
+            .overlay(Capsule().strokeBorder(Color.ink.opacity(0.45), lineWidth: 1.5))
+    }
+
     private func starToggle(_ star: ChildDifficulty) -> some View {
         let on = assignment.isEnabled(kind, star: star)
         let ticket = MissionTicket.all.first { $0.difficulty == star }
@@ -92,6 +123,7 @@ struct ParentGameCard: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 5)
             .padding(.horizontal, 2)
+            .opacity(starsLocked && !on ? 0.4 : 1)
         }
         .buttonStyle(ChunkyButtonStyle(
             fill: on ? Color(hex: DesignTokens.Palette.sunny) : Color(hex: DesignTokens.Palette.paper),
@@ -151,6 +183,24 @@ private struct ParentGameArtWell: View {
             HalfVehicleClip(assetID: asset, side: .left, mood: .happy)
         } else if kind == .shadowMatch, let asset = kind.parentHeroAssetIDs.first {
             ActivityAssetView(assetID: asset, mood: .calm, asShadow: true)
+        } else if kind.isShapeTraceFamily {
+            // 畫線畫形: the original fire engine / paint car on a coloured lane.
+            HStack(spacing: 6) {
+                ZStack {
+                    Capsule().fill(Color.ink).frame(height: 16)
+                    Capsule().fill(Color(hex: kind == .traceLines ? 0x2E9FA6 : 0xF49AB0)).frame(height: 10)
+                        .padding(.horizontal, 3)
+                    VectorArtView(artwork: kind == .traceLines ? ShapeTraceArt.fireEngine : ShapeTraceArt.paintCar)
+                        .frame(height: kind == .traceLines ? 34 : 26)
+                        .offset(y: kind == .traceLines ? -18 : 0)
+                }
+                if kind == .traceShapesDotted {
+                    Text("口 人 o")
+                        .font(CanvasFont.font(size: 18, weight: 900))
+                        .foregroundStyle(Color.ink)
+                        .fixedSize()
+                }
+            }
         } else if kind.isLineMatchFamily {
             // 連一連: picture → word, the mini truck on a yellow line.
             HStack(spacing: 6) {
