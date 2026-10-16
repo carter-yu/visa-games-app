@@ -627,7 +627,7 @@ final class GuidedLineMatchTests {
         expectFalse(settings.contains("onGuided"))
         expectTrue(settings.contains("三個遊戲共用"))
         expectFalse(settings.contains("TextField"))
-        expectEqual(ActivityCatalog.defaultOffKinds,
+        expectEqual(Array(ActivityCatalog.defaultOffKinds.prefix(3)),
                     [.lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch])
         let review = try source("Sources/VisaGames/ParentReviewView.swift")
         expectTrue(review.contains("guidedPractice"))

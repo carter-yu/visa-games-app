@@ -238,7 +238,9 @@ final class PerformanceRecordTests {
                 expectEqual(slots.count, all.count)
                 expectEqual(Set(slots), Set(all))
             }
-            expectTrue(PerfChoiceCatalog.chance(for: kind) > 0 && PerfChoiceCatalog.chance(for: kind) <= 0.5)
+            // 畫線畫形 is practice only: nothing to guess (chance 1, never mastery evidence).
+            let ceiling = kind.isShapeTraceFamily ? 1.0 : 0.5
+            expectTrue(PerfChoiceCatalog.chance(for: kind) > 0 && PerfChoiceCatalog.chance(for: kind) <= ceiling)
             expectFalse(PerfChoiceCatalog.item(for: kind).isEmpty)
         }
         // Same presented order as the views (CanvasActivityHost uses presentedOptions(seed:)).
@@ -248,7 +250,8 @@ final class PerformanceRecordTests {
 
     func testEveryWrongOptionHasConfusionTagsAndTheRightOneHasNone() {
         // Multi-step kinds have no single right choice (line match tags come per 完成).
-        for kind in ActivityKind.allCases where kind != .sequenceShortToLong && !kind.isLineMatchFamily {
+        for kind in ActivityKind.allCases where kind != .sequenceShortToLong && !kind.isLineMatchFamily
+            && !kind.isShapeTraceFamily {
             guard let correct = PerfChoiceCatalog.correctChoice(for: kind) else {
                 preconditionFailure("no correct choice for \(kind)")
             }
@@ -531,8 +534,8 @@ final class PerformanceRecordTests {
         }
         let version = plistValue("CFBundleShortVersionString") ?? "?"
         expectTrue(view.contains("static let versionLabel = \"Visa Games v\(version)\""))
-        expectEqual(version, "0.24.1")
-        expectEqual(plistValue("CFBundleVersion"), "56")
+        expectEqual(version, "0.25.0")
+        expectEqual(plistValue("CFBundleVersion"), "57")
         guard let start = view.range(of: "private func advancedSection("),
               let end = view.range(of: "private var advancedContent", range: start.upperBound..<view.endIndex) else {
             expectTrue(false)
