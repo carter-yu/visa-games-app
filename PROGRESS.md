@@ -1,6 +1,24 @@
 # Progress
 
 
+## 2026-10-17 — v0.25.0 / 57 — 畫線畫形 phase 1 (`traceLines`, `traceShapesDotted`)
+
+Branch `feat/shape-trace-v025` from main `fce3508`. ADR 0014. Carter approved D1–D13 (all Opus defaults).
+
+- **VisaCore:**
+  - `ShapeTraceEngine`: `TracePath` and the `ShapeTraceBoard` reducer. The vehicle only moves forwards; it waits at corners and whenever the pen is off the path. No misses.
+  - `ShapeTraceCatalog`: shapes, layout, settings and the store (`VisaGames.shapeTraceSettings.v1`); `ParentPlaytestLog` (`VisaGames.playtestedKinds.v1`); the generator (54 items per card); `ShapeTraceCopy`.
+  - `ShapeTraceArt.swift` is generated from `docs/art-shape-trace-source.svg` by `scripts/svg_to_shapetraceart.py`: 21 artworks ported from the Opus mockups.
+  - `ActivityKind` gains `traceLines` and `traceShapesDotted`. Both are playable and default-off. 描線 is removed from the unbuilt list.
+- **App:**
+  - `ShapeTraceBoardView`: lanes, start / end markers, the vehicle that follows the pen, a hint ring, a ghost demo, the 「停！」 sign and the link card.
+  - `ParentShapeTraceSettingsView` (畫形狀設定).
+  - The parent card shows 已試玩 / 未試玩. Its stars stay grey until one playtest, and a tap explains 「試玩一次先開」.
+- **Stats:** `game_dealt` and `round_result` gain the shape-trace fields. Rounds are guided practice only (no visa penalty, no mastery evidence).
+- **Kiosk:** new checklist row 「畫線畫形 pen trace」.
+- Version: Info.plist **0.25.0 / 57**, parent footer **Visa Games v0.25.0**.
+- Tests: +16 shape-trace checks, and the existing count / default-off tests are updated. `sh scripts/test.sh` passes on the Mac mini.
+
 ## 2026-10-14 — v0.23.0 / 54 — 連一連 / Line Match (`lineMatch`, slice S5)
 
 Branch `feat/line-match-v023` on v0.22.4 / 53. ADR 0012. Design §1.6, §1.7, §6, §8.4–8.6; D1 A, D2 A+, D3 D, D7 B, D12 A+.
