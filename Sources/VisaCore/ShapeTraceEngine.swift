@@ -15,6 +15,9 @@ public enum TraceSegment: Sendable, Equatable {
     /// Arc around `center`. Angles in radians, screen convention (0 = right, +π/2 = down).
     /// A negative sweep turns anticlockwise on screen (12 o'clock → 9 o'clock → 6 → 3).
     case arc(center: LineMatchPoint, radius: Double, startAngle: Double, sweep: Double)
+    /// Cubic Bézier to `to` (v0.28.0 numerals; design number-quantity §11.1). Joins with a cubic
+    /// are never corners by themselves: numeral corners are named explicitly.
+    case cubic(c1: LineMatchPoint, c2: LineMatchPoint, to: LineMatchPoint)
 }
 
 /// A stroke's centre line: segments sampled every ≤ 6u, with arc length, corner checkpoints and
@@ -30,52 +33,129 @@ public struct TracePath: Sendable, Equatable {
     /// Start = end (a circle).
     public let closed: Bool
 
+    /// Corners the vehicle must reach before turning back on itself (numeral 3's middle, 9's top).
+    /// While short of a cusp the windowed search stops at it; once there it never looks behind it
+    /// (design number-quantity §11.1 "cusp window"). Always a subset of `corners`.
+    public let cusps: [Double]
+
     public init(start: LineMatchPoint, segments: [TraceSegment], closed: Bool = false) {
-        var points = [start]
-        var cumulative = [0.0]
+        let built = Self.sample(start: start, segments: segments)
         var corners: [Double] = []
-        var total = 0.0
-        var current = start
         for (index, segment) in segments.enumerated() {
             if index > 0, case .line = segment, case .line = segments[index - 1] {
-                corners.append(total)
+                corners.append(built.joins[index - 1].distance)
             }
+        }
+        self.points = built.points
+        self.cumulative = built.cumulative
+        self.corners = corners
+        self.cusps = []
+        self.closed = closed
+    }
+
+    /// A stroke from SVG path data (one subpath, absolute or relative, M L H V C S Q T A Z), mapped
+    /// into stage units by `scale` then `offset`. `corners` / `cusps` name segment joins in the
+    /// source coordinates; a named point that is not a join is ignored (tests catch it).
+    public init(svg data: String, scale: Double = 1, offset: LineMatchPoint = LineMatchPoint(x: 0, y: 0),
+                corners: [LineMatchPoint] = [], cusps: [LineMatchPoint] = [], closed: Bool = false) {
+        let commands = (try? SVGPathData.parse(data)) ?? []
+        func map(_ x: Double, _ y: Double) -> LineMatchPoint {
+            LineMatchPoint(x: offset.x + x * scale, y: offset.y + y * scale)
+        }
+        var start = offset
+        var segments: [TraceSegment] = []
+        var current = start
+        for command in commands {
+            switch command {
+            case .move(let x, let y):
+                if segments.isEmpty { start = map(x, y); current = start }
+            case .line(let x, let y):
+                current = map(x, y)
+                segments.append(.line(to: current))
+            case .quad(let cx, let cy, let x, let y):
+                let c = map(cx, cy), end = map(x, y)
+                let c1 = LineMatchPoint(x: current.x + 2 / 3 * (c.x - current.x), y: current.y + 2 / 3 * (c.y - current.y))
+                let c2 = LineMatchPoint(x: end.x + 2 / 3 * (c.x - end.x), y: end.y + 2 / 3 * (c.y - end.y))
+                segments.append(.cubic(c1: c1, c2: c2, to: end))
+                current = end
+            case .cubic(let c1x, let c1y, let c2x, let c2y, let x, let y):
+                current = map(x, y)
+                segments.append(.cubic(c1: map(c1x, c1y), c2: map(c2x, c2y), to: current))
+            case .close:
+                if current.distance(to: start) > 0.01 { segments.append(.line(to: start)) }
+                current = start
+            }
+        }
+        let built = Self.sample(start: start, segments: segments)
+        func joins(_ named: [LineMatchPoint]) -> [Double] {
+            named.compactMap { p in
+                let target = map(p.x, p.y)
+                return built.joins.dropLast().first { $0.point.distance(to: target) < 0.5 }?.distance
+            }.sorted()
+        }
+        self.points = built.points
+        self.cumulative = built.cumulative
+        let cuspDistances = joins(cusps)
+        self.corners = Array(Set(joins(corners) + cuspDistances)).sorted()
+        self.cusps = cuspDistances
+        self.closed = closed
+    }
+
+    /// Samples `segments` every ≤ 6u. `joins[i]` = arc length and point at the end of segment i.
+    private static func sample(start: LineMatchPoint, segments: [TraceSegment])
+        -> (points: [LineMatchPoint], cumulative: [Double], joins: [(distance: Double, point: LineMatchPoint)]) {
+        var points = [start]
+        var cumulative = [0.0]
+        var joins: [(distance: Double, point: LineMatchPoint)] = []
+        var total = 0.0
+        var current = start
+        func append(_ point: LineMatchPoint) {
+            total += points[points.count - 1].distance(to: point)
+            points.append(point)
+            cumulative.append(total)
+        }
+        for segment in segments {
             switch segment {
             case .line(let end):
                 let length = current.distance(to: end)
-                let steps = max(1, Int((length / Self.sampleSpacing).rounded(.up)))
+                let steps = max(1, Int((length / sampleSpacing).rounded(.up)))
                 for step in 1...steps {
                     let f = Double(step) / Double(steps)
-                    let point = LineMatchPoint(x: current.x + (end.x - current.x) * f,
-                                               y: current.y + (end.y - current.y) * f)
-                    total += points[points.count - 1].distance(to: point)
-                    points.append(point)
-                    cumulative.append(total)
+                    append(LineMatchPoint(x: current.x + (end.x - current.x) * f, y: current.y + (end.y - current.y) * f))
                 }
                 current = end
             case .arc(let center, let radius, let startAngle, let sweep):
                 let length = abs(sweep) * radius
-                let steps = max(2, Int((length / Self.sampleSpacing).rounded(.up)))
+                let steps = max(2, Int((length / sampleSpacing).rounded(.up)))
                 for step in 1...steps {
                     let angle = startAngle + sweep * Double(step) / Double(steps)
-                    let point = LineMatchPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
-                    total += points[points.count - 1].distance(to: point)
-                    points.append(point)
-                    cumulative.append(total)
+                    append(LineMatchPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle)))
                 }
                 current = points[points.count - 1]
+            case .cubic(let c1, let c2, let end):
+                // Control-polygon length bounds the curve length, so steps stay ≤ 6u apart.
+                let hull = current.distance(to: c1) + c1.distance(to: c2) + c2.distance(to: end)
+                let steps = max(2, Int((hull / sampleSpacing).rounded(.up)))
+                let p0 = current
+                for step in 1...steps {
+                    let t = Double(step) / Double(steps)
+                    let u = 1 - t
+                    let a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t
+                    append(LineMatchPoint(x: a * p0.x + b * c1.x + c * c2.x + d * end.x,
+                                          y: a * p0.y + b * c1.y + c * c2.y + d * end.y))
+                }
+                current = end
             }
+            joins.append((total, current))
         }
-        self.points = points
-        self.cumulative = cumulative
-        self.corners = corners
-        self.closed = closed
+        return (points, cumulative, joins)
     }
 
-    private init(points: [LineMatchPoint], cumulative: [Double], corners: [Double], closed: Bool) {
+    private init(points: [LineMatchPoint], cumulative: [Double], corners: [Double], cusps: [Double], closed: Bool) {
         self.points = points
         self.cumulative = cumulative
         self.corners = corners
+        self.cusps = cusps
         self.closed = closed
     }
 
@@ -104,7 +184,8 @@ public struct TracePath: Sendable, Equatable {
     public var reversed: TracePath {
         let total = length
         return TracePath(points: points.reversed(), cumulative: cumulative.reversed().map { total - $0 },
-                         corners: corners.reversed().map { total - $0 }, closed: closed)
+                         corners: corners.reversed().map { total - $0 }, cusps: cusps.reversed().map { total - $0 },
+                         closed: closed)
     }
 
     private func segment(at distance: Double) -> Int {
@@ -522,6 +603,17 @@ public struct ShapeTraceBoard: Sendable, Equatable {
         ink[ink.count - 1].append(point)
     }
 
+    /// Arc-length window searched for the pen: 40u behind to 210u ahead of the vehicle, clipped at
+    /// cusps (never past the next one, never behind one already reached). Strokes without cusps
+    /// (every shape-trace stroke) get exactly the old window.
+    public func searchWindow(_ path: TracePath) -> ClosedRange<Double> {
+        var low = progress - Self.windowBehind
+        var high = progress + Self.leadLimit + Self.maxStep
+        if let reached = path.cusps.last(where: { $0 <= progress + 0.5 }) { low = max(low, reached) }
+        if let ahead = path.cusps.first(where: { $0 > progress + 0.5 }) { high = min(high, ahead) }
+        return low...max(low, high)
+    }
+
     public mutating func penMove(to point: LineMatchPoint, now: Double) -> ShapeTraceMove {
         recordInk(point)
         guard dragging, let shape = currentShape, let path = currentPath else { return .ignored }
@@ -533,8 +625,7 @@ public struct ShapeTraceBoard: Sendable, Equatable {
             }
             holding = true
         }
-        let window = (progress - Self.windowBehind)...(progress + Self.leadLimit + Self.maxStep)
-        let projection = path.project(point, window: window)
+        let projection = path.project(point, window: searchWindow(path))
         let corner = nextCorner
 
         // Corner checkpoint: waiting at the corner, the pen ran on in the old direction.
