@@ -263,6 +263,9 @@ public enum ParentYouTubeBrowser {
           });
         } catch (e) {}
       }
+      document.addEventListener("yt-navigate-finish", function () { setTimeout(probe, 300); });
+      window.addEventListener("popstate", function () { setTimeout(probe, 300); });
+      probe();
       setInterval(probe, 1500);
     })();
     """
