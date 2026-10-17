@@ -18,6 +18,11 @@ fi
 if [ -d Resources/Props ]; then
   cp Resources/Props/*.png "$bundle/Contents/Resources/Props/" 2>/dev/null || true
 fi
+# v0.28.0 recorded voice clips (optional; the system voice speaks any key without a clip).
+if [ -d Resources/Voice ]; then
+  mkdir -p "$bundle/Contents/Resources/Voice"
+  cp Resources/Voice/*.m4a "$bundle/Contents/Resources/Voice/" 2>/dev/null || true
+fi
 # Canvas fonts (SIL OFL 1.1) travel with their licence files; a missing font fails the bundle.
 cp Resources/Fonts/*.ttf Resources/Fonts/OFL-*.txt "$bundle/Contents/Resources/Fonts/"
 codesign --force --sign - "$bundle"

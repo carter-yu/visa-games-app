@@ -10,6 +10,10 @@ final class SystemSpeechPrompt {
     private let voice: AVSpeechSynthesisVoice?
     /// v0.24.0 guided 連一連 cue: the English word after the Cantonese one (en-GB first, D6).
     private let englishVoice: AVSpeechSynthesisVoice?
+    /// Recorded clips playing or scheduled (kept alive until they finish).
+    private var clipPlayers: [AVAudioPlayer] = []
+    /// Device time the last scheduled clip ends (clips queue like the synthesizer does).
+    private var clipQueueEndsAt: TimeInterval = 0
 
     init() {
         let installed = AVSpeechSynthesisVoice.speechVoices()
@@ -102,10 +106,60 @@ final class SystemSpeechPrompt {
         )
     }
 
+    /// v0.28.0 一架一架數 (ADR 0017): queue a word after whatever is playing, so rapid taps are all
+    /// counted (「一、二、三」) instead of cutting each other off. A recorded clip
+    /// `Resources/Voice/<key>.m4a` (Carter's own voice, later) wins over the system voice; the
+    /// English word follows when `english` is given. Nothing here can crash or block: a missing
+    /// clip falls back to the system voice, and with no Cantonese voice the word is simply not said.
+    func speakQueued(_ prompt: SpokenPrompt, english: String? = nil, interrupt: Bool = false) {
+        if interrupt { stop() }
+        if playClips(zhKey: prompt.key, english: english) { return }
+        guard let voice else {
+            VisaGamesLog.append("voice skip — 無粵語語音 key=\(prompt.key)")
+            return
+        }
+        let word = AVSpeechUtterance(string: prompt.traditionalChinese)
+        word.voice = voice
+        word.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
+        word.postUtteranceDelay = english == nil ? 0.05 : 0.2
+        synthesizer.speak(word)
+        if let english, !english.isEmpty, let englishVoice {
+            let utterance = AVSpeechUtterance(string: english)
+            utterance.voice = englishVoice
+            utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
+            synthesizer.speak(utterance)
+        }
+    }
+
+    /// Recorded clips: `Voice/<key>.m4a` in the app bundle, English as `Voice/<key>.en.m4a`.
+    /// False when the Cantonese clip is missing (the caller then uses the system voice).
+    private func playClips(zhKey: String, english: String?) -> Bool {
+        guard let url = Bundle.main.url(forResource: zhKey, withExtension: "m4a", subdirectory: "Voice"),
+              let player = try? AVAudioPlayer(contentsOf: url) else { return false }
+        let start = max(player.deviceCurrentTime, clipQueueEndsAt)
+        player.prepareToPlay()
+        guard player.play(atTime: start) else { return false }
+        clipPlayers = clipPlayers.filter(\.isPlaying) + [player]
+        clipQueueEndsAt = start + player.duration + 0.1
+        if english != nil,
+           let enURL = Bundle.main.url(forResource: zhKey + ".en", withExtension: "m4a", subdirectory: "Voice"),
+           let enPlayer = try? AVAudioPlayer(contentsOf: enURL) {
+            enPlayer.prepareToPlay()
+            if enPlayer.play(atTime: clipQueueEndsAt + 0.1) {
+                clipPlayers.append(enPlayer)
+                clipQueueEndsAt += 0.1 + enPlayer.duration
+            }
+        }
+        return true
+    }
+
     func stop() {
         if synthesizer.isSpeaking {
             synthesizer.stopSpeaking(at: .immediate)
         }
+        for player in clipPlayers { player.stop() }
+        clipPlayers = []
+        clipQueueEndsAt = 0
     }
 }
 

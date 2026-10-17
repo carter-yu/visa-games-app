@@ -668,6 +668,26 @@ public enum TapCountCopy {
     public static func strokesDoneTray(_ n: Int, scene: TapCountScene) -> String {
         "\(TapCountNumber.zh(n))架\(scene.vehicleTraditionalChinese)，畫好喇！"
     }
+    public static func strokesDoneTrayEnglish(_ n: Int, scene: TapCountScene) -> String {
+        "\(TapCountNumber.enCapitalised(n)) \(n == 1 ? scene.vehicleEnglishSingular : scene.vehicleEnglishPlural), all drawn!"
+    }
+    // English sub-lines of the tray (mockups 01–08, verbatim).
+    public static let legendTappedEnglish = "lit + number = counted"
+    public static let legendNotYetEnglish = "not counted yet"
+    public static let legendStartEnglish = "green arrow = start"
+    public static let legendStopEnglish = "red arrow = stop"
+    public static let legendStrokeNumberEnglish = "stroke order"
+    public static let legendStrokeDoneEnglish = "stroke done"
+    public static let allTappedTrayEnglish = "All counted!"
+    public static let stampNextTrayEnglish = "then the usual stamp"
+    public static let noMissTrayEnglish = "nothing to get wrong"
+    public static let drawnTrayEnglish = "All drawn!"
+    public static func visaTrayEnglish(_ minutes: Int) -> String { "\(minutes)-minute visa" }
+    public static let lastStrokeHatEnglish = "last stroke: the hat"
+    public static let firstTryTrayEnglish = "first try: no fuel lost"
+    /// Think Pause card in the tray (mockup 06): 「15 → 7 分鐘 · half the fuel gone」.
+    public static func fuelDropLine(from before: Int, to after: Int) -> String { "\(before) → \(after) 分鐘 · half the fuel gone" }
+    public static let pauseEnglish = "Pause and think!"
     public static let eraserTraditionalChinese = "擦晒"
     public static let eraserEnglish = "Clear"
     public static let okLabel = "OK"
@@ -715,7 +735,7 @@ public enum TapCountCopy {
                      parentGroupTitle, parentGroupSubtitle(.upTo10), parentDefaultOff, recommended, settingsTitle,
                      rangeTitle, countVoiceTitle, englishTitle, badgeTitle, scaffoldTitle, toleranceTitle,
                      toleranceFollow, on, off, parentTip, countVoiceEnglish, englishEnglish, scaffoldEnglish,
-                     parentDefaultOffEnglish, parentTipEnglish]
+                     parentDefaultOffEnglish, parentTipEnglish, fuelDropLine(from: 15, to: 7)]
         for kind in [ActivityKind.tapCountAll, .tapCountTrace, .tapCountPick] {
             lines += [chipSubtitle(kind), recommendedStar(kind), kind.parentCardTitle, kind.parentShortLabel,
                       kind.parentHelpTraditionalChinese]
@@ -743,13 +763,19 @@ public enum TapCountCopy {
     public static var allEnglishLines: [String] {
         var lines = [familyEnglish, hint.components(separatedBy: " / ").last ?? "", traceNext.english, noneYet.english,
                      over.english, under.english, eraserNudge.english, traceStatusEnglish, eraserEnglish, okLabel,
-                     settingsSubtitle, rangeEnglish, badgeEnglish, toleranceEnglish]
+                     settingsSubtitle, rangeEnglish, badgeEnglish, toleranceEnglish, legendTappedEnglish,
+                     legendNotYetEnglish, legendStartEnglish, legendStopEnglish, legendStrokeNumberEnglish,
+                     legendStrokeDoneEnglish, allTappedTrayEnglish, stampNextTrayEnglish, noMissTrayEnglish,
+                     drawnTrayEnglish, visaTrayEnglish(10), lastStrokeHatEnglish, firstTryTrayEnglish, pauseEnglish]
         for kind in [ActivityKind.tapCountAll, .tapCountTrace, .tapCountPick] {
             lines += [kind.parentCardEnglish, kind.parentHelpEnglish]
         }
         for scene in TapCountScene.allCases {
             lines.append(allPrompt(scene).english)
-            for n in 1...10 { lines += [donePrompt(n, scene: scene).english, total(n, scene: scene).english] }
+            for n in 1...10 {
+                lines += [donePrompt(n, scene: scene).english, total(n, scene: scene).english,
+                          strokesDoneTrayEnglish(n, scene: scene)]
+            }
         }
         for n in 1...10 {
             lines += [tracePrompt(n).english, countedTracePrompt(n, pick: true).english, traceDonePrompt(n).english,

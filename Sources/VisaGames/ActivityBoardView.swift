@@ -141,12 +141,76 @@ struct PendingFuelGauge: View {
     }
 }
 
+/// Where the Think Pause card sits.
+enum ThinkPausePlacement {
+    /// Centred over a dimmed board (every older game).
+    case centre
+    /// v0.28.0 一架一架數 ★★★ (mockup 06): a card in the bottom tray so the yard and the target
+    /// sign stay visible; the board view dims everything else itself.
+    case tray
+}
+
 /// Soft Think Pause overlay — cute, not scary. Mash does not dismiss.
 struct ThinkPauseOverlay: View {
     let remainingSeconds: Int
+    var placement: ThinkPausePlacement = .centre
+    /// Tray card only: 「15 → 7 分鐘」.
+    var minutesBefore: Int = 0
+    var minutesAfter: Int = 0
     @Environment(\.canvasMetrics) private var metrics
 
     var body: some View {
+        switch placement {
+        case .centre: centred
+        case .tray: trayCard
+        }
+    }
+
+    /// Mockup 06: 536 × 148 card at (248, 552), countdown disc at (704, 626).
+    private var trayCard: some View {
+        ZStack(alignment: .topLeading) {
+            Color.clear
+                .frame(width: metrics.u(1280), height: metrics.u(720))
+                .contentShape(Rectangle())
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: metrics.u(34), style: .continuous)
+                    .fill(Color.ink.opacity(0.25))
+                    .frame(width: metrics.u(536), height: metrics.u(148))
+                    .offset(y: metrics.u(10))
+                RoundedRectangle(cornerRadius: metrics.u(34), style: .continuous)
+                    .fill(Color(hex: 0xFFF9EC))
+                    .overlay(RoundedRectangle(cornerRadius: metrics.u(34), style: .continuous)
+                        .strokeBorder(Color.ink, lineWidth: metrics.u(6)))
+                    .frame(width: metrics.u(536), height: metrics.u(148))
+                VStack(alignment: .leading, spacing: metrics.u(2)) {
+                    CanvasText(WrongAnswerCopy.thinkPauseTraditionalChinese, size: 34, weight: 900, color: Color.ink)
+                    CanvasText(WrongAnswerCopy.thinkPauseEnglish, size: 17, weight: 700, color: Color(hex: 0x6B6170))
+                    CanvasText(WrongAnswerCopy.fuelHalvedTraditionalChinese, size: 22, weight: 900, color: Color(hex: 0xE8473C))
+                        .padding(.top, metrics.u(6))
+                    CanvasText(TapCountCopy.fuelDropLine(from: minutesBefore, to: minutesAfter), size: 14, weight: 700,
+                               color: Color(hex: 0x6B6170))
+                }
+                .padding(.leading, metrics.u(30))
+                .padding(.top, metrics.u(14))
+                ZStack {
+                    Circle().fill(Color(hex: 0xFFF1C2))
+                    Circle().strokeBorder(Color.ink, lineWidth: metrics.u(5))
+                    Text("\(max(1, remainingSeconds))")
+                        .font(CanvasFont.font(size: metrics.u(80), weight: 800))
+                        .foregroundStyle(Color(hex: 0xFFC93C))
+                        .shadow(color: Color.ink.opacity(0.2), radius: 0, x: 0, y: metrics.u(6))
+                }
+                .frame(width: metrics.u(112), height: metrics.u(112))
+                .offset(x: metrics.u(400), y: metrics.u(18))
+            }
+            .canvasPlaced(x: 248, y: 552)
+        }
+        .allowsHitTesting(true) // absorb taps; mash does not skip or re-penalize
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(WrongAnswerCopy.thinkPauseTraditionalChinese) \(remainingSeconds)")
+    }
+
+    private var centred: some View {
         ZStack {
             Color.ink.opacity(0.35)
                 .ignoresSafeArea()
