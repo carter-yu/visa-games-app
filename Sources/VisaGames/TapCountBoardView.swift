@@ -748,9 +748,9 @@ private struct TapCountStageContent: View {
 
             VStack(spacing: 0) {
                 CanvasText(TapCountCopy.familyTitle, size: 22, weight: 900, color: LM.ink)
-                CanvasText(TapCountCopy.chipSubtitle(question.kind), size: 15, weight: 700, color: LM.headerSub)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                // CanvasText is fixedSize, so pick a size that fits the 150u pill instead of scaling.
+                let subtitle = TapCountCopy.chipSubtitle(question.kind)
+                CanvasText(subtitle, size: subtitle.count > 17 ? 12.5 : 15, weight: 700, color: LM.headerSub)
             }
             .frame(width: metrics.u(150), height: metrics.u(68))
             .background(RoundedRectangle(cornerRadius: metrics.u(18), style: .continuous).fill(LM.pill))
