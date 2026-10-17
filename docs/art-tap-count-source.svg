@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 一架一架數 art source (v0.28.0, ADR 0017). Elements copied verbatim from the approved Opus mockups
+     visa-games-design/number-quantity/mockups 01–10 (+ the Opus scene kit). Converted mechanically by
+     scripts/svg_to_tapcountart.py: <text> is dropped (the app draws every word and numeral), currentColor
+     becomes a tint sentinel, radial gradients become TapCountGlow records. Do not redraw by hand. -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1280" height="720" viewBox="0 0 1280 720">
+<defs>
+  <!-- from mockups/01-star1-tap.svg -->
+  <radialGradient id="spark-g"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.35" stop-color="#FFF3A6" stop-opacity="0.95"/><stop offset="1" stop-color="#FFE066" stop-opacity="0"/></radialGradient>
+  <radialGradient id="lamp-g"><stop offset="0" stop-color="#FFF7C2"/><stop offset="1" stop-color="#FFE066" stop-opacity="0"/></radialGradient>
+  <path id="star" d="M0 -20 L5 -6.9 L19 -6.2 L8.1 2.6 L11.8 16.2 L0 8.5 L-11.8 16.2 L-8.1 2.6 L-19 -6.2 L-5 -6.9 Z" stroke-linejoin="round"/>
+  <g id="spark"><circle r="38" fill="url(#spark-g)"/><path d="M0 -22 L5 -5 L22 0 L5 5 L0 22 L-5 5 L-22 0 L-5 -5 Z" fill="#FFFFFF" stroke="#F5B82E" stroke-width="2.5" stroke-linejoin="round"/></g>
+  <g id="speaker" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-14 -7 H-6 L6 -17 V17 L-6 7 H-14 Z" fill="#FFC93C" stroke="#2B2630" stroke-width="4"/>
+    <path d="M12 -8 Q17 0 12 8" fill="none" stroke="#2B2630" stroke-width="4"/>
+    <path d="M18 -14 Q27 0 18 14" fill="none" stroke="#2B2630" stroke-width="4"/>
+  </g>
+  <g id="tram" stroke="#2B2630" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-10 -142 L-46 -170" stroke-width="5"/>
+    <circle cx="-48" cy="-172" r="5" fill="#7A6F80" stroke-width="3"/>
+    <rect x="-22" y="-151" width="28" height="11" rx="4" fill="#7A6F80" stroke-width="3.5"/>
+    <path d="M-80 -26 V-124 Q-80 -142 -62 -142 H62 Q80 -142 80 -124 V-26 Q80 -14 68 -14 H-68 Q-80 -14 -80 -26 Z" fill="currentColor" stroke-width="6"/>
+    <rect x="-80" y="-86" width="160" height="12" fill="#FFF4D6" stroke-width="4"/>
+    <g fill="#CDEBFB" stroke-width="4">
+      <rect x="-68" y="-130" width="34" height="34" rx="7"/>
+      <rect x="-26" y="-130" width="34" height="34" rx="7"/>
+      <rect x="16" y="-130" width="34" height="34" rx="7"/>
+      <path d="M58 -130 H64 Q72 -130 72 -122 V-96 H58 Z"/>
+      <rect x="-32" y="-68" width="34" height="22" rx="6"/>
+      <rect x="10" y="-68" width="34" height="22" rx="6"/>
+    </g>
+    <rect x="-68" y="-68" width="26" height="46" rx="6" fill="#9FD3F0" stroke-width="4"/>
+    <path d="M-55 -66 V-24" stroke-width="3"/>
+    <circle cx="54" cy="-37" r="4.5" fill="#2B2630" stroke="none"/><circle cx="69" cy="-37" r="4.5" fill="#2B2630" stroke="none"/>
+    <circle cx="55.5" cy="-38.5" r="1.6" fill="#FFFFFF" stroke="none"/><circle cx="70.5" cy="-38.5" r="1.6" fill="#FFFFFF" stroke="none"/>
+    <path d="M55 -28 Q62 -23 69 -28" fill="none" stroke-width="3.5"/>
+    <ellipse cx="75" cy="-29" rx="3.5" ry="2.6" fill="#F9B4C2" stroke="none"/>
+    <rect x="-82" y="-22" width="164" height="9" rx="4" fill="#5A5160" stroke-width="3.5"/>
+    <circle cx="-44" cy="-8" r="10" fill="#2B2630"/><circle cx="-44" cy="-8" r="4" fill="#D9D6DE" stroke="none"/>
+    <circle cx="44" cy="-8" r="10" fill="#2B2630"/><circle cx="44" cy="-8" r="4" fill="#D9D6DE" stroke="none"/>
+    <circle cx="80" cy="-52" r="5.5" fill="#D9D6DE" stroke-width="3"/>
+  </g>
+  <g id="lamp-on"><path d="M2 -7 L40 -20 L40 16 L2 7 Z" fill="#FFF3A6" opacity="0.85"/><circle r="14" fill="url(#lamp-g)"/><circle r="5.5" fill="#FFE27A" stroke="#2B2630" stroke-width="3"/></g>
+  <g id="glow"><rect x="-96" y="-182" width="192" height="216" rx="30" fill="#FFF1A8" stroke="#FFC93C" stroke-width="7"/></g>
+  <!-- from mockups/02-star1-success.svg -->
+  <radialGradient id="board-glow"><stop offset="0" stop-color="#FFF3A6" stop-opacity="0.95"/><stop offset="0.6" stop-color="#FFE066" stop-opacity="0.45"/><stop offset="1" stop-color="#FFE066" stop-opacity="0"/></radialGradient>
+  <path id="sparkle" d="M0 -16 L4 -4 L16 0 L4 4 L0 16 L-4 4 L-16 0 L-4 -4 Z" fill="#FFE066" stroke="#F5B82E" stroke-width="2" stroke-linejoin="round"/>
+  <g id="ding"><path d="M0 -24 L7 -9 L23 -9 L11 1 L16 17 L0 8 L-16 17 L-11 1 L-23 -9 L-7 -9 Z" fill="#FFF3A6" stroke="#F5B82E" stroke-width="3" stroke-linejoin="round"/><text x="0" y="7" font-family="Noto Sans CJK HK" font-weight="900" font-size="17" fill="#2B2630" text-anchor="middle">叮</text></g>
+  <g id="note"><circle r="11" fill="#7A6F80"/></g>
+  <!-- from mockups/03-star2-trace.svg -->
+  <g id="go"><circle r="28" fill="#5DBB63" stroke="#2B2630" stroke-width="6"/><path d="M-14 -5 H1 V-13 L15 0 L1 13 V5 H-14 Z" fill="#FFFFFF" stroke="#2B2630" stroke-width="2.5" stroke-linejoin="round"/></g>
+  <g id="end"><circle r="28" fill="#EE5A4C" stroke="#2B2630" stroke-width="6"/><path d="M-16 -5 H-3 V-12 L9 0 L-3 12 V5 H-16 Z" fill="#FFFFFF" stroke="#2B2630" stroke-width="2.5" stroke-linejoin="round"/><rect x="11" y="-14" width="6" height="28" rx="3" fill="#FFFFFF" stroke="#2B2630" stroke-width="2.5"/></g>
+  <g id="paint-car" stroke="#2B2630" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="-28" y="-30" width="16" height="9" rx="3" fill="#2B2630"/><rect x="14" y="-30" width="16" height="9" rx="3" fill="#2B2630"/>
+    <rect x="-28" y="21" width="16" height="9" rx="3" fill="#2B2630"/><rect x="14" y="21" width="16" height="9" rx="3" fill="#2B2630"/>
+    <path d="M-40 0 H-30" stroke-width="6"/>
+    <rect x="-50" y="-26" width="12" height="52" rx="5" fill="#4C8FE0" stroke-width="4.5"/>
+    <rect x="-34" y="-23" width="72" height="46" rx="16" fill="#FFC93C" stroke-width="5"/>
+    <rect x="-18" y="-17" width="26" height="34" rx="8" fill="#FFE68F" stroke-width="3.5"/>
+    <path d="M12 -16 Q22 -14 24 0 Q22 14 12 16 Z" fill="#CDEBFB" stroke-width="3.5"/>
+    <circle cx="33" cy="-11" r="5" fill="#FFFFFF" stroke-width="2.5"/><circle cx="34" cy="-11" r="2.2" fill="#2B2630" stroke="none"/>
+    <circle cx="33" cy="11" r="5" fill="#FFFFFF" stroke-width="2.5"/><circle cx="34" cy="11" r="2.2" fill="#2B2630" stroke="none"/>
+  </g>
+  <g id="fire-engine" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-122 -32 V-94 Q-122 -104 -112 -104 H46 V-112 Q46 -124 58 -124 H88 Q110 -124 118 -102 L126 -66 V-38 Q126 -26 114 -26 H-110 Q-122 -26 -122 -32 Z" fill="#E8473C" stroke="#2B2630" stroke-width="6"/>
+    <rect x="-119" y="-62" width="162" height="11" fill="#FFF4D6"/>
+    <rect x="-110" y="-96" width="46" height="28" rx="6" fill="#C9372E" stroke="#2B2630" stroke-width="4"/>
+    <rect x="-56" y="-96" width="46" height="28" rx="6" fill="#C9372E" stroke="#2B2630" stroke-width="4"/>
+    <rect x="-2" y="-96" width="40" height="28" rx="6" fill="#C9372E" stroke="#2B2630" stroke-width="4"/>
+    <path d="M46 -104 V-30" stroke="#2B2630" stroke-width="4"/>
+    <path d="M60 -114 H86 Q102 -114 108 -98 L113 -82 H60 Z" fill="#CDEBFB" stroke="#2B2630" stroke-width="5"/>
+    <rect x="-114" y="-124" width="150" height="15" rx="6" fill="#E9E4EC" stroke="#2B2630" stroke-width="5"/>
+    <g stroke="#2B2630" stroke-width="4"><path d="M-96 -123 V-110"/><path d="M-76 -123 V-110"/><path d="M-56 -123 V-110"/><path d="M-36 -123 V-110"/><path d="M-16 -123 V-110"/><path d="M4 -123 V-110"/><path d="M24 -123 V-110"/></g>
+    <rect x="60" y="-136" width="15" height="12" rx="4" fill="#5BC0F8" stroke="#2B2630" stroke-width="4"/>
+    <rect x="75" y="-136" width="15" height="12" rx="4" fill="#FFD147" stroke="#2B2630" stroke-width="4"/>
+    <circle cx="76" cy="-64" r="6" fill="#2B2630"/><circle cx="100" cy="-64" r="6" fill="#2B2630"/>
+    <circle cx="78" cy="-66" r="2" fill="#FFFFFF"/><circle cx="102" cy="-66" r="2" fill="#FFFFFF"/>
+    <path d="M76 -50 Q88 -40 100 -50" fill="none" stroke="#2B2630" stroke-width="4.5"/>
+    <ellipse cx="113" cy="-52" rx="6" ry="4" fill="#F9B4C2"/>
+    <rect x="116" y="-42" width="16" height="13" rx="5" fill="#D9D6DE" stroke="#2B2630" stroke-width="4"/>
+    <rect x="118" y="-92" width="9" height="13" rx="3" fill="#FFE27A" stroke="#2B2630" stroke-width="3.5"/>
+    <circle cx="-76" cy="-23" r="23" fill="#2B2630"/><circle cx="-76" cy="-23" r="10" fill="#D9D6DE"/><circle cx="-76" cy="-23" r="3" fill="#2B2630"/>
+    <circle cx="78" cy="-23" r="23" fill="#2B2630"/><circle cx="78" cy="-23" r="10" fill="#D9D6DE"/><circle cx="78" cy="-23" r="3" fill="#2B2630"/>
+  </g>
+  <g id="fe-lit"><circle cx="75" cy="-130" r="34" fill="url(#lamp-g)"/><path d="M60 -150 L52 -164 M75 -152 V-168 M90 -150 L98 -164" stroke="#F5B82E" stroke-width="5" stroke-linecap="round"/><path d="M132 -36 L176 -50 L176 -14 L132 -28 Z" fill="#FFF3A6" opacity="0.85"/></g>
+  <!-- from mockups/04-star2-success.svg -->
+  <g id="tick-s"><circle r="20" fill="#5DBB63" stroke="#2B2630" stroke-width="5"/><path d="M-9 1 L-3 8 L10 -8" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g id="honk"><path d="M0 -14 Q8 0 0 14 M10 -22 Q22 0 10 22" fill="none" stroke="#2B2630" stroke-width="4" stroke-linecap="round"/><rect x="18" y="-17" width="40" height="32" rx="12" fill="#FFF9EC" stroke="#2B2630" stroke-width="3.5"/><text x="38" y="7" font-family="Noto Sans CJK HK" font-weight="900" font-size="19" fill="#2B2630" text-anchor="middle">嘟</text></g>
+  <!-- from mockups/05-star3-tap.svg -->
+  <g id="digger" stroke="#2B2630" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="-84" y="-34" width="132" height="34" rx="17" fill="#5A5160" stroke-width="5"/>
+    <g fill="#D9D6DE" stroke-width="3"><circle cx="-66" cy="-17" r="8"/><circle cx="-40" cy="-17" r="8"/><circle cx="-14" cy="-17" r="8"/><circle cx="12" cy="-17" r="8"/><circle cx="32" cy="-17" r="8"/></g>
+    <path d="M-76 -36 V-66 Q-76 -74 -68 -74 H28 Q38 -74 40 -64 L44 -36 Z" fill="currentColor" stroke-width="5"/>
+    <path d="M-62 -74 V-116 Q-62 -122 -56 -122 H-22 Q-12 -122 -8 -112 L-2 -74 Z" fill="currentColor" stroke-width="5"/>
+    <path d="M-52 -80 V-110 H-24 Q-18 -110 -16 -104 L-12 -80 Z" fill="#CDEBFB" stroke-width="4"/>
+    <rect x="-44" y="-132" width="12" height="10" rx="3" fill="#D9D6DE" stroke-width="3"/>
+    <path d="M18 -62 L66 -112 L98 -56" fill="none" stroke-width="22"/>
+    <path d="M18 -62 L66 -112 L98 -56" fill="none" stroke="currentColor" stroke-width="12"/>
+    <circle cx="66" cy="-112" r="7" fill="#7A6F80" stroke-width="3"/>
+    <path d="M86 -60 L114 -52 L112 -22 Q100 -12 84 -20 Z" fill="#7A6F80" stroke-width="5"/>
+    <circle cx="-30" cy="-54" r="4.5" fill="#2B2630" stroke="none"/><circle cx="-14" cy="-54" r="4.5" fill="#2B2630" stroke="none"/>
+    <path d="M-30 -45 Q-22 -39 -14 -45" fill="none" stroke-width="3.5"/>
+    <ellipse cx="-5" cy="-47" rx="4" ry="3" fill="#F9B4C2" stroke="none"/>
+  </g>
+  <g id="mixer" stroke="#2B2630" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="-94" y="-42" width="186" height="14" rx="5" fill="#5A5160" stroke-width="4"/>
+    <g transform="rotate(-12 -24 -74)">
+      <ellipse cx="-24" cy="-74" rx="62" ry="34" fill="#F3EEF5" stroke-width="5"/>
+      <path d="M-62 -98 Q-40 -74 -62 -50 M-34 -106 Q-10 -74 -34 -42 M-4 -106 Q20 -74 -4 -42" fill="none" stroke="currentColor" stroke-width="10"/>
+      <ellipse cx="-24" cy="-74" rx="62" ry="34" fill="none" stroke-width="5"/>
+    </g>
+    <path d="M-86 -60 L-104 -44" stroke-width="7"/>
+    <path d="M40 -28 V-86 Q40 -94 48 -94 H72 Q86 -94 90 -80 L96 -50 V-32 Q96 -28 90 -28 Z" fill="currentColor" stroke-width="5"/>
+    <path d="M52 -84 H70 Q78 -84 81 -76 L85 -62 H52 Z" fill="#CDEBFB" stroke-width="4"/>
+    <rect x="58" y="-104" width="12" height="10" rx="3" fill="#D9D6DE" stroke-width="3"/>
+    <circle cx="60" cy="-48" r="4.5" fill="#2B2630" stroke="none"/><circle cx="76" cy="-48" r="4.5" fill="#2B2630" stroke="none"/>
+    <path d="M60 -39 Q68 -33 76 -39" fill="none" stroke-width="3.5"/>
+    <circle cx="-62" cy="-18" r="17" fill="#2B2630"/><circle cx="-62" cy="-18" r="7" fill="#D9D6DE" stroke="none"/>
+    <circle cx="-26" cy="-18" r="17" fill="#2B2630"/><circle cx="-26" cy="-18" r="7" fill="#D9D6DE" stroke="none"/>
+    <circle cx="66" cy="-18" r="17" fill="#2B2630"/><circle cx="66" cy="-18" r="7" fill="#D9D6DE" stroke="none"/>
+  </g>
+  <g id="dumper" stroke="#2B2630" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="-96" y="-42" width="190" height="14" rx="5" fill="#5A5160" stroke-width="4"/>
+    <path d="M-84 -100 Q-60 -122 -30 -106 Q-4 -124 24 -100 Z" fill="#B07A4E" stroke-width="4"/>
+    <path d="M-98 -44 L-92 -100 H34 L40 -44 Z" fill="currentColor" stroke-width="5"/>
+    <path d="M-80 -86 H28 M-82 -70 H30" stroke-width="3" opacity="0.45"/>
+    <path d="M46 -28 V-88 Q46 -96 54 -96 H74 Q88 -96 92 -82 L98 -52 V-32 Q98 -28 92 -28 Z" fill="#F3EEF5" stroke-width="5"/>
+    <path d="M56 -86 H72 Q80 -86 83 -78 L87 -64 H56 Z" fill="#CDEBFB" stroke-width="4"/>
+    <rect x="62" y="-106" width="12" height="10" rx="3" fill="#D9D6DE" stroke-width="3"/>
+    <circle cx="64" cy="-48" r="4.5" fill="#2B2630" stroke="none"/><circle cx="80" cy="-48" r="4.5" fill="#2B2630" stroke="none"/>
+    <path d="M64 -39 Q72 -33 80 -39" fill="none" stroke-width="3.5"/>
+    <circle cx="-64" cy="-18" r="17" fill="#2B2630"/><circle cx="-64" cy="-18" r="7" fill="#D9D6DE" stroke="none"/>
+    <circle cx="-28" cy="-18" r="17" fill="#2B2630"/><circle cx="-28" cy="-18" r="7" fill="#D9D6DE" stroke="none"/>
+    <circle cx="70" cy="-18" r="17" fill="#2B2630"/><circle cx="70" cy="-18" r="7" fill="#D9D6DE" stroke="none"/>
+  </g>
+  <g id="dozer" stroke="#2B2630" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="-82" y="-34" width="118" height="34" rx="17" fill="#5A5160" stroke-width="5"/>
+    <g fill="#D9D6DE" stroke-width="3"><circle cx="-64" cy="-17" r="8"/><circle cx="-38" cy="-17" r="8"/><circle cx="-12" cy="-17" r="8"/><circle cx="16" cy="-17" r="8"/></g>
+    <path d="M-72 -36 V-70 Q-72 -78 -64 -78 H22 Q30 -78 32 -70 L36 -36 Z" fill="currentColor" stroke-width="5"/>
+    <path d="M-60 -78 V-112 Q-60 -118 -54 -118 H-20 Q-14 -118 -14 -112 V-78 Z" fill="currentColor" stroke-width="5"/>
+    <rect x="-52" y="-110" width="30" height="26" rx="5" fill="#CDEBFB" stroke-width="4"/>
+    <rect x="-43" y="-128" width="12" height="10" rx="3" fill="#D9D6DE" stroke-width="3"/>
+    <path d="M12 -78 V-100" stroke-width="7"/>
+    <path d="M32 -50 L58 -44" stroke-width="10"/>
+    <path d="M56 -84 Q78 -60 72 -4 L56 -2 Q62 -42 46 -80 Z" fill="#7A6F80" stroke-width="5"/>
+    <circle cx="-30" cy="-56" r="4.5" fill="#2B2630" stroke="none"/><circle cx="-14" cy="-56" r="4.5" fill="#2B2630" stroke="none"/>
+    <path d="M-30 -47 Q-22 -41 -14 -47" fill="none" stroke-width="3.5"/>
+    <ellipse cx="-5" cy="-49" rx="4" ry="3" fill="#F9B4C2" stroke="none"/>
+  </g>
+  <g id="roller" stroke="#2B2630" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-62 -122 H4" stroke-width="7"/><path d="M-56 -122 V-80 M-2 -122 V-80" stroke-width="5"/>
+    <rect x="-36" y="-132" width="12" height="10" rx="3" fill="#D9D6DE" stroke-width="3"/>
+    <path d="M-86 -30 V-74 Q-86 -82 -78 -82 H22 Q32 -82 34 -72 L38 -46 H84 V-30 Z" fill="currentColor" stroke-width="5"/>
+    <rect x="-48" y="-100" width="30" height="20" rx="5" fill="#7A6F80" stroke-width="4"/>
+    <path d="M30 -60 H70 V-40" fill="none" stroke-width="6"/>
+    <circle cx="54" cy="-32" r="32" fill="#9A93A3" stroke-width="5"/><circle cx="54" cy="-32" r="12" fill="#D9D6DE" stroke-width="3"/>
+    <circle cx="-56" cy="-26" r="26" fill="#2B2630"/><circle cx="-56" cy="-26" r="10" fill="#D9D6DE" stroke="none"/>
+    <circle cx="-12" cy="-58" r="4.5" fill="#2B2630" stroke="none"/><circle cx="4" cy="-58" r="4.5" fill="#2B2630" stroke="none"/>
+    <path d="M-12 -49 Q-4 -43 4 -49" fill="none" stroke-width="3.5"/>
+  </g>
+  <g id="crane-truck" stroke="#2B2630" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="-96" y="-42" width="190" height="14" rx="5" fill="#5A5160" stroke-width="4"/>
+    <rect x="-80" y="-62" width="30" height="20" rx="5" fill="#7A6F80" stroke-width="4"/>
+    <path d="M-66 -60 L56 -104" stroke-width="20"/><path d="M-66 -60 L56 -104" stroke="currentColor" stroke-width="11"/>
+    <path d="M56 -104 V-80" stroke-width="3.5"/><path d="M56 -80 V-72 Q56 -64 48 -64 Q42 -64 41 -70" fill="none" stroke-width="5"/>
+    <path d="M46 -28 V-88 Q46 -96 54 -96 H74 Q88 -96 92 -82 L98 -52 V-32 Q98 -28 92 -28 Z" fill="currentColor" stroke-width="5"/>
+    <path d="M56 -86 H72 Q80 -86 83 -78 L87 -64 H56 Z" fill="#CDEBFB" stroke-width="4"/>
+    <rect x="70" y="-106" width="12" height="10" rx="3" fill="#D9D6DE" stroke-width="3"/>
+    <circle cx="64" cy="-48" r="4.5" fill="#2B2630" stroke="none"/><circle cx="80" cy="-48" r="4.5" fill="#2B2630" stroke="none"/>
+    <path d="M64 -39 Q72 -33 80 -39" fill="none" stroke-width="3.5"/>
+    <circle cx="-64" cy="-18" r="17" fill="#2B2630"/><circle cx="-64" cy="-18" r="7" fill="#D9D6DE" stroke="none"/>
+    <circle cx="-28" cy="-18" r="17" fill="#2B2630"/><circle cx="-28" cy="-18" r="7" fill="#D9D6DE" stroke="none"/>
+    <circle cx="70" cy="-18" r="17" fill="#2B2630"/><circle cx="70" cy="-18" r="7" fill="#D9D6DE" stroke="none"/>
+  </g>
+  <g id="beacon-on"><circle r="20" fill="url(#lamp-g-site)"/><path d="M-12 -12 L-18 -18 M0 -16 V-24 M12 -12 L18 -18" stroke="#F5963C" stroke-width="4" stroke-linecap="round"/><rect x="-7" y="-6" width="14" height="11" rx="3" fill="#FFB534" stroke="#2B2630" stroke-width="3"/></g>
+  <g id="bay-glow"><rect x="-103" y="-114" width="206" height="116" rx="24" fill="#FFF1A8" stroke="#FFC93C" stroke-width="7"/></g>
+  <g id="btn-eraser" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="0" y="8" width="200" height="160" rx="32" fill="#2B2630" opacity="0.18"/>
+    <rect x="0" y="0" width="200" height="160" rx="32" fill="#FFF9EC" stroke="#2B2630" stroke-width="6"/>
+    <g transform="translate(100 56) rotate(-20) scale(0.86)">
+      <rect x="-54" y="-26" width="108" height="52" rx="12" fill="#F49AB0"/>
+      <path d="M14 -26 H42 Q54 -26 54 -14 V14 Q54 26 42 26 H14 Z" fill="#6FA8E8"/>
+      <rect x="-54" y="-26" width="108" height="52" rx="12" fill="none" stroke="#2B2630" stroke-width="7"/>
+      <path d="M14 -26 V26" stroke="#2B2630" stroke-width="6"/>
+      <rect x="-44" y="-17" width="40" height="8" rx="4" fill="#FFFFFF" opacity="0.7"/>
+    </g>
+    <circle cx="44" cy="92" r="4.5" fill="#F49AB0" stroke="#2B2630" stroke-width="2.5"/>
+    <circle cx="58" cy="100" r="3.5" fill="#F49AB0" stroke="#2B2630" stroke-width="2.5"/>
+    <text x="100" y="128" font-family="Noto Sans CJK HK" font-weight="900" font-size="34" fill="#2B2630" text-anchor="middle">擦晒</text>
+    <text x="100" y="152" font-family="Noto Sans CJK HK" font-weight="700" font-size="18" fill="#6B6170" text-anchor="middle">Clear</text>
+  </g>
+  <g id="btn-ok-on" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="0" y="8" width="240" height="160" rx="32" fill="#2B2630" opacity="0.2"/>
+    <rect x="0" y="0" width="240" height="160" rx="32" fill="#6CC46F" stroke="#2B2630" stroke-width="6"/>
+    <rect x="14" y="10" width="212" height="22" rx="11" fill="#FFFFFF" opacity="0.28"/>
+    <path d="M30 84 L56 110 L100 58" fill="none" stroke="#2B2630" stroke-width="28"/>
+    <path d="M30 84 L56 110 L100 58" fill="none" stroke="#FFFFFF" stroke-width="13"/>
+    <text x="172" y="98" font-family="Baloo 2" font-weight="800" font-size="62" fill="#2B2630" text-anchor="middle">OK</text>
+    <text x="172" y="134" font-family="Noto Sans CJK HK" font-weight="900" font-size="20" fill="#24502A" text-anchor="middle">完成</text>
+  </g>
+  <!-- from mockups/07-star3-trace.svg -->
+  <g id="plane" stroke="#2B2630" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-88 -66 L-108 -124 Q-110 -132 -102 -132 H-88 Q-82 -132 -78 -126 L-46 -70 Z" fill="currentColor" stroke-width="5"/>
+    <path d="M-104 -46 Q-108 -62 -94 -70 H70 Q112 -70 122 -48 Q112 -26 70 -26 H-80 Q-100 -28 -104 -46 Z" fill="#FFF9EC" stroke-width="6"/>
+    <path d="M-100 -54 H98" stroke="currentColor" stroke-width="6"/>
+    <g fill="#9FD3F0" stroke-width="3"><circle cx="-62" cy="-61" r="4.5"/><circle cx="-44" cy="-61" r="4.5"/><circle cx="-26" cy="-61" r="4.5"/><circle cx="-8" cy="-61" r="4.5"/><circle cx="10" cy="-61" r="4.5"/><circle cx="28" cy="-61" r="4.5"/><circle cx="46" cy="-61" r="4.5"/></g>
+    <path d="M84 -66 Q104 -64 112 -56 H84 Z" fill="#9FD3F0" stroke-width="3.5"/>
+    <path d="M-28 -40 H22 L-6 -8 H-28 Z" fill="currentColor" stroke-width="5"/>
+    <rect x="-12" y="-30" width="34" height="15" rx="7.5" fill="#D9D6DE" stroke-width="4"/>
+    <path d="M-50 -26 V-12 M80 -26 V-12" stroke-width="4"/>
+    <circle cx="-50" cy="-7" r="7" fill="#2B2630"/><circle cx="80" cy="-7" r="7" fill="#2B2630"/>
+    <circle cx="94" cy="-42" r="4" fill="#2B2630" stroke="none"/><circle cx="106" cy="-42" r="4" fill="#2B2630" stroke="none"/>
+    <path d="M95 -34 Q101 -30 107 -34" fill="none" stroke-width="3"/>
+    <circle cx="118" cy="-44" r="4" fill="#D9D6DE" stroke-width="2.5"/>
+  </g>
+  <g id="plane-lit"><circle cx="118" cy="-44" r="16" fill="url(#lamp-g)"/><path d="M122 -50 L164 -64 L164 -24 L122 -38 Z" fill="#FFF3A6" opacity="0.8"/><circle cx="118" cy="-44" r="4.5" fill="#FFE27A" stroke="#2B2630" stroke-width="2.5"/></g>
+  <!-- from mockups/08-star3-success.svg -->
+  <g id="bus" stroke="#2B2630" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-100 -32 V-150 Q-100 -166 -84 -166 H82 Q100 -166 102 -148 L106 -42 Q106 -26 92 -26 H-92 Q-100 -26 -100 -32 Z" fill="currentColor" stroke-width="6"/>
+    <rect x="-100" y="-98" width="206" height="12" fill="#FFF4D6" stroke-width="4"/>
+    <g fill="#CDEBFB" stroke-width="4">
+      <rect x="-88" y="-152" width="40" height="40" rx="8"/><rect x="-40" y="-152" width="40" height="40" rx="8"/><rect x="8" y="-152" width="40" height="40" rx="8"/>
+      <path d="M56 -152 H86 Q96 -152 96 -142 V-112 H56 Z"/>
+      <rect x="-88" y="-80" width="40" height="28" rx="7"/><rect x="-40" y="-80" width="40" height="28" rx="7"/>
+      <path d="M62 -80 H94 Q100 -80 100 -74 V-56 H62 Z"/>
+    </g>
+    <rect x="10" y="-80" width="40" height="52" rx="6" fill="#9FD3F0" stroke-width="4"/><path d="M30 -78 V-30" stroke-width="3"/>
+    <rect x="58" y="-164" width="38" height="9" rx="3" fill="#5A5160" stroke-width="2.5"/>
+    <circle cx="72" cy="-44" r="4.5" fill="#2B2630" stroke="none"/><circle cx="88" cy="-44" r="4.5" fill="#2B2630" stroke="none"/>
+    <path d="M72 -35 Q80 -30 88 -35" fill="none" stroke-width="3.5"/>
+    <ellipse cx="96" cy="-37" rx="3.5" ry="2.6" fill="#F9B4C2" stroke="none"/>
+    <circle cx="-60" cy="-20" r="17" fill="#2B2630"/><circle cx="-60" cy="-20" r="7" fill="#D9D6DE" stroke="none"/>
+    <circle cx="64" cy="-20" r="17" fill="#2B2630"/><circle cx="64" cy="-20" r="7" fill="#D9D6DE" stroke="none"/>
+    <circle cx="104" cy="-36" r="5" fill="#D9D6DE" stroke-width="3"/>
+  </g>
+  <g id="bus-lit"><circle cx="104" cy="-36" r="16" fill="url(#lamp-g)"/><path d="M108 -42 L146 -54 L146 -18 L108 -30 Z" fill="#FFF3A6" opacity="0.8"/><circle cx="104" cy="-36" r="5.5" fill="#FFE27A" stroke="#2B2630" stroke-width="3"/></g>
+  <!-- from mockups/09-parent-cards.svg -->
+  <g id="mini-car" stroke="#2B2630" stroke-linejoin="round">
+    <path d="M-15 -6 V-14 Q-15 -18 -11 -18 H6 Q12 -18 14 -12 L16 -6 Z" fill="currentColor" stroke-width="2.5"/>
+    <rect x="-5" y="-16" width="9" height="6" rx="1.5" fill="#CDEBFB" stroke-width="1.6"/>
+    <circle cx="-8" cy="-5" r="4" fill="#2B2630" stroke="none"/><circle cx="9" cy="-5" r="4" fill="#2B2630" stroke="none"/>
+  </g>
+  <path id="n3" d="M44 64 C56 40 78 30 104 30 C138 30 162 52 162 84 C162 118 134 140 94 144 C138 146 170 172 170 210 C170 248 140 272 102 272 C72 272 50 260 36 238"/>
+  <path id="n3-part" d="M44 64 C56 40 78 30 104 30 C138 30 162 52 162 84 C162 118 134 140 94 144"/>
+  <!-- from mockups/10-numeral-stroke-order.svg -->
+  <path id="chev" d="M-5 -7 L4 0 L-5 7" fill="none" stroke="#FFFFFF" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <g id="go-s"><circle r="15" fill="#5DBB63" stroke="#2B2630" stroke-width="4"/><path d="M-8 -3 H1 V-7.5 L9 0 L1 7.5 V3 H-8 Z" fill="#FFFFFF" stroke="#2B2630" stroke-width="1.8" stroke-linejoin="round"/></g>
+  <g id="end-s"><circle r="15" fill="#EE5A4C" stroke="#2B2630" stroke-width="4"/><path d="M-9 -3 H-2 V-7 L5 0 L-2 7 V3 H-9 Z" fill="#FFFFFF" stroke="#2B2630" stroke-width="1.8" stroke-linejoin="round"/><rect x="6" y="-8" width="4" height="16" rx="2" fill="#FFFFFF" stroke="#2B2630" stroke-width="1.6"/></g>
+  <g id="ring-s"><circle r="12" fill="#2B2630"/><circle r="9" fill="#FFFFFF" stroke="#EE5A4C" stroke-width="4"/><path d="M-3.5 -4 L1 0 L-3.5 4" fill="none" stroke="#EE5A4C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 -4.5 V4.5" stroke="#EE5A4C" stroke-width="2.6" stroke-linecap="round"/></g>
+  <g id="stop-s">
+    <path d="M-5 -12 H5 L12 -5 V5 L5 12 H-5 L-12 5 V-5 Z" fill="#E8473C" stroke="#2B2630" stroke-width="3" stroke-linejoin="round"/>
+    <text x="0" y="5" font-family="Noto Sans CJK HK" font-weight="900" font-size="12" fill="#FFFFFF" text-anchor="middle">停</text>
+  </g>
+  <g id="tile-bg"><rect x="0" y="5" width="232" height="268" rx="22" fill="#2B2630" opacity="0.12"/><rect x="0" y="0" width="232" height="268" rx="22" fill="#FFF9EC" stroke="#2B2630" stroke-width="5"/></g>
+  <!-- from mockups/05-star3-tap.svg (renamed lamp-g → lamp-g-site) -->
+  <radialGradient id="lamp-g-site"><stop offset="0" stop-color="#FFE9A0"/><stop offset="1" stop-color="#FFB534" stop-opacity="0"/></radialGradient>
+  <!-- parent card icons: mockups/09 icon tiles, translated so each tile starts at 0,0 -->
+  <g id="icon-all" transform="translate(-54 -274)">
+    <rect x="54" y="274" width="80" height="80" rx="18" fill="#CBE9EA" stroke="#2B2630" stroke-width="4"/>
+    <g>
+  <use xlink:href="#mini-car" transform="translate(70 336)" style="color:#4C8FE0"/>
+  <use xlink:href="#mini-car" transform="translate(94 336)" style="color:#F49AB0"/>
+  <use xlink:href="#mini-car" transform="translate(118 336)" style="color:#FFC93C"/>
+  <g font-family="Baloo 2" font-weight="800" font-size="12" text-anchor="middle" fill="#2B2630">
+    <g fill="#FFFFFF" stroke="#2B2630" stroke-width="2.5"><circle cx="70" cy="300" r="8"/><circle cx="94" cy="300" r="8"/><circle cx="118" cy="300" r="8"/></g>
+    <text x="70" y="304">1</text><text x="94" y="304">2</text><text x="118" y="304">3</text>
+  </g>
+  <path d="M60 346 H128" stroke="#2B2630" stroke-width="3" stroke-linecap="round"/>
+</g>
+  </g>
+  <g id="icon-trace" transform="translate(-54 -414)">
+    <rect x="54" y="414" width="80" height="80" rx="18" fill="#FBDCE4" stroke="#2B2630" stroke-width="4"/>
+    <g transform="translate(73 422) scale(0.215)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <use xlink:href="#n3" stroke="#2B2630" stroke-width="76"/>
+  <use xlink:href="#n3" stroke="#FFFFFF" stroke-width="62"/>
+  <use xlink:href="#n3" stroke="#8C8494" stroke-width="20" stroke-dasharray="0 34"/>
+  <use xlink:href="#n3-part" stroke="#F49AB0" stroke-width="30"/>
+</g>
+<circle cx="83" cy="436" r="7" fill="#5DBB63" stroke="#2B2630" stroke-width="3"/>
+  </g>
+  <g id="icon-pick" transform="translate(-54 -554)">
+    <rect x="54" y="554" width="80" height="80" rx="18" fill="#D3E4F8" stroke="#2B2630" stroke-width="4"/>
+    <g>
+  <rect x="58" y="566" width="34" height="26" rx="7" fill="#FFF1A8" stroke="#FFC93C" stroke-width="3"/>
+  <rect x="96" y="566" width="34" height="26" rx="7" fill="#FFF1A8" stroke="#FFC93C" stroke-width="3"/>
+  <use xlink:href="#mini-car" transform="translate(75 589) scale(0.9)" style="color:#F5963C"/>
+  <use xlink:href="#mini-car" transform="translate(113 589) scale(0.9)" style="color:#58AE72"/>
+  <use xlink:href="#mini-car" transform="translate(75 622) scale(0.9)" style="color:#A98BE0"/>
+  <use xlink:href="#mini-car" transform="translate(113 622) scale(0.9)" style="color:#4C8FE0"/>
+  <g font-family="Baloo 2" font-weight="800" font-size="11" text-anchor="middle" fill="#2B2630">
+    <g fill="#FFFFFF" stroke="#2B2630" stroke-width="2.2"><circle cx="88" cy="567" r="7"/><circle cx="126" cy="567" r="7"/></g>
+    <text x="88" y="571">1</text><text x="126" y="571">2</text>
+  </g>
+  <circle cx="122" cy="624" r="9" fill="#6CC46F" stroke="#2B2630" stroke-width="2.5"/>
+  <path d="M117 624 L121 628 L127 620" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+  </g>
+</defs>
+
+</svg>
