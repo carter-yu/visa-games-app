@@ -178,6 +178,55 @@ extension PerfChoiceCatalog {
     }
 }
 
+extension PerfChoiceCatalog {
+    /// A dealt 一架一架數 round (v0.28.0, design §3–§5 統計). ★ / ★★ are practice (chance 1, no
+    /// correct choice, `match_mode: guided`); ★★★ is judged at OK (`submit`, chance 1/N) and is
+    /// mastery evidence.
+    public static func facts(tapCount question: TapCountQuestion, settings: TapCountSettings,
+                             tolerance: LineMatchTolerance, recentTargets: [Int]) -> PerfDealFacts {
+        let pick = question.isPick
+        var extra: [String: PerfValue] = [
+            "practice": .string(pick ? "tap_count_pick" : "tap_count"),
+            "target": .int(question.target),
+            "cars": .int(question.count),
+            "scene": .string(question.scene.rawValue),
+            "vehicles": .strings(question.vehicles.map(\.model.rawValue)),
+            "layout": .string(question.layout.code),
+            "count_voice": .bool(settings.countVoice),
+            "english": .bool(settings.english),
+            "range": .int(settings.range.rawValue),
+            "recent_targets": .strings(recentTargets.map(String.init)),
+            LineMatchMode.fieldKey: .string(pick ? LineMatchMode.free.rawValue : LineMatchMode.guided.rawValue)
+        ]
+        if question.tracesNumeral {
+            extra["numeral"] = .int(question.target)
+            extra["strokes"] = .int(NumeralGlyphs.strokes(question.target).count)
+            extra["trace_scaffold"] = .string(settings.traceScaffold.code)
+            extra["tolerance"] = .string(tolerance.rawValue)
+        }
+        if pick {
+            extra["occupied_bays"] = .strings(question.occupiedBays.map(String.init))
+            extra["badge_style"] = .string(settings.badgeStyle.rawValue)
+        }
+        return PerfDealFacts(
+            item: question.itemID,
+            gen: QuestionGeneration.variants,
+            level: question.level,
+            chance: pick ? 1 / Double(max(question.count, 1)) : 1,
+            slots: question.occupiedBays.map { "bay-\($0)" },
+            correctChoice: pick ? TapCountSubmitChoice.choice : nil,
+            tagsByChoice: [:],
+            assetByChoice: [:],
+            extraDealtFields: extra
+        )
+    }
+}
+
+/// Choice id of a judged 揀啱數 OK in `answer_attempt`.
+public enum TapCountSubmitChoice {
+    public static let choice = "submit"
+}
+
 /// Choice id of a judged 連一連 完成 in `answer_attempt`.
 public enum LineMatchSubmit {
     public static let choice = "submit"
@@ -211,7 +260,8 @@ public enum PerfQuestionGeneration {
     /// Guided 連一連 rounds are practice exposure: never mastery evidence, never misses
     /// (design "Guided level" → Stats). Review counts them on their own line.
     public static func isPracticeOnly(_ dealt: PerfEvent) -> Bool {
-        if let kind = dealt.string("kind").flatMap(ActivityKind.init(rawValue:)), kind.isShapeTraceFamily { return true }
+        if let kind = dealt.string("kind").flatMap(ActivityKind.init(rawValue:)),
+           kind.isShapeTraceFamily || kind == .tapCountAll || kind == .tapCountTrace { return true }
         return matchMode(of: dealt) == .guided
     }
 

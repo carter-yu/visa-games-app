@@ -117,7 +117,8 @@ public enum QuestionGeneration {
     /// Kinds whose questions come from a generator in this version.
     public static let generatedKinds: [ActivityKind] = [
         .countVehicles, .findTheSame, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch,
-        .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree
+        .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree,
+        .tapCountAll, .tapCountTrace, .tapCountPick
     ]
 
     public static let maxRerolls = 8

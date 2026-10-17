@@ -696,6 +696,8 @@ enum ShapeTraceDrawing {
             g.draw(Text(ShapeTraceCopy.garageSign).font(CanvasFont.font(size: 24, weight: 900)).foregroundColor(.white),
                    at: CGPoint(x: 912, y: 259))
             carFixtures(board, in: &g)
+        case .numeralBoard:
+            break
         }
     }
 
@@ -862,7 +864,7 @@ enum ShapeTraceDrawing {
         case .circle:
             let inset = outlined ? shape.frame.cgRect : shape.frame.cgRect.insetBy(dx: 40, dy: 40)
             g.fill(Path(ellipseIn: inset), with: .color(Color.white.opacity(outlined ? 0.45 : 0.6)))
-        case .across, .down, .slant, .spire, .triangle, .pennant, .cone:
+        case .across, .down, .slant, .spire, .triangle, .pennant, .cone, .numeral:
             break
         }
     }
@@ -896,7 +898,7 @@ enum ShapeTraceDrawing {
             }
         case (.pennant, _), (.triangle, _), (.cone, _):
             filledPolygon(shape, in: &g)
-        case (.across, _), (.down, _), (.slant, _):
+        case (.across, _), (.down, _), (.slant, _), (.numeral, _):
             break
         }
         if painted { paintedOutline(shape, in: &g) }

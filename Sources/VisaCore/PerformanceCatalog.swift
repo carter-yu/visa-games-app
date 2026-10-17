@@ -23,6 +23,8 @@ public enum PerfChoiceCatalog {
             return ActivityCatalog.lineMatchQuestion().itemID
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
             return ShapeTraceGenerator.reference(kind: kind).itemID
+        case .tapCountAll, .tapCountTrace, .tapCountPick:
+            return TapCountGenerator.reference(kind: kind).itemID
         }
     }
 
@@ -43,6 +45,12 @@ public enum PerfChoiceCatalog {
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
             // Practice only: nothing to guess, never mastery evidence (design D10).
             return 1.0
+        case .tapCountAll, .tapCountTrace:
+            // Practice only: every vehicle is tapped, nothing to guess (number-quantity D13).
+            return 1.0
+        case .tapCountPick:
+            // Picking 1…N at random hits exactly T with chance 1/N; dealt rounds carry their own N.
+            return 1.0 / Double(TapCountGenerator.reference(kind: .tapCountPick).count)
         }
     }
 
@@ -73,6 +81,8 @@ public enum PerfChoiceCatalog {
             return ActivityCatalog.lineMatchQuestion().rightKeys
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
             return ShapeTraceGenerator.reference(kind: kind).shapes.map(\.slot)
+        case .tapCountAll, .tapCountTrace, .tapCountPick:
+            return TapCountGenerator.reference(kind: kind).occupiedBays.map { "bay-\($0)" }
         }
     }
 
@@ -93,6 +103,8 @@ public enum PerfChoiceCatalog {
             return ActivityCatalog.lineMatchQuestion().pairs.map(\.key)
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
             return ShapeTraceGenerator.reference(kind: kind).shapes.map(\.slot)
+        case .tapCountAll, .tapCountTrace, .tapCountPick:
+            return TapCountGenerator.reference(kind: kind).occupiedBays.map { "bay-\($0)" }
         }
     }
 
@@ -112,6 +124,8 @@ public enum PerfChoiceCatalog {
         case .emptyBay: return ActivityCatalog.emptyBayQuestion().correctBayID
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge: return nil
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree: return nil
+        case .tapCountAll, .tapCountTrace: return nil
+        case .tapCountPick: return "submit"
         }
     }
 
@@ -138,6 +152,7 @@ public enum PerfChoiceCatalog {
             return bay.vehicleAssetID ?? "empty"
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge: return nil
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree: return nil
+        case .tapCountAll, .tapCountTrace, .tapCountPick: return nil
         }
     }
 

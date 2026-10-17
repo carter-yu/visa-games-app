@@ -23,6 +23,9 @@ public enum ShapeTraceShapeKind: String, CaseIterable, Sendable, Codable, Hashab
     case pennant
     /// ▽ — ice-cream cone: ① 一 top, ② 捺 top left → tip, ③ 撇 top right → tip (D13, ★★ on).
     case cone
+    /// 一架一架數 (v0.28.0): a numeral 0–10 on the trace board (`NumeralGlyphs`). Never dealt by
+    /// the shape-trace generator; its copy comes from `TapCountCopy`.
+    case numeral
 
     public var isLine: Bool { self == .across || self == .down || self == .slant }
 
@@ -32,7 +35,7 @@ public enum ShapeTraceShapeKind: String, CaseIterable, Sendable, Codable, Hashab
         case .circle: return .circle
         case .square: return .square
         case .spire, .triangle, .pennant, .cone: return .triangle
-        case .across, .down, .slant: return nil
+        case .across, .down, .slant, .numeral: return nil
         }
     }
 
@@ -45,6 +48,7 @@ public enum ShapeTraceShapeKind: String, CaseIterable, Sendable, Codable, Hashab
         case .circle: return "圓形"
         case .square: return "正方形"
         case .spire, .triangle, .pennant, .cone: return "三角形"
+        case .numeral: return "數字"
         }
     }
 
@@ -56,6 +60,7 @@ public enum ShapeTraceShapeKind: String, CaseIterable, Sendable, Codable, Hashab
         case .circle: return "circle"
         case .square: return "square"
         case .spire, .triangle, .pennant, .cone: return "triangle"
+        case .numeral: return "number"
         }
     }
 
@@ -66,7 +71,7 @@ public enum ShapeTraceShapeKind: String, CaseIterable, Sendable, Codable, Hashab
         case .down: return "打直，向落！"
         case .slant: return "斜斜，向落！"
         case .circle: return "轉個圈！"
-        case .square, .spire, .triangle, .pennant, .cone: return nil
+        case .square, .spire, .triangle, .pennant, .cone, .numeral: return nil
         }
     }
 
@@ -76,7 +81,7 @@ public enum ShapeTraceShapeKind: String, CaseIterable, Sendable, Codable, Hashab
         case .down: return "Straight down!"
         case .slant: return "Slant down!"
         case .circle: return "Round you go!"
-        case .square, .spire, .triangle, .pennant, .cone: return nil
+        case .square, .spire, .triangle, .pennant, .cone, .numeral: return nil
         }
     }
 }
@@ -128,6 +133,8 @@ public enum ShapeTraceScene: String, CaseIterable, Sendable, Codable, Hashable {
     case castleHall
     /// 砌車仔工場 (mockup 05): car body 口, back wheel, front wheel, then the topper (★★ / ★★★).
     case garage
+    /// 一架一架數 trace board (v0.28.0): drawn by `TapCountBoardView`, never by the shape-trace view.
+    case numeralBoard
 }
 
 /// 砌車仔 cars (design §4.1). The topper sits behind the body on a ready-made pole.
@@ -1014,7 +1021,7 @@ public enum ShapeTraceCopy {
         case .pennant: return ("一筆：", "停一停再轉")
         case .cone: return ("三筆：", "橫 捺 撇")
         case .spire: return ("兩筆：", "撇 捺")
-        case .across, .down, .slant: return nil
+        case .across, .down, .slant, .numeral: return nil
         }
     }
 
@@ -1058,7 +1065,7 @@ public enum ShapeTraceCopy {
         case .spire: return ("人", "好似", "人字", "spire = like the character for person")
         case .circle: return ("o", "好似", "寫 o", "circle = like writing o")
         case .triangle: return ("人", "好似", "人字", "triangle = like the character for person")
-        case .across, .down, .slant, .pennant, .cone: return nil
+        case .across, .down, .slant, .pennant, .cone, .numeral: return nil
         }
     }
 
@@ -1098,7 +1105,7 @@ public enum ShapeTraceCopy {
                                           english: linkSquareEnglish)
         case .spire, .triangle: return SpokenPrompt(key: "shapes.link.triangle", traditionalChinese: linkSpireTraditionalChinese,
                                                     english: linkSpireEnglish)
-        case .across, .down, .slant, .pennant, .cone: return nil
+        case .across, .down, .slant, .pennant, .cone, .numeral: return nil
         }
     }
 
