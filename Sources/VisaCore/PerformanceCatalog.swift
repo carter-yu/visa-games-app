@@ -21,6 +21,8 @@ public enum PerfChoiceCatalog {
         case .emptyBay: return ActivityCatalog.emptyBayQuestion().completionID
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
             return ActivityCatalog.lineMatchQuestion().itemID
+        case .traceLines, .traceShapesDotted:
+            return ShapeTraceGenerator.reference(kind: kind).itemID
         }
     }
 
@@ -38,6 +40,9 @@ public enum PerfChoiceCatalog {
             // mastery uses the ★★ value; dealt questions carry their own chance.
             // Guided kinds are practice-only (chance unused for mastery).
             return 1.0 / 6.0
+        case .traceLines, .traceShapesDotted:
+            // Practice only: nothing to guess, never mastery evidence (design D10).
+            return 1.0
         }
     }
 
@@ -66,6 +71,8 @@ public enum PerfChoiceCatalog {
             return ActivityCatalog.emptyBayQuestion().presentedBays(seed: seed).map(\.id)
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
             return ActivityCatalog.lineMatchQuestion().rightKeys
+        case .traceLines, .traceShapesDotted:
+            return ShapeTraceGenerator.reference(kind: kind).shapes.map(\.slot)
         }
     }
 
@@ -84,6 +91,8 @@ public enum PerfChoiceCatalog {
         case .emptyBay: return ActivityCatalog.emptyBayQuestion().bays.map(\.id)
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
             return ActivityCatalog.lineMatchQuestion().pairs.map(\.key)
+        case .traceLines, .traceShapesDotted:
+            return ShapeTraceGenerator.reference(kind: kind).shapes.map(\.slot)
         }
     }
 
@@ -102,6 +111,7 @@ public enum PerfChoiceCatalog {
         case .shadowMatch: return ActivityCatalog.shadowMatchQuestion().correctOptionID
         case .emptyBay: return ActivityCatalog.emptyBayQuestion().correctBayID
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge: return nil
+        case .traceLines, .traceShapesDotted: return nil
         }
     }
 
@@ -127,6 +137,7 @@ public enum PerfChoiceCatalog {
             }
             return bay.vehicleAssetID ?? "empty"
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge: return nil
+        case .traceLines, .traceShapesDotted: return nil
         }
     }
 

@@ -29,7 +29,8 @@ final class QuestionGeneratorTests {
         // Visa length per star is unchanged.
         expectEqual(ChildDifficulty.allCases.map(\.minutes), [5, 10, 15])
         expectEqual(QuestionGeneration.generatedKinds,
-                    [.countVehicles, .findTheSame, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch])
+                    [.countVehicles, .findTheSame, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch,
+                     .traceLines, .traceShapesDotted])
     }
 
     func testQuestionRNGIsDeterministicAndUniform() {

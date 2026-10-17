@@ -70,7 +70,7 @@ final class SystemSpeechPrompt {
     /// Guided 連一連 road done: the Cantonese word, then the English word (「眼睛、eye」).
     /// With no Hong Kong Cantonese voice nothing is spoken at all (the bubble still shows);
     /// it never falls back to Mandarin.
-    func speakWordCue(_ cue: SpokenPrompt) {
+    func speakWordCue(_ cue: SpokenPrompt, then follow: SpokenPrompt? = nil) {
         guard let voice else {
             VisaGamesLog.append("voice skip — 無粵語語音 key=\(cue.key)")
             return
@@ -87,7 +87,15 @@ final class SystemSpeechPrompt {
             let english = AVSpeechUtterance(string: cue.english)
             english.voice = englishVoice
             english.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
+            english.postUtteranceDelay = follow == nil ? 0 : 0.3
             synthesizer.speak(english)
+        }
+        if let follow {
+            // v0.25.0 畫直線: the next line's start words, in Cantonese only.
+            let line = AVSpeechUtterance(string: follow.traditionalChinese)
+            line.voice = voice
+            line.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
+            synthesizer.speak(line)
         }
         VisaGamesLog.append(
             "voice cue — 朗讀 key=\(cue.key) voice=\(voice.name) english=\(englishVoice?.name ?? "none")"

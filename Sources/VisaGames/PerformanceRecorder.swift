@@ -314,6 +314,14 @@ final class PerformanceRecorder {
         ], actorOverride: .parent)
     }
 
+    /// 畫形狀設定 change (v0.25.0; shared by the 畫線畫形 cards).
+    func shapeTraceSettingChanged(what: String, value: String, mix: String) {
+        emit(.configChange, [
+            "what": .string("shapeTrace_\(what)"), "kind": .string(ActivityKind.traceShapesDotted.rawValue),
+            "value": .string(value), "shape_mix": .string(mix)
+        ], actorOverride: .parent)
+    }
+
     func assignmentChanged(kind: ActivityKind, star: Int, on: Bool) {
         emit(.configChange, [
             "what": .string("assignment"), "kind": .string(kind.rawValue),

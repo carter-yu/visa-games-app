@@ -4,7 +4,7 @@ import VisaCore
 final class MissionGameAssignmentTests {
     func testDefaultsAllStarsOn() {
         let assignment = MissionGameAssignment.defaults
-        expectEqual(ActivityCatalog.playableKinds.count, 13)
+        expectEqual(ActivityCatalog.playableKinds.count, 15)
         for kind in ActivityCatalog.defaultOnKinds {
             for star in ChildDifficulty.allCases {
                 expectTrue(assignment.isEnabled(kind, star: star))
@@ -134,7 +134,7 @@ final class MissionGameAssignmentTests {
     }
 
     func testParentCardNamesAreTraditionalAndUnbuiltAreNotKinds() {
-        expectEqual(ActivityKind.allCases.count, 13)
+        expectEqual(ActivityKind.allCases.count, 15)
         expectEqual(ActivityKind.twoPictureChoose.parentCardTitle, "邊架消防車")
         expectEqual(ActivityKind.findTheSame.parentShortLabel, "搵相同")
         expectEqual(ActivityKind.emptyBay.parentCardEnglish, "Empty parking bay")
@@ -148,8 +148,9 @@ final class MissionGameAssignmentTests {
             expectFalse(kind.parentCardTitle.isEmpty)
             expectFalse(kind.parentHeroAssetIDs.isEmpty)
         }
-        expectEqual(ActivityCatalog.unbuiltParentActivities.count, 4)
-        expectEqual(ActivityCatalog.unbuiltParentActivities.map(\.traditionalChinese), ["描線", "迷宮", "形狀分類", "連點"])
+        // v0.25.0: 描線 is built (畫線畫形), so it leaves the muted row.
+        expectEqual(ActivityCatalog.unbuiltParentActivities.count, 3)
+        expectEqual(ActivityCatalog.unbuiltParentActivities.map(\.traditionalChinese), ["迷宮", "形狀分類", "連點"])
         expectEqual(ActivityCatalog.stubKinds, [])
         expectTrue(MissionGameAssignment.emptyTierBanner.contains("每個星級至少要有一個遊戲"))
         expectTrue(MissionGameAssignment.emptyTierBanner.contains("Each star needs at least one game"))

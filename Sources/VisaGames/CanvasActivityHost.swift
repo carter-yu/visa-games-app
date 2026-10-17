@@ -96,6 +96,8 @@ struct CanvasActivityHost: View {
                 emptyBay
             case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
                 lineMatch
+            case .traceLines, .traceShapesDotted:
+                shapeTrace
             case .none:
                 EmptyView()
             }
@@ -357,6 +359,27 @@ struct CanvasActivityHost: View {
             )
         } else {
             freeLineMatch
+        }
+    }
+
+    /// 畫線畫形 (v0.25.0): its own pen board, `ShapeTraceBoardView`.
+    @ViewBuilder
+    private var shapeTrace: some View {
+        if let board = model.currentShapeTraceBoard {
+            ShapeTraceBoardView(
+                board: board,
+                settings: model.shapeTraceSettings,
+                ticketStars: usingPlaytest ? 1 : (model.selectedStars ?? 1),
+                pendingMinutes: pendingMinutes,
+                locked: justCompleted || board.isComplete,
+                notice: model.shapeTraceNotice,
+                now: model.now.timeIntervalSinceReferenceDate,
+                onSpeak: { speakPrompt() },
+                onCommit: { next in model.shapeTraceCommit(next) },
+                onWrongStart: { model.shapeTraceWrongStart() },
+                onReverse: { model.shapeTraceReverse() },
+                onHint: { key in model.shapeTraceHintShown(key: key) }
+            )
         }
     }
 

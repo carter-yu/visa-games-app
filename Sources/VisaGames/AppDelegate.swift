@@ -45,6 +45,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var playtestLineMatchBoard = LineMatchBoard(question: ActivityCatalog.lineMatchQuestion())
     /// Guided 連一連 playtest board (nil when the playtest kind is free match / 自己配).
     @Published private(set) var playtestLineMatchGuidedBoard: LineMatchGuidedBoard?
+    /// v0.25.0 畫線畫形 playtest board (nil unless the playtest kind is a shape-trace card).
+    @Published private(set) var playtestShapeTraceBoard: ShapeTraceBoard?
     private var playtestThinkEndsAt: Date?
     var isParentPlaytest: Bool { playtestKind != nil && session.mode == .parent }
     var playtestChoicesLocked: Bool { playtestThinkEndsAt != nil || playtestCompleted }
@@ -143,6 +145,19 @@ final class AppModel: ObservableObject {
     /// Guided 連一連 child board (沿路送 / 沿路過橋). Nil = free match (自己配).
     /// The question is also on `lineMatchBoard`, so prompts / deal facts read one place.
     @Published private(set) var lineMatchGuidedBoard: LineMatchGuidedBoard?
+    /// v0.25.0 畫線畫形 child board (畫直線 / 畫形狀 · 跟虛線). Nil on every other kind.
+    @Published private(set) var shapeTraceBoard: ShapeTraceBoard?
+    /// 畫形狀設定 (shared by the shape-trace cards). UserDefaults, not the snapshot.
+    @Published private(set) var shapeTraceSettings = ShapeTraceSettings.defaults
+    @Published private(set) var shapeTraceSettingsBanner: String?
+    /// Gentle line under the 畫線畫形 board (wrong start / reverse / 停). Never a miss.
+    @Published private(set) var shapeTraceNotice: SpokenPrompt?
+    /// D11: which cards a parent has played through in 試玩 (stars stay grey until then).
+    @Published private(set) var parentPlaytestLog = ParentPlaytestLog()
+    private let shapeTraceSettingsStore = ShapeTraceSettingsStore()
+    private let parentPlaytestLogStore = ParentPlaytestLogStore()
+    /// Strokes ("shape.stroke") whose off-path hint was already spoken (once per stroke).
+    private var shapeTraceHintSpoken: Set<String> = []
     /// Rows whose off-road hint was already spoken (at most once per road).
     private var guidedHintSpokenRows: Set<Int> = []
     /// Tags + fields of the 完成 being evaluated (consumed by the answer record).
@@ -214,6 +229,8 @@ final class AppModel: ObservableObject {
         allowlist = VideoAllowlistStore().load()
         gameAssignment = MissionGameAssignmentStore().load()
         lineMatchSettings = LineMatchSettingsStore().load()
+        shapeTraceSettings = ShapeTraceSettingsStore().load()
+        parentPlaytestLog = ParentPlaytestLogStore().load()
         playbackShuffle = VideoPlaybackShuffleStore().load()
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         store = SnapshotStore(url: directory.appendingPathComponent("VisaGames/state.json"))
@@ -779,6 +796,10 @@ final class AppModel: ObservableObject {
             ? LineMatchGuidedBoard(question: lineMatchQuestion, tolerance: lineMatchSettings.tolerance) : nil
         guidedHintSpokenRows = []
         lineMatchNotice = nil
+        shapeTraceBoard = kind.isShapeTraceFamily ? makeShapeTraceBoard(
+            seed: seed, kind: kind, avoidingItem: lastDealtItem[kind]) : nil
+        shapeTraceHintSpoken = []
+        shapeTraceNotice = nil
         sequenceQuestion = ActivityCatalog.sequenceQuestion()
         halfMatchQuestion = ActivityCatalog.halfMatchQuestion()
         shapeCousinQuestion = ActivityCatalog.shapeCousinQuestion()
@@ -794,7 +815,7 @@ final class AppModel: ObservableObject {
         clearThinkPause()
         taskRoundOpen = true
         let facts = dealFacts(kind: kind, seed: seed, findSame: findSameQuestion, count: countQuestion,
-                              lineMatch: lineMatchBoard.question)
+                              lineMatch: lineMatchBoard.question, shapeTrace: shapeTraceBoard)
         if QuestionGeneration.isGenerated(kind) { lastDealtItem[kind] = facts.item }
         perf.roundDealt(round: seed, kind: kind, stars: stars, pendingStart: difficulty.minutes, pool: pool,
                         facts: facts)
@@ -840,18 +861,25 @@ final class AppModel: ObservableObject {
         case .countVehicles: return count.hintTraditionalChinese
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
             return lineMatchBoard.question.hintTraditionalChinese
+        case .traceLines, .traceShapesDotted:
+            return ShapeTraceCopy.hint
         default: return ActivityCatalog.hintTraditionalChinese(for: kind)
         }
     }
 
     /// Performance facts of the question actually dealt (item, slots, gen, level, tags).
     private func dealFacts(kind: ActivityKind, seed: String, findSame: FindSameQuestion,
-                           count: CountQuestion, lineMatch: LineMatchQuestion) -> PerfDealFacts {
+                           count: CountQuestion, lineMatch: LineMatchQuestion,
+                           shapeTrace: ShapeTraceBoard? = nil) -> PerfDealFacts {
         switch kind {
         case .findTheSame: return PerfChoiceCatalog.facts(findSame: findSame, seed: seed)
         case .countVehicles: return PerfChoiceCatalog.facts(count: count, seed: seed)
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
             return PerfChoiceCatalog.facts(lineMatch: lineMatch, settings: lineMatchSettings)
+        case .traceLines, .traceShapesDotted:
+            let board = shapeTrace ?? ShapeTraceBoard(question: ShapeTraceGenerator.reference(kind: kind))
+            return PerfChoiceCatalog.facts(shapeTrace: board.question, settings: shapeTraceSettings,
+                                           tolerance: board.tolerance)
         default: return PerfChoiceCatalog.facts(kind: kind, seed: seed)
         }
     }
@@ -895,6 +923,10 @@ final class AppModel: ObservableObject {
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
             zh = lineMatchBoard.question.promptTraditionalChinese
             en = lineMatchBoard.question.promptEnglish
+        case .traceLines, .traceShapesDotted:
+            let question = shapeTraceBoard?.question ?? ShapeTraceGenerator.reference(kind: kind)
+            zh = question.promptTraditionalChinese
+            en = question.promptEnglish
         }
         guideVoice.speak(SpokenPrompt(
             key: "activity.\(kind.rawValue)",
@@ -2206,10 +2238,210 @@ final class AppModel: ObservableObject {
         VisaGamesLog.append("lineMatch settings — 連一連設定 \(what)=\(value) mix=\(next.mixDescription) tolerance=\(next.tolerance.rawValue)")
     }
 
+    // MARK: - 畫線畫形 / Lines & Shapes (v0.25.0, ADR 0014)
+
+    private func makeShapeTraceBoard(seed: String, kind: ActivityKind, avoidingItem: String?) -> ShapeTraceBoard {
+        let question = ShapeTraceGenerator.make(seed: seed, kind: kind, settings: shapeTraceSettings,
+                                                avoidingItem: avoidingItem)
+        return ShapeTraceBoard(question: question,
+                               tolerance: shapeTraceSettings.effectiveTolerance(lineMatch: lineMatchSettings.tolerance),
+                               directionHint: shapeTraceSettings.directionHint)
+    }
+
+    private var shapeTraceUsesPlaytest: Bool { isParentPlaytest && playtestKind?.isShapeTraceFamily == true }
+
+    /// The shape-trace board on screen (playtest copy while a parent reviews it).
+    var currentShapeTraceBoard: ShapeTraceBoard? {
+        shapeTraceUsesPlaytest ? playtestShapeTraceBoard : shapeTraceBoard
+    }
+
+    private var shapeTraceInputOpen: Bool {
+        if shapeTraceUsesPlaytest { return !playtestCompleted && playtestShapeTraceBoard != nil }
+        return session.mode == .lock && taskRoundOpen && activeActivityKind?.isShapeTraceFamily == true
+            && !activityJustCompleted && shapeTraceBoard != nil
+    }
+
+    /// The view drives the vehicle on a local copy and hands the board over on pen-up and at
+    /// every milestone (corner, stroke, shape). Only a board that grew from the current one is
+    /// taken. Corners and stroke ends say 「停！」 (corner stop on); a finished shape says its
+    /// name, Cantonese then English (「三角形、triangle」); the last one ends the round.
+    func shapeTraceCommit(_ next: ShapeTraceBoard) {
+        guard shapeTraceInputOpen, let current = currentShapeTraceBoard else { return }
+        guard next.isMonotonicSuccessor(of: current) else {
+            VisaGamesLog.append("shapeTrace commit refused — 舊版本 item=\(next.question.itemID)")
+            return
+        }
+        guard next != current else { return }
+        if shapeTraceUsesPlaytest {
+            playtestShapeTraceBoard = next
+            perf.playtestResultExtra(next.resultFields)
+        } else {
+            shapeTraceBoard = next
+            perf.roundResultExtra(next.resultFields)
+        }
+        if shapeTraceNotice != nil, next.strokesDone != current.strokesDone || next.progress > current.progress + 20 {
+            shapeTraceNotice = nil
+        }
+        let coaching = shapeTraceSettings.cornerStop
+        if next.shapeIndex > current.shapeIndex, next.shapes.indices.contains(current.shapeIndex) {
+            let shape = next.shapes[current.shapeIndex]
+            // Lines: the next line's start words follow the cue (「打直，向落！」).
+            let follow = next.currentShape.flatMap { index -> SpokenPrompt? in
+                let upcoming = next.shapes[index].kind
+                return upcoming.isLine ? ShapeTraceCopy.start(upcoming) : nil
+            }
+            guideVoice.speakWordCue(ShapeTraceCopy.cue(shape.kind), then: follow)
+            VisaGamesLog.append(
+                "shapeTrace shape done — 畫好 slot=\(shape.slot) kind=\(shape.kind.rawValue) done=\(next.shapeIndex)/\(next.shapes.count) offPath=\(next.offPathCount) lifts=\(next.lifts) (practice, no miss)"
+            )
+        } else if next.strokesDone > current.strokesDone {
+            if coaching { guideVoice.speak(ShapeTraceCopy.stopPrompt) }
+            VisaGamesLog.append("shapeTrace stroke done — 停 shape=\(current.shapeIndex) stroke=\(current.strokeIndex)")
+        } else if next.cornersReached.count > current.cornersReached.count {
+            if coaching { guideVoice.speak(ShapeTraceCopy.cornerPrompt) }
+            VisaGamesLog.append("shapeTrace corner — 停！轉彎！ shape=\(next.shapeIndex) stroke=\(next.strokeIndex)")
+        } else if next.cornerOvershoots > current.cornerOvershoots {
+            if coaching { showShapeTraceNotice(ShapeTraceCopy.cornerPrompt) }
+            VisaGamesLog.append("shapeTrace corner overshoot — 衝過角位 (tag only, no miss)")
+        }
+        guard next.isComplete, !current.isComplete else { return }
+        let token = shapeTraceUsesPlaytest ? playtestChoiceDealSeed : choiceDealSeed
+        let playtest = shapeTraceUsesPlaytest
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { [weak self] in
+            self?.finishShapeTraceRound(token: token, playtest: playtest)
+        }
+    }
+
+    /// Everything is drawn. Practice only: no `answer_attempt`, no miss — the child round goes
+    /// straight to the usual stamp / visa (not assisted). A finished 試玩 unlocks the stars (D11).
+    private func finishShapeTraceRound(token: String, playtest: Bool) {
+        if playtest {
+            guard isParentPlaytest, let kind = playtestKind, kind.isShapeTraceFamily, playtestChoiceDealSeed == token,
+                  !playtestCompleted, playtestShapeTraceBoard?.isComplete == true else { return }
+            perf.playtestSolved(earnedMinutes: playtestPendingMinutes, assisted: false)
+            playtestLastCorrectID = "shape_trace"
+            playtestCompleted = true
+            playtestFuelMessage = nil
+            if parentPlaytestLog.playtestedOn(kind) == nil {
+                parentPlaytestLog = parentPlaytestLog.recording(kind, on: Date())
+                parentPlaytestLogStore.save(parentPlaytestLog)
+                if gameAssignmentBanner == ParentPlaytestLog.needsPlaytestBanner { gameAssignmentBanner = nil }
+            }
+            VisaGamesLog.append("playtest shapeTrace done — 試玩畫線畫形完成 kind=\(kind.rawValue) stars unlocked, no visa")
+            return
+        }
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind?.isShapeTraceFamily == true,
+              choiceDealSeed == token, !activityJustCompleted, shapeTraceBoard?.isComplete == true else { return }
+        guard pendingAwardMinutes > 0 else {
+            VisaGamesLog.append("shapeTrace done blocked — pending=0 → depot")
+            returnToDepotOutOfFuel()
+            return
+        }
+        lastCorrectChoiceID = "shape_trace"
+        lastIncorrectChoiceID = nil
+        activityJustCompleted = true
+        VisaGamesLog.append(
+            "shapeTrace done — 全部畫好 item=\(shapeTraceBoard?.question.itemID ?? "") earnedMin=\(pendingAwardMinutes) (practice, no mastery)"
+        )
+        applyEntrySuccess(assisted: false)
+    }
+
+    private func showShapeTraceNotice(_ prompt: SpokenPrompt) {
+        shapeTraceNotice = prompt
+        guideVoice.speak(prompt)
+    }
+
+    /// Pen down on another stroke's marker: 「由綠色箭嘴開始啊！」. Never a miss.
+    func shapeTraceWrongStart() {
+        guard shapeTraceInputOpen else { return }
+        showShapeTraceNotice(ShapeTraceCopy.wrongStartPrompt)
+        VisaGamesLog.append("shapeTrace wrong start — 由綠色箭嘴開始 (no miss)")
+    }
+
+    /// Pen down on the red end with the direction hint on: 「跟住箭嘴方向畫啊！」. Never a miss.
+    func shapeTraceReverse() {
+        guard shapeTraceInputOpen else { return }
+        showShapeTraceNotice(ShapeTraceCopy.reversePrompt)
+        VisaGamesLog.append("shapeTrace reverse start — 跟住箭嘴方向 (no miss)")
+    }
+
+    /// The off-path hint just appeared: said at most once per stroke.
+    func shapeTraceHintShown(key: String) {
+        guard shapeTraceInputOpen else { return }
+        guard shapeTraceHintSpoken.insert(key).inserted else { return }
+        guideVoice.speak(ShapeTraceCopy.offPathPrompt)
+        VisaGamesLog.append("shapeTrace hint — 架車等緊你 stroke=\(key) (no miss)")
+    }
+
+    // MARK: 畫形狀設定 (shared by the shape-trace cards)
+
+    func adjustShapeTraceWeight(_ shape: ShapeTraceMixShape, steps: Int) {
+        guard session.mode == .parent else { return }
+        guard let next = shapeTraceSettings.adjusting(shape, steps: steps) else {
+            shapeTraceSettingsBanner = "最少要留一款形狀 / Keep at least one shape"
+            return
+        }
+        saveShapeTraceSettings(next, what: "shape_weight", value: "\(shape.rawValue):\(next.weight(shape))")
+    }
+
+    func resetShapeTraceMix() {
+        guard session.mode == .parent else { return }
+        saveShapeTraceSettings(shapeTraceSettings.withDefaultMix(), what: "shape_mix", value: "default")
+    }
+
+    func setShapeTraceTolerance(_ tolerance: LineMatchTolerance?) {
+        guard session.mode == .parent, tolerance != shapeTraceSettings.tolerance else { return }
+        var next = shapeTraceSettings
+        next.tolerance = tolerance
+        saveShapeTraceSettings(next, what: "tolerance", value: tolerance?.rawValue ?? "follow_lineMatch")
+    }
+
+    func setShapeTraceDirectionHint(_ on: Bool) {
+        guard session.mode == .parent, on != shapeTraceSettings.directionHint else { return }
+        var next = shapeTraceSettings
+        next.directionHint = on
+        saveShapeTraceSettings(next, what: "direction_hint", value: on ? "on" : "off")
+    }
+
+    func setShapeTraceCornerStop(_ on: Bool) {
+        guard session.mode == .parent, on != shapeTraceSettings.cornerStop else { return }
+        var next = shapeTraceSettings
+        next.cornerStop = on
+        saveShapeTraceSettings(next, what: "corner_stop", value: on ? "on" : "off")
+    }
+
+    func setShapeTraceSlantLines(_ on: Bool) {
+        guard session.mode == .parent, on != shapeTraceSettings.slantLines else { return }
+        var next = shapeTraceSettings
+        next.slantLines = on
+        saveShapeTraceSettings(next, what: "slant_lines", value: on ? "on" : "off")
+    }
+
+    func setShapeTraceDotStyle(_ style: ShapeTraceDotStyle) {
+        guard session.mode == .parent, style != shapeTraceSettings.dotStyle else { return }
+        var next = shapeTraceSettings
+        next.dotStyle = style
+        saveShapeTraceSettings(next, what: "dot_style", value: style.rawValue)
+    }
+
+    private func saveShapeTraceSettings(_ next: ShapeTraceSettings, what: String, value: String) {
+        shapeTraceSettings = next
+        shapeTraceSettingsStore.save(next)
+        shapeTraceSettingsBanner = nil
+        perf.shapeTraceSettingChanged(what: what, value: value, mix: next.mixDescription)
+        VisaGamesLog.append("shapeTrace settings — 畫形狀設定 \(what)=\(value) mix=\(next.mixDescription)")
+    }
+
     // MARK: - Parent game catalog + playtest (no visa)
 
     func toggleMissionStar(kind: ActivityKind, star: ChildDifficulty) {
         guard session.mode == .parent else { return }
+        // D11: a shape-trace card gets its first star only after one full 試玩 (turning off is fine).
+        if !gameAssignment.isEnabled(kind, star: star), !parentPlaytestLog.allowsStars(for: kind) {
+            gameAssignmentBanner = ParentPlaytestLog.needsPlaytestBanner
+            VisaGamesLog.append("game assignment refused — 試玩一次先開 kind=\(kind.rawValue) star=\(star.rawValue)")
+            return
+        }
         switch gameAssignment.toggling(kind, star: star) {
         case .updated(let next):
             gameAssignment = next
@@ -2262,10 +2494,14 @@ final class AppModel: ObservableObject {
             ? LineMatchGuidedBoard(question: playtestLineMatchQuestion, tolerance: lineMatchSettings.tolerance) : nil
         guidedHintSpokenRows = []
         lineMatchNotice = nil
+        playtestShapeTraceBoard = kind.isShapeTraceFamily
+            ? makeShapeTraceBoard(seed: playtestChoiceDealSeed, kind: kind, avoidingItem: nil) : nil
+        shapeTraceHintSpoken = []
+        shapeTraceNotice = nil
         clearPlaytestThinkPause()
         let facts = dealFacts(kind: kind, seed: playtestChoiceDealSeed,
                               findSame: playtestFindSameQuestion, count: playtestCountQuestion,
-                              lineMatch: playtestLineMatchBoard.question)
+                              lineMatch: playtestLineMatchBoard.question, shapeTrace: playtestShapeTraceBoard)
         perf.playtestStarted(round: playtestChoiceDealSeed, kind: kind, pendingStart: playtestStartingMinutes,
                              facts: facts)
         VisaGamesLog.append("playtest start — 試玩 kind=\(kind.rawValue) level=\(level.code) item=\(facts.item) mode=parent visa=false")
@@ -2316,6 +2552,10 @@ final class AppModel: ObservableObject {
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
             zh = playtestLineMatchBoard.question.promptTraditionalChinese
             en = playtestLineMatchBoard.question.promptEnglish
+        case .traceLines, .traceShapesDotted:
+            let question = playtestShapeTraceBoard?.question ?? ShapeTraceGenerator.reference(kind: kind)
+            zh = question.promptTraditionalChinese
+            en = question.promptEnglish
         }
         guideVoice.speak(SpokenPrompt(
             key: "playtest.\(kind.rawValue)",
@@ -2555,6 +2795,8 @@ final class AppModel: ObservableObject {
         playtestFuelMessage = nil
         playtestSequenceTaps = []
         playtestChoiceDealSeed = ""
+        playtestShapeTraceBoard = nil
+        shapeTraceNotice = nil
         clearPlaytestThinkPause()
         VisaGamesLog.append("playtest discard — 試玩收起 reason=\(reason)")
     }
@@ -3237,7 +3479,8 @@ struct ShellView: View {
                     onHint: { model.useEntryHint() },
                     onSpeakPrompt: { model.speakEntryPrompt() }
                 )
-            case .twoPictureChoose, .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .none:
+            case .twoPictureChoose, .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .traceLines,
+                 .traceShapesDotted, .none:
                 // Legacy shell is setup / parent only; 連一連 is canvas-only (CanvasActivityHost).
                 EntryActivityView(
                     question: model.currentTwoPictureQuestion,
