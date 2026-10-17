@@ -1,5 +1,21 @@
 # Progress
 
+## 2026-10-18 — v0.28.0 / 61 — 一架一架數 / Tap & Count (number and quantity 1–10)
+
+Branch `feat/number-quantity-v028` from main `b91eb83`. ADR 0017. Carter approved the design defaults (Q1 one numeral, Q2 judge at OK, Q4 LWT strokes with 9 in one stroke, Q6 Sinji + English, the rest bold defaults).
+
+- **VisaCore:**
+  - Kinds `tapCountAll` ★ 點一點, `tapCountTrace` ★★ 數完畫, `tapCountPick` ★★★ 揀啱數: default off, playtest-gated, own parent cards.
+  - `TapCountGenerator` (pure; T 1–10, half weight for 1–2, last 3 avoided; ★★★ N > T except T = 10), `TapCountBoard` (count / pick / OK / 擦晒 / demo / trace stages, monotonic), `TapCountSettings` + store, copy, perf facts (Give-N tags).
+  - `NumeralGlyphs` 0–10 centre lines; the trace engine gains cubic segments, corners and cusp windows.
+  - `TapCountArt` generated from the mockup defs and the Opus scene kit.
+- **App:**
+  - `TapCountBoardView` per mockups 01–08: row / ten-frame / yard, badges, count bubbles, reveal (underbrace, glow, sparkles, 叮 / 嘟 marks), parking strip + numeral trace board, tray (progress dots, step chips, legends, stamp box), 擦晒 and OK, tray Think Pause (06).
+  - AppModel wiring for the child round and 試玩; ★★★ wrong answers use the existing penalty; idle nudge / reprompt; 數字設定 in parent controls; mockup 09 card icons.
+  - `speakQueued` (rapid counts, optional `Resources/Voice/*.m4a` clips, silent without a voice).
+- **Kiosk:** no window, presentation or menu changes (ADR 0011). New checklist row 「一架一架數 tap & count」.
+- Version: Info.plist **0.28.0 / 61**, parent footer **Visa Games v0.28.0**.
+
 ## 2026-10-17 — v0.27.1 / 60 — Finder aligned with the design (D1–D17, mockups 01, 06–10)
 
 Same branch and PR (#26). Carter approved every bold default in the design notes.
