@@ -999,7 +999,7 @@ private struct AllowlistVideoCard: View {
 
 /// Parent-only thumbnail: YouTube thumbnail CDN via AsyncImage (never child playback).
 /// Network failure / invalid id → placeholder (never crash). Fills its frame.
-private struct AllowlistThumbnail: View {
+struct AllowlistThumbnail: View {
     let videoID: String
 
     var body: some View {
