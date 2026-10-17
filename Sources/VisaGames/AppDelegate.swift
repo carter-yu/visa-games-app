@@ -76,6 +76,25 @@ final class AppModel: ObservableObject {
     @Published var parentVideoDurationDraft = "120"
     @Published var showAllowlistAdvanced = false
     @Published private(set) var isFetchingAllowlistMetadata = false
+    /// v0.27.0 (ADR 0016): full-page in-app YouTube finder over the parent view. Same window,
+    /// same kiosk presentation; nothing in AppKit changes when it opens or closes.
+    /// v0.27.1: finder flow (confirm card over the finder, stay after add, toast, undo, flash).
+    @Published private(set) var parentFinder = ParentFinderState()
+    var parentBrowserOpen: Bool { parentFinder.isOpen }
+    /// D13: the list scrolls to and flashes this card after the finder closes.
+    @Published private(set) var parentFlashVideoID: String?
+    @Published private(set) var parentFlashUntil: Date?
+    @Published private(set) var parentFlashRequest = 0
+    /// 08: oEmbed embeddability of the draft id. Blocked → 加入 greyed out.
+    @Published private(set) var parentDraftEmbedCheck: ParentEmbedCheck = .unknown
+    private var embedCheckCache: [String: ParentEmbedCheck] = [:]
+    /// Duration field value the confirm card started with (Update only after an edit).
+    @Published private(set) var parentDraftDurationBaseline = "120"
+    @Published private(set) var parentRecentSearches: [String] = []
+    /// Length read from the YouTube page for the id handed over by the browser (D4 budget-fit).
+    @Published private(set) var parentDraftPageDuration: (videoID: String, seconds: TimeInterval)?
+    /// 試播 on the add card: the child's scoped player for a not-yet-added id (parent only).
+    @Published private(set) var parentDraftTrialVideoID: String?
     @Published private(set) var activePlayVideoID: String? {
         didSet {
             // D10: every path that clears or swaps the player passes through here.
@@ -227,6 +246,7 @@ final class AppModel: ObservableObject {
     init() {
         themePaletteID = ThemePreferenceStore().load()
         allowlist = VideoAllowlistStore().load()
+        parentRecentSearches = UserDefaults.standard.stringArray(forKey: ParentYouTubeBrowser.recentSearchesKey) ?? []
         gameAssignment = MissionGameAssignmentStore().load()
         lineMatchSettings = LineMatchSettingsStore().load()
         shapeTraceSettings = ShapeTraceSettingsStore().load()
@@ -438,6 +458,8 @@ final class AppModel: ObservableObject {
 
     func returnToChild(reason: String = "return") {
         providerBlockedParentHint = nil
+        parentFinder = ParentFinderState()
+        parentDraftTrialVideoID = nil
         // Auto-lock, sleep, and Return all come through here. Drop a playtest
         // before leaveParent so it cannot resume as a child round.
         discardPlaytestCover(reason: "leaveParent")
@@ -1316,8 +1338,21 @@ final class AppModel: ObservableObject {
             playbackMessage = "影片編號無效。 / Invalid video ID."
             return
         }
-        let durationParsed = TimeInterval(parentVideoDurationDraft.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
-        let durationSeconds: TimeInterval = durationParsed > 0 ? durationParsed : 120
+        // v0.27.1 (08): the owner blocks embedding → it would never play for the child.
+        if parentDraftStatus.videoID == id, parentDraftEmbedCheck == .blocked {
+            playbackMessage = "擁有者唔准喺其他地方播，加咗小朋友都播唔到。 / Owner blocks embedding; it would never play."
+            return
+        }
+        let durationText = parentVideoDurationDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let durationParsed = TimeInterval(durationText) ?? 0
+        // v0.27.0: the browser read the real length from the page → use it unless the parent typed one.
+        let pageSeconds = parentDraftPageDuration.flatMap { $0.videoID == id ? $0.seconds : nil }
+        let durationSeconds: TimeInterval
+        if let pageSeconds, durationText == "120" || durationText.isEmpty {
+            durationSeconds = pageSeconds
+        } else {
+            durationSeconds = durationParsed > 0 ? durationParsed : 120
+        }
         let titleOverride = parentVideoTitleDraft
         let overrideFields = Self.parentTitleFields(from: titleOverride)
 
@@ -1352,7 +1387,8 @@ final class AppModel: ObservableObject {
                 titleEnglish: titleEnglish,
                 titleCantonese: titleCantonese,
                 durationSeconds: durationSeconds,
-                playerDurationSeconds: next.video(id: id)?.playerDurationSeconds
+                playerDurationSeconds: next.video(id: id)?.playerDurationSeconds ?? pageSeconds,
+                addedAt: next.video(id: id).map { $0.addedAt } ?? Date()
             ))
             guard ok else {
                 self.playbackMessage = "影片編號無效。 / Invalid video ID."
@@ -1362,7 +1398,12 @@ final class AppModel: ObservableObject {
             self.allowlist = next
             self.allowlistStore.save(next)
             self.perf.allowlistChanged(op: existed ? "update" : "add", video: id)
+            // D4: an add from the finder's confirm card keeps the finder open with a toast.
+            self.parentFinder.didAdd(videoID: id, allowlistCount: next.videos.count, now: Date())
             self.parentVideoIDDraft = ""
+            self.parentDraftPageDuration = nil
+            self.parentDraftDurationBaseline = "120"
+            self.parentDraftTrialVideoID = nil
             self.parentVideoTitleDraft = ""
             self.parentVideoDurationDraft = "120"
             self.showAllowlistAdvanced = false
@@ -1376,16 +1417,190 @@ final class AppModel: ObservableObject {
         }
     }
 
+    // MARK: - Parent in-app YouTube finder (v0.27.0, ADR 0016)
+
+    /// Yellow 「喺 YouTube 搵片」. Stops any inline 試播 so two players never sound at once.
+    func openParentBrowser() {
+        guard session.mode == .parent, !parentFinder.isOpen else { return }
+        if activePlayVideoID != nil { stopParentPreview() }
+        parentDraftTrialVideoID = nil
+        parentFinder.open()
+        noteParentBrowserActivity()
+        VisaGamesLog.append("parent browser open — 喺 YouTube 搵片")
+    }
+
+    /// 完成，返去清單. The view pauses page media before calling this. Flashes the last card
+    /// added this visit (D13).
+    func closeParentBrowser(reason: String = "close") {
+        guard parentFinder.isOpen else { return }
+        if parentFinder.confirmVideoID != nil { cancelFinderConfirm() }
+        let flash = parentFinder.close()
+        if let flash { requestCardFlash(videoID: flash) }
+        VisaGamesLog.append("parent browser close — 返去清單 reason=\(reason)")
+    }
+
+    /// 睇吓張卡: leave the finder, scroll to that card and flash it.
+    func showCardFromFinder(videoID: String) {
+        guard parentFinder.isOpen else { return }
+        if parentFinder.confirmVideoID != nil { cancelFinderConfirm() }
+        requestCardFlash(videoID: parentFinder.showCard(videoID: videoID))
+        VisaGamesLog.append("parent browser show card id=\(videoID)")
+    }
+
+    private func requestCardFlash(videoID: String) {
+        guard allowlist.contains(id: videoID) else { return }
+        parentFlashVideoID = videoID
+        parentFlashUntil = Date().addingTimeInterval(2.5)
+        parentFlashRequest += 1
+    }
+
+    /// Flash is on for this card right now (time-based; no animation in the parent view).
+    func isCardFlashing(_ id: String) -> Bool {
+        guard parentFlashVideoID == id, let until = parentFlashUntil else { return false }
+        return now < until
+    }
+
+    /// D5 top-bar countdown. Nil outside parent mode.
+    var parentAutoLockRemaining: TimeInterval? {
+        guard session.mode == .parent, let parentDeadline else { return nil }
+        return max(0, parentDeadline.timeIntervalSince(now))
+    }
+
+    /// Browsing counts as parent activity (same 10-minute window as 試播).
+    func noteParentBrowserActivity() {
+        guard session.mode == .parent else { return }
+        parentDeadline = Date().addingTimeInterval(parentAccessSeconds)
+    }
+
+    func noteParentBrowserSearch(_ query: String) {
+        guard session.mode == .parent else { return }
+        let next = ParentYouTubeBrowser.recentSearches(adding: query, to: parentRecentSearches)
+        noteParentBrowserActivity()
+        guard next != parentRecentSearches else { return }
+        parentRecentSearches = next
+        UserDefaults.standard.set(next, forKey: ParentYouTubeBrowser.recentSearchesKey)
+    }
+
+    func clearParentRecentSearches() {
+        guard session.mode == .parent else { return }
+        parentRecentSearches = []
+        UserDefaults.standard.removeObject(forKey: ParentYouTubeBrowser.recentSearchesKey)
+    }
+
+    /// 「＋ 加入呢條片」 (or 更新片名／片長, or a pasted link): the existing preview card opens over
+    /// the finder (08). Nothing is saved until 加入. The page length fills 「片長秒數」.
+    func beginFinderConfirm(videoID: String, pageDurationSeconds: TimeInterval?) {
+        guard session.mode == .parent, parentFinder.isOpen, YouTubeEmbedURL.isValidVideoID(videoID) else { return }
+        parentDraftTrialVideoID = nil
+        parentVideoTitleDraft = ""
+        if let existing = allowlist.video(id: videoID) {
+            parentDraftPageDuration = pageDurationSeconds.map { (videoID: videoID, seconds: $0) }
+            parentVideoDurationDraft = String(Int(existing.durationSeconds.rounded()))
+        } else if let seconds = pageDurationSeconds {
+            parentDraftPageDuration = (videoID: videoID, seconds: seconds)
+            parentVideoDurationDraft = String(Int(seconds.rounded()))
+        } else {
+            parentDraftPageDuration = nil
+            parentVideoDurationDraft = "120"
+        }
+        parentDraftDurationBaseline = parentVideoDurationDraft
+        parentVideoIDDraft = "https://www.youtube.com/watch?v=\(videoID)"
+        parentFinder.beginConfirm(videoID: videoID)
+        noteParentBrowserActivity()
+        VisaGamesLog.append("parent browser confirm — 加入呢條片 id=\(videoID) length=\(pageDurationSeconds.map { String(Int($0)) } ?? "?")")
+    }
+
+    /// 取消 / Esc on the confirm card: back to the finder, nothing saved.
+    func cancelFinderConfirm() {
+        parentFinder.cancelConfirm()
+        parentDraftTrialVideoID = nil
+        parentVideoIDDraft = ""
+        parentVideoTitleDraft = ""
+        parentVideoDurationDraft = "120"
+        parentDraftDurationBaseline = "120"
+        parentDraftPageDuration = nil
+    }
+
+    /// 加入 / Return on the confirm card. On success the finder stays open (D4).
+    func confirmFinderAdd() {
+        guard parentFinder.confirmVideoID != nil else { return }
+        noteParentBrowserActivity()
+        addAllowlistedVideo()
+    }
+
+    /// 復原 while the toast shows.
+    func undoFinderAdd() {
+        guard let id = parentFinder.undo(now: Date()) else { return }
+        removeAllowlistedVideo(id: id)
+        playbackMessage = "已復原，冇加到。 / Undone, not added."
+        VisaGamesLog.append("parent browser undo id=\(id)")
+    }
+
+    /// Confirm card: 加入 / 更新 enabled?
+    var finderConfirmCanAdd: Bool {
+        guard !isFetchingAllowlistMetadata, parentDraftEmbedCheck.allowsAdd else { return false }
+        switch parentDraftStatus {
+        case .ready: return true
+        case .alreadyAllowlisted:
+            let titleTyped = !parentVideoTitleDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            let durationEdited = parentVideoDurationDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                != parentDraftDurationBaseline
+            return titleTyped || durationEdited
+        case .empty, .invalid: return false
+        }
+    }
+
+    func noteFinderDataCleared() {
+        guard session.mode == .parent else { return }
+        playbackMessage = "已清除搵片器資料（小朋友播放器唔受影響）。 / Finder data cleared (child player untouched)."
+        VisaGamesLog.append("parent finder data cleared")
+    }
+
+    /// Length shown on the add card: page length from the browser or the 試播 player.
+    var parentDraftLengthLabel: String? {
+        guard let known = parentDraftPageDuration, known.videoID == parentDraftStatus.videoID else { return nil }
+        return ApprovedVideo.clockLabel(seconds: known.seconds)
+    }
+
+    /// 試播 on the add card plays the draft id in the child's scoped player (parent only).
+    func startDraftTrial() {
+        guard session.mode == .parent, let id = parentDraftStatus.videoID else { return }
+        if activePlayVideoID != nil { stopParentPreview() }
+        parentDraftTrialVideoID = id
+        noteParentBrowserActivity()
+        VisaGamesLog.append("draft trial — 試播 id=\(id)")
+    }
+
+    func stopDraftTrial() {
+        parentDraftTrialVideoID = nil
+    }
+
+    func noteDraftTrialDuration(videoID: String, seconds: TimeInterval) {
+        guard seconds.isFinite, seconds > 0, videoID == parentDraftStatus.videoID else { return }
+        parentDraftPageDuration = (videoID: videoID, seconds: seconds.rounded())
+    }
+
+    func handleDraftTrialBlocked(videoID: String) {
+        guard session.mode == .parent else { return }
+        playbackMessage = "YouTube 要求驗證，試播唔到；照樣可以撳「加入」。 / YouTube bot check — preview failed, you can still Add."
+        VisaGamesLog.append("draft trial blocked — 試播被擋 id=\(videoID)")
+    }
+
     /// Public oEmbed title for an id (no API key). Nil on any failure.
     private static func fetchOEmbedTitle(videoID: String) async -> String? {
-        guard let url = YouTubeOEmbed.requestURL(videoID: videoID) else { return nil }
+        await fetchOEmbed(videoID: videoID).title
+    }
+
+    /// Title plus the HTTP status (embeddability, 08). Nil status = network failure.
+    private static func fetchOEmbed(videoID: String) async -> (title: String?, status: Int?) {
+        guard let url = YouTubeOEmbed.requestURL(videoID: videoID) else { return (nil, nil) }
         do {
             let (data, response) = try await URLSession.shared.data(from: url)
-            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            guard (200..<300).contains(status) else { return nil }
-            return YouTubeOEmbed.parse(data)?.title
+            guard let status = (response as? HTTPURLResponse)?.statusCode else { return (nil, nil) }
+            guard (200..<300).contains(status) else { return (nil, status) }
+            return (YouTubeOEmbed.parse(data)?.title, status)
         } catch {
-            return nil
+            return (nil, nil)
         }
     }
 
@@ -1395,11 +1610,13 @@ final class AppModel: ObservableObject {
         let previousID = parentDraftStatus.videoID
         let status = ParentAllowlistDraft.evaluate(parentVideoIDDraft, allowlist: allowlist)
         parentDraftStatus = status
+        if parentDraftTrialVideoID != nil, parentDraftTrialVideoID != status.videoID { parentDraftTrialVideoID = nil }
         guard let id = status.videoID else {
             draftTitleTask?.cancel()
             draftTitleTask = nil
             parentDraftTitle = nil
             isFetchingDraftTitle = false
+            parentDraftEmbedCheck = .unknown
             return
         }
         guard id != previousID else { return }
@@ -1408,21 +1625,28 @@ final class AppModel: ObservableObject {
         if let known = allowlist.video(id: id), known.hasParentTitle {
             parentDraftTitle = known.parentLabel
             isFetchingDraftTitle = false
+            parentDraftEmbedCheck = embedCheckCache[id] ?? .unknown
             return
         }
         if let cached = oEmbedTitleCache[id] {
             parentDraftTitle = cached
             isFetchingDraftTitle = false
+            parentDraftEmbedCheck = embedCheckCache[id] ?? .embeddable
             return
         }
         parentDraftTitle = nil
         isFetchingDraftTitle = true
+        parentDraftEmbedCheck = embedCheckCache[id] ?? .checking
         draftTitleTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 350_000_000)
             guard !Task.isCancelled else { return }
-            let title = await Self.fetchOEmbedTitle(videoID: id)
+            let result = await Self.fetchOEmbed(videoID: id)
+            let title = result.title
             guard let self, !Task.isCancelled, self.parentDraftStatus.videoID == id else { return }
             self.isFetchingDraftTitle = false
+            let check = ParentEmbedCheck.from(httpStatus: result.status)
+            if check != .unknown { self.embedCheckCache[id] = check }
+            self.parentDraftEmbedCheck = check
             if let title {
                 self.oEmbedTitleCache[id] = title
                 self.parentDraftTitle = title
@@ -2943,6 +3167,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             guard let self else { return event }
             if self.model.session.blocksKey(isEscape: event.keyCode == 53,
                                             hasCommand: event.modifierFlags.contains(.command)) { return nil }
+            // v0.27.0: the kiosk window has no Edit menu (ADR 0011), so ⌘V / ⌘C / ⌘X / ⌘A / ⌘Z
+            // go to the first responder here. Parent mode only; child keys are blocked above.
+            if let action = Self.editingAction(for: event, allowsExit: self.model.session.allowsExit),
+               NSApp.sendAction(action, to: nil, from: nil) { return nil }
             return event
         }
         // Observe-only: feeds the pen glow and always passes the event on unchanged.
@@ -2967,6 +3195,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NotificationCenter.default.addObserver(self, selector: #selector(screenChanged),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
         startSoakIfRequested()
+    }
+
+    private static func editingAction(for event: NSEvent, allowsExit: Bool) -> Selector? {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let shortcut = ParentEditingShortcut.shortcut(
+            characters: event.charactersIgnoringModifiers,
+            command: flags.contains(.command),
+            otherModifiers: !flags.intersection([.control, .option, .shift]).isEmpty,
+            allowsExit: allowsExit
+        )
+        switch shortcut {
+        case .paste: return #selector(NSText.paste(_:))
+        case .copy: return #selector(NSText.copy(_:))
+        case .cut: return #selector(NSText.cut(_:))
+        case .selectAll: return #selector(NSText.selectAll(_:))
+        case .undo: return Selector(("undo:"))
+        case nil: return nil
+        }
     }
 
     @objc private func willSleep() { model.returnToChild(reason: "sleep") }

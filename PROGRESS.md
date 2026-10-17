@@ -1,5 +1,33 @@
 # Progress
 
+## 2026-10-17 — v0.27.1 / 60 — Finder aligned with the design (D1–D17, mockups 01, 06–10)
+
+Same branch and PR (#26). Carter approved every bold default in the design notes.
+
+- **VisaCore:** `ParentFinderState` (confirm over the finder, stay after adding, 3 s toast, 復原, flash on close), `ParentEmbedCheck` (oEmbed 401 / 403 / 404 → can't add), `ParentFinderZoom` (125%, A− / A+, remembered), 「✓ 已加」 marks + CSS that hides YouTube's search bar, Shorts shelves and comments, Chinese bot-check text, `ApprovedVideo.addedAt`, `VideoAllowlist.cardNumber`.
+- **App:**
+  - Top bar with 返回, the auto-lock countdown, version and 離開程式; toolbar with 首頁, zoom and 「完成，返去清單」; ⌘F / ⌘L / ⌘[ / ⌘] / ⌘R / ⌘↩ / Esc.
+  - Start page 「今日想搵咩片？」, bot-check banner per mockup 06, add bar per mockup 01 / 07 / 09, confirm card over the darkened finder (08).
+  - The finder has its own website data store; 進階 →「清除搵片器資料」. The child player's store is unchanged.
+  - New-window links are refused. Autoplay is off (`.all`).
+  - Parent list: 「喺 YouTube 搵片」 with 「新 NEW」; scroll to and flash the new card; embed gating on the paste field too.
+- Version: Info.plist **0.27.1 / 60**, parent footer **Visa Games v0.27.1**.
+- Tests: +4 parent-youtube checks (12 in total). `sh scripts/test.sh` passes on the Mac mini.
+
+## 2026-10-17 — v0.27.0 / 59 — Parent in-app YouTube finder (option A)
+
+Branch `feat/parent-youtube-v027` from main `557f115`. ADR 0016. Carter chose A, with E (favourite channels and RSS) as phase 2.
+
+- **VisaCore:** `ParentYouTubeBrowser` covers URL → page / video id, the add-bar state, the main-frame navigation policy, search destinations, recent searches, page length (ISO 8601) and the read-only probe script. `ParentEditingShortcut` handles the ⌘ keys.
+- **App:**
+  - `ParentYouTubeBrowserView` is a full page inside the parent view. It has the start page, a toolbar, the bottom add bar (＋ 加入呢條片 / ✓ 已經加咗 / 揀一條片先) and a bot-check banner.
+  - The yellow 「喺 YouTube 搜片」 button sits next to the paste field.
+  - Add hands the URL to the existing preview card, which gains 試播 (child scoped player) and 片長.
+  - ⌘V / ⌘C / ⌘X / ⌘A / ⌘Z now work in parent mode without an Edit menu.
+- **Kiosk:** no window, presentation or menu changes (ADR 0011). New checklist row 「家長 YouTube 搜片」.
+- Version: Info.plist **0.27.0 / 59**, parent footer **Visa Games v0.27.0**.
+- Tests: +8 parent-youtube checks. `sh scripts/test.sh` passes on the Mac mini.
+
 
 ## 2026-10-17 — v0.26.0 / 58 — 畫線畫形 phase 2 (`traceShapesArrows` ★★, `traceShapesFree` ★★★)
 

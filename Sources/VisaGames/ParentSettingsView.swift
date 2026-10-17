@@ -17,7 +17,7 @@ struct ParentSettingsView: View {
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.26.0"
+    static let versionLabel = "Visa Games v0.27.1"
 
     /// v0.21.0: 表現 (Review) is the third parent segment (layout L5).
     private enum ParentLibrary { case videos, games, review }
@@ -53,10 +53,19 @@ struct ParentSettingsView: View {
                         .frame(maxWidth: 940, alignment: .leading)
                         .frame(maxWidth: .infinity)
                     }
+                    // D13: after the finder closes, scroll to the new (or 睇吓張卡) card.
+                    .onChange(of: model.parentFlashRequest) { _ in
+                        library = .videos
+                        if let id = model.parentFlashVideoID { proxy.scrollTo(id, anchor: .center) }
+                    }
                 }
             }
             if model.session.mode == .parent, let kind = model.playtestKind {
                 ParentPlaytestCover(model: model, kind: kind)
+            }
+            // v0.27.0 (ADR 0016): full-page YouTube finder in this same view and window.
+            if model.session.mode == .parent, model.parentBrowserOpen, model.playtestKind == nil {
+                ParentYouTubeBrowserView(model: model)
             }
         }
         .background(Color(hex: DesignTokens.Palette.paper).ignoresSafeArea())
@@ -319,9 +328,12 @@ struct ParentSettingsView: View {
                             AllowlistVideoCard(
                                 video: video,
                                 isPlaying: model.activePlayVideoID == video.id,
+                                isFlashing: model.isCardFlashing(video.id)
+                                    && Int(model.now.timeIntervalSince1970 * 2) % 2 == 0,
                                 onPlay: { _ = model.playAllowlisted(id: video.id) },
                                 onDelete: { model.removeAllowlistedVideo(id: video.id) }
                             )
+                            .id(video.id)
                         }
                     }
                     .padding(.bottom, 6)
@@ -338,7 +350,7 @@ struct ParentSettingsView: View {
     /// New id → Add. Already listed → Update only when an Advanced override was typed
     /// (keeps the old re-add-to-rename capability without inviting accidental duplicates).
     private var addEnabled: Bool {
-        guard !model.isFetchingAllowlistMetadata else { return false }
+        guard !model.isFetchingAllowlistMetadata, model.parentDraftEmbedCheck.allowsAdd else { return false }
         switch model.parentDraftStatus {
         case .ready: return true
         case .alreadyAllowlisted: return hasAddOverride
@@ -346,7 +358,41 @@ struct ParentSettingsView: View {
         }
     }
 
+    /// 00: paste field (kept as the fallback) + the yellow 「喺 YouTube 搵片」 button with 「新 NEW」.
     private var pasteRow: some View {
+        HStack(spacing: 14) {
+            pasteField
+            Button(action: { model.openParentBrowser() }) {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 18, weight: .heavy))
+                    VStack(alignment: .leading, spacing: 0) {
+                        ParentLabel("喺 YouTube 搵片", size: 18, weight: 900)
+                        ParentLabel("Find on YouTube", size: 11, weight: 700, color: .inkSoft)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+            }
+            .buttonStyle(ChunkyButtonStyle(fill: Color(hex: DesignTokens.Palette.sunny),
+                                           cornerRadius: 16, shadowDepth: 5, lineWidth: 3))
+            .disabled(model.isFetchingAllowlistMetadata)
+            .accessibilityLabel("喺 YouTube 搵片 / Find on YouTube")
+            .overlay(alignment: .topTrailing) {
+                Text("新 NEW")
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Color.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color(hex: DesignTokens.Palette.tomato)))
+                    .overlay(Capsule().strokeBorder(Color.ink, lineWidth: 2))
+                    .offset(x: 8, y: -10)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private var pasteField: some View {
         HStack(spacing: 12) {
             Image(systemName: "link")
                 .font(.system(size: 18, weight: .bold))
@@ -410,19 +456,66 @@ struct ParentSettingsView: View {
                     Text(id)
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(Color.inkSoft)
-                    if case .alreadyAllowlisted = model.parentDraftStatus {
-                        ParentPill(text: "已喺清單 / Already added", fill: Color(hex: DesignTokens.Palette.sand))
-                    } else {
-                        ParentPill(text: "預覽 / Preview — 撳「加入」 / press Add",
-                                   fill: Color(hex: DesignTokens.Palette.mint).opacity(0.35))
+                    HStack(spacing: 8) {
+                        if case .alreadyAllowlisted = model.parentDraftStatus {
+                            ParentPill(text: "✓ 已經加咗 / Already added", fill: Color(hex: DesignTokens.Palette.mint))
+                        } else {
+                            ParentPill(text: "預覽 / Preview — 撳「加入」 / press Add",
+                                       fill: Color(hex: DesignTokens.Palette.mint).opacity(0.35))
+                        }
+                        if let length = model.parentDraftLengthLabel {
+                            ParentPill(text: "片長 \(length) / Length", fill: .white)
+                        }
+                    }
+                    // v0.27.1 (08): oEmbed embeddability.
+                    switch model.parentDraftEmbedCheck {
+                    case .blocked:
+                        ParentLabel("擁有者唔准喺其他地方播，加咗小朋友都播唔到。 / Owner blocks embedding.",
+                                    size: 13, weight: 800, color: Color(hex: DesignTokens.Palette.stampRed))
+                    case .checking:
+                        ParentLabel("檢查緊可唔可以嵌入… / Checking embedding…", size: 12, weight: 600, color: .inkSoft)
+                    case .embeddable:
+                        ParentLabel("可以喺小朋友嘅播放器播 / Embeddable", size: 12, weight: 700, color: .inkSoft)
+                    case .unknown:
+                        EmptyView()
                     }
                 }
                 Spacer(minLength: 0)
+                // v0.27.0: 試播 the draft in the child's scoped player before adding.
+                Button(action: {
+                    if model.parentDraftTrialVideoID == id { model.stopDraftTrial() } else { model.startDraftTrial() }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: model.parentDraftTrialVideoID == id ? "stop.fill" : "play.fill")
+                        ParentLabel(model.parentDraftTrialVideoID == id ? "停止 Stop" : "試播 Preview", size: 15, weight: 800)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                }
+                .buttonStyle(ChunkyButtonStyle(fill: .white, cornerRadius: 12, shadowDepth: 3, lineWidth: 3))
             }
             .padding(12)
             .modifier(ChunkyPanel(fill: Color(hex: DesignTokens.Palette.taxiTicket),
                                   cornerRadius: 16, shadowDepth: 4, lineWidth: 3))
+            if let trialID = model.parentDraftTrialVideoID, trialID == id {
+                draftTrialPlayer(videoID: trialID)
+            }
         }
+    }
+
+    /// 試播 for a not-yet-added id: the same scoped embed the child uses (ADR 0016).
+    private func draftTrialPlayer(videoID: String) -> some View {
+        ScopedPlayerView(
+            videoID: videoID,
+            onNavigationRejected: { model.stopDraftTrial() },
+            onPlaybackEnded: { _ in model.stopDraftTrial() },
+            onDurationKnown: { model.noteDraftTrialDuration(videoID: $0, seconds: $1) },
+            onCurrentTime: nil,
+            onProviderBlocked: { id, _ in model.handleDraftTrialBlocked(videoID: id) }
+        )
+        .frame(height: 340)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.ink, lineWidth: 3))
     }
 
     /// Optional per-add overrides (title / D4 budget-fit seconds). Same fields as before.
@@ -538,6 +631,10 @@ struct ParentSettingsView: View {
                                   symbol: "folder",
                                   action: { model.openScopedPlayerLogsFolder() })
             }
+            // D6: only the finder's own website data; the child player's store is untouched.
+            ParentSmallButton(title: "清除搵片器資料（cookie）/ Clear finder data",
+                              symbol: "globe",
+                              action: { ParentFinderWebData.clear { model.noteFinderDataCleared() } })
             // Same confirmation as the top banner, next to the UAT buttons (no scrolling back).
             if let playbackMessage = model.playbackMessage {
                 Text(playbackMessage)
@@ -861,6 +958,8 @@ private struct ThemeChip: View {
 private struct AllowlistVideoCard: View {
     let video: ApprovedVideo
     let isPlaying: Bool
+    /// D13: the card just added from the finder blinks (time-based, no animation).
+    var isFlashing = false
     let onPlay: () -> Void
     let onDelete: () -> Void
     @State private var confirmDelete = false
@@ -935,6 +1034,11 @@ private struct AllowlistVideoCard: View {
             }
         }
         .padding(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color(hex: DesignTokens.Palette.sunny), lineWidth: isFlashing ? 8 : 0)
+                .padding(-6)
+        )
         .modifier(ChunkyPanel(
             fill: isPlaying ? Color(hex: DesignTokens.Palette.sunnyPale) : Color(hex: DesignTokens.Palette.paper),
             cornerRadius: 18, shadowDepth: 5, lineWidth: 3
@@ -944,7 +1048,7 @@ private struct AllowlistVideoCard: View {
 
 /// Parent-only thumbnail: YouTube thumbnail CDN via AsyncImage (never child playback).
 /// Network failure / invalid id → placeholder (never crash). Fills its frame.
-private struct AllowlistThumbnail: View {
+struct AllowlistThumbnail: View {
     let videoID: String
 
     var body: some View {
