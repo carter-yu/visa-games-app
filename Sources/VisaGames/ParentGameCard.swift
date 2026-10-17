@@ -194,8 +194,8 @@ private struct ParentGameArtWell: View {
                         .frame(height: kind == .traceLines ? 34 : 26)
                         .offset(y: kind == .traceLines ? -18 : 0)
                 }
-                if kind == .traceShapesDotted {
-                    Text("口 人 o")
+                if kind != .traceLines {
+                    Text(kind == .traceShapesFree ? "自己畫" : "口 人 o")
                         .font(CanvasFont.font(size: 18, weight: 900))
                         .foregroundStyle(Color.ink)
                         .fixedSize()
