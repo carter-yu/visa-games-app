@@ -65,7 +65,8 @@ final class ParentYouTubeBrowserTests {
         for bar in bars {
             expectFalse(bar.title.isEmpty)
             expectTrue(bar.subtitle.unicodeScalars.allSatisfy { $0.isASCII })
-            for simplified in ["这", "条", "选", "过", "还", "择", "频", "录", "载", "边"] {
+            // Simplified-only characters, written as escapes so the source stays Traditional.
+            for simplified in ["\u{8FD9}", "\u{6761}", "\u{9009}", "\u{8FC7}", "\u{8FD8}", "\u{62E9}", "\u{9891}", "\u{5F55}", "\u{8F7D}", "\u{8FB9}"] {
                 expectFalse(bar.title.contains(simplified), "Simplified \(simplified) in \(bar.title)")
             }
         }
