@@ -11,7 +11,7 @@ import VisaCore
 ///
 /// 畫形狀 · 跟箭嘴 (★★): faint outlines, shape-order badges, ▲ ◁ ▽, 砌車仔 with a 「今日砌」 card.
 /// 畫形狀 · 自己畫 (★★★): corner dots only, the child's own crayon ink, a 「照住畫」 model card,
-/// a waiting dot instead of the car, a victory lap along the child's own line, and 擦晒 for the
+/// a waiting dot instead of the car, a victory lap along the child's own line, and the eraser for the
 /// current shape only (bottom-left tray, never the parent corner).
 ///
 /// All rules live in `VisaCore.ShapeTraceBoard`. This view runs it on a local copy per pen event
@@ -140,7 +140,7 @@ private struct ShapeTraceStageContent: View {
         penTip = nil
     }
 
-    /// ★★★ 擦晒: the current shape only (3 s cooldown; nudge on the 4th press; hidden on the 6th).
+    /// ★★★ eraser: the current shape only (3 s cooldown; nudge on the 4th press; hidden on the 6th).
     private func erasePressed() {
         guard !view.locked else { return }
         var next = board
@@ -380,7 +380,7 @@ private struct ShapeTraceStageContent: View {
         }
     }
 
-    // MARK: 「今日砌」 card (砌車仔 ★★), 「照住畫」 model card and 擦晒 (★★★)
+    // MARK: 「今日砌」 card (砌車仔 ★★), 「照住畫」 model card and the eraser (★★★)
 
     @ViewBuilder
     private var buildCard: some View {

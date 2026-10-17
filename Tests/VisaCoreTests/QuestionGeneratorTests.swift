@@ -30,7 +30,7 @@ final class QuestionGeneratorTests {
         expectEqual(ChildDifficulty.allCases.map(\.minutes), [5, 10, 15])
         expectEqual(QuestionGeneration.generatedKinds,
                     [.countVehicles, .findTheSame, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch,
-                     .traceLines, .traceShapesDotted])
+                     .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree])
     }
 
     func testQuestionRNGIsDeterministicAndUniform() {
