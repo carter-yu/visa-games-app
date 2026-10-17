@@ -44,6 +44,13 @@ struct ParentGameCard: View {
                 playtestStatus
             }
 
+            if kind.isTapCountFamily {
+                // Q8 (default A): any star may be ticked; the card only suggests one.
+                Text(TapCountCopy.recommendedStar(kind))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.inkSoft)
+            }
+
             HStack(spacing: 6) {
                 ForEach(ChildDifficulty.allCases, id: \.rawValue) { star in
                     starToggle(star)
