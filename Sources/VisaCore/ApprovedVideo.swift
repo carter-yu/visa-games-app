@@ -17,19 +17,24 @@ public struct ApprovedVideo: Sendable, Equatable, Codable, Identifiable {
     /// Display-only for parent cards; never replaces the D4 `durationSeconds` above.
     /// Optional so pre-v0.12.0 allowlist JSON still decodes.
     public var playerDurationSeconds: TimeInterval?
+    /// When the parent first added it (v0.27.1, finder 07 「10 月 3 日加」). Optional so older
+    /// allowlist JSON still decodes; older cards simply show no date.
+    public var addedAt: Date?
 
     public init(
         id: String,
         titleEnglish: String? = nil,
         titleCantonese: String? = nil,
         durationSeconds: TimeInterval,
-        playerDurationSeconds: TimeInterval? = nil
+        playerDurationSeconds: TimeInterval? = nil,
+        addedAt: Date? = nil
     ) {
         self.id = id
         self.titleEnglish = titleEnglish
         self.titleCantonese = titleCantonese
         self.durationSeconds = durationSeconds
         self.playerDurationSeconds = playerDurationSeconds
+        self.addedAt = addedAt
     }
 
     /// True once the player has reported a real length for this video.
@@ -110,6 +115,11 @@ public struct VideoAllowlist: Sendable, Equatable, Codable {
 
     public func video(id: String) -> ApprovedVideo? {
         videos.first { $0.id == id }
+    }
+
+    /// 1-based card position in the parent list (new cards go last, D13).
+    public func cardNumber(id: String) -> Int? {
+        videos.firstIndex { $0.id == id }.map { $0 + 1 }
     }
 
     /// Insert or replace by id. Empty ids are rejected.

@@ -74,7 +74,12 @@ public enum ProviderBlockedPolicy: Sendable {
     /// Page-scan text match: exact bot-check phrases only, visible panel text.
     public static func pageTextIndicatesBotCheck(_ visibleText: String) -> Bool {
         let t = visibleText.lowercased()
-        return t.contains("not a bot") || t.contains("sign in to confirm")
+        if t.contains("not a bot") || t.contains("sign in to confirm") { return true }
+        // v0.27.1: YouTube's Chinese UI (HK / TW 機械人 or 機器人; the mainland page is
+        // matched with escapes so this source stays Traditional).
+        let chinese = ["不是機械人", "不是機器人", "唔係機械人", "確認你不是", "確認您不是",
+                       "\u{4E0D}\u{662F}\u{673A}\u{5668}\u{4EBA}", "\u{786E}\u{8BA4}\u{60A8}\u{4E0D}\u{662F}"]
+        return chinese.contains { visibleText.contains($0) }
     }
 }
 
