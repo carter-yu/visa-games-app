@@ -96,7 +96,7 @@ struct CanvasActivityHost: View {
                 emptyBay
             case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
                 lineMatch
-            case .traceLines, .traceShapesDotted:
+            case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
                 shapeTrace
             case .none:
                 EmptyView()

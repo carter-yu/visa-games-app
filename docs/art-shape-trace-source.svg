@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 畫線畫形 art source (v0.25.0). Every element is copied from the approved Opus mockups in
-     visa-games-design/shape-trace/mockups (01 lines warm-up, 02 towers, 03 snow town,
-     04 castle windows). Only mechanical edits: <use> inlined as translated groups, the tower-C
+<!-- 畫線畫形 art source (v0.25.0; v0.26.0 adds 05 build-a-car, 06 free towers). Every element is
+     copied from the approved Opus mockups in visa-games-design/shape-trace/mockups (01 lines
+     warm-up, 02 towers, 03 snow town, 04 castle windows, 05 build-a-car, 06 towers free).
+     v0.26.0 mechanical edits: rotated wrenches (05) and the rotated eraser (06) baked into path
+     data (rounded corners as quadratics), text removed. Only mechanical edits: <use> inlined as translated groups, the tower-C
      dome arc written as two cubics, the arch window's 0.9 scale baked in, and <text> removed
      (drawn by the app with CanvasText). Converted by scripts/svg_to_shapetraceart.py. -->
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
@@ -69,6 +71,22 @@
 
   <!-- 03 snowman arms, origin = body centre (600, 430) -->
   <g id="snow-arms" stroke="#2B2630" stroke-linecap="round" stroke-width="7" transform="translate(-600 -430)"><path d="M498 404 L446 362 M456 370 L440 378"/><path d="M702 404 L754 362 M744 370 L760 378"/></g>
+  <!-- 06 #corner #corner-end (★★★ corner dots), origin = centre -->
+  <g id="corner-dot"><circle r="10" fill="#B9B0BE" stroke="#2B2630" stroke-width="4"/></g>
+  <g id="corner-end"><circle r="13" fill="#EE5A4C" stroke="#2B2630" stroke-width="4.5"/></g>
+
+  <!-- 06 #btn-eraser without its text (擦晒 / Clear drawn by the app), origin = top-left; rotation baked -->
+  <g id="eraser-button" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="0" y="8" width="200" height="160" rx="32" fill="#2B2630" opacity="0.18"/>
+    <rect x="0" y="0" width="200" height="160" rx="32" fill="#FFF9EC" stroke="#2B2630" stroke-width="6"/>
+    <path d="M58.41 47.34 L126.29 22.63 Q135.99 19.11 139.52 28.8 L147.76 51.43 Q151.29 61.13 141.59 64.66 L73.71 89.37 Q64.01 92.89 60.48 83.2 L52.24 60.57 Q48.71 50.87 58.41 47.34 Z" fill="#F49AB0"/>
+    <path d="M103.67 30.87 L126.29 22.63 Q135.99 19.11 139.52 28.8 L147.76 51.43 Q151.29 61.13 141.59 64.66 L118.96 72.89 Z" fill="#6FA8E8"/>
+    <path d="M58.41 47.34 L126.29 22.63 Q135.99 19.11 139.52 28.8 L147.76 51.43 Q151.29 61.13 141.59 64.66 L73.71 89.37 Q64.01 92.89 60.48 83.2 L52.24 60.57 Q48.71 50.87 58.41 47.34 Z" fill="none" stroke="#2B2630" stroke-width="6"/>
+    <path d="M103.67 30.87 L118.96 72.89" stroke="#2B2630" stroke-width="5.2"/>
+    <path d="M62.67 54.03 L88.53 44.61 Q91.77 43.44 92.94 46.67 Q94.12 49.9 90.89 51.08 L65.03 60.49 Q61.79 61.67 60.62 58.44 Q59.44 55.2 62.67 54.03 Z" fill="#FFFFFF" opacity="0.7"/>
+    <circle cx="44" cy="92" r="4.5" fill="#F49AB0" stroke="#2B2630" stroke-width="2.5"/>
+    <circle cx="58" cy="100" r="3.5" fill="#F49AB0" stroke="#2B2630" stroke-width="2.5"/>
+  </g>
 </defs>
 
 <!-- ======== stage-sized scenery (1280 × 720, origin top-left) ======== -->
@@ -170,5 +188,41 @@
   <path d="M182 540 V488 Q182 462 210 462 Q238 462 238 488 V540 Z" fill="#8A5A3B" stroke-width="5"/>
   <path d="M86 476 V458 Q86 444 100 444 Q114 444 114 458 V476 Z M306 476 V458 Q306 444 320 444 Q334 444 334 458 V476 Z" fill="#7FC4E8" stroke-width="4"/>
   <path d="M205 152 V128 M195 138 H215" stroke-width="5" stroke-linecap="round"/>
+</g>
+<!-- 06: grass, castle walls and three open-topped towers (the child draws each ▲ including its base) -->
+<g id="castle-keep">
+  <path d="M0 540 C120 470 240 470 380 520 C520 470 760 460 900 510 C1040 466 1180 470 1280 500 V540 Z" fill="#B9E08F"/>
+  <g stroke="#2B2630" stroke-linejoin="round">
+    <path d="M355 540 V462 H378 V446 H404 V462 H430 V446 H456 V462 H482 V446 H508 V462 H535 V540 Z" fill="#E9D5B0" stroke-width="5"/>
+    <path d="M745 540 V462 H770 V446 H796 V462 H822 V446 H848 V462 H880 V540 Z" fill="#E9D5B0" stroke-width="5"/>
+    <path d="M415 540 V506 Q415 482 445 482 Q475 482 475 506 V540 Z" fill="#8A5A3B" stroke-width="5"/>
+    <path d="M145 432 V540 H355 V432" fill="#F3E3C6" stroke-width="6"/>
+    <path d="M535 382 V540 H745 V382" fill="#F3E3C6" stroke-width="6"/>
+    <path d="M880 402 V540 H1050 V402" fill="#F3E3C6" stroke-width="6"/>
+    <g fill="none" stroke="#D9C29A" stroke-width="3"><path d="M148 485 H352 M200 485 V538 M300 485 V538 M538 450 H742 M538 495 H742 M590 450 V495 M690 450 V495 M883 470 H1047 M965 470 V538"/></g>
+    <path d="M230 470 V456 Q230 444 250 444 Q270 444 270 456 V470 Z M620 432 V416 Q620 402 640 402 Q660 402 660 416 V432 Z M945 446 V432 Q945 420 965 420 Q985 420 985 432 V446 Z" fill="#5A5160" stroke-width="5"/>
+  </g>
+</g>
+
+<!-- 05: 砌車仔工場 garage, tool board (wrenches baked), shape icons, yard floor; sign text drawn by the app -->
+<g id="garage">
+  <g stroke="#2B2630" stroke-linejoin="round">
+    <path d="M700 226 L960 140 L1240 226 Z" fill="#2E9FA6" stroke-width="6"/>
+    <rect x="716" y="224" width="508" height="316" fill="#FFF4E2" stroke-width="6"/>
+    <rect x="762" y="290" width="300" height="250" rx="10" fill="#5A5160" stroke-width="5"/>
+    <g stroke="#7A6F80" stroke-width="4"><path d="M766 316 H1058 M766 342 H1058"/></g>
+    <rect x="762" y="290" width="300" height="70" rx="10" fill="#E9E4EC" stroke-width="5"/>
+    <g stroke="#B9B5C6" stroke-width="3"><path d="M766 312 H1058 M766 334 H1058"/></g>
+    <rect x="1090" y="290" width="110" height="150" rx="10" fill="#FFE68F" stroke-width="4"/>
+    <rect x="822" y="238" width="180" height="42" rx="12" fill="#E8473C" stroke-width="4"/>
+  </g>
+  <g stroke="#2B2630" stroke-linejoin="round" stroke-linecap="round" fill="#B9B5C6" stroke-width="3.5">
+    <path d="M1111.35 356.94 L1118.87 354.2 L1133.92 395.55 L1126.4 398.28 Z"/>
+    <path d="M1099.73 348.4 Q1105.2 363.43 1116.48 359.33 Q1127.75 355.22 1122.28 340.19 L1116.64 342.24 L1119.38 349.76 L1108.1 353.86 L1105.37 346.34 Z"/>
+    <path d="M1170.23 358.04 L1177.84 360.51 L1164.24 402.36 L1156.63 399.88 Z"/>
+    <path d="M1166.33 344.15 Q1161.39 359.37 1172.8 363.08 Q1184.21 366.78 1189.16 351.57 L1183.45 349.71 L1180.98 357.32 L1169.56 353.61 L1172.04 346.01 Z"/>
+  </g>
+  <g stroke="#2B2630" stroke-width="3.5"><circle cx="1110" cy="318" r="10" fill="#4C8FE0"/><rect x="1136" y="308" width="20" height="20" rx="3" fill="#F49AB0"/><path d="M1180 306 L1192 328 H1168 Z" fill="#A98BE0" stroke-linejoin="round"/></g>
+  <rect x="0" y="526" width="716" height="14" fill="#CFC8D4"/>
 </g>
 </svg>

@@ -1,9 +1,10 @@
 import Foundation
 
-// 畫線畫形 / Lines & Shapes content (v0.25.0, design shape-trace §3–§5, ADR 0014).
-// Phase 1 builds two of the four cards: `traceLines` (畫直線 · 熱身) and `traceShapesDotted`
-// (畫形狀 · 跟虛線). Scenes follow the Opus mockups 01 (fire station), 02 (castle towers),
-// 03 (snow town) and 04 (castle windows); geometry here, art in `ShapeTraceArt`.
+// 畫線畫形 / Lines & Shapes content (v0.25.0 / v0.26.0, design shape-trace §3–§5, ADR 0014).
+// Phase 1: `traceLines` (畫直線 · 熱身) and `traceShapesDotted` (畫形狀 · 跟虛線).
+// Phase 2: `traceShapesArrows` (畫形狀 · 跟箭嘴, L2) and `traceShapesFree` (畫形狀 · 自己畫, L3).
+// Scenes follow the Opus mockups 01 (fire station), 02 (castle towers), 03 (snow town),
+// 04 (castle windows), 05 (build-a-car) and 06 (free towers); geometry here, art in `ShapeTraceArt`.
 
 // MARK: - Shapes
 
@@ -16,6 +17,12 @@ public enum ShapeTraceShapeKind: String, CaseIterable, Sendable, Codable, Hashab
     case square
     /// ∧ — a tower spire without its base (★ triangles, design D6).
     case spire
+    /// ▲ — full triangle: ① 撇 apex → bottom left, ② 捺 apex → bottom right, ③ 一 base (★★ on).
+    case triangle
+    /// ◁ — pennant 「<」 in one stroke: top → left tip (stop, turn) → bottom; the pole is drawn (D13).
+    case pennant
+    /// ▽ — ice-cream cone: ① 一 top, ② 捺 top left → tip, ③ 撇 top right → tip (D13, ★★ on).
+    case cone
 
     public var isLine: Bool { self == .across || self == .down || self == .slant }
 
@@ -24,7 +31,7 @@ public enum ShapeTraceShapeKind: String, CaseIterable, Sendable, Codable, Hashab
         switch self {
         case .circle: return .circle
         case .square: return .square
-        case .spire: return .triangle
+        case .spire, .triangle, .pennant, .cone: return .triangle
         case .across, .down, .slant: return nil
         }
     }
@@ -37,7 +44,7 @@ public enum ShapeTraceShapeKind: String, CaseIterable, Sendable, Codable, Hashab
         case .slant: return "斜斜"
         case .circle: return "圓形"
         case .square: return "正方形"
-        case .spire: return "三角形"
+        case .spire, .triangle, .pennant, .cone: return "三角形"
         }
     }
 
@@ -48,7 +55,7 @@ public enum ShapeTraceShapeKind: String, CaseIterable, Sendable, Codable, Hashab
         case .slant: return "slant"
         case .circle: return "circle"
         case .square: return "square"
-        case .spire: return "triangle"
+        case .spire, .triangle, .pennant, .cone: return "triangle"
         }
     }
 
@@ -59,7 +66,7 @@ public enum ShapeTraceShapeKind: String, CaseIterable, Sendable, Codable, Hashab
         case .down: return "打直，向落！"
         case .slant: return "斜斜，向落！"
         case .circle: return "轉個圈！"
-        case .square, .spire: return nil
+        case .square, .spire, .triangle, .pennant, .cone: return nil
         }
     }
 
@@ -69,7 +76,7 @@ public enum ShapeTraceShapeKind: String, CaseIterable, Sendable, Codable, Hashab
         case .down: return "Straight down!"
         case .slant: return "Slant down!"
         case .circle: return "Round you go!"
-        case .square, .spire: return nil
+        case .square, .spire, .triangle, .pennant, .cone: return nil
         }
     }
 }
@@ -113,8 +120,48 @@ public enum ShapeTraceScene: String, CaseIterable, Sendable, Codable, Hashable {
     case castleTowers
     /// 城堡窗 (mockup 04): square windows, 「口」 stroke order.
     case castleWindows
-    /// 雪地小鎮 (mockup 03): sun and snowman body.
+    /// 雪地小鎮 (mockup 03): sun and snowman body (★); sun, body, head and church clock (★★ / ★★★).
     case snowTown
+    /// 城堡三座塔 (mockup 06): three open-topped towers, each roof a full ▲ (★★ / ★★★).
+    case castleKeep
+    /// 城堡大廳 (mockup 04 facade): three square windows (★★ / ★★★).
+    case castleHall
+    /// 砌車仔工場 (mockup 05): car body 口, back wheel, front wheel, then the topper (★★ / ★★★).
+    case garage
+}
+
+/// 砌車仔 cars (design §4.1). The topper sits behind the body on a ready-made pole.
+public enum ShapeTraceCar: String, CaseIterable, Sendable, Codable, Hashable {
+    /// 旗仔車 (mockup 05): pennant ◁.
+    case flagCar
+    /// 風帆車: sail ▲.
+    case sailCar
+    /// 雪糕車: cone ▽ (the scoop is drawn).
+    case coneCar
+
+    public var topperSlot: String {
+        switch self {
+        case .flagCar: return "flag"
+        case .sailCar: return "sail"
+        case .coneCar: return "cone"
+        }
+    }
+
+    public var topperTraditionalChinese: String {
+        switch self {
+        case .flagCar: return "旗仔"
+        case .sailCar: return "帆"
+        case .coneCar: return "雪糕筒"
+        }
+    }
+
+    public var topperEnglish: String {
+        switch self {
+        case .flagCar: return "the flag"
+        case .sailCar: return "the sail"
+        case .coneCar: return "the cone"
+        }
+    }
 }
 
 /// One traced thing: its strokes in drawing order, its lane colour and the art frame around it.
@@ -158,10 +205,20 @@ public struct ShapeTraceQuestion: Sendable, Equatable {
     public let promptKey: String
     public let promptTraditionalChinese: String
     public let promptEnglish: String
+    /// ★★ / ★★★: the shape group the parent's mix drew for this round (the scene features it).
+    public let featured: ShapeTraceMixShape?
+    /// 砌車仔: which car.
+    public let car: ShapeTraceCar?
+    /// ★★ / ★★★ size variant (0 smallest … 2 largest); scenery for undrawn slots uses it too.
+    public let size: Int
 
     public init(itemID: String, kind: ActivityKind, level: ActivityLevel, scene: ShapeTraceScene, shift: Double,
                 big: Bool, slant: Bool, shapes: [ShapeTraceShape], laneWidth: Double, promptKey: String,
-                promptTraditionalChinese: String, promptEnglish: String) {
+                promptTraditionalChinese: String, promptEnglish: String, featured: ShapeTraceMixShape? = nil,
+                car: ShapeTraceCar? = nil, size: Int = 1) {
+        self.featured = featured
+        self.car = car
+        self.size = size
         self.itemID = itemID
         self.kind = kind
         self.level = level
@@ -176,8 +233,20 @@ public struct ShapeTraceQuestion: Sendable, Equatable {
         self.promptEnglish = promptEnglish
     }
 
-    /// Mix group of a shape round (nil for 畫直線).
-    public var mixShape: ShapeTraceMixShape? { shapes.first?.kind.mixGroup }
+    /// Mix group of a shape round (nil for 畫直線): the featured group on ★★ / ★★★.
+    public var mixShape: ShapeTraceMixShape? { featured ?? shapes.first?.kind.mixGroup }
+
+    /// ★★★: the child's own crayon ink, corner dots, model card and 擦晒.
+    public var isFree: Bool { level == .l3 }
+
+    /// ★★ / ★★★ outlined rounds (no lanes, no dots).
+    public var isOutlined: Bool { level != .l1 }
+
+    /// One kind for every shape (「仲有 2 個圓形」), or nil for a mixed round (「仲有 2 個形狀」).
+    public var uniformKind: ShapeTraceShapeKind? {
+        guard let first = shapes.first?.kind, shapes.allSatisfy({ $0.kind == first }) else { return nil }
+        return first
+    }
 
     public var hintTraditionalChinese: String { ShapeTraceCopy.hint }
 
@@ -219,6 +288,12 @@ public enum ShapeTraceLayout {
     public static let status = LineMatchRect(x: 440, y: 580, width: 400, height: 120)
     /// Link card (「好似人字」 / 「好似口字」 / 「好似寫 o」), tray right of centre.
     public static let linkCard = LineMatchRect(x: 790, y: 566, width: 250, height: 128)
+    /// ★★★ 「照住畫」 model card (mockup 06), tray right; ends left of the parent corner.
+    public static let modelCard = LineMatchRect(x: 824, y: 566, width: 216, height: 128)
+    /// ★★★ 擦晒 (mockup 06 `btn-eraser`), tray bottom-left.
+    public static let eraser = LineMatchRect(x: 24, y: 548, width: 200, height: 160)
+    /// ★★★ status sits between the eraser and the model card.
+    public static let freeStatus = LineMatchRect(x: 500, y: 580, width: 300, height: 120)
     public static let markerRadius: Double = 28
     public static let tickRadius: Double = 20
 
@@ -452,9 +527,23 @@ public enum ShapeTraceGenerator {
 
     /// Reference item (placeholder before the first deal; per-kind perf facts).
     public static func reference(kind: ActivityKind) -> ShapeTraceQuestion {
-        kind == .traceShapesDotted
-            ? dotted(seed: "reference", mix: .square, big: true, shift: 0, slots: [0, 1])
-            : lines(acrossX: 0, acrossY: 0, down: 1, third: 0, slant: false)
+        switch kind {
+        case .traceShapesDotted:
+            return dotted(seed: "reference", mix: .square, big: true, shift: 0, slots: [0, 1])
+        case .traceShapesArrows, .traceShapesFree:
+            return garage(level: level(for: kind), featured: nil, car: .flagCar, big: true, shift: 1)
+        default:
+            return lines(acrossX: 0, acrossY: 0, down: 1, third: 0, slant: false)
+        }
+    }
+
+    /// Pinned scaffold level (design §6 `shapeTraceLevel`).
+    public static func level(for kind: ActivityKind) -> ActivityLevel {
+        switch kind {
+        case .traceShapesArrows: return .l2
+        case .traceShapesFree: return .l3
+        default: return .l1
+        }
     }
 
     public static func make(seed: String, kind: ActivityKind, settings: ShapeTraceSettings = .defaults,
@@ -478,6 +567,22 @@ public enum ShapeTraceGenerator {
             let shift = rng.pick(sceneShifts.indices.map { $0 })
             let slots = rng.pick(slotChoices)
             return dotted(seed: seed, mix: mix, big: big, shift: shift, slots: slots)
+        case .traceShapesArrows, .traceShapesFree:
+            let tier = level(for: kind)
+            let featured = pickMix(&rng, settings: settings)
+            if rng.below(3) == 0 {
+                let car = rng.pick(ShapeTraceCar.allCases)
+                return garage(level: tier, featured: featured, car: car, big: rng.below(2) == 0, shift: rng.below(3))
+            }
+            switch featured {
+            case .circle:
+                return snowTown(level: tier, subset: rng.below(snowSubsets.count), size: rng.below(3),
+                                shift: rng.below(sceneShifts.count))
+            case .square:
+                return castleHall(level: tier, size: rng.below(3), row: rng.below(hallRows.count))
+            case .triangle:
+                return castleKeep(level: tier, heights: [rng.below(3), rng.below(3), rng.below(3)])
+            }
         default:
             let acrossX = rng.below(acrossStartXs.count)
             let acrossY = rng.below(acrossYs.count)
@@ -614,6 +719,194 @@ public enum ShapeTraceGenerator {
                                frame: LineMatchRect(x: center.x - r, y: center.y - r, width: 2 * r, height: 2 * r))
     }
 
+    // MARK: 畫形狀 · 跟箭嘴 / 自己畫 (★★ / ★★★; design §4.1–4.3)
+
+    /// ★★ / ★★★ judged lane (design §2.3: 64u × tolerance; nothing is drawn at that width).
+    public static let outlinedLaneWidth: Double = 64
+
+    /// Snow-town slot sets, in mockup 03 order (① sun ② body ③ head ④ clock).
+    public static let snowSubsets: [[String]] = [
+        ["sun", "body", "head", "clock"], ["sun", "body", "head"], ["body", "head", "clock"],
+        ["sun", "body", "clock"], ["sun", "head", "clock"]
+    ]
+    public static let snowSunRadii: [Double] = [64, 70, 76]
+    public static let snowBodyRadii: [Double] = [80, 88, 94]
+    public static let snowHeadRadii: [Double] = [48, 52, 56]
+    public static let snowClockRadii: [Double] = [50, 54, 58]
+    /// Room between head and body for the scarf.
+    public static let snowNeck: Double = 56
+    public static let snowBodyCenterY: Double = 446
+    public static let churchClockCenter = LineMatchPoint(x: 205, y: 300)
+
+    /// One snow-town circle at ★★ / ★★★ (also used to draw an undrawn slot as scenery).
+    public static func snowShape(slot: String, size: Int, shift: Double) -> ShapeTraceShape {
+        let i = min(max(size, 0), 2)
+        let bodyR = snowBodyRadii[i]
+        let center: LineMatchPoint
+        let r: Double
+        let color: Int
+        switch slot {
+        case "sun":
+            center = LineMatchPoint(x: 990 + shift, y: 250); r = snowSunRadii[i]; color = 2
+        case "head":
+            r = snowHeadRadii[i]
+            center = LineMatchPoint(x: 600 + shift, y: snowBodyCenterY - bodyR - snowNeck - r); color = 1
+        case "clock":
+            center = churchClockCenter; r = snowClockRadii[i]; color = 3
+        default:
+            center = LineMatchPoint(x: 600 + shift, y: snowBodyCenterY); r = bodyR; color = 4
+        }
+        return ShapeTraceShape(slot: slot, kind: .circle, strokes: [.circle(center: center, radius: r)], colorIndex: color,
+                               frame: LineMatchRect(x: center.x - r, y: center.y - r, width: 2 * r, height: 2 * r))
+    }
+
+    static func snowTown(level: ActivityLevel, subset: Int, size: Int, shift shiftIndex: Int) -> ShapeTraceQuestion {
+        let slots = snowSubsets[min(max(subset, 0), snowSubsets.count - 1)]
+        let shift = sceneShifts[min(max(shiftIndex, 0), sceneShifts.count - 1)]
+        let shapes = slots.map { snowShape(slot: $0, size: size, shift: shift) }
+        let free = level == .l3
+        return ShapeTraceQuestion(
+            itemID: "traceShapes.\(level.code).snowTown.\(slots.joined(separator: "-")).s\(size + 1).x\(shiftIndex + 1)",
+            kind: kind(for: level), level: level, scene: .snowTown, shift: shift, big: size == 2, slant: false,
+            shapes: shapes, laneWidth: outlinedLaneWidth, promptKey: free ? "shapes.prompt.free.circle" : "shapes.prompt.circle",
+            promptTraditionalChinese: free ? ShapeTraceCopy.freeCirclePromptTraditionalChinese : ShapeTraceCopy.circlePromptTraditionalChinese,
+            promptEnglish: free ? ShapeTraceCopy.freeCirclePromptEnglish : ShapeTraceCopy.circlePromptEnglish,
+            featured: .circle, size: size)
+    }
+
+    /// Mockup 06 towers: (left, right, base y, apex x) and three roof heights each.
+    public static let keepTowers: [(left: Double, right: Double, base: Double, apex: Double)] = [
+        (145, 355, 432, 250), (535, 745, 382, 640), (880, 1050, 402, 965)
+    ]
+    public static let keepHeights: [[Double]] = [[150, 165, 180], [160, 175, 190], [130, 145, 160]]
+
+    /// Tower roof ▲ in three strokes: ① 撇 apex → bottom left, ② 捺 apex → bottom right, ③ 一 base.
+    public static func keepRoof(tower: Int, height: Int) -> ShapeTraceShape {
+        let t = keepTowers[tower]
+        let h = keepHeights[tower][min(max(height, 0), 2)]
+        let apex = LineMatchPoint(x: t.apex, y: t.base - h)
+        let left = LineMatchPoint(x: t.left, y: t.base)
+        let right = LineMatchPoint(x: t.right, y: t.base)
+        return ShapeTraceShape(slot: ["spireA", "spireB", "spireC"][tower], kind: .triangle,
+                               strokes: [.line(apex, left), .line(apex, right), .line(left, right)],
+                               colorIndex: [3, 1, 0][tower],
+                               frame: LineMatchRect(x: t.left, y: apex.y, width: t.right - t.left, height: h))
+    }
+
+    static func castleKeep(level: ActivityLevel, heights: [Int]) -> ShapeTraceQuestion {
+        let shapes = (0..<3).map { keepRoof(tower: $0, height: heights[$0]) }
+        let free = level == .l3
+        return ShapeTraceQuestion(
+            itemID: "traceShapes.\(level.code).castleKeep.spireA-spireB-spireC.h\(heights.map { String($0 + 1) }.joined())",
+            kind: kind(for: level), level: level, scene: .castleKeep, shift: 0, big: true, slant: false,
+            shapes: shapes, laneWidth: outlinedLaneWidth, promptKey: free ? "shapes.prompt.free" : "shapes.prompt.spire",
+            promptTraditionalChinese: free ? ShapeTraceCopy.freeSpirePromptTraditionalChinese : ShapeTraceCopy.spirePromptTraditionalChinese,
+            promptEnglish: free ? ShapeTraceCopy.freeSpirePromptEnglish : ShapeTraceCopy.spirePromptEnglish,
+            featured: .triangle, size: 1)
+    }
+
+    /// Facade windows (mockup 04 castle): three in a row, centred on these x; sides 150–170.
+    public static let hallCenters: [Double] = [330, 640, 950]
+    public static let hallSides: [Double] = [150, 160, 170]
+    public static let hallRows: [Double] = [214, 224, 234]
+
+    public static func hallWindow(_ index: Int, size: Int, row: Int) -> ShapeTraceShape {
+        let side = hallSides[min(max(size, 0), 2)]
+        let x0 = hallCenters[index] - side / 2
+        let y0 = hallRows[min(max(row, 0), hallRows.count - 1)]
+        let x1 = x0 + side, y1 = y0 + side
+        let tl = LineMatchPoint(x: x0, y: y0), tr = LineMatchPoint(x: x1, y: y0)
+        let bl = LineMatchPoint(x: x0, y: y1), br = LineMatchPoint(x: x1, y: y1)
+        return ShapeTraceShape(slot: ["windowA", "windowB", "windowC"][index], kind: .square,
+                               strokes: [.line(tl, bl), .polyline([tl, tr, br]), .line(bl, br)],
+                               colorIndex: [0, 3, 4][index], frame: LineMatchRect(x: x0, y: y0, width: side, height: side))
+    }
+
+    static func castleHall(level: ActivityLevel, size: Int, row: Int) -> ShapeTraceQuestion {
+        let shapes = (0..<3).map { hallWindow($0, size: size, row: row) }
+        let free = level == .l3
+        return ShapeTraceQuestion(
+            itemID: "traceShapes.\(level.code).castleHall.windowA-windowB-windowC.s\(size + 1).y\(row + 1)",
+            kind: kind(for: level), level: level, scene: .castleHall, shift: 0, big: size == 2, slant: false,
+            shapes: shapes, laneWidth: outlinedLaneWidth, promptKey: free ? "shapes.prompt.free.square" : "shapes.prompt.square",
+            promptTraditionalChinese: free ? ShapeTraceCopy.freeSquarePromptTraditionalChinese : ShapeTraceCopy.squarePromptTraditionalChinese,
+            promptEnglish: free ? ShapeTraceCopy.freeSquarePromptEnglish : ShapeTraceCopy.squarePromptEnglish,
+            featured: .square, size: size)
+    }
+
+    /// 砌車仔 (mockup 05). Body 口 bottom at y 376, wheels r 50 at y 476, topper on a pole 40u
+    /// behind the body. Order: body → back wheel → front wheel → topper (design §4.1).
+    public static let garageShifts: [Double] = [-30, 0, 30]
+    public static let carBodyBottom: Double = 376
+    public static let wheelCenterY: Double = 476
+    public static let wheelRadius: Double = 50
+
+    public static func carPoleX(big: Bool, shift: Double) -> Double { 400 + shift - 40 }
+
+    public static func carShapes(car: ShapeTraceCar, big: Bool, shift: Double) -> [ShapeTraceShape] {
+        let side: Double = big ? 190 : 170
+        let x0 = 400 + shift
+        let y1 = carBodyBottom, y0 = y1 - side
+        let x1 = x0 + side
+        let tl = LineMatchPoint(x: x0, y: y0), tr = LineMatchPoint(x: x1, y: y0)
+        let bl = LineMatchPoint(x: x0, y: y1), br = LineMatchPoint(x: x1, y: y1)
+        let body = ShapeTraceShape(slot: "carBody", kind: .square,
+                                   strokes: [.line(tl, bl), .polyline([tl, tr, br]), .line(bl, br)], colorIndex: 4,
+                                   frame: LineMatchRect(x: x0, y: y0, width: side, height: side))
+        func wheel(_ slot: String, _ cx: Double, _ color: Int) -> ShapeTraceShape {
+            let c = LineMatchPoint(x: cx, y: wheelCenterY)
+            return ShapeTraceShape(slot: slot, kind: .circle, strokes: [.circle(center: c, radius: wheelRadius)],
+                                   colorIndex: color,
+                                   frame: LineMatchRect(x: cx - wheelRadius, y: wheelCenterY - wheelRadius,
+                                                        width: 2 * wheelRadius, height: 2 * wheelRadius))
+        }
+        let back = wheel("backWheel", x0 + 10, 0)
+        let front = wheel("frontWheel", x1 - 10, 0)
+        let pole = carPoleX(big: big, shift: shift)
+        let topper: ShapeTraceShape
+        switch car {
+        case .flagCar:
+            let top = LineMatchPoint(x: pole, y: 160), tip = LineMatchPoint(x: pole - 84, y: 194)
+            let bottom = LineMatchPoint(x: pole, y: 228)
+            topper = ShapeTraceShape(slot: "flag", kind: .pennant, strokes: [.polyline([top, tip, bottom])], colorIndex: 2,
+                                     frame: LineMatchRect(x: tip.x, y: top.y, width: pole - tip.x, height: bottom.y - top.y))
+        case .sailCar:
+            let apex = LineMatchPoint(x: pole - 70, y: 170)
+            let left = LineMatchPoint(x: pole - 140, y: 330), right = LineMatchPoint(x: pole, y: 330)
+            topper = ShapeTraceShape(slot: "sail", kind: .triangle,
+                                     strokes: [.line(apex, left), .line(apex, right), .line(left, right)], colorIndex: 1,
+                                     frame: LineMatchRect(x: left.x, y: apex.y, width: right.x - left.x, height: left.y - apex.y))
+        case .coneCar:
+            let a = LineMatchPoint(x: pole - 130, y: 200), b = LineMatchPoint(x: pole - 10, y: 200)
+            let tip = LineMatchPoint(x: pole - 70, y: 340)
+            topper = ShapeTraceShape(slot: "cone", kind: .cone, strokes: [.line(a, b), .line(a, tip), .line(b, tip)],
+                                     colorIndex: 2, frame: LineMatchRect(x: a.x, y: a.y, width: b.x - a.x, height: tip.y - a.y))
+        }
+        return [body, back, front, topper]
+    }
+
+    static func garage(level: ActivityLevel, featured: ShapeTraceMixShape?, car: ShapeTraceCar, big: Bool,
+                       shift shiftIndex: Int) -> ShapeTraceQuestion {
+        let shift = garageShifts[min(max(shiftIndex, 0), garageShifts.count - 1)]
+        let free = level == .l3
+        return ShapeTraceQuestion(
+            itemID: "traceShapes.\(level.code).garage.\(car.rawValue).\(big ? "big" : "mid").x\(shiftIndex + 1)",
+            kind: kind(for: level), level: level, scene: .garage, shift: shift, big: big, slant: false,
+            shapes: carShapes(car: car, big: big, shift: shift), laneWidth: outlinedLaneWidth,
+            promptKey: free ? "shapes.prompt.free.build" : "shapes.prompt.build",
+            promptTraditionalChinese: ShapeTraceCopy.buildPromptTraditionalChinese(car, free: free),
+            promptEnglish: ShapeTraceCopy.buildPromptEnglish(car, free: free),
+            featured: featured, car: car, size: big ? 2 : 1)
+    }
+
+    static func kind(for level: ActivityLevel) -> ActivityKind {
+        switch level {
+        case .l1: return .traceShapesDotted
+        case .l2: return .traceShapesArrows
+        case .l3: return .traceShapesFree
+        }
+    }
+
     /// Every item a kind can deal (tests: counts, well-formedness).
     public static func allItems(kind: ActivityKind, slant: Bool = false) -> [ShapeTraceQuestion] {
         switch kind {
@@ -625,6 +918,32 @@ public enum ShapeTraceGenerator {
                         for slots in slotChoices {
                             result.append(dotted(seed: "all", mix: mix, big: big, shift: shift, slots: slots))
                         }
+                    }
+                }
+            }
+            return result
+        case .traceShapesArrows, .traceShapesFree:
+            let tier = level(for: kind)
+            var result: [ShapeTraceQuestion] = []
+            for subset in snowSubsets.indices {
+                for size in 0..<3 {
+                    for shift in sceneShifts.indices {
+                        result.append(snowTown(level: tier, subset: subset, size: size, shift: shift))
+                    }
+                }
+            }
+            for a in 0..<3 {
+                for b in 0..<3 {
+                    for c in 0..<3 { result.append(castleKeep(level: tier, heights: [a, b, c])) }
+                }
+            }
+            for size in 0..<3 {
+                for row in hallRows.indices { result.append(castleHall(level: tier, size: size, row: row)) }
+            }
+            for car in ShapeTraceCar.allCases {
+                for big in [true, false] {
+                    for shift in garageShifts.indices {
+                        result.append(garage(level: tier, featured: nil, car: car, big: big, shift: shift))
                     }
                 }
             }
@@ -655,6 +974,49 @@ public enum ShapeTraceCopy {
     public static let spirePromptTraditionalChinese = "畫尖頂！由綠色箭嘴畫去紅色箭嘴"
     public static let spirePromptEnglish = "Draw the pointy roofs, from green arrow to red arrow!"
     public static let hint = "提示：由綠色箭嘴開始，跟住條線畫。 / Hint: start at the green arrow and follow the line."
+
+    // ★★★ 自己畫 prompts and 砌車仔 (design §4.4).
+    public static let freeCirclePromptTraditionalChinese = "自己畫圓圈！由綠色箭嘴開始"
+    public static let freeCirclePromptEnglish = "Draw the circles yourself! Start at the green arrow."
+    public static let freeSquarePromptTraditionalChinese = "自己畫窗！由綠色箭嘴開始"
+    public static let freeSquarePromptEnglish = "Draw the windows yourself! Start at the green arrow."
+    public static let freeSpirePromptTraditionalChinese = "自己畫尖頂！由綠色箭嘴開始"
+    public static let freeSpirePromptEnglish = "Draw the roofs yourself! Start at the green arrow."
+    public static func buildPromptTraditionalChinese(_ car: ShapeTraceCar, free: Bool) -> String {
+        free ? "自己砌車仔！由綠色箭嘴開始" : "砌車仔！畫車身、車轆同\(car.topperTraditionalChinese)"
+    }
+    public static func buildPromptEnglish(_ car: ShapeTraceCar, free: Bool) -> String {
+        free ? "Build the car yourself! Start at the green arrow." : "Build a car! Draw the body, the wheels and \(car.topperEnglish)."
+    }
+    public static let buildDoneTraditionalChinese = "砌好喇！嘟嘟，出發！"
+    public static let buildDoneEnglish = "Built! Beep beep, off we go!"
+    public static let buildDonePrompt = SpokenPrompt(key: "shapes.build.done", traditionalChinese: buildDoneTraditionalChinese,
+                                                     english: buildDoneEnglish)
+    public static let eraserNudgeTraditionalChinese = "唔使擦都得，慢慢畫就得㗎！"
+    public static let eraserNudgeEnglish = "No need to clear. Just go slowly!"
+    public static let eraserNudgePrompt = SpokenPrompt(key: "shapes.eraser.nudge", traditionalChinese: eraserNudgeTraditionalChinese,
+                                                       english: eraserNudgeEnglish)
+    public static let eraserTraditionalChinese = "擦晒"
+    public static let eraserEnglish = "Clear"
+    public static let modelCardTraditionalChinese = "照住畫"
+    public static let modelCardEnglish = "Copy this"
+    public static let todayBuildTraditionalChinese = "今日砌"
+    public static let todayBuildEnglish = "Today's build"
+    public static let garageSign = "砌車仔工場"
+    public static let arrowsBadgeSubTraditionalChinese = "跟箭嘴 · Arrows"
+    public static let freeBadgeSubTraditionalChinese = "自己畫 · Free"
+    /// Model-card stroke words (「三筆：撇 捺 橫」).
+    public static func strokeWords(_ kind: ShapeTraceShapeKind) -> (count: String, words: String)? {
+        switch kind {
+        case .triangle: return ("三筆：", "撇 捺 橫")
+        case .square: return ("三筆：", "口字筆順")
+        case .circle: return ("一筆：", "轉個圈")
+        case .pennant: return ("一筆：", "停一停再轉")
+        case .cone: return ("三筆：", "橫 捺 撇")
+        case .spire: return ("兩筆：", "撇 捺")
+        case .across, .down, .slant: return nil
+        }
+    }
 
     public static let linesBadgeTraditionalChinese = "畫直線"
     public static let linesBadgeSubTraditionalChinese = "熱身 · Warm-up"
@@ -695,7 +1057,8 @@ public enum ShapeTraceCopy {
         case .square: return ("口", "好似", "口字", "square = like the character for mouth")
         case .spire: return ("人", "好似", "人字", "spire = like the character for person")
         case .circle: return ("o", "好似", "寫 o", "circle = like writing o")
-        case .across, .down, .slant: return nil
+        case .triangle: return ("人", "好似", "人字", "triangle = like the character for person")
+        case .across, .down, .slant, .pennant, .cone: return nil
         }
     }
 
@@ -704,6 +1067,8 @@ public enum ShapeTraceCopy {
         case .circle?: return "仲有 \(n) 個圓形"
         case .square?: return "仲有 \(n) 個正方形"
         case .spire?: return "仲有 \(n) 個尖頂"
+        case .triangle?: return "仲有 \(n) 個三角形"
+        case .pennant?, .cone?: return "仲有 \(n) 個形狀"
         default: return "仲有 \(n) 條線"
         }
     }
@@ -714,10 +1079,16 @@ public enum ShapeTraceCopy {
         case .circle?: noun = n == 1 ? "circle" : "circles"
         case .square?: noun = n == 1 ? "square" : "squares"
         case .spire?: noun = n == 1 ? "roof" : "roofs"
+        case .triangle?: noun = n == 1 ? "triangle" : "triangles"
+        case .pennant?, .cone?: noun = n == 1 ? "shape" : "shapes"
         default: noun = n == 1 ? "line" : "lines"
         }
         return "\(n) more \(noun) to go"
     }
+
+    /// Mixed rounds (砌車仔): 「仲有 N 個形狀」.
+    public static func remainingShapesTraditionalChinese(_ n: Int) -> String { "仲有 \(n) 個形狀" }
+    public static func remainingShapesEnglish(_ n: Int) -> String { "\(n) more \(n == 1 ? "shape" : "shapes") to go" }
 
     public static func link(_ kind: ShapeTraceShapeKind) -> SpokenPrompt? {
         switch kind {
@@ -725,9 +1096,9 @@ public enum ShapeTraceCopy {
                                           english: linkCircleEnglish)
         case .square: return SpokenPrompt(key: "shapes.link.square", traditionalChinese: linkSquareTraditionalChinese,
                                           english: linkSquareEnglish)
-        case .spire: return SpokenPrompt(key: "shapes.link.triangle", traditionalChinese: linkSpireTraditionalChinese,
-                                         english: linkSpireEnglish)
-        case .across, .down, .slant: return nil
+        case .spire, .triangle: return SpokenPrompt(key: "shapes.link.triangle", traditionalChinese: linkSpireTraditionalChinese,
+                                                    english: linkSpireEnglish)
+        case .across, .down, .slant, .pennant, .cone: return nil
         }
     }
 
@@ -790,12 +1161,21 @@ public enum ShapeTraceCopy {
                      arriveHookTraditionalChinese, arriveTaxiTraditionalChinese, fireStationLabel,
                      linkCircleTraditionalChinese, linkSquareTraditionalChinese, linkSpireTraditionalChinese,
                      settingsTitle, settingsSubtitle, parentTip, notPlaytested, playtested("10/17"), toleranceFollow,
-                     ParentPlaytestLog.needsPlaytestBanner]
+                     ParentPlaytestLog.needsPlaytestBanner, freeCirclePromptTraditionalChinese,
+                     freeSquarePromptTraditionalChinese, freeSpirePromptTraditionalChinese, buildDoneTraditionalChinese,
+                     eraserNudgeTraditionalChinese, eraserTraditionalChinese, modelCardTraditionalChinese,
+                     todayBuildTraditionalChinese, garageSign, arrowsBadgeSubTraditionalChinese,
+                     freeBadgeSubTraditionalChinese, remainingShapesTraditionalChinese(3)]
+        for car in ShapeTraceCar.allCases {
+            lines += [car.topperTraditionalChinese, buildPromptTraditionalChinese(car, free: false),
+                      buildPromptTraditionalChinese(car, free: true)]
+        }
         for kind in ShapeTraceShapeKind.allCases {
             lines.append(kind.cueTraditionalChinese)
             lines.append(remainingTraditionalChinese(2, kind: kind))
             if let start = kind.startTraditionalChinese { lines.append(start) }
             if let card = linkCard(kind) { lines += [card.glyph, card.top, card.bottom] }
+            if let words = strokeWords(kind) { lines += [words.count, words.words] }
         }
         for shape in ShapeTraceMixShape.allCases { lines.append(shape.titleTraditionalChinese) }
         for style in ShapeTraceDotStyle.allCases { lines.append(style.labelTraditionalChinese) }
@@ -806,7 +1186,13 @@ public enum ShapeTraceCopy {
         var lines = [linesPromptEnglish, circlePromptEnglish, squarePromptEnglish, spirePromptEnglish,
                      hint.components(separatedBy: " / ").last ?? "", stopEnglish, cornerEnglish, offPathEnglish,
                      wrongStartEnglish, reverseEnglish, doneEnglish, arriveFireStationEnglish, arriveHookEnglish,
-                     arriveTaxiEnglish, linkCircleEnglish, linkSquareEnglish, linkSpireEnglish, toleranceFollowEnglish]
+                     arriveTaxiEnglish, linkCircleEnglish, linkSquareEnglish, linkSpireEnglish, toleranceFollowEnglish,
+                     freeCirclePromptEnglish, freeSquarePromptEnglish, freeSpirePromptEnglish, buildDoneEnglish,
+                     eraserNudgeEnglish, eraserEnglish, modelCardEnglish, todayBuildEnglish, remainingShapesEnglish(1),
+                     remainingShapesEnglish(3)]
+        for car in ShapeTraceCar.allCases {
+            lines += [car.topperEnglish, buildPromptEnglish(car, free: false), buildPromptEnglish(car, free: true)]
+        }
         for kind in ShapeTraceShapeKind.allCases {
             lines.append(kind.cueEnglish)
             lines.append(remainingEnglish(1, kind: kind))

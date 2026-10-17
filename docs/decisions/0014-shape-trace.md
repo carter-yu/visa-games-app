@@ -1,6 +1,6 @@
 # 0014 — Shape trace phase 1 (畫直線 · 熱身 / 畫形狀 · 跟虛線)
 
-Status: accepted (v0.25.0 / 57)
+Status: accepted (v0.25.0 / 57); phase 2 in ADR 0015
 
 ## Context
 Carter approved the 畫線畫形 design with every Opus default, D1–D13

@@ -1,8 +1,8 @@
 import Foundation
 import VisaCore
 
-/// v0.25.0 畫線畫形 / Lines & Shapes (ADR 0014; design shape-trace §7.6): 畫直線 · 熱身 and
-/// 畫形狀 · 跟虛線. Geometry, stroke order, the forwards-only vehicle with corner stops, practice-
+/// v0.25.0 / v0.26.0 畫線畫形 / Lines & Shapes (ADR 0014, 0015; design shape-trace §7.6): 畫直線 · 熱身,
+/// 畫形狀 · 跟虛線, 跟箭嘴 (★★) and 自己畫 (★★★). Geometry, stroke order, the forwards-only vehicle with corner stops, practice-
 /// only stats, the D11 playtest gate, settings, copy and the app wiring.
 final class ShapeTraceTests {
     private let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
@@ -15,6 +15,11 @@ final class ShapeTraceTests {
         ShapeTraceGenerator.allItems(kind: .traceLines, slant: false)
             + ShapeTraceGenerator.allItems(kind: .traceLines, slant: true)
             + ShapeTraceGenerator.allItems(kind: .traceShapesDotted)
+            + outlinedQuestions()
+    }
+
+    private func outlinedQuestions() -> [ShapeTraceQuestion] {
+        ShapeTraceGenerator.allItems(kind: .traceShapesArrows) + ShapeTraceGenerator.allItems(kind: .traceShapesFree)
     }
 
     /// Drives every stroke with a synthetic pen along its centre line. Returns the last move.
@@ -76,7 +81,7 @@ final class ShapeTraceTests {
         expectEqual(slant.count, 54)
         expectEqual(shapes.count, 54)
         expectEqual(Set((lines + slant + shapes).map(\.itemID)).count, 162)
-        for question in allQuestions() {
+        for question in allQuestions() where !question.isOutlined {
             expectTrue(question.isWellFormed, "ill-formed \(question.itemID)")
             for shape in question.shapes {
                 for stroke in shape.strokes {
@@ -101,6 +106,195 @@ final class ShapeTraceTests {
             let xs = question.shapes.map(\.frame.x)
             if question.kind == .traceShapesDotted { expectEqual(xs, xs.sorted()) }
         }
+    }
+
+    // MARK: ★★ 跟箭嘴 / ★★★ 自己畫 (v0.26.0)
+
+    func testOutlinedItemsAreWellFormedUniqueAndApart() {
+        let arrows = ShapeTraceGenerator.allItems(kind: .traceShapesArrows)
+        let free = ShapeTraceGenerator.allItems(kind: .traceShapesFree)
+        expectEqual(arrows.count, free.count)
+        expectTrue(arrows.count >= 90, "\(arrows.count) ★★ items")
+        expectEqual(Set((arrows + free).map(\.itemID)).count, arrows.count * 2)
+        for question in arrows { expectEqual(question.level, .l2); expectEqual(question.kind, .traceShapesArrows) }
+        for question in free { expectEqual(question.level, .l3); expectEqual(question.kind, .traceShapesFree) }
+        var scenes = Set<ShapeTraceScene>()
+        var kinds = Set<ShapeTraceShapeKind>()
+        var slots = Set<String>()
+        for question in arrows + free {
+            expectTrue(question.isWellFormed, "ill-formed \(question.itemID)")
+            expectTrue(question.isOutlined)
+            expectEqual(question.laneWidth, ShapeTraceGenerator.outlinedLaneWidth)
+            expectTrue(question.itemID.hasPrefix("traceShapes.\(question.level.code)."))
+            scenes.insert(question.scene)
+            for shape in question.shapes {
+                kinds.insert(shape.kind)
+                slots.insert(shape.slot)
+                expectFalse(shape.kind.isLine)
+                expectTrue(shape.kind != .spire, "★★ / ★★★ roofs are closed ▲")
+                for stroke in shape.strokes {
+                    // Outlines (8u) and ink (16u) stay off the header, tray and parent corner.
+                    expectFalse(ShapeTraceLayout.entersParentCorner(stroke, halfWidth: 16))
+                    expectTrue(stroke.bounds.y - 16 >= 112)
+                    expectTrue(stroke.bounds.maxY + 8 <= 560)
+                }
+            }
+            // Only the active stroke is judged, so separate shapes may sit closer than two lanes
+            // (pole ↔ body 40u, body ↔ wheels 50u) but never touch.
+            for i in question.shapes.indices {
+                for j in question.shapes.indices where j > i {
+                    for a in question.shapes[i].strokes {
+                        for b in question.shapes[j].strokes {
+                            expectTrue(a.minimumSeparation(to: b) >= 36, "shapes touch in \(question.itemID)")
+                        }
+                    }
+                }
+            }
+        }
+        expectEqual(scenes, [.snowTown, .castleKeep, .castleHall, .garage])
+        expectEqual(kinds, [.circle, .square, .triangle, .pennant, .cone])
+        for slot in ["clock", "head", "sun", "body", "carBody", "backWheel", "frontWheel", "flag", "sail", "cone",
+                     "spireA", "spireB", "spireC", "windowA", "windowB", "windowC"] {
+            expectTrue(slots.contains(slot), "missing \(slot)")
+        }
+        // ◁ / ▽ / ▲ only from ★★.
+        for question in ShapeTraceGenerator.allItems(kind: .traceShapesDotted) {
+            for shape in question.shapes {
+                expectFalse([ShapeTraceShapeKind.triangle, .pennant, .cone].contains(shape.kind))
+            }
+        }
+    }
+
+    func testOutlinedStrokeOrder() {
+        for question in outlinedQuestions() {
+            for shape in question.shapes {
+                switch shape.kind {
+                case .circle:
+                    expectEqual(shape.strokes.count, 1)
+                    expectTrue(shape.strokes[0].closed && shape.strokes[0].signedArea < 0)
+                    expectEqual(shape.strokes[0].start.y, shape.frame.y, accuracy: 0.001)
+                case .square:
+                    expectEqual(shape.strokes.count, 3)
+                    expectEqual(shape.strokes[1].corners.count, 1)
+                case .triangle:
+                    // ▲: 撇, 捺, then the base left → right.
+                    expectEqual(shape.strokes.count, 3)
+                    expectEqual(shape.strokes[0].start, shape.strokes[1].start)
+                    expectTrue(shape.strokes[0].end.x < shape.strokes[0].start.x)
+                    expectTrue(shape.strokes[1].end.x > shape.strokes[1].start.x)
+                    expectEqual(shape.strokes[2].start, shape.strokes[0].end)
+                    expectEqual(shape.strokes[2].end, shape.strokes[1].end)
+                case .pennant:
+                    // ◁ in one go: top of the pole → tip → bottom of the pole.
+                    expectEqual(shape.strokes.count, 1)
+                    expectEqual(shape.strokes[0].corners.count, 1)
+                    expectEqual(shape.strokes[0].start.x, shape.strokes[0].end.x, accuracy: 0.001)
+                case .cone:
+                    // ▽: top edge, then each side down to the tip.
+                    expectEqual(shape.strokes.count, 3)
+                    expectEqual(shape.strokes[0].start.y, shape.strokes[0].end.y, accuracy: 0.001)
+                    expectEqual(shape.strokes[1].end, shape.strokes[2].end)
+                default:
+                    preconditionFailure("unexpected \(shape.kind) on ★★ / ★★★")
+                }
+            }
+            if question.scene == .garage {
+                expectEqual(question.shapes.map(\.slot).prefix(3), ["carBody", "backWheel", "frontWheel"])
+                expectTrue(question.car != nil)
+                expectEqual(question.shapes.count, 4)
+            }
+        }
+    }
+
+    func testOutlinedFeaturedGroupFollowsTheParentWeights() {
+        for kind in [ActivityKind.traceShapesArrows, .traceShapesFree] {
+            var counts: [ShapeTraceMixShape: Int] = [:]
+            var garages = 0
+            let n = 6_000
+            for i in 0..<n {
+                let q = ShapeTraceGenerator.make(seed: "mix2-\(i)", kind: kind)
+                expectEqual(q, ShapeTraceGenerator.make(seed: "mix2-\(i)", kind: kind))
+                counts[q.featured!, default: 0] += 1
+                if q.scene == .garage { garages += 1 } else {
+                    expectTrue(q.shapes.allSatisfy { $0.kind.mixGroup == q.featured }, "scene shows its group")
+                }
+            }
+            for shape in ShapeTraceMixShape.allCases {
+                expectEqual(Double(counts[shape] ?? 0) / Double(n), Double(shape.defaultWeight) / 100, accuracy: 0.025)
+            }
+            expectEqual(Double(garages) / Double(n), 1.0 / 3.0, accuracy: 0.03)
+            let a = ShapeTraceGenerator.make(seed: "rep", kind: kind)
+            expectTrue(ShapeTraceGenerator.make(seed: "rep", kind: kind, avoidingItem: a.itemID).itemID != a.itemID)
+        }
+        expectEqual(ShapeTraceGenerator.level(for: .traceShapesArrows), .l2)
+        expectEqual(ShapeTraceGenerator.level(for: .traceShapesFree), .l3)
+    }
+
+    func testFreeInkAndEraserClearOnlyTheCurrentShape() {
+        let question = ShapeTraceGenerator.allItems(kind: .traceShapesFree).first { $0.scene == .castleHall }!
+        var board = ShapeTraceBoard(question: question)
+        expectTrue(board.recordsInk)
+        expectTrue(board.eraserVisible)
+        // Draw the first window fully.
+        var clock = 0.0
+        while board.shapeIndex == 0, let path = board.currentPath {
+            clock += 0.1
+            _ = board.penDown(at: path.start, now: clock)
+            var d = 0.0
+            var done = false
+            while d <= path.length + 16, !done {
+                clock += 0.02
+                switch board.penMove(to: path.point(at: min(d, path.length)), now: clock) {
+                case .strokeDone, .shapeDone, .allDone: done = true
+                default: break
+                }
+                d += 8
+            }
+            board.penUp()
+        }
+        expectEqual(board.shapeIndex, 1)
+        let firstInk = board.inkPolylines(shape: 0)
+        expectFalse(firstInk.isEmpty)
+        expectTrue((board.shapeStats[0].inkOutsideRatio ?? 1) < 0.05)
+        // Start the second window, then 擦晒.
+        let path = board.currentPath!
+        clock += 1
+        _ = board.penDown(at: path.start, now: clock)
+        for step in 1...10 { clock += 0.02; _ = board.penMove(to: path.point(at: Double(step) * 8), now: clock) }
+        board.penUp()
+        expectTrue(board.progress > 0)
+        expectFalse(board.inkPolylines(shape: 1).isEmpty)
+        let before = board
+        clock += 1
+        expectEqual(board.erase(now: clock), .cleared)
+        expectTrue(board.isMonotonicSuccessor(of: before))
+        expectFalse(before.isMonotonicSuccessor(of: board), "erases never go back")
+        expectEqual(board.progress, 0)
+        expectEqual(board.strokeIndex, 0)
+        expectEqual(board.shapeIndex, 1)
+        expectTrue(board.inkPolylines(shape: 1).isEmpty)
+        expectEqual(board.inkPolylines(shape: 0), firstInk, "finished shapes never change")
+        expectEqual(board.erase(now: clock + 1), .coolingDown)
+        expectEqual(board.erase(now: clock + 4), .cleared)
+        expectEqual(board.erase(now: clock + 8), .cleared)
+        expectEqual(board.erase(now: clock + 12), .clearedNudge)
+        expectEqual(board.erase(now: clock + 16), .cleared)
+        expectEqual(board.erase(now: clock + 20), .clearedAndHidden)
+        expectFalse(board.eraserVisible)
+        expectEqual(board.erase(now: clock + 24), .unavailable)
+        let fields = board.resultFields
+        expectEqual(fields["shape_trace_level"], .string("L3"))
+        expectEqual(fields["erasers"], .int(6))
+        expectEqual(fields["eraser_locked"], .int(1))
+        expectTrue(fields["ink_outside_ratio"] != nil)
+        // ★★: no ink, no 擦晒.
+        let arrows = ShapeTraceBoard(question: ShapeTraceGenerator.make(seed: "a", kind: .traceShapesArrows))
+        expectFalse(arrows.recordsInk)
+        expectFalse(arrows.eraserVisible)
+        var copy = arrows
+        expectEqual(copy.erase(now: 10), .unavailable)
+        expectEqual(arrows.resultFields["shape_trace_level"], .string("L2"))
+        expectTrue(arrows.resultFields["erasers"] == nil)
     }
 
     func testStrokeOrderCirclesSquaresAndSpires() {
@@ -345,7 +539,7 @@ final class ShapeTraceTests {
     }
 
     func testStarsNeedOnePlaytestFirstAndNewKindsStartOff() {
-        for kind in [ActivityKind.traceLines, .traceShapesDotted] {
+        for kind in [ActivityKind.traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree] {
             expectTrue(ActivityCatalog.defaultOffKinds.contains(kind))
             expectTrue(ActivityCatalog.playableKinds.contains(kind))
             expectTrue(kind.isShapeTraceFamily)
@@ -376,6 +570,11 @@ final class ShapeTraceTests {
         expectEqual(ActivityKind.traceShapesDotted.parentCardTitle, "畫形狀 · 跟虛線")
         expectEqual(ActivityKind.traceLines.parentCardEnglish, "Lines · Warm-up")
         expectEqual(ActivityKind.traceShapesDotted.parentCardEnglish, "Shapes · Follow the dots")
+        expectEqual(ActivityKind.traceShapesArrows.parentCardTitle, "畫形狀 · 跟箭嘴")
+        expectEqual(ActivityKind.traceShapesFree.parentCardTitle, "畫形狀 · 自己畫")
+        expectEqual(ActivityKind.traceShapesArrows.parentCardEnglish, "Shapes · Follow the arrows")
+        expectEqual(ActivityKind.traceShapesFree.parentCardEnglish, "Shapes · Draw it yourself")
+        expectFalse(played.allowsStars(for: .traceShapesFree))
     }
 
     func testRoundsArePracticeOnlyInReviewAndRollups() {
@@ -427,10 +626,11 @@ final class ShapeTraceTests {
                           "虚", "试", "玩", "设", "定", "窗"]
         let banned = Set(simplified.filter { !["玩", "定", "窗"].contains($0) })
         var traditional = ShapeTraceCopy.allTraditionalLines
-        for kind in [ActivityKind.traceLines, .traceShapesDotted] {
+        for kind in [ActivityKind.traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree] {
             traditional += [kind.parentCardTitle, kind.parentShortLabel, kind.parentHelpTraditionalChinese]
         }
-        for question in ShapeTraceGenerator.allItems(kind: .traceShapesDotted) + ShapeTraceGenerator.allItems(kind: .traceLines) {
+        for question in ShapeTraceGenerator.allItems(kind: .traceShapesDotted) + ShapeTraceGenerator.allItems(kind: .traceLines)
+            + outlinedQuestions() {
             traditional.append(question.promptTraditionalChinese)
         }
         for line in traditional {
@@ -440,9 +640,10 @@ final class ShapeTraceTests {
             }
         }
         var english = ShapeTraceCopy.allEnglishLines
-        for kind in [ActivityKind.traceLines, .traceShapesDotted] {
+        for kind in [ActivityKind.traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree] {
             english += [kind.parentCardEnglish, kind.parentHelpEnglish]
         }
+        for question in outlinedQuestions() { english.append(question.promptEnglish) }
         for line in english {
             expectFalse(line.isEmpty)
             expectTrue(line.unicodeScalars.allSatisfy { $0.isASCII || $0 == "½" || $0 == "·" || $0 == "→" || $0 == "—" }, "non-ASCII English: \(line)")
@@ -456,12 +657,17 @@ final class ShapeTraceTests {
         expectEqual(ShapeTraceCopy.linesPromptTraditionalChinese, "由綠色箭嘴畫去紅色箭嘴！")
         expectEqual(ShapeTraceCopy.remainingTraditionalChinese(2, kind: .spire), "仲有 2 個尖頂")
         expectEqual(ShapeTraceCopy.remainingTraditionalChinese(1, kind: nil), "仲有 1 條線")
+        expectEqual(ShapeTraceCopy.bubble(.pennant), "三角形、triangle")
+        expectEqual(ShapeTraceCopy.bubble(.cone), "三角形、triangle")
+        expectEqual(ShapeTraceCopy.eraserTraditionalChinese, "擦晒")
+        expectEqual(ShapeTraceCopy.buildDoneTraditionalChinese, "砌好喇！嘟嘟，出發！")
+        expectTrue(ShapeTraceCopy.linkCard(.pennant) == nil && ShapeTraceCopy.linkCard(.cone) == nil)
     }
 
     func testArtIsCompleteAndEveryPathParses() {
         let names = ShapeTraceArt.all.map(\.name)
         expectEqual(Set(names).count, names.count)
-        expectEqual(names.count, 21)
+        expectEqual(names.count, 26)
         for artwork in ShapeTraceArt.all {
             expectFalse(artwork.elements.isEmpty)
             expectTrue(artwork.width > 0 && artwork.height > 0)
@@ -477,7 +683,7 @@ final class ShapeTraceTests {
     func testAppWiringSourceGuards() throws {
         let host = try source("Sources/VisaGames/CanvasActivityHost.swift")
         expectTrue(host.contains("ShapeTraceBoardView("))
-        expectTrue(host.contains("case .traceLines, .traceShapesDotted:"))
+        expectTrue(host.contains("case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:"))
         let model = try source("Sources/VisaGames/AppDelegate.swift")
         expectTrue(model.contains("func shapeTraceCommit("))
         expectTrue(model.contains("ParentPlaytestLog.needsPlaytestBanner"))
@@ -487,7 +693,10 @@ final class ShapeTraceTests {
         let view = try source("Sources/VisaGames/ShapeTraceBoardView.swift")
         expectFalse(view.contains("TextField"))
         expectFalse(view.contains("完成"))
+        // 擦晒 only ever comes from ShapeTraceCopy, and only on ★★★ (`eraserVisible`).
         expectFalse(view.contains("擦晒"))
+        expectTrue(view.contains("if board.eraserVisible {"))
+        expectTrue(view.contains("ShapeTraceCopy.eraserTraditionalChinese"))
         expectTrue(view.contains("isMonotonicSuccessor(of: view.board)"))
         let settings = try source("Sources/VisaGames/ParentSettingsView.swift")
         expectTrue(settings.contains("ParentShapeTraceSettingsView("))

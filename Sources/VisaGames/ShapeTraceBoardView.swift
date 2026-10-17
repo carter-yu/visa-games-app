@@ -1,13 +1,18 @@
 import SwiftUI
 import VisaCore
 
-/// 畫線畫形 / Lines & Shapes (v0.25.0, ADR 0014; Opus mockups 01, 02, 03, 04).
+/// 畫線畫形 / Lines & Shapes (v0.25.0 / v0.26.0, ADR 0014; Opus mockups 01–06).
 ///
 /// 畫直線 · 熱身: a fire engine, a crane hook and a taxi follow the pen along wide lanes.
 /// 畫形狀 · 跟虛線: a little paint car follows the pen along dotted circles, square windows (「口」
 /// order) and ★ spires (∧). The vehicle only goes forwards, waits at every corner (「停！轉彎！」)
 /// and waits whenever the pen leaves the lane — never a miss. Each shape auto-completes; no done button,
 /// no clear-all button. Nothing is drawn in the bottom-right parent corner.
+///
+/// 畫形狀 · 跟箭嘴 (★★): faint outlines, shape-order badges, ▲ ◁ ▽, 砌車仔 with a 「今日砌」 card.
+/// 畫形狀 · 自己畫 (★★★): corner dots only, the child's own crayon ink, a 「照住畫」 model card,
+/// a waiting dot instead of the car, a victory lap along the child's own line, and the eraser for the
+/// current shape only (bottom-left tray, never the parent corner).
 ///
 /// All rules live in `VisaCore.ShapeTraceBoard`. This view runs it on a local copy per pen event
 /// and hands it to the model on pen-up and at every milestone (corner, stroke, shape).
@@ -44,6 +49,8 @@ private struct ShapeTraceStageContent: View {
     @State private var penTip: CGPoint?
     @State private var dragSeen = false
     @State private var lastInputAt: Double?
+    @State private var lapShape: Int?
+    @State private var lapStart: Date?
     @GestureState private var gestureActive = false
 
     private var board: ShapeTraceBoard {
@@ -133,6 +140,20 @@ private struct ShapeTraceStageContent: View {
         penTip = nil
     }
 
+    /// ★★★ eraser: the current shape only (3 s cooldown; nudge on the 4th press; hidden on the 6th).
+    private func erasePressed() {
+        guard !view.locked else { return }
+        var next = board
+        if dragSeen { next.cancelStroke(); resetDrag() }
+        switch next.erase(now: Date().timeIntervalSinceReferenceDate) {
+        case .cleared, .clearedNudge, .clearedAndHidden:
+            local = next
+            view.onCommit(next)
+        case .coolingDown, .unavailable:
+            break
+        }
+    }
+
     var body: some View {
         ZStack(alignment: .topLeading) {
             sceneryLayer
@@ -141,6 +162,7 @@ private struct ShapeTraceStageContent: View {
             followersLayer
             hintLayer
             ghostLayer
+            lapLayer
             Color.clear
                 .frame(width: metrics.u(1280), height: metrics.u(720))
                 .contentShape(Rectangle())
@@ -149,6 +171,9 @@ private struct ShapeTraceStageContent: View {
                 .accessibilityHidden(true)
             bubble
             linkCard
+            buildCard
+            modelCard
+            eraserButton
             status
             header
         }
@@ -173,6 +198,12 @@ private struct ShapeTraceStageContent: View {
             guard due else { return }
             lastInputAt = view.now
             view.onSpeak()
+        }
+        .onChange(of: board.shapeIndex) { index in
+            // ★★★: the paint car drives once along the child's own line (design §4.3).
+            guard board.question.isFree, !reduceMotion, index > 0 else { return }
+            lapShape = index - 1
+            lapStart = Date()
         }
     }
 
@@ -209,7 +240,8 @@ private struct ShapeTraceStageContent: View {
 
     private var followersLayer: some View {
         let board = self.board
-        return stageCanvas { g in ShapeTraceDrawing.followers(board, in: &g) }
+        let dragging = dragSeen
+        return stageCanvas { g in ShapeTraceDrawing.followers(board, dragging: dragging, in: &g) }
     }
 
     /// Off the lane for 2 s: dashed glow ring on the vehicle and a dotted trail from the pen.
@@ -258,6 +290,33 @@ private struct ShapeTraceStageContent: View {
         }
     }
 
+    /// ★★★: after a shape is drawn, the paint car drives along the child's own ink (2.2 s, once).
+    @ViewBuilder
+    private var lapLayer: some View {
+        if let lapShape, let lapStart, board.question.isFree {
+            let polylines = board.inkPolylines(shape: lapShape)
+            let points = polylines.flatMap { $0 }
+            if points.count > 1 {
+                let scale = metrics.scale
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+                    let t = timeline.date.timeIntervalSince(lapStart) / 2.2
+                    Canvas { context, _ in
+                        guard t >= 0, t < 1 else { return }
+                        var g = context
+                        g.scaleBy(x: scale, y: scale)
+                        let index = min(points.count - 2, Int(Double(points.count - 1) * t))
+                        let a = points[index], b = points[index + 1]
+                        ShapeTraceDrawing.place(ShapeTraceArt.paintCar, at: a, scale: 0.56,
+                                                angle: atan2(b.y - a.y, b.x - a.x), in: &g)
+                    }
+                }
+                .frame(width: metrics.u(1280), height: metrics.u(720))
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+        }
+    }
+
     // MARK: Bubble 「三角形、triangle」 (last finished shape)
 
     @ViewBuilder
@@ -296,8 +355,11 @@ private struct ShapeTraceStageContent: View {
 
     @ViewBuilder
     private var linkCard: some View {
-        if board.question.kind == .traceShapesDotted, board.shapeIndex > 0,
-           let kind = board.shapes.first?.kind, let card = ShapeTraceCopy.linkCard(kind) {
+        if board.question.kind == .traceShapesDotted || (board.question.kind == .traceShapesArrows && board.question.scene != .garage),
+           board.shapeIndex > 0,
+           let kind = board.question.isOutlined ? board.shapes[min(board.shapeIndex, board.shapes.count) - 1].kind
+                                                : board.shapes.first?.kind,
+           let card = ShapeTraceCopy.linkCard(kind) {
             let rect = ShapeTraceLayout.linkCard
             HStack(spacing: metrics.u(14)) {
                 CanvasText(card.glyph, size: 72, weight: 900, color: LM.ink)
@@ -318,6 +380,94 @@ private struct ShapeTraceStageContent: View {
         }
     }
 
+    // MARK: 「今日砌」 card (砌車仔 ★★), 「照住畫」 model card and the eraser (★★★)
+
+    @ViewBuilder
+    private var buildCard: some View {
+        if board.question.scene == .garage, !board.question.isFree, let car = board.question.car {
+            let rect = ShapeTraceLayout.linkCard
+            HStack(spacing: metrics.u(8)) {
+                VStack(alignment: .leading, spacing: metrics.u(2)) {
+                    CanvasText(ShapeTraceCopy.todayBuildTraditionalChinese, size: 18, weight: 900, color: LM.ink)
+                    CanvasText(ShapeTraceCopy.todayBuildEnglish, size: 13, weight: 700, color: LM.soft)
+                    CanvasText("口 + 〇〇", size: 15, weight: 900, color: LM.ink)
+                    CanvasText("+ \(car.topperTraditionalChinese)", size: 15, weight: 900, color: LM.ink)
+                }
+                Canvas { context, size in
+                    var g = context
+                    g.scaleBy(x: size.width / 110, y: size.height / 100)
+                    ShapeTraceDrawing.miniCar(car, in: &g)
+                }
+                .frame(width: metrics.u(110), height: metrics.u(100))
+            }
+            .frame(width: metrics.u(CGFloat(rect.width)), height: metrics.u(CGFloat(rect.height)))
+            .background(RoundedRectangle(cornerRadius: metrics.u(18), style: .continuous).fill(LM.card))
+            .overlay(RoundedRectangle(cornerRadius: metrics.u(18), style: .continuous)
+                .strokeBorder(LM.ink, lineWidth: metrics.u(4)))
+            .canvasPlaced(x: CGFloat(rect.x), y: CGFloat(rect.y))
+            .allowsHitTesting(false)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(ShapeTraceCopy.todayBuildTraditionalChinese) / \(ShapeTraceCopy.todayBuildEnglish)")
+        }
+    }
+
+    @ViewBuilder
+    private var modelCard: some View {
+        if board.question.isFree, !board.shapes.isEmpty {
+            let shape = board.shapes[min(board.shapeIndex, board.shapes.count - 1)]
+            let rect = ShapeTraceLayout.modelCard
+            let words = ShapeTraceCopy.strokeWords(shape.kind)
+            HStack(spacing: metrics.u(6)) {
+                VStack(alignment: .leading, spacing: metrics.u(2)) {
+                    CanvasText(ShapeTraceCopy.modelCardTraditionalChinese, size: 18, weight: 900, color: LM.ink)
+                    CanvasText(ShapeTraceCopy.modelCardEnglish, size: 13, weight: 700, color: LM.soft)
+                    if let words {
+                        CanvasText(words.count, size: 14, weight: 900, color: LM.ink)
+                        CanvasText(words.words, size: 14, weight: 900, color: LM.ink)
+                    }
+                }
+                Canvas { context, size in
+                    var g = context
+                    ShapeTraceDrawing.modelFigure(shape, in: &g, size: size)
+                }
+                .frame(width: metrics.u(104), height: metrics.u(104))
+            }
+            .frame(width: metrics.u(CGFloat(rect.width)), height: metrics.u(CGFloat(rect.height)))
+            .background(RoundedRectangle(cornerRadius: metrics.u(18), style: .continuous).fill(LM.card))
+            .overlay(RoundedRectangle(cornerRadius: metrics.u(18), style: .continuous)
+                .strokeBorder(LM.ink, lineWidth: metrics.u(4)))
+            .canvasPlaced(x: CGFloat(rect.x), y: CGFloat(rect.y))
+            .allowsHitTesting(false)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(ShapeTraceCopy.modelCardTraditionalChinese) / \(ShapeTraceCopy.modelCardEnglish)")
+        }
+    }
+
+    @ViewBuilder
+    private var eraserButton: some View {
+        if board.eraserVisible {
+            let rect = ShapeTraceLayout.eraser
+            Button(action: erasePressed) {
+                ZStack(alignment: .topLeading) {
+                    VectorArtView(artwork: ShapeTraceArt.eraserButton)
+                        .frame(width: metrics.u(200), height: metrics.u(170))
+                    VStack(spacing: 0) {
+                        CanvasText(ShapeTraceCopy.eraserTraditionalChinese, size: 34, weight: 900, color: LM.ink)
+                        CanvasText(ShapeTraceCopy.eraserEnglish, size: 18, weight: 700, color: LM.soft)
+                    }
+                    .frame(width: metrics.u(200))
+                    .offset(y: metrics.u(96))
+                }
+                .frame(width: metrics.u(CGFloat(rect.width)), height: metrics.u(CGFloat(rect.height)), alignment: .topLeading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(view.locked)
+            .canvasPlaced(x: CGFloat(rect.x), y: CGFloat(rect.y))
+            .accessibilityLabel("\(ShapeTraceCopy.eraserTraditionalChinese) / \(ShapeTraceCopy.eraserEnglish)")
+        }
+    }
+
     // MARK: Status (one dot per shape + one line)
 
     private var statusLines: (zh: String, en: String) {
@@ -332,14 +482,20 @@ private struct ShapeTraceStageContent: View {
            board.progress < 1, !dragSeen {
             return (arrival.traditionalChinese, arrival.english)
         }
-        let kind = board.question.kind == .traceLines ? nil : board.shapes.first?.kind
-        return (ShapeTraceCopy.remainingTraditionalChinese(board.remainingShapes, kind: kind),
-                ShapeTraceCopy.remainingEnglish(board.remainingShapes, kind: kind))
+        let n = board.remainingShapes
+        if board.question.kind == .traceLines {
+            return (ShapeTraceCopy.remainingTraditionalChinese(n, kind: nil), ShapeTraceCopy.remainingEnglish(n, kind: nil))
+        }
+        if board.question.isOutlined, board.question.uniformKind == nil {
+            return (ShapeTraceCopy.remainingShapesTraditionalChinese(n), ShapeTraceCopy.remainingShapesEnglish(n))
+        }
+        let kind = board.shapes.first?.kind
+        return (ShapeTraceCopy.remainingTraditionalChinese(n, kind: kind), ShapeTraceCopy.remainingEnglish(n, kind: kind))
     }
 
     private var status: some View {
         let lines = statusLines
-        let rect = ShapeTraceLayout.status
+        let rect = board.question.isFree ? ShapeTraceLayout.freeStatus : ShapeTraceLayout.status
         return VStack(spacing: metrics.u(4)) {
             HStack(spacing: metrics.u(12)) {
                 ForEach(Array(board.shapes.indices), id: \.self) { index in
@@ -409,6 +565,8 @@ private struct ShapeTraceStageContent: View {
                 CanvasText(lines ? ShapeTraceCopy.linesBadgeTraditionalChinese : ShapeTraceCopy.shapesBadgeTraditionalChinese,
                            size: 24, weight: 900, color: LM.ink)
                 CanvasText(lines ? ShapeTraceCopy.linesBadgeSubTraditionalChinese
+                                 : board.question.kind == .traceShapesFree ? ShapeTraceCopy.freeBadgeSubTraditionalChinese
+                                 : board.question.kind == .traceShapesArrows ? ShapeTraceCopy.arrowsBadgeSubTraditionalChinese
                                  : ShapeTraceCopy.shapesBadgeSubTraditionalChinese,
                            size: 16, weight: 700, color: LM.headerSub)
             }
@@ -510,18 +668,71 @@ enum ShapeTraceDrawing {
             place(ShapeTraceArt.pine, at: LineMatchPoint(x: 1176, y: 522), in: &g)
             place(ShapeTraceArt.pine, at: LineMatchPoint(x: 1250, y: 532), scale: 0.75, in: &g)
             stage(ShapeTraceArt.church, in: &g)
-            clockFace(LineMatchPoint(x: 205, y: 300), in: &g)
+            if shape(board, slot: "clock") == nil {
+                let r = q.isOutlined ? ShapeTraceGenerator.snowClockRadii[min(max(q.size, 0), 2)] : 56
+                clockFace(ShapeTraceGenerator.churchClockCenter, radius: r, numbers: q.isOutlined, in: &g)
+            }
             if shape(board, slot: "sun") == nil {
-                let sun = ShapeTraceGenerator.snowCircle(slot: 1, big: false, shift: q.shift)
+                let sun = q.isOutlined ? ShapeTraceGenerator.snowShape(slot: "sun", size: q.size, shift: q.shift)
+                                       : ShapeTraceGenerator.snowCircle(slot: 1, big: false, shift: q.shift)
                 sunDone(sun, painted: false, in: &g)
             }
-            let body = shape(board, slot: "body") ?? ShapeTraceGenerator.snowCircle(slot: 0, big: false, shift: q.shift)
+            let body = snowBody(board)
             if shape(board, slot: "body") == nil {
-                let disc = Path(ellipseIn: body.frame.cgRect)
-                g.fill(disc, with: .color(.white))
-                g.stroke(disc, with: .color(ink), lineWidth: 6)
+                snowBodyDone(body, in: &g)
             }
-            place(ShapeTraceArt.snowArms, at: LineMatchPoint(x: body.frame.midX, y: body.frame.midY + 30), in: &g)
+            if q.isOutlined {
+                let r = body.frame.width / 2
+                place(ShapeTraceArt.snowArms, at: LineMatchPoint(x: body.frame.midX, y: body.frame.midY), scale: r / 105, in: &g)
+            } else {
+                place(ShapeTraceArt.snowArms, at: LineMatchPoint(x: body.frame.midX, y: body.frame.midY + 30), in: &g)
+            }
+        case .castleKeep:
+            stage(ShapeTraceArt.castleKeep, in: &g)
+        case .castleHall:
+            stage(ShapeTraceArt.castleFacade, in: &g)
+        case .garage:
+            stage(ShapeTraceArt.garage, in: &g)
+            g.draw(Text(ShapeTraceCopy.garageSign).font(CanvasFont.font(size: 24, weight: 900)).foregroundColor(.white),
+                   at: CGPoint(x: 912, y: 259))
+            carFixtures(board, in: &g)
+        }
+    }
+
+    static func snowBody(_ board: ShapeTraceBoard) -> ShapeTraceShape {
+        let q = board.question
+        if let body = shape(board, slot: "body") { return body }
+        return q.isOutlined ? ShapeTraceGenerator.snowShape(slot: "body", size: q.size, shift: q.shift)
+                            : ShapeTraceGenerator.snowCircle(slot: 0, big: false, shift: q.shift)
+    }
+
+    /// 砌車仔: the ready-made pole / hitch behind the body (mockup 05 pole), the cone's scoop,
+    /// and the headlight once the car is built.
+    static func carFixtures(_ board: ShapeTraceBoard, in g: inout GraphicsContext) {
+        let q = board.question
+        guard let car = q.car, let body = shape(board, slot: "carBody") else { return }
+        let pole = ShapeTraceGenerator.carPoleX(big: q.big, shift: q.shift)
+        let hitchY = body.frame.maxY - 16
+        var fixture = Path()
+        switch car {
+        case .flagCar, .sailCar:
+            fixture.move(to: CGPoint(x: pole, y: car == .flagCar ? 150 : 160))
+            fixture.addLine(to: CGPoint(x: pole, y: hitchY))
+            fixture.addLine(to: CGPoint(x: body.frame.x, y: hitchY))
+        case .coneCar:
+            fixture.move(to: CGPoint(x: pole - 70, y: 340))
+            fixture.addLine(to: CGPoint(x: pole - 70, y: hitchY))
+            fixture.addLine(to: CGPoint(x: body.frame.x, y: hitchY))
+            let scoop = Path(ellipseIn: CGRect(x: pole - 70 - 40, y: 200 - 34 - 40, width: 80, height: 80))
+            g.fill(scoop, with: .color(Color(hex: 0xF9B4C2)))
+            g.stroke(scoop, with: .color(ink), lineWidth: 5)
+        }
+        g.stroke(fixture, with: .color(ink), style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round))
+        if board.isComplete {
+            let lamp = CGRect(x: body.frame.maxX - 6, y: body.frame.maxY - 70, width: 24, height: 24)
+            g.fill(Path(ellipseIn: lamp.insetBy(dx: -14, dy: -14)), with: .color(Color(hex: 0xFFE066).opacity(0.55)))
+            g.fill(Path(ellipseIn: lamp), with: .color(Color(hex: 0xFFE066)))
+            g.stroke(Path(ellipseIn: lamp), with: .color(ink), lineWidth: 4)
         }
     }
 
@@ -533,6 +744,10 @@ enum ShapeTraceDrawing {
     // MARK: Lanes, guides and painted progress
 
     static func lanes(_ board: ShapeTraceBoard, settings: ShapeTraceSettings, in g: inout GraphicsContext) {
+        if board.question.isOutlined {
+            outlined(board, in: &g)
+            return
+        }
         let lines = board.question.kind == .traceLines
         let lane = board.question.laneWidth
         for (index, shape) in board.shapes.enumerated() {
@@ -588,37 +803,222 @@ enum ShapeTraceDrawing {
         }
     }
 
+    /// ★★ faint outlines (8u grey, 50 %) + the paint car's colour so far; ★★★ the child's own ink
+    /// only. Finished shapes come alive (mockups 03, 05, 06).
+    static func outlined(_ board: ShapeTraceBoard, in g: inout GraphicsContext) {
+        let free = board.question.isFree
+        for (index, shape) in board.shapes.enumerated() {
+            if board.isDone(shape: index) {
+                doneShape(shape, painted: !free, board: board, in: &g)
+                if free { inkLines(board.inkPolylines(shape: index), in: &g) }
+                continue
+            }
+            pendingInterior(shape, outlined: true, in: &g)
+            if free {
+                if index == board.shapeIndex { inkLines(board.inkPolylines(shape: index), in: &g) }
+                continue
+            }
+            for stroke in shape.strokes {
+                g.stroke(whole(stroke), with: .color(guideGrey.opacity(0.55)),
+                         style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round))
+            }
+            let done = board.doneStrokes(shape: index)
+            let color = Color(hex: LineMatchRoadPalette.color(shape.colorIndex).full)
+            for k in shape.strokes.indices {
+                guard let path = board.path(shape: index, stroke: k) else { continue }
+                let upTo: Double
+                if k < done { upTo = path.length } else if index == board.shapeIndex && k == board.strokeIndex {
+                    upTo = board.progress
+                } else { continue }
+                guard upTo > 0.5 else { continue }
+                let p = segment(path, from: 0, to: upTo)
+                g.stroke(p, with: .color(ink), style: StrokeStyle(lineWidth: 32, lineCap: .round, lineJoin: .round))
+                g.stroke(p, with: .color(color), style: StrokeStyle(lineWidth: 22, lineCap: .round, lineJoin: .round))
+            }
+        }
+    }
+
+    /// ★★★ crayon: 16u deep blue with a thin highlight (mockup 06).
+    static func inkLines(_ polylines: [[LineMatchPoint]], in g: inout GraphicsContext) {
+        var p = Path()
+        for line in polylines where !line.isEmpty {
+            p.move(to: cg(line[0]))
+            if line.count == 1 {
+                p.addLine(to: CGPoint(x: line[0].x + 0.5, y: line[0].y))
+            } else {
+                for point in line.dropFirst() { p.addLine(to: cg(point)) }
+            }
+        }
+        g.stroke(p, with: .color(Color(hex: 0x2B4E9E)), style: StrokeStyle(lineWidth: 16, lineCap: .round, lineJoin: .round))
+        g.stroke(p, with: .color(Color(hex: 0x7FA6F0).opacity(0.55)),
+                 style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+    }
+
     /// Not drawn yet: the window is dim, the circle a faint snow disc (mockups 03, 04).
-    private static func pendingInterior(_ shape: ShapeTraceShape, in g: inout GraphicsContext) {
+    private static func pendingInterior(_ shape: ShapeTraceShape, outlined: Bool = false, in g: inout GraphicsContext) {
         switch shape.kind {
         case .square:
             g.fill(Path(shape.frame.cgRect), with: .color(Color(hex: 0x5A5160).opacity(0.18)))
         case .circle:
-            let inset = shape.frame.cgRect.insetBy(dx: 40, dy: 40)
-            g.fill(Path(ellipseIn: inset), with: .color(Color.white.opacity(0.6)))
-        case .across, .down, .slant, .spire:
+            let inset = outlined ? shape.frame.cgRect : shape.frame.cgRect.insetBy(dx: 40, dy: 40)
+            g.fill(Path(ellipseIn: inset), with: .color(Color.white.opacity(outlined ? 0.45 : 0.6)))
+        case .across, .down, .slant, .spire, .triangle, .pennant, .cone:
             break
         }
     }
 
-    /// A finished dotted shape: its done look plus the painted outline.
-    private static func doneShape(_ shape: ShapeTraceShape, in g: inout GraphicsContext) {
-        switch shape.kind {
-        case .spire:
-            spireRoof(shape, painted: true, in: &g)
-        case .square:
+    /// A finished shape: its done look plus the painted outline (★★★: the child's ink instead).
+    private static func doneShape(_ shape: ShapeTraceShape, painted: Bool = true, board: ShapeTraceBoard? = nil,
+                                  in g: inout GraphicsContext) {
+        switch (shape.kind, shape.slot) {
+        case (.spire, _), (.triangle, "spireA"), (.triangle, "spireB"), (.triangle, "spireC"):
+            spireRoof(shape, painted: painted, in: &g)
+            return
+        case (.square, "carBody"):
+            carBodyDone(shape.frame, in: &g)
+        case (.square, _):
             litWindow(shape.frame, in: &g)
-            paintedOutline(shape, in: &g)
-        case .circle:
-            if shape.slot == "sun" {
-                sunDone(shape, painted: true, in: &g)
+        case (.circle, "sun"):
+            sunDone(shape, painted: painted, in: &g)
+            return
+        case (.circle, "head"):
+            snowHeadDone(shape.frame, in: &g)
+        case (.circle, "clock"):
+            clockFace(LineMatchPoint(x: shape.frame.midX, y: shape.frame.midY), radius: shape.frame.width / 2,
+                      numbers: true, in: &g)
+        case (.circle, "backWheel"), (.circle, "frontWheel"):
+            wheelDone(shape.frame, in: &g)
+        case (.circle, _):
+            if board?.question.isOutlined == true {
+                snowBodyDone(shape, in: &g)
             } else {
                 g.fill(Path(ellipseIn: shape.frame.cgRect), with: .color(.white))
-                paintedOutline(shape, in: &g)
             }
-        case .across, .down, .slant:
-            paintedOutline(shape, in: &g)
+        case (.pennant, _), (.triangle, _), (.cone, _):
+            filledPolygon(shape, in: &g)
+        case (.across, _), (.down, _), (.slant, _):
+            break
         }
+        if painted { paintedOutline(shape, in: &g) }
+    }
+
+    /// ◁ yellow flag, ▲ cream sail with a stripe, ▽ orange cone with white stripes (design §2.7).
+    private static func filledPolygon(_ shape: ShapeTraceShape, in g: inout GraphicsContext) {
+        var poly = Path()
+        var corners: [LineMatchPoint] = []
+        for stroke in shape.strokes {
+            for p in [stroke.start, stroke.end] + stroke.corners.map({ stroke.point(at: $0) })
+                where !corners.contains(where: { $0.distance(to: p) < 2 }) {
+                corners.append(p)
+            }
+        }
+        let c = LineMatchPoint(x: corners.map(\.x).reduce(0, +) / Double(max(corners.count, 1)),
+                               y: corners.map(\.y).reduce(0, +) / Double(max(corners.count, 1)))
+        let ordered = corners.sorted { atan2($0.y - c.y, $0.x - c.x) < atan2($1.y - c.y, $1.x - c.x) }
+        guard let first = ordered.first else { return }
+        poly.move(to: cg(first))
+        for p in ordered.dropFirst() { poly.addLine(to: cg(p)) }
+        poly.closeSubpath()
+        let fill: UInt32
+        switch shape.kind {
+        case .pennant: fill = 0xFFC93C
+        case .cone: fill = 0xF5963C
+        default: fill = 0xFFF9EC
+        }
+        g.fill(poly, with: .color(Color(hex: fill)))
+        var stripes = Path()
+        let f = shape.frame
+        if shape.kind == .cone {
+            for step in 1...3 {
+                let x = f.x + f.width * Double(step) / 4
+                stripes.move(to: CGPoint(x: x - 24, y: f.y + 8))
+                stripes.addLine(to: CGPoint(x: x + 14, y: f.y + f.height * 0.55))
+            }
+            var layer = g
+            layer.clip(to: poly)
+            layer.stroke(stripes, with: .color(Color.white.opacity(0.85)), style: StrokeStyle(lineWidth: 7, lineCap: .round))
+        } else if shape.kind == .triangle {
+            stripes.move(to: CGPoint(x: f.x + f.width * 0.25, y: f.y + f.height * 0.62))
+            stripes.addLine(to: CGPoint(x: f.maxX - f.width * 0.18, y: f.y + f.height * 0.62))
+            var layer = g
+            layer.clip(to: poly)
+            layer.stroke(stripes, with: .color(Color(hex: 0xF49AB0)), style: StrokeStyle(lineWidth: 12, lineCap: .butt))
+        }
+        g.stroke(poly, with: .color(ink), style: StrokeStyle(lineWidth: 5, lineJoin: .round))
+    }
+
+    /// Mockup 05 body: red fill + shine; a window and a smile.
+    private static func carBodyDone(_ frame: LineMatchRect, in g: inout GraphicsContext) {
+        let r = frame.cgRect
+        let k = frame.width / 190
+        g.fill(Path(r), with: .color(Color(hex: 0xE8473C)))
+        var shine = Path()
+        shine.move(to: CGPoint(x: r.minX + 22 * k, y: r.minY + 62 * k))
+        shine.addLine(to: CGPoint(x: r.minX + 22 * k, y: r.minY + 22 * k))
+        shine.addLine(to: CGPoint(x: r.minX + 90 * k, y: r.minY + 22 * k))
+        g.stroke(shine, with: .color(Color(hex: 0xF58A80)), style: StrokeStyle(lineWidth: 10, lineCap: .round, lineJoin: .round))
+        let window = CGRect(x: r.maxX - 78 * k, y: r.minY + 30 * k, width: 52 * k, height: 44 * k)
+        g.fill(Path(roundedRect: window, cornerRadius: 8 * k), with: .color(Color(hex: 0xCDEBFB)))
+        g.stroke(Path(roundedRect: window, cornerRadius: 8 * k), with: .color(ink), lineWidth: 4)
+        g.fill(Path(ellipseIn: CGRect(x: r.maxX - 48 * k, y: r.minY + 104 * k, width: 10 * k, height: 10 * k)), with: .color(ink))
+        var smile = Path()
+        smile.move(to: CGPoint(x: r.maxX - 66 * k, y: r.minY + 132 * k))
+        smile.addQuadCurve(to: CGPoint(x: r.maxX - 30 * k, y: r.minY + 132 * k), control: CGPoint(x: r.maxX - 48 * k, y: r.minY + 148 * k))
+        g.stroke(smile, with: .color(ink), style: StrokeStyle(lineWidth: 5, lineCap: .round))
+    }
+
+    /// Wheel: tyre + hubcap (design §2.7 「加車轆蓋」).
+    private static func wheelDone(_ frame: LineMatchRect, in g: inout GraphicsContext) {
+        let r = frame.cgRect
+        g.fill(Path(ellipseIn: r), with: .color(Color(hex: 0x5A5160)))
+        let hub = r.insetBy(dx: r.width * 0.3, dy: r.height * 0.3)
+        g.fill(Path(ellipseIn: hub), with: .color(Color(hex: 0xD9D6DE)))
+        g.stroke(Path(ellipseIn: hub), with: .color(ink), lineWidth: 4)
+    }
+
+    /// Snowman body: snow white with three buttons.
+    static func snowBodyDone(_ shape: ShapeTraceShape, in g: inout GraphicsContext) {
+        let r = shape.frame.cgRect
+        let disc = Path(ellipseIn: r)
+        g.fill(disc, with: .color(.white))
+        g.stroke(disc, with: .color(ink), lineWidth: 6)
+        guard shape.slot == "body" else { return }
+        for step in 0..<3 {
+            let y = r.midY - r.height * 0.22 + Double(step) * r.height * 0.2
+            g.fill(Path(ellipseIn: CGRect(x: r.midX - 7, y: y - 7, width: 14, height: 14)), with: .color(ink))
+        }
+    }
+
+    /// Snowman head: snow white, eyes, carrot nose, smile and a hat (design §2.7).
+    static func snowHeadDone(_ frame: LineMatchRect, in g: inout GraphicsContext) {
+        let r = frame.cgRect
+        let k = frame.width / 104
+        let c = CGPoint(x: r.midX, y: r.midY)
+        let head = Path(ellipseIn: r)
+        g.fill(head, with: .color(.white))
+        g.stroke(head, with: .color(ink), lineWidth: 6)
+        for side in [-1.0, 1.0] {
+            g.fill(Path(ellipseIn: CGRect(x: c.x + side * 17 * k - 5.5 * k, y: c.y - 10 * k - 5.5 * k, width: 11 * k, height: 11 * k)),
+                   with: .color(ink))
+        }
+        var nose = Path()
+        nose.move(to: CGPoint(x: c.x - 2 * k, y: c.y - 2 * k))
+        nose.addLine(to: CGPoint(x: c.x + 30 * k, y: c.y + 6 * k))
+        nose.addLine(to: CGPoint(x: c.x - 2 * k, y: c.y + 12 * k))
+        nose.closeSubpath()
+        g.fill(nose, with: .color(Color(hex: 0xF5963C)))
+        g.stroke(nose, with: .color(ink), style: StrokeStyle(lineWidth: 3, lineJoin: .round))
+        var smile = Path()
+        smile.move(to: CGPoint(x: c.x - 16 * k, y: c.y + 22 * k))
+        smile.addQuadCurve(to: CGPoint(x: c.x + 16 * k, y: c.y + 22 * k), control: CGPoint(x: c.x, y: c.y + 32 * k))
+        g.stroke(smile, with: .color(ink), style: StrokeStyle(lineWidth: 4, lineCap: .round))
+        let brim = CGRect(x: c.x - 44 * k, y: r.minY - 6 * k, width: 88 * k, height: 12 * k)
+        let crown = CGRect(x: c.x - 28 * k, y: r.minY - 46 * k, width: 56 * k, height: 42 * k)
+        for rect in [crown, brim] {
+            g.fill(Path(roundedRect: rect, cornerRadius: 4 * k), with: .color(Color(hex: 0x2B2630)))
+        }
+        g.fill(Path(CGRect(x: crown.minX, y: crown.maxY - 12 * k, width: crown.width, height: 7 * k)),
+               with: .color(Color(hex: 0xE8473C)))
     }
 
     private static func paintedOutline(_ shape: ShapeTraceShape, in g: inout GraphicsContext) {
@@ -723,15 +1123,23 @@ enum ShapeTraceDrawing {
         g.stroke(smile, with: .color(ink), style: StrokeStyle(lineWidth: 6, lineCap: .round))
     }
 
-    /// Church clock (scenery in phase 1): white face, ink rim, hands at three o'clock.
-    static func clockFace(_ c: LineMatchPoint, in g: inout GraphicsContext) {
-        let disc = Path(ellipseIn: CGRect(x: c.x - 56, y: c.y - 56, width: 112, height: 112))
+    /// Church clock: white face, ink rim, hands at three o'clock; a drawn clock (★★ / ★★★) shows
+    /// 12, 3, 6 and 9 (design §2.7).
+    static func clockFace(_ c: LineMatchPoint, radius r: Double = 56, numbers: Bool = false, in g: inout GraphicsContext) {
+        let disc = Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
         g.fill(disc, with: .color(.white))
         g.stroke(disc, with: .color(ink), lineWidth: 6)
+        let k = r / 56
+        if numbers {
+            for (n, angle) in [(12, -Double.pi / 2), (3, 0.0), (6, Double.pi / 2), (9, Double.pi)] {
+                let p = CGPoint(x: c.x + cos(angle) * r * 0.68, y: c.y + sin(angle) * r * 0.68)
+                g.draw(Text("\(n)").font(CanvasFont.font(size: 15 * k, weight: 800)).foregroundColor(ink), at: p)
+            }
+        }
         var hands = Path()
-        hands.move(to: CGPoint(x: c.x, y: c.y - 38))
+        hands.move(to: CGPoint(x: c.x, y: c.y - 38 * k * (numbers ? 0.8 : 1)))
         hands.addLine(to: CGPoint(x: c.x, y: c.y))
-        hands.addLine(to: CGPoint(x: c.x + 28, y: c.y))
+        hands.addLine(to: CGPoint(x: c.x + 28 * k * (numbers ? 0.8 : 1), y: c.y))
         g.stroke(hands, with: .color(ink), style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
     }
 
@@ -750,6 +1158,13 @@ enum ShapeTraceDrawing {
                     number(index + 1, at: lineBadge(shape, path: path), radius: 22, in: &g)
                 }
                 continue
+            }
+            if board.question.isFree {
+                freeMarkers(board, shape: shape, index: index, in: &g)
+                continue
+            }
+            if board.question.isOutlined, index > board.shapeIndex {
+                number(index + 1, at: shapeBadge(shape), radius: 22, in: &g)
             }
             guard index == board.shapeIndex else { continue }
             let done = board.doneStrokes(shape: index)
@@ -771,7 +1186,9 @@ enum ShapeTraceDrawing {
                 }
             }
         }
-        // Direction chevrons ahead of the vehicle.
+        if board.question.isFree { return }
+        // Direction chevrons ahead of the vehicle (white on lanes, faint ink on ★★ outlines).
+        let chevronColor = board.question.isOutlined ? ink.opacity(0.55) : Color.white
         if settings.directionHint, let path = board.currentPath {
             for ahead in [70.0, 140.0] {
                 let d = board.progress + ahead
@@ -784,7 +1201,7 @@ enum ShapeTraceDrawing {
                 chevron.move(to: CGPoint(x: -9, y: -14))
                 chevron.addLine(to: CGPoint(x: 7, y: 0))
                 chevron.addLine(to: CGPoint(x: -9, y: 14))
-                layer.stroke(chevron, with: .color(.white), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
+                layer.stroke(chevron, with: .color(chevronColor), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
             }
         }
         // Corner stop sign while the vehicle waits at a corner.
@@ -795,6 +1212,33 @@ enum ShapeTraceDrawing {
             g.draw(Text(ShapeTraceCopy.stopSign).font(CanvasFont.font(size: 28, weight: 900)).foregroundColor(.white),
                    at: cg(at))
         }
+    }
+
+    /// ★★★: grey corner dots on every shape still to draw (circles: four compass points); the
+    /// current stroke gets the green go arrow and a red end dot (mockup 06).
+    private static func freeMarkers(_ board: ShapeTraceBoard, shape: ShapeTraceShape, index: Int,
+                                    in g: inout GraphicsContext) {
+        guard !board.isDone(shape: index) else { return }
+        var dots: [LineMatchPoint] = []
+        for (k, stroke) in shape.strokes.enumerated() {
+            let path = board.path(shape: index, stroke: k) ?? stroke
+            var points = [path.start, path.end] + path.corners.map { path.point(at: $0) }
+            if path.closed {
+                points = (0..<4).map { path.point(at: path.length * Double($0) / 4) }
+            }
+            for p in points where !dots.contains(where: { $0.distance(to: p) < 2 }) { dots.append(p) }
+        }
+        for p in dots { place(ShapeTraceArt.cornerDot, at: p, in: &g) }
+        guard index == board.shapeIndex, let path = board.currentPath else { return }
+        let endAt = path.closed ? path.point(at: board.arrivalDistance(path)) : path.end
+        place(ShapeTraceArt.cornerEnd, at: endAt, in: &g)
+        place(ShapeTraceArt.go, at: path.start, angle: path.angle(at: 0), in: &g)
+    }
+
+    /// ★★ shape-order badge: just above the top-right of the shape, inside the stage.
+    private static func shapeBadge(_ shape: ShapeTraceShape) -> LineMatchPoint {
+        let f = shape.frame
+        return LineMatchPoint(x: min(f.maxX + 30, 1230), y: max(f.y - 26, 140))
     }
 
     private static func lineBadge(_ shape: ShapeTraceShape, path: TracePath) -> LineMatchPoint {
@@ -814,6 +1258,12 @@ enum ShapeTraceDrawing {
         case (.square, 2): return LineMatchPoint(x: f.x + 40, y: f.maxY + 58)
         case (.spire, 0): return LineMatchPoint(x: f.midX - 92, y: f.y + 26)
         case (.spire, 1): return LineMatchPoint(x: f.midX + 92, y: f.y + 26)
+        case (.triangle, 0): return LineMatchPoint(x: f.x + f.width / 4 - 46, y: f.midY - 20)
+        case (.triangle, 1): return LineMatchPoint(x: f.maxX - f.width / 4 + 46, y: f.midY - 20)
+        case (.triangle, 2): return LineMatchPoint(x: f.midX, y: f.maxY + 44)
+        case (.cone, 0): return LineMatchPoint(x: f.midX, y: f.y - 44)
+        case (.cone, 1): return LineMatchPoint(x: f.x + f.width / 4 - 50, y: f.midY)
+        case (.cone, 2): return LineMatchPoint(x: f.maxX - f.width / 4 + 50, y: f.midY)
         default: return nil
         }
     }
@@ -827,9 +1277,20 @@ enum ShapeTraceDrawing {
 
     // MARK: Followers (the vehicle that follows the pen)
 
-    static func followers(_ board: ShapeTraceBoard, in g: inout GraphicsContext) {
+    static func followers(_ board: ShapeTraceBoard, dragging: Bool = false, in g: inout GraphicsContext) {
         let q = board.question
-        if q.scene == .snowTown { snowmanHead(board, in: &g) }
+        if q.scene == .snowTown {
+            if q.isOutlined { outlinedSnowDecor(board, in: &g) } else { snowmanHead(board, in: &g) }
+        }
+        if q.isFree {
+            // ★★★ no car on the line: a small yellow dot waits where the child lifted the pen.
+            if !dragging, board.progress > 0.5, let p = board.vehiclePoint {
+                let dot = Path(ellipseIn: CGRect(x: p.x - 13, y: p.y - 13, width: 26, height: 26))
+                g.fill(dot, with: .color(Color(hex: 0xFFC93C)))
+                g.stroke(dot, with: .color(ink), lineWidth: 4)
+            }
+            return
+        }
         guard q.kind == .traceLines else {
             if let p = board.vehiclePoint {
                 place(ShapeTraceArt.paintCar, at: p, scale: 0.78, angle: board.vehicleAngle, in: &g)
@@ -898,6 +1359,90 @@ enum ShapeTraceDrawing {
                              cornerRadius: 12)
             g.fill(scarf, with: .color(Color(hex: 0xE8473C)))
             g.stroke(scarf, with: .color(ink), lineWidth: 5)
+        }
+    }
+
+    /// ★★ / ★★★ snow town: an undrawn head is scenery; the scarf appears once head and body are
+    /// both there.
+    private static func outlinedSnowDecor(_ board: ShapeTraceBoard, in g: inout GraphicsContext) {
+        let q = board.question
+        let head = shape(board, slot: "head") ?? ShapeTraceGenerator.snowShape(slot: "head", size: q.size, shift: q.shift)
+        if shape(board, slot: "head") == nil { snowHeadDone(head.frame, in: &g) }
+        let body = snowBody(board)
+        let headThere = shape(board, slot: "head") == nil || shapeDone(board, slot: "head")
+        let bodyThere = shape(board, slot: "body") == nil || shapeDone(board, slot: "body")
+        guard headThere, bodyThere else { return }
+        let top = head.frame.maxY - 8
+        let bottom = body.frame.y + 8
+        let width = head.frame.width * 1.1
+        let scarf = Path(roundedRect: CGRect(x: head.frame.midX - width / 2, y: top, width: width, height: max(18, bottom - top)),
+                         cornerRadius: 12)
+        g.fill(scarf, with: .color(Color(hex: 0xE8473C)))
+        g.stroke(scarf, with: .color(ink), lineWidth: 5)
+    }
+
+    // MARK: Tray minis (「今日砌」 car, 「照住畫」 model)
+
+    /// 「今日砌」 mini car in a 110 × 100 box: body, two wheels, the topper on its pole.
+    static func miniCar(_ car: ShapeTraceCar, in g: inout GraphicsContext) {
+        let body = CGRect(x: 44, y: 22, width: 52, height: 50)
+        var pole = Path()
+        pole.move(to: CGPoint(x: 34, y: car == .coneCar ? 50 : 8))
+        pole.addLine(to: CGPoint(x: 34, y: 64))
+        pole.addLine(to: CGPoint(x: 44, y: 64))
+        g.stroke(pole, with: .color(ink), style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+        var topper = Path()
+        let fill: UInt32
+        switch car {
+        case .flagCar:
+            topper.move(to: CGPoint(x: 34, y: 10)); topper.addLine(to: CGPoint(x: 10, y: 20)); topper.addLine(to: CGPoint(x: 34, y: 30))
+            fill = 0xFFC93C
+        case .sailCar:
+            topper.move(to: CGPoint(x: 22, y: 10)); topper.addLine(to: CGPoint(x: 6, y: 52)); topper.addLine(to: CGPoint(x: 38, y: 52))
+            fill = 0xFFF9EC
+        case .coneCar:
+            g.fill(Path(ellipseIn: CGRect(x: 22, y: 6, width: 24, height: 24)), with: .color(Color(hex: 0xF9B4C2)))
+            g.stroke(Path(ellipseIn: CGRect(x: 22, y: 6, width: 24, height: 24)), with: .color(ink), lineWidth: 2.5)
+            topper.move(to: CGPoint(x: 18, y: 22)); topper.addLine(to: CGPoint(x: 50, y: 22)); topper.addLine(to: CGPoint(x: 34, y: 52))
+            fill = 0xF5963C
+        }
+        topper.closeSubpath()
+        g.fill(topper, with: .color(Color(hex: fill)))
+        g.stroke(topper, with: .color(ink), style: StrokeStyle(lineWidth: 3, lineJoin: .round))
+        g.fill(Path(body), with: .color(Color(hex: 0xE8473C)))
+        g.stroke(Path(body), with: .color(ink), lineWidth: 3)
+        for x in [50.0, 90.0] {
+            let wheel = CGRect(x: x - 13, y: 72, width: 26, height: 26)
+            g.fill(Path(ellipseIn: wheel), with: .color(Color(hex: 0x5A5160)))
+            g.stroke(Path(ellipseIn: wheel), with: .color(ink), lineWidth: 3)
+        }
+    }
+
+    /// 「照住畫」: the current shape in ink, fitted to the card, with numbered strokes and a green
+    /// dot at each start (mockup 06 model card).
+    static func modelFigure(_ shape: ShapeTraceShape, in g: inout GraphicsContext, size: CGSize) {
+        let f = shape.frame
+        let pad = size.width * 0.16
+        let k = min((size.width - 2 * pad) / max(f.width, 1), (size.height - 2 * pad) / max(f.height, 1))
+        let ox = (size.width - f.width * k) / 2 - f.x * k
+        let oy = (size.height - f.height * k) / 2 - f.y * k
+        func map(_ p: LineMatchPoint) -> CGPoint { CGPoint(x: ox + p.x * k, y: oy + p.y * k) }
+        let unit = size.width / 104
+        for stroke in shape.strokes {
+            var path = Path()
+            path.move(to: map(stroke.points[0]))
+            for p in stroke.points.dropFirst() { path.addLine(to: map(p)) }
+            g.stroke(path, with: .color(ink), style: StrokeStyle(lineWidth: 5 * unit, lineCap: .round, lineJoin: .round))
+        }
+        for (n, stroke) in shape.strokes.enumerated() {
+            let s = map(stroke.start)
+            let r = 7 * unit
+            let dot = Path(ellipseIn: CGRect(x: s.x - r, y: s.y - r, width: 2 * r, height: 2 * r))
+            g.fill(dot, with: .color(Color(hex: 0x3DBE6B)))
+            g.stroke(dot, with: .color(ink), lineWidth: 2 * unit)
+            if shape.strokes.count > 1 {
+                g.draw(Text("\(n + 1)").font(CanvasFont.font(size: 10 * unit, weight: 900)).foregroundColor(.white), at: s)
+            }
         }
     }
 

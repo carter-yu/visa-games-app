@@ -1,6 +1,23 @@
 # Progress
 
 
+## 2026-10-17 — v0.26.0 / 58 — 畫線畫形 phase 2 (`traceShapesArrows` ★★, `traceShapesFree` ★★★)
+
+Branch `feat/shape-trace-v026` from main `27a975f`. ADR 0015.
+
+- **VisaCore:**
+  - Two new kinds, both playable, default-off and playtest-gated.
+  - The generator picks a featured group from the mix. A third of rounds are 砌車仔; the rest go to snow town (clock + head as circles), castle hall (3 窗) or castle keep (3 ▲). 99 items per card.
+  - New shape kinds: ▲ `triangle`, ◁ `pennant`, ▽ `cone` (★★ / ★★★ only).
+  - The engine gains ★★★ ink, `ink_outside_ratio`, and 擦晒 (current shape only: 3 s cooldown, nudge on the 4th press, hidden on the 6th). The monotonic rule covers erases.
+  - Art: castle keep, garage, eraser button and corner dots ported from mockups 05 / 06 (26 artworks).
+- **App:**
+  - ★★ faint outlines, the paint car and shape badges; ★★★ crayon ink, corner dots, a waiting dot and a victory lap.
+  - Tray: 「今日砌」 / 「照住畫」 cards and the 擦晒 button. Garage pole, scoop and headlight.
+  - Voice: 「砌好喇！嘟嘟，出發！」 and the 擦晒 nudge.
+- Version: Info.plist **0.26.0 / 58**, parent footer **Visa Games v0.26.0**.
+- Tests: +4 shape-trace checks (20 in total), and the count / default-off / generated-kinds tests are updated. `sh scripts/test.sh` passes on the Mac mini.
+
 ## 2026-10-17 — v0.25.0 / 57 — 畫線畫形 phase 1 (`traceLines`, `traceShapesDotted`)
 
 Branch `feat/shape-trace-v025` from main `fce3508`. ADR 0014. Carter approved D1–D13 (all Opus defaults).

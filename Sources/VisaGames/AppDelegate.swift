@@ -861,7 +861,7 @@ final class AppModel: ObservableObject {
         case .countVehicles: return count.hintTraditionalChinese
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
             return lineMatchBoard.question.hintTraditionalChinese
-        case .traceLines, .traceShapesDotted:
+        case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
             return ShapeTraceCopy.hint
         default: return ActivityCatalog.hintTraditionalChinese(for: kind)
         }
@@ -876,7 +876,7 @@ final class AppModel: ObservableObject {
         case .countVehicles: return PerfChoiceCatalog.facts(count: count, seed: seed)
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
             return PerfChoiceCatalog.facts(lineMatch: lineMatch, settings: lineMatchSettings)
-        case .traceLines, .traceShapesDotted:
+        case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
             let board = shapeTrace ?? ShapeTraceBoard(question: ShapeTraceGenerator.reference(kind: kind))
             return PerfChoiceCatalog.facts(shapeTrace: board.question, settings: shapeTraceSettings,
                                            tolerance: board.tolerance)
@@ -923,7 +923,7 @@ final class AppModel: ObservableObject {
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
             zh = lineMatchBoard.question.promptTraditionalChinese
             en = lineMatchBoard.question.promptEnglish
-        case .traceLines, .traceShapesDotted:
+        case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
             let question = shapeTraceBoard?.question ?? ShapeTraceGenerator.reference(kind: kind)
             zh = question.promptTraditionalChinese
             en = question.promptEnglish
@@ -2283,12 +2283,27 @@ final class AppModel: ObservableObject {
             shapeTraceNotice = nil
         }
         let coaching = shapeTraceSettings.cornerStop
+        if next.erases > current.erases {
+            // ★★★ 擦晒: the current shape only (finished shapes never change). Never a miss.
+            if next.erasesThisShape == ShapeTraceBoard.eraserNudgeAt { showShapeTraceNotice(ShapeTraceCopy.eraserNudgePrompt) }
+            VisaGamesLog.append(
+                "shapeTrace 擦晒 shape=\(next.shapeIndex) presses=\(next.erasesThisShape) hidden=\(next.eraserHidden) (no miss)"
+            )
+        }
         if next.shapeIndex > current.shapeIndex, next.shapes.indices.contains(current.shapeIndex) {
             let shape = next.shapes[current.shapeIndex]
-            // Lines: the next line's start words follow the cue (「打直，向落！」).
-            let follow = next.currentShape.flatMap { index -> SpokenPrompt? in
-                let upcoming = next.shapes[index].kind
-                return upcoming.isLine ? ShapeTraceCopy.start(upcoming) : nil
+            // Lines: the next line's start words follow the cue (「打直，向落！」). Shapes: the first
+            // of its group this round adds the link (「正方形好似「口」字！」); a built car says 嘟嘟.
+            let follow: SpokenPrompt?
+            if next.isComplete, next.question.scene == .garage {
+                follow = ShapeTraceCopy.buildDonePrompt
+            } else if let index = next.currentShape, next.shapes[index].kind.isLine {
+                follow = ShapeTraceCopy.start(next.shapes[index].kind)
+            } else if !shape.kind.isLine,
+                      !next.shapes.prefix(current.shapeIndex).contains(where: { $0.kind.mixGroup == shape.kind.mixGroup }) {
+                follow = ShapeTraceCopy.link(shape.kind)
+            } else {
+                follow = nil
             }
             guideVoice.speakWordCue(ShapeTraceCopy.cue(shape.kind), then: follow)
             VisaGamesLog.append(
@@ -2552,7 +2567,7 @@ final class AppModel: ObservableObject {
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge:
             zh = playtestLineMatchBoard.question.promptTraditionalChinese
             en = playtestLineMatchBoard.question.promptEnglish
-        case .traceLines, .traceShapesDotted:
+        case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
             let question = playtestShapeTraceBoard?.question ?? ShapeTraceGenerator.reference(kind: kind)
             zh = question.promptTraditionalChinese
             en = question.promptEnglish
@@ -3479,7 +3494,7 @@ struct ShellView: View {
                     onHint: { model.useEntryHint() },
                     onSpeakPrompt: { model.speakEntryPrompt() }
                 )
-            case .twoPictureChoose, .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .traceLines,
+            case .twoPictureChoose, .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .traceLines, .traceShapesArrows, .traceShapesFree,
                  .traceShapesDotted, .none:
                 // Legacy shell is setup / parent only; 連一連 is canvas-only (CanvasActivityHost).
                 EntryActivityView(

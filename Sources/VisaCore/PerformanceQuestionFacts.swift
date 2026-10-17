@@ -163,7 +163,7 @@ extension PerfChoiceCatalog {
             "dot_style": .string(settings.dotStyle.rawValue),
             LineMatchMode.fieldKey: .string(LineMatchMode.guided.rawValue)
         ]
-        if question.kind == .traceShapesDotted { extra["shape_mix"] = .string(settings.mixDescription) }
+        if question.kind != .traceLines { extra["shape_mix"] = .string(settings.mixDescription) }
         return PerfDealFacts(
             item: question.itemID,
             gen: QuestionGeneration.variants,

@@ -136,7 +136,7 @@ final class ActivityTests {
     }
 
     func testCatalogPlayableKindsAndRotation() {
-        expectEqual(ActivityCatalog.playableKinds.count, 15)
+        expectEqual(ActivityCatalog.playableKinds.count, 17)
         expectTrue(ActivityCatalog.playableKinds.contains(.twoPictureChoose))
         expectTrue(ActivityCatalog.playableKinds.contains(.findTheSame))
         expectTrue(ActivityCatalog.playableKinds.contains(.countVehicles))
@@ -152,8 +152,11 @@ final class ActivityTests {
         expectTrue(ActivityCatalog.playableKinds.contains(.lineMatchGuidedBridge))
         expectTrue(ActivityCatalog.playableKinds.contains(.traceLines))
         expectTrue(ActivityCatalog.playableKinds.contains(.traceShapesDotted))
+        expectTrue(ActivityCatalog.playableKinds.contains(.traceShapesArrows))
+        expectTrue(ActivityCatalog.playableKinds.contains(.traceShapesFree))
         expectEqual(ActivityCatalog.defaultOffKinds,
-                    [.lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch, .traceLines, .traceShapesDotted])
+                    [.lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch, .traceLines, .traceShapesDotted,
+                     .traceShapesArrows, .traceShapesFree])
         expectEqual(ActivityCatalog.defaultOnKinds.count, 10)
         expectEqual(ActivityCatalog.stubKinds, [])
         // Deterministic: same seed → same kind; covering seeds hit every default-on kind (D7:

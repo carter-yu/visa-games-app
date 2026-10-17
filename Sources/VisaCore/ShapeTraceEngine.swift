@@ -212,6 +212,19 @@ public enum ShapeTracePenDown: Sendable, Equatable {
     case ignored
 }
 
+/// ★★★ 擦晒 (design §2.6): clears the current shape only; finished shapes never change.
+public enum ShapeTraceErase: Sendable, Equatable {
+    case cleared
+    /// 4th press on this shape: cleared, and Stampy says 「唔使擦都得，慢慢畫就得㗎！」.
+    case clearedNudge
+    /// 6th press: cleared, and the button hides until this shape is drawn.
+    case clearedAndHidden
+    /// Within 3 s of the last press: nothing happens.
+    case coolingDown
+    /// No eraser here (★ / ★★, finished round, or hidden).
+    case unavailable
+}
+
 public enum ShapeTraceMove: Sendable, Equatable {
     case drove
     /// Pen on the stroke at or behind the vehicle.
@@ -245,6 +258,10 @@ public struct ShapeTraceShapeStats: Sendable, Equatable {
     public var wrongStarts = 0
     public var startedAt: Double?
     public var finishedAt: Double?
+    /// ★★★: share of the child's ink outside the judged corridor (set when the shape is drawn).
+    public var inkOutsideRatio: Double?
+    public var erasers = 0
+    public var eraserLocked = false
 
     public init() {}
 
@@ -270,6 +287,13 @@ public struct ShapeTraceBoard: Sendable, Equatable {
     public static let cornerCutU: Double = 40
     /// The windowed search looks this far behind the vehicle.
     public static let windowBehind: Double = 40
+    /// ★★★ ink: one point every 4u (design §7.3); a cap keeps one shape's ink bounded.
+    public static let inkSpacing: Double = 4
+    public static let inkPointCap = 4000
+    /// ★★★ 擦晒: 3 s cooldown, nudge on the 4th press, hide on the 6th (design §2.6).
+    public static let eraserCooldown: Double = 3
+    public static let eraserNudgeAt = 4
+    public static let eraserHideAt = 6
 
     public let question: ShapeTraceQuestion
     public let tolerance: LineMatchTolerance
@@ -303,12 +327,35 @@ public struct ShapeTraceBoard: Sendable, Equatable {
     public private(set) var shapeStats: [ShapeTraceShapeStats]
     public private(set) var startedAt: Double?
     public private(set) var finishedAt: Double?
+    /// ★★★: the current shape's crayon ink (one polyline per pen-down; kept off the path too).
+    public private(set) var ink: [[LineMatchPoint]] = []
+    /// ★★★: ink of finished shapes (locked; 擦晒 never touches it).
+    public private(set) var doneInk: [[[LineMatchPoint]]]
+    public private(set) var inking = false
+    /// ★★★ 擦晒 presses (whole round / this shape) and the last press time.
+    public private(set) var erases = 0
+    public private(set) var erasesThisShape = 0
+    public private(set) var lastEraseAt: Double?
+    public private(set) var eraserHidden = false
 
     public init(question: ShapeTraceQuestion, tolerance: LineMatchTolerance = .standard, directionHint: Bool = true) {
         self.question = question
         self.tolerance = tolerance
         self.directionHint = directionHint
         self.shapeStats = question.shapes.map { _ in ShapeTraceShapeStats() }
+        self.doneInk = question.shapes.map { _ in [] }
+    }
+
+    /// ★★★ 自己畫: the child's own ink, no vehicle drawn, 擦晒.
+    public var recordsInk: Bool { question.level == .l3 }
+
+    /// ★★★: 擦晒 shows (hidden after the 6th press until the shape is drawn).
+    public var eraserVisible: Bool { recordsInk && !isComplete && !eraserHidden }
+
+    /// ★★★: every ink point of `shape` (finished or current).
+    public func inkPolylines(shape: Int) -> [[LineMatchPoint]] {
+        if shape == shapeIndex, !isComplete { return ink }
+        return doneInk.indices.contains(shape) ? doneInk[shape] : []
     }
 
     public var shapes: [ShapeTraceShape] { question.shapes }
@@ -415,7 +462,12 @@ public struct ShapeTraceBoard: Sendable, Equatable {
         holding = false
         offPath = false
         awaySince = nil
+        inking = false
         guard let shape = currentShape, let path = currentPath, let vehicle = vehiclePoint else { return .ignored }
+        if recordsInk, inkCount < Self.inkPointCap {
+            ink.append([point])
+            inking = true
+        }
         penDowns += 1
         if startedAt == nil { startedAt = now }
         if lastProgressAt == nil { lastProgressAt = now }
@@ -460,7 +512,18 @@ public struct ShapeTraceBoard: Sendable, Equatable {
         return false
     }
 
+    private var inkCount: Int { ink.reduce(0) { $0 + $1.count } }
+
+    /// ★★★: the crayon goes wherever the pen goes (off the path too; design §4.3).
+    private mutating func recordInk(_ point: LineMatchPoint) {
+        guard inking, !ink.isEmpty, inkCount < Self.inkPointCap else { return }
+        let last = ink[ink.count - 1].last ?? point
+        guard last.distance(to: point) >= Self.inkSpacing else { return }
+        ink[ink.count - 1].append(point)
+    }
+
     public mutating func penMove(to point: LineMatchPoint, now: Double) -> ShapeTraceMove {
+        recordInk(point)
         guard dragging, let shape = currentShape, let path = currentPath else { return .ignored }
         if !holding {
             // Sliding onto the vehicle takes hold of it, as a fresh pen-down near it would.
@@ -562,6 +625,15 @@ public struct ShapeTraceBoard: Sendable, Equatable {
             return .strokeDone(shape: shape, stroke: stroke)
         }
         shapeStats[shape].finishedAt = now
+        if recordsInk {
+            doneInk[shape] = ink
+            shapeStats[shape].inkOutsideRatio = inkOutsideRatio(ink, shape: shape)
+            ink = []
+            inking = false
+            erasesThisShape = 0
+            eraserHidden = false
+            lastEraseAt = nil
+        }
         shapeIndex = shape + 1
         strokeIndex = 0
         if isComplete {
@@ -581,6 +653,7 @@ public struct ShapeTraceBoard: Sendable, Equatable {
         holding = false
         offPath = false
         awaySince = nil
+        inking = false
     }
 
     /// Gesture lost (window change, system cancel): like a lift, but not counted.
@@ -589,6 +662,49 @@ public struct ShapeTraceBoard: Sendable, Equatable {
         holding = false
         offPath = false
         awaySince = nil
+        inking = false
+    }
+
+    /// ★★★ 擦晒: clears the current shape's ink and progress (back to its first stroke). Finished
+    /// shapes never change. 3 s cooldown; the 4th press nudges, the 6th hides the button until
+    /// this shape is drawn (design §2.6).
+    public mutating func erase(now: Double) -> ShapeTraceErase {
+        guard eraserVisible, let shape = currentShape else { return .unavailable }
+        if let last = lastEraseAt, now - last < Self.eraserCooldown { return .coolingDown }
+        erases += 1
+        erasesThisShape += 1
+        lastEraseAt = now
+        shapeStats[shape].erasers += 1
+        ink = []
+        inking = false
+        strokeIndex = 0
+        progress = 0
+        reversedStrokes.removeAll { $0.hasPrefix("\(shape).") }
+        dragging = false
+        holding = false
+        offPath = false
+        awaySince = nil
+        cornersOvershot = []
+        cornersCut = []
+        cornersReached = []
+        lastProgressAt = now
+        if erasesThisShape >= Self.eraserHideAt {
+            eraserHidden = true
+            shapeStats[shape].eraserLocked = true
+            return .clearedAndHidden
+        }
+        return erasesThisShape == Self.eraserNudgeAt ? .clearedNudge : .cleared
+    }
+
+    /// Share of ink points farther from every stroke of `shape` than the judged half width.
+    public func inkOutsideRatio(_ polylines: [[LineMatchPoint]], shape: Int) -> Double? {
+        guard shapes.indices.contains(shape) else { return nil }
+        let points = polylines.flatMap { $0 }
+        guard !points.isEmpty else { return nil }
+        let strokes = shapes[shape].strokes
+        let half = corridorHalfWidth
+        let outside = points.filter { p in strokes.allSatisfy { $0.project(p).offset > half } }.count
+        return Double(outside) / Double(points.count)
     }
 
     /// Strokes finished so far (shape-major), for the monotonic check.
@@ -602,6 +718,13 @@ public struct ShapeTraceBoard: Sendable, Equatable {
         guard question == older.question, tolerance == older.tolerance, directionHint == older.directionHint else {
             return false
         }
+        if erases < older.erases { return false }
+        if erases > older.erases {
+            // 擦晒 may take the current shape back to its first stroke; finished shapes stay.
+            return shapeIndex >= older.shapeIndex && offPathCount >= older.offPathCount && lifts >= older.lifts
+                && wrongStarts >= older.wrongStarts && penDowns >= older.penDowns
+        }
+        if shapeIndex == older.shapeIndex, !isComplete, inkCount < older.inkCount { return false }
         if strokesDone < older.strokesDone { return false }
         if strokesDone == older.strokesDone, progress < older.progress { return false }
         guard reversedStrokes.count >= older.reversedStrokes.count,
@@ -658,6 +781,16 @@ public struct ShapeTraceBoard: Sendable, Equatable {
         ]
         if let startedAt, let finishedAt {
             fields["duration_ms"] = .int(Int(((finishedAt - startedAt) * 1000).rounded()))
+        }
+        fields["shape_trace_level"] = .string(question.level.code)
+        if recordsInk {
+            let ratios = shapeStats.compactMap(\.inkOutsideRatio)
+            fields["ink_outside_ratio"] = .seconds(ratios.isEmpty ? nil : ratios.reduce(0, +) / Double(ratios.count))
+            fields["ink_outside"] = .strings(shapes.indices.map { index in
+                shapeStats[index].inkOutsideRatio.map { String(format: "%.2f", $0) } ?? ""
+            })
+            fields["erasers"] = .int(erases)
+            fields["eraser_locked"] = .int(shapeStats.filter(\.eraserLocked).count)
         }
         return fields
     }
