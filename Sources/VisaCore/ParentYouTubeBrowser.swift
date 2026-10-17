@@ -226,7 +226,7 @@ public enum ParentYouTubeBrowser {
     (function () { try { document.querySelectorAll("video, audio").forEach(function (m) { m.pause(); m.muted = true; }); } catch (e) {} })();
     """
 
-    /// Read-only page probe. Posts the visible player-error text (never `textContent`), the
+    /// Read-only page probe. Posts the visible player-error text (`innerText` of shown panels only), the
     /// player length, the watch page's ISO duration and the live badge to `visaBrowser`.
     /// It also greys out YouTube's own Sign in buttons; the navigation policy is what blocks them.
     public static let messageHandlerName = "visaBrowser"

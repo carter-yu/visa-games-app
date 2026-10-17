@@ -17,7 +17,7 @@ struct ParentSettingsView: View {
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.26.0"
+    static let versionLabel = "Visa Games v0.27.0"
 
     /// v0.21.0: 表現 (Review) is the third parent segment (layout L5).
     private enum ParentLibrary { case videos, games, review }
@@ -57,6 +57,10 @@ struct ParentSettingsView: View {
             }
             if model.session.mode == .parent, let kind = model.playtestKind {
                 ParentPlaytestCover(model: model, kind: kind)
+            }
+            // v0.27.0 (ADR 0016): full-page YouTube finder in this same view and window.
+            if model.session.mode == .parent, model.parentBrowserOpen, model.playtestKind == nil {
+                ParentYouTubeBrowserView(model: model)
             }
         }
         .background(Color(hex: DesignTokens.Palette.paper).ignoresSafeArea())
@@ -374,6 +378,22 @@ struct ParentSettingsView: View {
                                            cornerRadius: 14, shadowDepth: 4, lineWidth: 3))
             .disabled(!addEnabled)
             .opacity(addEnabled ? 1 : 0.45)
+            Button(action: { model.openParentBrowser() }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 15, weight: .heavy))
+                    VStack(alignment: .leading, spacing: 0) {
+                        ParentLabel("喺 YouTube 搜片", size: 16, weight: 900)
+                        ParentLabel("Find on YouTube", size: 11, weight: 600, color: .inkSoft)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 5)
+            }
+            .buttonStyle(ChunkyButtonStyle(fill: Color(hex: DesignTokens.Palette.sunny),
+                                           cornerRadius: 14, shadowDepth: 4, lineWidth: 3))
+            .disabled(model.isFetchingAllowlistMetadata)
+            .accessibilityLabel("喺 YouTube 搜片 / Find on YouTube")
         }
         .padding(.leading, 14)
         .padding(.trailing, 8)
@@ -410,19 +430,54 @@ struct ParentSettingsView: View {
                     Text(id)
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(Color.inkSoft)
-                    if case .alreadyAllowlisted = model.parentDraftStatus {
-                        ParentPill(text: "已喺清單 / Already added", fill: Color(hex: DesignTokens.Palette.sand))
-                    } else {
-                        ParentPill(text: "預覽 / Preview — 撳「加入」 / press Add",
-                                   fill: Color(hex: DesignTokens.Palette.mint).opacity(0.35))
+                    HStack(spacing: 8) {
+                        if case .alreadyAllowlisted = model.parentDraftStatus {
+                            ParentPill(text: "✓ 已經加咗 / Already added", fill: Color(hex: DesignTokens.Palette.mint))
+                        } else {
+                            ParentPill(text: "預覽 / Preview — 撳「加入」 / press Add",
+                                       fill: Color(hex: DesignTokens.Palette.mint).opacity(0.35))
+                        }
+                        if let length = model.parentDraftLengthLabel {
+                            ParentPill(text: "片長 \(length) / Length", fill: .white)
+                        }
                     }
                 }
                 Spacer(minLength: 0)
+                // v0.27.0: 試播 the draft in the child's scoped player before adding.
+                Button(action: {
+                    if model.parentDraftTrialVideoID == id { model.stopDraftTrial() } else { model.startDraftTrial() }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: model.parentDraftTrialVideoID == id ? "stop.fill" : "play.fill")
+                        ParentLabel(model.parentDraftTrialVideoID == id ? "停止 Stop" : "試播 Preview", size: 15, weight: 800)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                }
+                .buttonStyle(ChunkyButtonStyle(fill: .white, cornerRadius: 12, shadowDepth: 3, lineWidth: 3))
             }
             .padding(12)
             .modifier(ChunkyPanel(fill: Color(hex: DesignTokens.Palette.taxiTicket),
                                   cornerRadius: 16, shadowDepth: 4, lineWidth: 3))
+            if let trialID = model.parentDraftTrialVideoID, trialID == id {
+                draftTrialPlayer(videoID: trialID)
+            }
         }
+    }
+
+    /// 試播 for a not-yet-added id: the same scoped embed the child uses (ADR 0016).
+    private func draftTrialPlayer(videoID: String) -> some View {
+        ScopedPlayerView(
+            videoID: videoID,
+            onNavigationRejected: { model.stopDraftTrial() },
+            onPlaybackEnded: { _ in model.stopDraftTrial() },
+            onDurationKnown: { model.noteDraftTrialDuration(videoID: $0, seconds: $1) },
+            onCurrentTime: nil,
+            onProviderBlocked: { id, _ in model.handleDraftTrialBlocked(videoID: id) }
+        )
+        .frame(height: 340)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.ink, lineWidth: 3))
     }
 
     /// Optional per-add overrides (title / D4 budget-fit seconds). Same fields as before.
