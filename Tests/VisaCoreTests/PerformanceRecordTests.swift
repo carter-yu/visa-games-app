@@ -534,8 +534,8 @@ final class PerformanceRecordTests {
         }
         let version = plistValue("CFBundleShortVersionString") ?? "?"
         expectTrue(view.contains("static let versionLabel = \"Visa Games v\(version)\""))
-        expectEqual(version, "0.27.0")
-        expectEqual(plistValue("CFBundleVersion"), "59")
+        expectEqual(version, "0.27.1")
+        expectEqual(plistValue("CFBundleVersion"), "60")
         guard let start = view.range(of: "private func advancedSection("),
               let end = view.range(of: "private var advancedContent", range: start.upperBound..<view.endIndex) else {
             expectTrue(false)

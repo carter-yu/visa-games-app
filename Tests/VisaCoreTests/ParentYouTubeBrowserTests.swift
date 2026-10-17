@@ -1,7 +1,7 @@
 import Foundation
 import VisaCore
 
-/// v0.27.0 parent in-app YouTube finder (ADR 0016): URL → video id, add-bar states, the
+/// v0.27.0 / v0.27.1 parent in-app YouTube finder (ADR 0016): URL → video id, add-bar states, the
 /// already-added state, navigation policy, recent searches, page length, ⌘ shortcuts, and
 /// source guards that keep ADR 0011's constant kiosk presentation and ADR 0003 intact.
 final class ParentYouTubeBrowserTests {
@@ -55,11 +55,11 @@ final class ParentYouTubeBrowserTests {
         let shorts = ParentYouTubeBrowser.addBar(page: .shorts, allowlist: empty)
         expectEqual(shorts, .unsupported(.shorts))
         expectFalse(shorts.isEnabled)
-        expectEqual(shorts.title, "唔支援 Shorts")
+        expectEqual(shorts.title, "Shorts 唔支援，揀普通片")
         expectEqual(ParentYouTubeBrowser.addBar(page: .live, allowlist: empty), .unsupported(.live))
         let liveWatch = ParentYouTubeBrowser.addBar(page: .video(id: id), liveDetected: true, allowlist: empty)
         expectEqual(liveWatch, .unsupported(.live))
-        expectEqual(liveWatch.title, "唔支援直播")
+        expectEqual(liveWatch.title, "直播唔加得")
         // Every bar has HK Traditional + ASCII English and no Simplified-only characters.
         let bars: [ParentYouTubeAddBar] = [ready, .pickVideo, shorts, liveWatch, .alreadyAdded(videoID: id)]
         for bar in bars {
@@ -179,12 +179,28 @@ final class ParentYouTubeBrowserTests {
         let app = try source("Sources/VisaGames/AppDelegate.swift")
         for banned in ["presentationOptions", "styleMask", ".level", "setFrame(", "NSMenu", "mainMenu",
                        "collectionBehavior", "toggleFullScreen", "NSWindow", "orderFront", "makeKey",
-                       "Task {", "Task(", "DispatchQueue", "assumeIsolated", "unowned", "nonPersistent",
-                       ".observe(", "NSWorkspace", "openURL"] {
+                       "Task {", "Task(", "DispatchQueue", "assumeIsolated", "unowned",
+                       ".observe(", "NSWorkspace", "openURL", "addObserver", "KeyPath"] {
             expectFalse(view.contains(banned), "browser view must not use \(banned)")
             expectFalse(core.contains(banned), "browser core must not use \(banned)")
         }
-        expectTrue(view.contains("websiteDataStore = .default()"))
+        // D6: the finder has its own store; the child player keeps the shared default store.
+        expectFalse(view.contains("websiteDataStore = .default()"))
+        expectTrue(view.contains("config.websiteDataStore = ParentFinderWebData.makeStore()"))
+        expectTrue(view.contains("WKWebsiteDataStore(forIdentifier: storeID)"))
+        let player = try source("Sources/VisaGames/ScopedPlayerView.swift")
+        expectTrue(player.contains("config.websiteDataStore = .default()"), "child player store unchanged")
+        expectFalse(player.contains("ParentFinderWebData"))
+        expectFalse(core.contains("nonPersistent"))
+        // 9 / 19: no autoplay, and new-window links are refused.
+        expectTrue(view.contains("config.mediaTypesRequiringUserActionForPlayback = .all"))
+        if let popup = view.range(of: "createWebViewWith configuration") {
+            let tail = view[popup.upperBound...].prefix(400)
+            expectTrue(tail.contains("return nil"), "pop-ups refused")
+            expectFalse(tail.contains("load("), "pop-up URL is not loaded in the finder either")
+        } else {
+            expectTrue(false, "createWebViewWith missing")
+        }
         expectTrue(view.contains("isElementFullscreenEnabled = false"))
         expectTrue(view.contains("pauseAllMediaPlayback"))
         expectTrue(view.contains("ParentYouTubeBrowser.pauseMediaScript"))
@@ -192,16 +208,31 @@ final class ParentYouTubeBrowserTests {
         expectTrue(view.contains("ParentYouTubeBrowser.navigation(for: url)"))
         expectTrue(view.contains(".onDisappear { browser.shutdown() }"))
         expectFalse(core.contains("textContent"), "probe reads visible innerText only")
-        // Pausing happens before every way out: close, add, pasted link.
-        for action in ["private func close()", "private func add(", "private func takePastedLink()"] {
+        // Pausing happens before every way out: close, and the confirm card (add, pasted link).
+        for (action, needle) in [("private func close()", "browser.pauseMedia()"),
+                                 ("private func beginConfirm(_ id: String, duration: TimeInterval?)", "browser.pauseMedia()"),
+                                 ("private func add(", "beginConfirm("),
+                                 ("private func takePastedLink()", "beginConfirm(")] {
             guard let start = view.range(of: action) else { expectTrue(false, "missing \(action)"); continue }
             let tail = view[start.upperBound...].prefix(420)
-            expectTrue(tail.contains("browser.pauseMedia()"), "\(action) pauses media")
+            expectTrue(tail.contains(needle), "\(action) → \(needle)")
         }
+        // 08: Return adds, Esc cancels on the confirm card; 14: finder shortcuts.
+        expectTrue(view.contains(".keyboardShortcut(.defaultAction)"))
+        expectTrue(view.contains(".keyboardShortcut(.cancelAction)"))
+        for key in ["\"f\"", "\"l\"", "\"[\"", "\"]\"", "\"r\""] {
+            expectTrue(view.contains(".keyboardShortcut(\(key)"), "shortcut \(key)")
+        }
+        expectTrue(view.contains("完成，返去清單"))
+        expectTrue(view.contains("首頁"))
         // Reachable only from the parent view, only in parent mode.
         expectTrue(settings.contains("if model.session.mode == .parent, model.parentBrowserOpen, model.playtestKind == nil {"))
         expectTrue(settings.contains("model.openParentBrowser()"))
-        expectTrue(settings.contains("喺 YouTube 搜片"))
+        expectTrue(settings.contains("喺 YouTube 搵片"))
+        expectTrue(settings.contains("新 NEW"))
+        expectFalse(settings.contains("搜片"), "copy is 搵片 (17)")
+        expectTrue(settings.contains("ParentFinderWebData.clear"))
+        expectTrue(settings.contains("model.parentDraftEmbedCheck.allowsAdd"))
         for folder in ["Sources/VisaGames", "Sources/VisaCore"] {
             for name in try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent(folder).path)
             where name.hasSuffix(".swift") && name != "ParentSettingsView.swift" && name != "ParentYouTubeBrowserView.swift" {
@@ -218,19 +249,24 @@ final class ParentYouTubeBrowserTests {
         }
         let open = body("func openParentBrowser()")
         expectTrue(open.drop(while: { $0 != "{" }).dropFirst().trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("guard session.mode == .parent"))
-        let take = body("func takeVideoFromParentBrowser(")
+        let take = body("func beginFinderConfirm(")
         expectTrue(take.contains("guard session.mode == .parent"))
-        expectTrue(take.contains("parentVideoIDDraft = "), "hands off to the preview card; no direct save")
+        expectTrue(take.contains("parentVideoIDDraft = "), "opens the confirm card; no direct save")
         expectFalse(take.contains("allowlistStore.save"))
-        for header in ["func openParentBrowser()", "func closeParentBrowser(", "func takeVideoFromParentBrowser(",
-                       "func noteParentBrowserActivity()", "func startDraftTrial()"] {
+        expectTrue(body("func confirmFinderAdd()").contains("addAllowlistedVideo()"), "one save path")
+        let add = body("func addAllowlistedVideo(")
+        expectTrue(add.contains("parentDraftEmbedCheck"), "embed gate on every add")
+        expectTrue(add.contains("parentFinder.didAdd("), "stays in the finder after adding")
+        for header in ["func openParentBrowser()", "func closeParentBrowser(", "func beginFinderConfirm(",
+                       "func cancelFinderConfirm()", "func confirmFinderAdd()", "func undoFinderAdd()",
+                       "func showCardFromFinder(", "func noteParentBrowserActivity()", "func startDraftTrial()"] {
             let text = body(header)
             expectFalse(text.isEmpty, "\(header) found")
             for banned in ["NSApp", "window", "DispatchQueue", "Task", "presentationOptions"] {
                 expectFalse(text.contains(banned), "\(header) must not use \(banned)")
             }
         }
-        expectTrue(body("func returnToChild(").contains("parentBrowserOpen = false"))
+        expectTrue(body("func returnToChild(").contains("parentFinder = ParentFinderState()"))
         // ⌘ shortcuts run only after the child key block, only with allowsExit.
         guard let block = app.range(of: "if self.model.session.blocksKey("),
               let editing = app.range(of: "Self.editingAction(for: event, allowsExit: self.model.session.allowsExit)") else {
@@ -238,5 +274,116 @@ final class ParentYouTubeBrowserTests {
             return
         }
         expectTrue(block.upperBound < editing.lowerBound)
+    }
+
+    /// 3 / 08: oEmbed status → embeddability, and what may be added.
+    func testEmbedCheckGating() {
+        expectEqual(ParentEmbedCheck.from(httpStatus: 200), .embeddable)
+        expectEqual(ParentEmbedCheck.from(httpStatus: 204), .embeddable)
+        for status in [401, 403, 404] { expectEqual(ParentEmbedCheck.from(httpStatus: status), .blocked) }
+        for status in [nil, 0, 301, 429, 500, 503] as [Int?] {
+            expectEqual(ParentEmbedCheck.from(httpStatus: status), .unknown, "status \(String(describing: status))")
+        }
+        expectTrue(ParentEmbedCheck.embeddable.allowsAdd)
+        expectTrue(ParentEmbedCheck.unknown.allowsAdd, "offline oEmbed never blocks (pre-0.27 behaviour)")
+        expectFalse(ParentEmbedCheck.blocked.allowsAdd)
+        expectFalse(ParentEmbedCheck.checking.allowsAdd)
+    }
+
+    /// 8: the bot-check page in YouTube's Chinese UI is recognised too.
+    func testChineseBotCheckText() {
+        expectTrue(ProviderBlockedPolicy.pageTextIndicatesBotCheck("Sign in to confirm you're not a bot"))
+        expectTrue(ProviderBlockedPolicy.pageTextIndicatesBotCheck("登入以確認你不是機械人"))
+        expectTrue(ProviderBlockedPolicy.pageTextIndicatesBotCheck("請登入，確認您不是機器人"))
+        expectTrue(ProviderBlockedPolicy.pageTextIndicatesBotCheck("唔係機械人"))
+        // Mainland page, as escapes so the source stays Traditional.
+        expectTrue(ProviderBlockedPolicy.pageTextIndicatesBotCheck("\u{767B}\u{5F55}\u{4EE5}\u{786E}\u{8BA4}\u{60A8}\u{4E0D}\u{662F}\u{673A}\u{5668}\u{4EBA}"))
+        expectFalse(ProviderBlockedPolicy.pageTextIndicatesBotCheck("消防車 救援隊 機械人玩具 合集"))
+        expectFalse(ProviderBlockedPolicy.pageTextIndicatesBotCheck("Robot toys for kids"))
+    }
+
+    /// D3 / D4 / D13: confirm → add and stay → toast → undo; close flashes the last add.
+    func testAddAndStayFlowState() {
+        let t0 = Date(timeIntervalSince1970: 1_000_000)
+        let other = "aaaaaaaaaaa"
+        var state = ParentFinderState()
+        state.beginConfirm(videoID: id)
+        expectNil(state.confirmVideoID)
+        state.open()
+        expectTrue(state.isOpen)
+        state.beginConfirm(videoID: "bad")
+        expectNil(state.confirmVideoID)
+        state.beginConfirm(videoID: id)
+        expectEqual(state.confirmVideoID, id)
+        state.cancelConfirm()
+        expectNil(state.confirmVideoID)
+        expectTrue(state.isOpen, "取消 keeps the finder")
+        // A stale add for a video not on the card is ignored.
+        state.didAdd(videoID: id, allowlistCount: 5, now: t0)
+        expectNil(state.toast)
+        state.beginConfirm(videoID: id)
+        state.didAdd(videoID: id, allowlistCount: 5, now: t0)
+        expectTrue(state.isOpen, "D4: stays in the finder")
+        expectNil(state.confirmVideoID)
+        expectEqual(state.visibleToast(now: t0.addingTimeInterval(1))?.allowlistCount, 5)
+        expectNil(state.visibleToast(now: t0.addingTimeInterval(ParentFinderState.toastSeconds)))
+        expectNil(state.undo(now: t0.addingTimeInterval(3.5)))
+        state.beginConfirm(videoID: other)
+        state.didAdd(videoID: other, allowlistCount: 6, now: t0.addingTimeInterval(10))
+        expectEqual(state.addedThisVisit, [id, other])
+        expectEqual(state.undo(now: t0.addingTimeInterval(11)), other)
+        expectNil(state.visibleToast(now: t0.addingTimeInterval(11)))
+        expectEqual(state.addedThisVisit, [id])
+        expectEqual(state.close(), id, "D13: flash the last card added this visit")
+        expectEqual(state, ParentFinderState())
+        state.open()
+        expectNil(state.close())
+        state.open()
+        expectEqual(state.showCard(videoID: other), other)
+        expectFalse(state.isOpen)
+    }
+
+    /// D11 zoom, D5 countdown, D10 marks script, 07 line, card number, addedAt decode.
+    func testZoomCountdownMarksAndCardInfo() throws {
+        expectEqual(ParentFinderZoom.clamp(nil), 1.25)
+        expectEqual(ParentFinderZoom.clamp(.nan), 1.25)
+        expectEqual(ParentFinderZoom.clamp(3), 1.75)
+        expectEqual(ParentFinderZoom.step(1.25, by: 1), 1.5)
+        expectEqual(ParentFinderZoom.step(1.25, by: -1), 1.1)
+        expectEqual(ParentFinderZoom.step(1.0, by: -1), 1.0)
+        expectEqual(ParentFinderZoom.step(1.75, by: 1), 1.75)
+        expectEqual(ParentFinderZoom.label(1.25), "125%")
+
+        expectEqual(ParentYouTubeBrowser.autoLockLabel(remaining: 522), "8:42")
+        expectEqual(ParentYouTubeBrowser.autoLockLabel(remaining: 59.2), "1:00")
+        expectEqual(ParentYouTubeBrowser.autoLockLabel(remaining: 5), "0:05")
+        expectEqual(ParentYouTubeBrowser.autoLockLabel(remaining: -3), "0:00")
+
+        let script = ParentYouTubeBrowser.allowedIDsScript(ids: [id, "x\"];alert(1)//", "aaaaaaaaaaa", "short"])
+        expectEqual(script, "window.__visaAllowed = [\"aaaaaaaaaaa\",\"\(id)\"]; if (window.__visaMark) { window.__visaMark(); }")
+        expectEqual(ParentYouTubeBrowser.cleanPageTitle("  消防車 - YouTube "), "消防車")
+        expectNil(ParentYouTubeBrowser.cleanPageTitle("YouTube"))
+        expectNil(ParentYouTubeBrowser.cleanPageTitle(nil))
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Hong_Kong")!
+        let oct3 = calendar.date(from: DateComponents(year: 2026, month: 10, day: 3, hour: 9))!
+        let line = ParentYouTubeBrowser.alreadyAddedLine(cardNumber: 2, addedAt: oct3, calendar: calendar)
+        expectEqual(line.zh, "已經喺准許影片 · 第 2 張卡 · 10 月 3 日加")
+        expectEqual(line.en, "card 2, added 3 Oct")
+        expectEqual(ParentYouTubeBrowser.alreadyAddedLine(cardNumber: 4, addedAt: nil).zh, "已經喺准許影片 · 第 4 張卡")
+
+        var allowlist = VideoAllowlist()
+        expectTrue(allowlist.upsert(ApprovedVideo(id: "aaaaaaaaaaa", durationSeconds: 60)))
+        expectTrue(allowlist.upsert(ApprovedVideo(id: id, durationSeconds: 120, addedAt: oct3)))
+        expectEqual(allowlist.cardNumber(id: id), 2, "new cards go last (D13)")
+        expectNil(allowlist.cardNumber(id: "bbbbbbbbbbb"))
+        // Older JSON without addedAt still decodes; addedAt round-trips.
+        let old = try JSONDecoder().decode(ApprovedVideo.self, from: Data(#"{"id":"\#(id)","durationSeconds":120}"#.utf8))
+        expectNil(old.addedAt)
+        expectEqual(old.durationSeconds, 120)
+        let round = try JSONDecoder().decode(VideoAllowlist.self, from: JSONEncoder().encode(allowlist))
+        expectEqual(round, allowlist)
+        expectEqual(round.video(id: id)?.addedAt, oct3)
     }
 }
