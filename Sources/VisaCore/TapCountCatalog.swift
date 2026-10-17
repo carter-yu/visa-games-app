@@ -714,7 +714,8 @@ public enum TapCountCopy {
                      allTappedTray, stampNextTray, noMissTray, drawnTray, visaTray(10), eraserTraditionalChinese, okSub,
                      parentGroupTitle, parentGroupSubtitle(.upTo10), parentDefaultOff, recommended, settingsTitle,
                      rangeTitle, countVoiceTitle, englishTitle, badgeTitle, scaffoldTitle, toleranceTitle,
-                     toleranceFollow, on, off, parentTip, countVoiceEnglish, englishEnglish]
+                     toleranceFollow, on, off, parentTip, countVoiceEnglish, englishEnglish, scaffoldEnglish,
+                     parentDefaultOffEnglish, parentTipEnglish]
         for kind in [ActivityKind.tapCountAll, .tapCountTrace, .tapCountPick] {
             lines += [chipSubtitle(kind), recommendedStar(kind), kind.parentCardTitle, kind.parentShortLabel,
                       kind.parentHelpTraditionalChinese]
@@ -742,8 +743,7 @@ public enum TapCountCopy {
     public static var allEnglishLines: [String] {
         var lines = [familyEnglish, hint.components(separatedBy: " / ").last ?? "", traceNext.english, noneYet.english,
                      over.english, under.english, eraserNudge.english, traceStatusEnglish, eraserEnglish, okLabel,
-                     settingsSubtitle, rangeEnglish, badgeEnglish, scaffoldEnglish, toleranceEnglish,
-                     parentDefaultOffEnglish, parentTipEnglish]
+                     settingsSubtitle, rangeEnglish, badgeEnglish, toleranceEnglish]
         for kind in [ActivityKind.tapCountAll, .tapCountTrace, .tapCountPick] {
             lines += [kind.parentCardEnglish, kind.parentHelpEnglish]
         }

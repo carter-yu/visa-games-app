@@ -133,9 +133,9 @@ public struct TracePath: Sendable, Equatable {
                 }
                 current = points[points.count - 1]
             case .cubic(let c1, let c2, let end):
-                // Control-polygon length bounds the curve length, so steps stay ≤ 6u apart.
-                let hull = current.distance(to: c1) + c1.distance(to: c2) + c2.distance(to: end)
-                let steps = max(2, Int((hull / sampleSpacing).rounded(.up)))
+                // |B'(t)| ≤ 3 × the longest control leg, so uniform t steps stay ≤ 6u apart.
+                let leg = max(current.distance(to: c1), c1.distance(to: c2), c2.distance(to: end))
+                let steps = max(2, Int((3 * leg / sampleSpacing).rounded(.up)))
                 let p0 = current
                 for step in 1...steps {
                     let t = Double(step) / Double(steps)
@@ -673,6 +673,12 @@ public struct ShapeTraceBoard: Sendable, Equatable {
         guard projection.distance > progress + 0.01 else { return .waiting }
         var next = min(projection.distance, progress + Self.maxStep, path.length)
         var reachedCorner = false
+        // A turn-back (cusp) counts as reached within half the corridor of its tip: a pen that turns
+        // a little early would otherwise project onto the leg behind the vehicle and never get there.
+        if let corner, path.cusps.contains(corner), progress < corner - 0.5, next < corner,
+           corner - next <= corridorHalfWidth, corner - progress <= Self.maxStep {
+            next = corner
+        }
         if let corner {
             if progress < corner - 0.5, next >= corner {
                 next = corner

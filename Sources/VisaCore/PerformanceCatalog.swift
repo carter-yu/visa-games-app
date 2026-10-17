@@ -124,8 +124,8 @@ public enum PerfChoiceCatalog {
         case .emptyBay: return ActivityCatalog.emptyBayQuestion().correctBayID
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge: return nil
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree: return nil
-        case .tapCountAll, .tapCountTrace: return nil
-        case .tapCountPick: return "submit"
+        // 揀啱數 is judged at OK (`submit`, from the dealt facts) — no single right bay.
+        case .tapCountAll, .tapCountTrace, .tapCountPick: return nil
         }
     }
 

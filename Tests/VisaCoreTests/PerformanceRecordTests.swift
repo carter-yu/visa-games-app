@@ -238,8 +238,8 @@ final class PerformanceRecordTests {
                 expectEqual(slots.count, all.count)
                 expectEqual(Set(slots), Set(all))
             }
-            // 畫線畫形 is practice only: nothing to guess (chance 1, never mastery evidence).
-            let ceiling = kind.isShapeTraceFamily ? 1.0 : 0.5
+            // 畫線畫形 and 一架一架數 ★ / ★★ are practice only: nothing to guess (chance 1, never mastery evidence).
+            let ceiling = kind.isShapeTraceFamily || kind == .tapCountAll || kind == .tapCountTrace ? 1.0 : 0.5
             expectTrue(PerfChoiceCatalog.chance(for: kind) > 0 && PerfChoiceCatalog.chance(for: kind) <= ceiling)
             expectFalse(PerfChoiceCatalog.item(for: kind).isEmpty)
         }
@@ -251,7 +251,7 @@ final class PerformanceRecordTests {
     func testEveryWrongOptionHasConfusionTagsAndTheRightOneHasNone() {
         // Multi-step kinds have no single right choice (line match tags come per 完成).
         for kind in ActivityKind.allCases where kind != .sequenceShortToLong && !kind.isLineMatchFamily
-            && !kind.isShapeTraceFamily {
+            && !kind.isShapeTraceFamily && !kind.isTapCountFamily {
             guard let correct = PerfChoiceCatalog.correctChoice(for: kind) else {
                 preconditionFailure("no correct choice for \(kind)")
             }

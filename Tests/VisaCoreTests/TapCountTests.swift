@@ -53,7 +53,8 @@ final class TapCountTests {
                 expectTrue(path.length > 100, "stroke of \(n) parses")
                 // Sampled ≤ 6u apart (cubics included).
                 for i in 0..<(path.points.count - 1) {
-                    expectTrue(path.points[i].distance(to: path.points[i + 1]) <= TracePath.sampleSpacing + 0.01)
+                    let gap = path.points[i].distance(to: path.points[i + 1])
+                    expectTrue(gap <= TracePath.sampleSpacing + 0.01, "gap \(gap) at \(i) of \(n): \(path.points[i])")
                 }
             }
             if let start = starts[n] {
@@ -100,7 +101,7 @@ final class TapCountTests {
                     var board = ShapeTraceBoard(question: q, tolerance: tolerance, directionHint: true)
                     var clock = 0.0
                     drive(&board, clock: &clock, offset: offset)
-                    expectTrue(board.isComplete, "\(n) completes (\(tolerance), offset \(offset))")
+                    expectTrue(board.isComplete, "\(n) completes (\(tolerance), offset \(offset)) progress \(board.progress) stroke \(board.strokeIndex) len \(board.currentPath?.length ?? -1) corners \(board.currentPath?.corners ?? []) cusps \(board.currentPath?.cusps ?? []) offPath \(board.offPathCount) overshoot \(board.cornerOvershoots)")
                 }
             }
             // Pen down at the start does not finish a closed numeral (0, 8: start = end).
@@ -123,7 +124,7 @@ final class TapCountTests {
         var clock = 0.0
         _ = board.penDown(at: path.start, now: clock)
         var d = 0.0
-        while d < cusp - 30 {
+        while d < cusp - 70 {
             clock += 0.02
             _ = board.penMove(to: path.point(at: d), now: clock)
             d += 6
@@ -131,6 +132,10 @@ final class TapCountTests {
             expectTrue(board.searchWindow(path).upperBound <= cusp + 0.001)
         }
         expectTrue(board.progress < cusp)
+        // A pen on the down stroke while the vehicle is short of the corner never pulls it past.
+        clock += 0.02
+        _ = board.penMove(to: path.point(at: cusp + 30), now: clock)
+        expectTrue(board.progress <= cusp + 0.001)
         while board.progress < cusp - 0.5, d < cusp + 40 {
             clock += 0.02
             _ = board.penMove(to: path.point(at: min(d, cusp)), now: clock)
@@ -524,7 +529,8 @@ final class TapCountTests {
             for ch in simplified { expectFalse(line.contains(ch), "simplified \(ch) in \(line)") }
         }
         for line in TapCountCopy.allEnglishLines {
-            expectTrue(line.unicodeScalars.allSatisfy { $0.isASCII }, "ASCII English: \(line)")
+            // ASCII, plus the catalog's middle-dot separator (「Tap & Count · Tap each one」).
+            expectTrue(line.unicodeScalars.allSatisfy { $0.isASCII || $0 == "·" }, "ASCII English: \(line)")
             expectFalse(line.isEmpty)
         }
         expectEqual(TapCountCopy.allPrompt(.tramDepot).traditionalChinese, "點一點每架叮叮！")
