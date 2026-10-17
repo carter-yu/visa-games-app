@@ -57,6 +57,10 @@ public enum ActivityKind: String, CaseIterable, Sendable, Codable, Equatable, Ha
     case traceLines
     /// 畫線畫形 · 畫形狀 · 跟虛線: circle, square, ★ spire on dotted lanes (v0.25.0).
     case traceShapesDotted
+    /// 畫線畫形 · 畫形狀 · 跟箭嘴: faint outlines + start / stop arrows; 3–4 shapes incl. ▲ ◁ ▽ (v0.26.0).
+    case traceShapesArrows
+    /// 畫線畫形 · 畫形狀 · 自己畫: corner dots + model card; the child's own crayon ink; 擦晒 (v0.26.0).
+    case traceShapesFree
 }
 
 extension ActivityKind {
@@ -70,7 +74,7 @@ extension ActivityKind {
 
     /// The 畫線畫形 cards (shared 畫形狀設定; practice only, never mastery — design D10).
     public var isShapeTraceFamily: Bool {
-        self == .traceLines || self == .traceShapesDotted
+        self == .traceLines || self == .traceShapesDotted || self == .traceShapesArrows || self == .traceShapesFree
     }
 
     /// D11: a parent plays the card through once in 試玩 before a star can be turned on.
@@ -107,6 +111,8 @@ extension ActivityKind {
         case .lineMatchGuidedBridge: return "連一連 · 沿路過橋"
         case .traceLines: return "畫直線 · 熱身"
         case .traceShapesDotted: return "畫形狀 · 跟虛線"
+        case .traceShapesArrows: return "畫形狀 · 跟箭嘴"
+        case .traceShapesFree: return "畫形狀 · 自己畫"
         }
     }
 
@@ -128,6 +134,8 @@ extension ActivityKind {
         case .lineMatchGuidedBridge: return "Line Match · Bridge road"
         case .traceLines: return "Lines · Warm-up"
         case .traceShapesDotted: return "Shapes · Follow the dots"
+        case .traceShapesArrows: return "Shapes · Follow the arrows"
+        case .traceShapesFree: return "Shapes · Draw it yourself"
         }
     }
 
@@ -149,6 +157,8 @@ extension ActivityKind {
         case .lineMatchGuidedBridge: return "過橋"
         case .traceLines: return "直線"
         case .traceShapesDotted: return "虛線"
+        case .traceShapesArrows: return "箭嘴"
+        case .traceShapesFree: return "自己畫"
         }
     }
 
@@ -170,6 +180,8 @@ extension ActivityKind {
         case .lineMatchGuidedBridge: return "沿住條路過橋，將字送去啱嘅圖！"
         case .traceLines: return "由綠色箭嘴畫去紅色箭嘴！"
         case .traceShapesDotted: return "跟住虛線，畫圓形、正方形同尖頂！"
+        case .traceShapesArrows: return "由綠色箭嘴開始，跟住箭嘴畫形狀！"
+        case .traceShapesFree: return "照住範本，自己畫形狀！"
         }
     }
 
@@ -190,6 +202,8 @@ extension ActivityKind {
         case .lineMatchGuidedBridge: return "Drive over the bridge to take each word to its picture!"
         case .traceLines: return "Draw from the green arrow to the red arrow!"
         case .traceShapesDotted: return "Follow the dots to draw circles, squares and roofs!"
+        case .traceShapesArrows: return "Start at the green arrow and follow the arrows!"
+        case .traceShapesFree: return "Copy the model and draw the shape yourself!"
         }
     }
 
@@ -226,6 +240,10 @@ extension ActivityKind {
             return ["shapeTrace.lines"]
         case .traceShapesDotted:
             return ["shapeTrace.dotted"]
+        case .traceShapesArrows:
+            return ["shapeTrace.arrows"]
+        case .traceShapesFree:
+            return ["shapeTrace.free"]
         }
     }
 }
@@ -842,13 +860,16 @@ public enum ActivityCatalog {
         .lineMatchGuidedBridge,
         .lineMatch,
         .traceLines,
-        .traceShapesDotted
+        .traceShapesDotted,
+        .traceShapesArrows,
+        .traceShapesFree
     ]
 
     /// D7 (Carter 2026-10-13, option B): new kinds join no ticket until a parent turns a star on
     /// in 家長 → 遊戲 (after 試玩). They stay playable from the parent catalog.
     public static let defaultOffKinds: [ActivityKind] = [
-        .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch, .traceLines, .traceShapesDotted
+        .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch, .traceLines, .traceShapesDotted,
+        .traceShapesArrows, .traceShapesFree
     ]
 
     /// Kinds every ticket deals before a parent changes anything (the v0.22 rotation).
@@ -1171,7 +1192,7 @@ public enum ActivityCatalog {
             return "提示：由綠點拉去閃緊嘅字卡。 / Hint: draw from the green dot to the shining word."
         case .lineMatchGuidedStraight, .lineMatchGuidedBridge:
             return LineMatchGuidedCopy.hint
-        case .traceLines, .traceShapesDotted:
+        case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
             return ShapeTraceCopy.hint
         }
     }
