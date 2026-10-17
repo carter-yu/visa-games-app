@@ -541,7 +541,17 @@ struct TestRunner {
         try kiosk.testWindowChromeIsConstantAfterLaunch()
         try kiosk.testSoakHookIsGatedOnEnvironmentAndOnlyBypassesAuthThere()
 
+        let finder = ParentYouTubeBrowserTests()
+        finder.testURLVideoIDParsing()
+        finder.testAddBarStates()
+        finder.testAlreadyAddedState()
+        finder.testNavigationPolicy()
+        finder.testSearchDestinationsAndRecentSearches()
+        finder.testPageLength()
+        finder.testEditingShortcutsOnlyInParent()
+        try finder.testPresentationAndContainmentSourceGuards()
 
-        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match + 12 guided-line-match + 20 shape-trace checks")
+
+        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match + 12 guided-line-match + 20 shape-trace + 8 parent-youtube checks")
     }
 }
