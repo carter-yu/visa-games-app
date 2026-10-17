@@ -190,6 +190,17 @@ struct ParentSettingsView: View {
                     onSlantLines: { model.setShapeTraceSlantLines($0) },
                     onDotStyle: { model.setShapeTraceDotStyle($0) }
                 )
+                ParentTapCountSettingsView(
+                    settings: model.tapCountSettings,
+                    shapeTraceSettings: model.shapeTraceSettings,
+                    lineMatchTolerance: model.lineMatchSettings.tolerance,
+                    onRange: { model.setTapCountRange($0) },
+                    onCountVoice: { model.setTapCountCountVoice($0) },
+                    onEnglish: { model.setTapCountEnglish($0) },
+                    onBadgeStyle: { model.setTapCountBadgeStyle($0) },
+                    onScaffold: { model.setTapCountTraceScaffold($0) },
+                    onTolerance: { model.setTapCountTolerance($0) }
+                )
                 unbuiltRow
             }
         }

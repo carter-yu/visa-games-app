@@ -183,6 +183,9 @@ private struct ParentGameArtWell: View {
             HalfVehicleClip(assetID: asset, side: .left, mood: .happy)
         } else if kind == .shadowMatch, let asset = kind.parentHeroAssetIDs.first {
             ActivityAssetView(assetID: asset, mood: .calm, asShadow: true)
+        } else if kind.isTapCountFamily {
+            // 一架一架數: the mockup 09 tile (lit cars with badges / a half-painted 3 / picks + OK).
+            TapCountIconView(kind: kind)
         } else if kind.isShapeTraceFamily {
             // 畫線畫形: the original fire engine / paint car on a coloured lane.
             HStack(spacing: 6) {
