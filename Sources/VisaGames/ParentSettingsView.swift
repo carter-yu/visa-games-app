@@ -17,7 +17,7 @@ struct ParentSettingsView: View {
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.29.0"
+    static let versionLabel = "Visa Games v0.30.0"
 
     /// v0.21.0: 表現 (Review) is the third parent segment (layout L5).
     private enum ParentLibrary { case videos, games, review }
@@ -199,7 +199,9 @@ struct ParentSettingsView: View {
                     onEnglish: { model.setTapCountEnglish($0) },
                     onBadgeStyle: { model.setTapCountBadgeStyle($0) },
                     onScaffold: { model.setTapCountTraceScaffold($0) },
-                    onTolerance: { model.setTapCountTolerance($0) }
+                    onTolerance: { model.setTapCountTolerance($0) },
+                    learnedNumerals: model.tapCountGuideProgress.learnedNumerals(language: .cantonese),
+                    onGuidance: { model.setTapCountGuidance($0) }
                 )
                 unbuiltRow
             }

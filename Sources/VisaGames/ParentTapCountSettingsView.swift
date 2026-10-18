@@ -12,6 +12,9 @@ struct ParentTapCountSettingsView: View {
     let onBadgeStyle: (TapCountBadgeStyle) -> Void
     let onScaffold: (TapCountTraceScaffold) -> Void
     let onTolerance: (LineMatchTolerance?) -> Void
+    /// v0.30.0 描數字提示 (多啲 / 標準 / 少啲) and the numerals the child has 識咗 (2 clean traces in a row).
+    var learnedNumerals: [Int] = []
+    var onGuidance: (TapCountGuidanceLevel) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -51,6 +54,7 @@ struct ParentTapCountSettingsView: View {
                                  selected: settings.traceScaffold == scaffold) { onScaffold(scaffold) }
                 }
             }
+            guidanceRow
             VStack(alignment: .leading, spacing: 8) {
                 choiceRow(title: TapCountCopy.toleranceTitle, english: TapCountCopy.toleranceEnglish) {
                     choiceButton(title: TapCountCopy.toleranceFollow, subtitle: "",
@@ -70,6 +74,26 @@ struct ParentTapCountSettingsView: View {
         .padding(16)
         .modifier(ChunkyPanel(fill: Color(hex: DesignTokens.Palette.paper), cornerRadius: 18,
                               shadowDepth: 4, lineWidth: 3))
+    }
+
+    /// 描數字提示 (copy from the Opus guidance spec; ★★ / ★★★, both card languages).
+    private var guidanceRow: some View {
+        let parent = TapCountGuideData.copy.parent
+        return VStack(alignment: .leading, spacing: 8) {
+            ParentLabel(parent.title, size: 15, weight: 800)
+            HStack(spacing: 10) {
+                ForEach(TapCountGuidanceLevel.allCases, id: \.self) { level in
+                    choiceButton(title: parent.short(level), subtitle: "",
+                                 selected: settings.guidance == level) { onGuidance(level) }
+                }
+            }
+            ParentLabel(parent.detail(settings.guidance), size: 12, weight: 600, color: .inkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+            let learned = learnedNumerals.sorted().map(String.init).joined(separator: "、")
+            ParentLabel(learned.isEmpty ? parent.learnedNote : "\(parent.learnedNote) \(learned)",
+                        size: 12, weight: 600, color: .inkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private func choiceRow<Content: View>(title: String, english: String,

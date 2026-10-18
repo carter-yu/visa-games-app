@@ -393,6 +393,8 @@ public struct ShapeTraceBoard: Sendable, Equatable {
     public private(set) var awaySince: Double?
     /// When the current stroke last moved (or became current). Ghost demo clock.
     public private(set) var lastProgressAt: Double?
+    /// v0.30.0: the latest pen-down (tap-count guidance: a stall counts from here or the last progress).
+    public private(set) var lastPenDownAt: Double?
     /// Corners of the current stroke already tagged as overshoot / cut / reached.
     public private(set) var cornersOvershot: [Double] = []
     public private(set) var cornersCut: [Double] = []
@@ -550,6 +552,7 @@ public struct ShapeTraceBoard: Sendable, Equatable {
             inking = true
         }
         penDowns += 1
+        lastPenDownAt = now
         if startedAt == nil { startedAt = now }
         if lastProgressAt == nil { lastProgressAt = now }
         if shapeStats[shape].startedAt == nil { shapeStats[shape].startedAt = now }

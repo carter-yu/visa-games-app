@@ -361,16 +361,19 @@ public struct TapCountSettings: Equatable, Sendable {
     public var traceScaffold: TapCountTraceScaffold
     /// Nil = follow 畫形狀設定 (「跟畫形狀」).
     public var tolerance: LineMatchTolerance?
+    /// v0.30.0 描數字提示: 多啲 / 標準 / 少啲 (both card languages).
+    public var guidance: TapCountGuidanceLevel
 
     public init(range: TapCountRange = .upTo10, countVoice: Bool = true, english: Bool = true,
                 badgeStyle: TapCountBadgeStyle = .numbers, traceScaffold: TapCountTraceScaffold = .dots,
-                tolerance: LineMatchTolerance? = nil) {
+                tolerance: LineMatchTolerance? = nil, guidance: TapCountGuidanceLevel = .standard) {
         self.range = range
         self.countVoice = countVoice
         self.english = english
         self.badgeStyle = badgeStyle
         self.traceScaffold = traceScaffold
         self.tolerance = tolerance
+        self.guidance = guidance
     }
 
     public static let defaults = TapCountSettings()
@@ -409,6 +412,8 @@ public struct TapCountSettingsStore {
         var badgeStyle: String
         var traceScaffold: String
         var tolerance: String?
+        /// Missing in v0.28–v0.29 data → 標準.
+        var guidance: String?
 
         init(settings: TapCountSettings) {
             range = settings.range.rawValue
@@ -417,13 +422,15 @@ public struct TapCountSettingsStore {
             badgeStyle = settings.badgeStyle.rawValue
             traceScaffold = settings.traceScaffold.rawValue
             tolerance = settings.tolerance?.rawValue
+            guidance = settings.guidance.rawValue
         }
 
         var settings: TapCountSettings {
             TapCountSettings(range: TapCountRange(rawValue: range) ?? .upTo10, countVoice: countVoice, english: english,
                              badgeStyle: TapCountBadgeStyle(rawValue: badgeStyle) ?? .numbers,
                              traceScaffold: TapCountTraceScaffold(rawValue: traceScaffold) ?? .dots,
-                             tolerance: tolerance.flatMap(LineMatchTolerance.init(rawValue:)))
+                             tolerance: tolerance.flatMap(LineMatchTolerance.init(rawValue:)),
+                             guidance: guidance.flatMap(TapCountGuidanceLevel.init(rawValue:)) ?? .standard)
         }
     }
 }

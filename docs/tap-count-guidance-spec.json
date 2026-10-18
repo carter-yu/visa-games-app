@@ -1,0 +1,224 @@
+{
+  "timing": {"hopSeconds": 0.5, "cuePauseSeconds": 0.3, "mergeSeconds": 0.6, "routeFadeSeconds": 1.5,
+             "cueLeadUnits": 50, "headlightDots": 3, "stallRingGhostSeconds": 1.2},
+  "levels": {
+    "more":     {"demo": "always", "headlights": true, "cueSigns": true, "cueWords": true,
+                 "fadeLaterStrokes": true, "hop": true, "stallSeconds": 1, "ghostToEndSeconds": 5, "redemoSeconds": 15,
+                 "learnedKeeps": ["headlights", "cueSigns", "cueWords"]},
+    "standard": {"demo": "untilLearned", "headlights": true, "cueSigns": true, "cueWords": true,
+                 "fadeLaterStrokes": true, "hop": true, "stallSeconds": 2, "ghostToEndSeconds": 8, "redemoSeconds": 20,
+                 "learnedKeeps": ["headlights"]},
+    "less":     {"demo": "never", "headlights": false, "cueSigns": false, "cueWords": false,
+                 "fadeLaterStrokes": true, "hop": true, "stallSeconds": null, "ghostToEndSeconds": 8, "redemoSeconds": null,
+                 "learnedKeeps": []}
+  },
+  "learned": {"cleanInARow": 2,
+              "cleanMeans": ["no stall help (ring + next-bit demo)", "no ghost to the end", "no re-demo after idle",
+                             "no wrong-start or reverse-direction prompt"],
+              "sharedAcrossLanguages": true},
+  "touchDuringDemo": "endsDemoNoPaint",
+  "numerals": {
+    "1": {
+      "beats": [
+        {"stroke": 0, "until": 1.0, "seconds": 1.3,
+         "zh": "由頂直落！", "zhSub": "Straight down from the top!", "en": "Straight down from the top!"}
+      ],
+      "merge": {"zh": "到你喇！", "zhSub": "Your turn!", "en": "Your turn!"},
+      "cues": [],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    },
+    "2": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [116, 180], "pass": 1}, "seconds": 1.2,
+         "zh": "彎過頂——", "zhSub": "Curve over the top...", "en": "Curve over the top..."},
+        {"stroke": 0, "until": {"point": [34, 270], "pass": 1}, "seconds": 1.1,
+         "zh": "斜斜落，停！", "zhSub": "Slide down, stop!", "en": "Slide down, stop!"},
+        {"stroke": 0, "until": 1.0, "seconds": 0.9,
+         "zh": "再打橫！", "zhSub": "Then go across!", "en": "Then go across!"}
+      ],
+      "merge": {"zh": "到你喇！", "zhSub": "Your turn!", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 0, "point": [34, 270], "pass": 1, "sign": "stop", "signAt": [-42, 262],
+         "zh": "停！再打橫！", "zhSub": "Stop! Now go across!", "en": "Stop! Now go across!"}
+      ],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    },
+    "3": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [94, 144], "pass": 1}, "seconds": 1.4,
+         "zh": "上面彎一彎，停！", "zhSub": "Curve to the middle, stop!", "en": "Curve to the middle, stop!"},
+        {"stroke": 0, "until": 1.0, "seconds": 1.3,
+         "zh": "下面彎一彎！", "zhSub": "Curve round to the bottom!", "en": "Curve round to the bottom!"}
+      ],
+      "merge": {"zh": "到你喇！", "zhSub": "Your turn!", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 0, "point": [94, 144], "pass": 1, "sign": "stop", "signAt": [14, 146],
+         "zh": "停！再彎多個！", "zhSub": "Stop! One more curve!", "en": "Stop! One more curve!"}
+      ],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    },
+    "4": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [24, 192], "pass": 1}, "seconds": 1.1,
+         "zh": "斜斜落，停！", "zhSub": "Slide down, stop!", "en": "Slide down, stop!"},
+        {"stroke": 0, "until": 1.0, "seconds": 0.8,
+         "zh": "再打橫！", "zhSub": "Then go across!", "en": "Then go across!"},
+        {"stroke": 1, "until": 1.0, "seconds": 1.1,
+         "zh": "直落到底！", "zhSub": "Straight down to the bottom!", "en": "Straight down to the bottom!"}
+      ],
+      "merge": {"zh": "到你喇！", "zhSub": "Your turn!", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 0, "point": [24, 192], "pass": 1, "sign": "stop", "signAt": [-54, 206],
+         "zh": "停！打橫！", "zhSub": "Stop! Now across!", "en": "Stop! Now go across!"}
+      ],
+      "hop": {"zh": "跳上頂！", "zhSub": "Jump to the top!", "en": "Jump to the top!"},
+      "hopArcSide": "right",
+      "lastStroke": {"zh": "最後一筆：由頂直落！", "zhSub": "last stroke: top to bottom",
+                     "en": "Last one: top to bottom!", "enSub": "jump to the top first"}
+    },
+    "5": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [50, 132], "pass": 1}, "seconds": 0.9,
+         "zh": "直落，停！", "zhSub": "Down, and stop!", "en": "Down, and stop!"},
+        {"stroke": 0, "until": 1.0, "seconds": 1.6,
+         "zh": "轉個大肚腩！", "zhSub": "Round the big tummy!", "en": "Round the big tummy!"},
+        {"stroke": 1, "until": 1.0, "seconds": 1.0,
+         "zh": "由左去右！", "zhSub": "Left to right!", "en": "Across, left to right!"}
+      ],
+      "merge": {"zh": "到你喇！", "zhSub": "Your turn!", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 0, "point": [50, 132], "pass": 1, "sign": "stop", "signAt": [-30, 136],
+         "zh": "停！轉個肚！", "zhSub": "Stop! Round the tummy!", "en": "Stop! Round the tummy!"}
+      ],
+      "hop": {"zh": "返上去，戴帽！", "zhSub": "Back to the top: hat on!", "en": "Back to the top, hat on!"},
+      "hopArcSide": "left",
+      "lastStroke": {"zh": "最後一筆：戴帽！", "zhSub": "last stroke: the hat",
+                     "en": "Last one: the hat!", "enSub": "left to right"}
+    },
+    "6": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [36, 186], "pass": 1}, "seconds": 1.0,
+         "zh": "彎落嚟——", "zhSub": "Curve down...", "en": "Curve down the side..."},
+        {"stroke": 0, "until": 1.0, "seconds": 1.8,
+         "zh": "轉個圈，捲入去！", "zhSub": "Round and curl in!", "en": "Round and curl in!"}
+      ],
+      "merge": {"zh": "到你喇！", "zhSub": "Your turn!", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 0, "point": [106, 138], "pass": 1, "sign": "ahead", "signAt": [215, 120],
+         "zh": "捲入去，埋口！", "zhSub": "Curl in and close it!", "en": "Curl in and close it!"}
+      ],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    },
+    "7": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [170, 36], "pass": 1}, "seconds": 0.9,
+         "zh": "打橫，停！", "zhSub": "Across, stop!", "en": "Across the top, stop!"},
+        {"stroke": 0, "until": 1.0, "seconds": 1.2,
+         "zh": "斜斜滑落嚟！", "zhSub": "Slide down the slope!", "en": "Slide down the slope!"}
+      ],
+      "merge": {"zh": "到你喇！", "zhSub": "Your turn!", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 0, "point": [170, 36], "pass": 1, "sign": "stop", "signAt": [246, 44],
+         "zh": "停！斜斜落！", "zhSub": "Stop! Now slide down!", "en": "Stop! Now slide down!"}
+      ],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    },
+    "8": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [100, 146], "pass": 2}, "seconds": 2.4,
+         "zh": "寫個 S——", "zhSub": "Make an S...", "en": "Make an S..."},
+        {"stroke": 0, "until": 1.0, "seconds": 1.3,
+         "zh": "直直返屋企！", "zhSub": "Then straight back home!", "en": "Then straight back home!"}
+      ],
+      "merge": {"zh": "到你喇！", "zhSub": "Your turn!", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 0, "point": [100, 146], "pass": 1, "sign": "ahead", "signAt": [220, 138],
+         "zh": "十字路口，直直去！", "zhSub": "Crossroads: straight on!", "en": "Crossroads: straight on!"},
+        {"stroke": 0, "point": [100, 146], "pass": 2, "sign": "ahead", "signAt": [220, 138],
+         "zh": "直直返屋企！", "zhSub": "Straight on, back home!", "en": "Straight on, back home!"}
+      ],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    },
+    "9": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [102, 152], "pass": 1}, "seconds": 1.2,
+         "zh": "向左轉個圈——", "zhSub": "Round to the left...", "en": "Round to the left..."},
+        {"stroke": 0, "until": {"point": [164, 40], "pass": 2}, "seconds": 1.0,
+         "zh": "返上去，停！", "zhSub": "Back up to the top, stop!", "en": "Back up to the top, stop!"},
+        {"stroke": 0, "until": 1.0, "seconds": 1.1,
+         "zh": "再直落到底！", "zhSub": "Then straight down!", "en": "Then straight down!"}
+      ],
+      "merge": {"zh": "到你喇！", "zhSub": "Your turn!", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 0, "point": [164, 40], "pass": 2, "sign": "stop", "signAt": [240, 46],
+         "zh": "停！再直落！", "zhSub": "Stop! Now straight down!", "en": "Stop! Now straight down!"}
+      ],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    },
+    "10": {
+      "beats": [
+        {"stroke": 0, "until": 1.0, "seconds": 1.2,
+         "zh": "先寫 1，直落！", "zhSub": "First a 1: straight down!", "en": "First a 1, straight down!"},
+        {"stroke": 1, "until": 1.0, "seconds": 2.4,
+         "zh": "由頂向左轉個圈！", "zhSub": "Top, then round to the left!", "en": "Round to the left and home!"}
+      ],
+      "merge": {"zh": "到你喇！", "zhSub": "Your turn!", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 1, "point": [214, 30], "pass": 1, "sign": "ahead", "signAt": [214, 150],
+         "zh": "向左轉個圈！", "zhSub": "Round to the left!", "en": "Round to the left!"}
+      ],
+      "hop": {"zh": "再寫 0！", "zhSub": "Now the 0!", "en": "Now the 0!"},
+      "hopArcSide": "up",
+      "lastStroke": {"zh": "最後一筆：寫 0！", "zhSub": "last stroke: the 0",
+                     "en": "Last one: the 0!", "enSub": "round to the left"}
+    }
+  },
+  "copy": {
+    "watchFirst":  {"zh": "{zhN}架！睇住架車先！", "zhSub": "{EnN}! Watch the car first!",
+                    "en": "{EnN}! Watch the car first!", "enSub": ""},
+    "yourTurn":    {"zh": "到你喇！跟住箭嘴，畫 {N}！", "zhSub": "Your turn! Follow the arrows and draw {N}!",
+                    "en": "Your turn! Follow the arrows and draw {N}!", "enSub": ""},
+    "trayDemo":    {"zh": "睇完，到你畫！", "zhSub": "watch first, then it's your turn",
+                    "en": "Watch first, then your turn!", "enSub": "the car shows the way"},
+    "trayTrace":   {"zh": "跟住條路畫落去", "zhSub": "keep going along the road",
+                    "en": "Keep going along the road", "enSub": "follow the white arrows"},
+    "trayStall":   {"zh": "睇吓示範車去邊", "zhSub": "see where the demo car goes",
+                    "en": "See where the demo car goes", "enSub": "then carry on from your car"},
+    "legendDemoCar":     {"zh": "示範車", "zhSub": "demo car: watch once", "en": "Demo car", "enSub": "watch it once"},
+    "legendRoute":       {"zh": "路線", "zhSub": "route it drove (fades)", "en": "Route", "enSub": "where it went (fades)"},
+    "legendHeadlights":  {"zh": "車頭燈", "zhSub": "headlights: which way", "en": "Headlights", "enSub": "which way next"},
+    "legendAhead":       {"zh": "指路牌", "zhSub": "sign: go this way", "en": "Road sign", "enSub": "go this way"},
+    "legendStop":        {"zh": "停", "zhSub": "stop, then turn", "en": "Stop", "enSub": "stop, then turn"},
+    "legendStrokeOrder": {"zh": "第幾筆", "zhSub": "stroke order", "en": "Line order", "enSub": "1 first, then 2"},
+    "legendHop":         {"zh": "跳去下一筆", "zhSub": "hop to the next stroke", "en": "Hop", "enSub": "on to the next line"},
+    "stopWord": {"zh": "停", "en": "STOP"},
+    "redemo": {"zh": "再睇多次架車點行！", "zhSub": "Watch the car once more!", "en": "Let's watch the car again!"},
+    "parent": {
+      "title": "描數字提示 · Tracing help",
+      "more": "多啲：次次先睇示範；卡住 1 秒就幫 · More: a demo every time; help after 1 s",
+      "standard": "標準：示範到識咗為止；車頭燈、路口牌同口訣；卡住 2 秒就幫 · Standard: demo until learned; headlights, signs and rhymes; help after 2 s",
+      "less": "少啲：冇示範、冇車頭燈；卡住 8 秒先幫 · Less: no demo or headlights; help after 8 s",
+      "learnedNote": "識咗 = 同一個數字連續 2 次冇提示畫完；一卡住就變返學緊；中文同英文卡共用 · Learned = traced twice in a row with no help; one stall brings the help back; shared by both cards",
+      "moreShort": "多啲", "standardShort": "標準", "lessShort": "少啲"
+    }
+  },
+  "styles": {"route": {"glow": "#FFF3A6", "glowWidth": 34, "core": "#FFB534", "coreWidth": 11, "dash": [16, 12]},
+             "beam": {"outer": "#FFF6C8", "outerWidth": 54, "inner": "#FFE680", "innerWidth": 22, "innerOpacity": 0.55},
+             "hopArc": {"stroke": "#2B2630", "width": 6, "dash": [1, 13]},
+             "fadedStrokeOpacity": 0.35, "stallRing": {"radius": 52, "fill": "#FFF1A8", "stroke": "#F5B82E"},
+             "litGlow": {"color": "#FFF3A6", "width": 104, "opacity": 0.7, "seconds": 0.5}}
+}

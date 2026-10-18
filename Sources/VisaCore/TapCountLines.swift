@@ -127,6 +127,76 @@ public struct TapCountLines: Equatable, Sendable {
     public var minutesWord: String { en ? E.minutesWord : "分鐘" }
     public var visaWord: String { en ? E.visaWord : "簽證 Visa" }
 
+    // MARK: Numeral-formation guidance (v0.30.0; Opus spec, TapCountGuideData)
+
+    private typealias G = TapCountGuideData
+
+    /// Fills `{N}` (digit), `{zhN}` (一…十), `{EnN}` / `{enN}` (English word).
+    private func fill(_ text: String, _ n: Int) -> String {
+        text.replacingOccurrences(of: "{zhN}", with: TapCountNumber.zh(n))
+            .replacingOccurrences(of: "{EnN}", with: TapCountNumber.enCapitalised(n))
+            .replacingOccurrences(of: "{enN}", with: TapCountNumber.en(n))
+            .replacingOccurrences(of: "{N}", with: "\(n)")
+    }
+
+    private func spoken(_ line: TapCountGuideLine, key: String, _ n: Int) -> SpokenPrompt {
+        en ? .englishOnly(key: "en.tapCount.guide.\(key)", fill(line.en, n))
+           : SpokenPrompt(key: "tapCount.guide.\(key)", traditionalChinese: fill(line.zh, n), english: fill(line.zhSub, n))
+    }
+
+    private func pair(_ line: TapCountGuideLine, _ n: Int = 0) -> (String, String) {
+        en ? (fill(line.en, n), fill(line.enSub, n)) : (fill(line.zh, n), fill(line.zhSub, n))
+    }
+
+    /// Demo rhyme, one line per beat (said as the ghost car starts that beat).
+    public func guideBeats(_ n: Int) -> [SpokenPrompt] {
+        (G.numeral(n)?.beats ?? []).enumerated().map { spoken($0.element.line, key: "\(n).beat\($0.offset + 1)", n) }
+    }
+    /// Said as the ghost car merges into the real car (「到你喇！」).
+    public func guideMerge(_ n: Int) -> SpokenPrompt? {
+        G.numeral(n).map { spoken($0.merge, key: "\(n).merge", n) }
+    }
+    /// Just-in-time cue lines, in the spec's cue order.
+    public func guideCues(_ n: Int) -> [SpokenPrompt] {
+        (G.numeral(n)?.cues ?? []).enumerated().map { spoken($0.element.line, key: "\(n).cue\($0.offset + 1)", n) }
+    }
+    /// Two-stroke numerals: said as the car hops to the next stroke.
+    public func guideHop(_ n: Int) -> SpokenPrompt? {
+        G.numeral(n)?.hop.map { spoken($0, key: "\(n).hop", n) }
+    }
+    /// Tray line on the last stroke of a two-stroke numeral.
+    public func guideLastStroke(_ n: Int) -> (String, String)? {
+        G.numeral(n)?.lastStroke.map { pair($0, n) }
+    }
+    public func guideWatchFirst(_ n: Int) -> SpokenPrompt { spoken(G.copy.watchFirst, key: "watchFirst.\(n)", n) }
+    public func guideYourTurn(_ n: Int) -> SpokenPrompt { spoken(G.copy.yourTurn, key: "yourTurn.\(n)", n) }
+    public func guideRedemo(_ n: Int) -> SpokenPrompt { spoken(G.copy.redemo, key: "redemo.\(n)", n) }
+    public var guideTrayDemo: (String, String) { pair(G.copy.trayDemo) }
+    public var guideTrayTrace: (String, String) { pair(G.copy.trayTrace) }
+    public var guideTrayStall: (String, String) { pair(G.copy.trayStall) }
+    public var guideLegendDemoCar: (String, String) { pair(G.copy.legendDemoCar) }
+    public var guideLegendRoute: (String, String) { pair(G.copy.legendRoute) }
+    public var guideLegendHeadlights: (String, String) { pair(G.copy.legendHeadlights) }
+    public var guideLegendAhead: (String, String) { pair(G.copy.legendAhead) }
+    public var guideLegendStop: (String, String) { pair(G.copy.legendStop) }
+    public var guideLegendStrokeOrder: (String, String) { pair(G.copy.legendStrokeOrder) }
+    public var guideLegendHop: (String, String) { pair(G.copy.legendHop) }
+    /// The word on the octagon stop sign.
+    public var guideStopWord: String { en ? G.copy.stopWordEn : G.copy.stopWordZh }
+
+    /// Every guidance prompt for numeral `n` (tests and the copy check).
+    public func allGuidePrompts(_ n: Int) -> [SpokenPrompt] {
+        guideBeats(n) + guideCues(n) + [guideMerge(n), guideHop(n)].compactMap { $0 }
+            + [guideWatchFirst(n), guideYourTurn(n), guideRedemo(n)]
+    }
+
+    /// Every guidance screen pair (tray, legends).
+    public var allGuidePairs: [(String, String)] {
+        [guideTrayDemo, guideTrayTrace, guideTrayStall, guideLegendDemoCar, guideLegendRoute, guideLegendHeadlights,
+         guideLegendAhead, guideLegendStop, guideLegendStrokeOrder, guideLegendHop]
+            + (1...10).compactMap { guideLastStroke($0) }
+    }
+
     // MARK: VoiceOver
 
     public func hearAgain(_ prompt: SpokenPrompt) -> String {
@@ -167,6 +237,10 @@ public struct TapCountLines: Equatable, Sendable {
         out += [familyTitle, stepTap, tapMark(tram: true), tapMark(tram: false), fuelHalved, minutesWord, visaWord,
                 hearAgain(pickPrompt(3))]
         for kind in [ActivityKind.tapCountAll, .tapCountTrace, .tapCountPick] { out.append(chipSubtitle(kind)) }
+        // v0.30.0 guidance: rhymes, cues, hop, headers, tray, legends, the stop-sign word.
+        for n in 1...10 { for p in allGuidePrompts(n) { add(p) } }
+        for pair in allGuidePairs { add(pair) }
+        out.append(guideStopWord)
         return out
     }
 
@@ -177,6 +251,7 @@ public struct TapCountLines: Equatable, Sendable {
             for scene in TapCountScene.allCases { out += [allPrompt(scene), total(n, scene: scene), donePrompt(n, scene: scene)] }
             out += [number(n), cuePrompt(n), tracePrompt(n), traceDonePrompt(n), pickPrompt(n), recount(n), need(n), demo(n),
                     countedTracePrompt(n, pick: true), countedTracePrompt(n, pick: false)]
+            out += allGuidePrompts(n)
         }
         return out
     }

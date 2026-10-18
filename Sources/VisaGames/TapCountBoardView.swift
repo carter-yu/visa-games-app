@@ -36,6 +36,14 @@ struct TapCountBoardView: View {
     let onTraceWrongStart: () -> Void
     let onTraceReverse: () -> Void
     let onTraceHint: (String) -> Void
+    /// v0.30.0 guidance (mockups guidance/01–03): the model's bubble line (cue / hop / stall).
+    var guideBubble: TapCountGuideBubble? = nil
+    /// The first touch during the demo: it ends the demo (input is never locked; that touch does not paint).
+    var onGuideSkip: () -> Void = {}
+    /// A help episode began on the board (key, kind).
+    var onGuideHelp: (String, String) -> Void = { _, _ in }
+    /// The car is coming up to cue `index` (a crossing or a turn).
+    var onGuideCue: (Int) -> Void = { _ in }
 
     var body: some View {
         CanvasStage {
@@ -58,6 +66,11 @@ private struct TapCountStageContent: View {
     @GestureState private var gestureActive = false
     /// The vehicle that hops 6u right after its tap.
     @State private var bounceBay: Int?
+    /// Guidance: the touch that ended the demo (the car wiggles, nothing is painted until the next touch).
+    @State private var swallowTouch = false
+    @State private var wiggleAt: Double?
+    @State private var cueShownAt: [Int: Double] = [:]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @Environment(\.tapCountShowsHitTargets) private var showsHitTargets
     private var board: TapCountBoard { view.board }
@@ -141,6 +154,15 @@ private struct TapCountStageContent: View {
         penTip = tip
         if !dragSeen {
             dragSeen = true
+            // Guidance demo on screen: this touch ends it (never a lock, never a miss) and paints nothing.
+            if board.guideDemoPending(now: clock) {
+                view.onGuideSkip()
+                wiggleAt = clock
+                if TapCountGuideData.touchEndsDemoWithoutPaint {
+                    swallowTouch = true
+                    return
+                }
+            }
             switch next.penDown(at: lm(stagePoint(value.startLocation)), now: clock) {
             case .wrongStart:
                 traceLocal = next
@@ -156,6 +178,7 @@ private struct TapCountStageContent: View {
                 break
             }
         }
+        if swallowTouch { return }
         let move = next.penMove(to: lm(tip), now: clock)
         traceLocal = next
         switch move {
@@ -167,6 +190,7 @@ private struct TapCountStageContent: View {
     }
 
     private func penEnded() {
+        if swallowTouch { resetPen(); return }
         guard dragSeen, var next = trace else { resetPen(); return }
         next.penUp()
         traceLocal = next
@@ -175,6 +199,7 @@ private struct TapCountStageContent: View {
     }
 
     private func cancelPen() {
+        if swallowTouch { resetPen(); return }
         guard dragSeen, var next = trace else { return }
         next.cancelStroke()
         traceLocal = next
@@ -184,7 +209,176 @@ private struct TapCountStageContent: View {
 
     private func resetPen() {
         dragSeen = false
+        swallowTouch = false
         penTip = nil
+    }
+
+    // MARK: Guidance (v0.30.0)
+
+    private var guideRun: TapCountGuideRun? { board.stage == .tracing || board.stage == .done ? board.guide : nil }
+    private var numeralGuide: NumeralGuide? { guideRun == nil ? nil : TapCountGuideCache.guide(board.target) }
+    private var demoOn: Bool { board.stage == .tracing && board.guideDemoPending(now: view.now) }
+
+    /// The help the board shows now (stall ring + ghost, ghost to the end, or the 20 s re-demo).
+    private var guideHelp: TapCountGuideHelp {
+        guard let run = guideRun, let numeralGuide, let trace, board.stage == .tracing, !view.locked,
+              !board.guideDemoPending(now: view.now) else { return .none }
+        return TapCountGuideCoach.help(plan: run.plan, guide: numeralGuide, trace: trace, readyAt: run.readyAt, now: view.now)
+    }
+
+    private var activeCue: NumeralGuide.Cue? {
+        guard let run = guideRun, run.plan.cueSigns || run.plan.cueWords, let numeralGuide, let trace,
+              board.stage == .tracing, !view.locked, !board.guideDemoPending(now: view.now) else { return nil }
+        return TapCountGuideCoach.activeCue(guide: numeralGuide, trace: trace)
+    }
+
+    private var guideDraw: TapCountGuideDraw? {
+        guard let run = guideRun, let numeralGuide, let trace, board.stage == .tracing else { return nil }
+        let demo = board.guideDemoPending(now: view.now)
+        let cue = demo || !run.plan.cueSigns ? nil : activeCue
+        let clock = Date().timeIntervalSinceReferenceDate
+        return TapCountGuideDraw(
+            plan: run.plan, numeral: numeralGuide, demo: demo,
+            headlights: demo ? [] : TapCountGuideCoach.headlights(plan: run.plan, guide: numeralGuide, trace: trace),
+            cue: cue, popAt: cue.flatMap { cueShownAt[$0.index] }, stopWord: lines.guideStopWord,
+            reduceMotion: reduceMotion, now: clock)
+    }
+
+    /// Whether the guidance layer needs frames (demo, a hop, a help ghost, a wiggle). Off = no timer.
+    private var guideAnimating: Bool {
+        guard !reduceMotion, let run = guideRun, let trace, board.stage == .tracing else { return false }
+        let clock = Date().timeIntervalSinceReferenceDate
+        if run.demoPending(now: clock) { return true }
+        if let at = wiggleAt, clock - at < 0.6 { return true }
+        if run.plan.hops, trace.strokeIndex > 0, trace.progress < 0.5, let at = trace.lastProgressAt,
+           clock - at < TapCountGuideData.timing.hopSeconds + TapCountGuideData.styles.litGlowSeconds + 0.2 { return true }
+        switch guideHelp {
+        case .stall, .ghostToEnd: return true
+        default: return false
+        }
+    }
+
+    @ViewBuilder private var guideMotionLayer: some View {
+        if let run = guideRun, let numeralGuide, let trace, board.stage == .tracing {
+            let state = TapCountGuideMotionState(
+                numeral: numeralGuide, timeline: TapCountGuideCache.timeline(board.target), run: run, trace: trace,
+                help: guideHelp, wiggleAt: wiggleAt, reduceMotion: reduceMotion,
+                board: NumeralGlyphs.traceBoard(board.target), stopWord: lines.guideStopWord)
+            let scale = metrics.scale
+            let animating = guideAnimating
+            TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !animating)) { context in
+                let now = animating ? context.date.timeIntervalSinceReferenceDate : Date().timeIntervalSinceReferenceDate
+                Canvas { canvas, _ in
+                    var g = canvas
+                    g.scaleBy(x: scale, y: scale)
+                    TapCountDrawing.guideMotion(state, now: now, in: &g)
+                }
+            }
+            .frame(width: metrics.u(1280), height: metrics.u(720))
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+    }
+
+    /// The voice bubble left of the board (mockups 01–03): the demo's rhyme line (the line before in
+    /// grey), or the model's cue / hop / stall line.
+    private var guideBubbleContent: (previous: String?, main: String, sub: String?, demo: Bool)? {
+        guard board.stage == .tracing, let run = guideRun else { return nil }
+        if let t = run.demoTime(now: view.now) {
+            guard t >= 0, let timeline = TapCountGuideCache.timeline(board.target) else { return nil }
+            let beats = lines.guideBeats(board.target)
+            if let i = timeline.beat(at: t), beats.indices.contains(i) {
+                return (i > 0 ? beats[i - 1].mainText : nil, beats[i].mainText, beats[i].subText, true)
+            }
+            if t >= timeline.mergeStart, let merge = lines.guideMerge(board.target) {
+                return (beats.last?.mainText, merge.mainText, merge.subText, true)
+            }
+            return nil
+        }
+        if let bubble = view.guideBubble, view.now < bubble.until {
+            let text = bubble.prompt.mainText
+            for mark in ["\u{FF0C}", ", ", "\u{FF1A}", ": "] {  // full-width comma / colon, ", ", ": "
+                if let r = text.range(of: mark), r.upperBound < text.endIndex {
+                    let head = String(text[..<r.upperBound]).trimmingCharacters(in: .whitespaces)
+                    let tail = String(text[r.upperBound...]).trimmingCharacters(in: .whitespaces)
+                    return (head, tail, bubble.prompt.subText, false)
+                }
+            }
+            return (nil, text, bubble.prompt.subText, false)
+        }
+        return nil
+    }
+
+    /// CanvasText is fixedSize: pick a size that fits `width` (CJK ≈ 1 em, Latin ≈ 0.62 em).
+    private func fitSize(_ text: String, base: CGFloat, width: CGFloat, latinEm: Double = 0.62) -> CGFloat {
+        let ems = text.unicodeScalars.reduce(0.0) { $0 + ($1.value >= 0x2E80 ? 1.0 : latinEm) }
+        return max(11, min(base, width / CGFloat(max(ems, 1))))
+    }
+
+    /// English bubble lines are long ("Then straight back home!"): wrap them onto two lines at the space nearest
+    /// the middle instead of shrinking one line to unreadable. CJK lines stay on one line.
+    private func bubbleLines(_ text: String, base: CGFloat, width: CGFloat) -> (lines: [String], size: CGFloat) {
+        let one = fitSize(text, base: base, width: width)
+        let cjk = text.unicodeScalars.contains { $0.value >= 0x2E80 }
+        guard !cjk, one < 22 else { return ([text], one) }
+        let chars = Array(text)
+        let spaces = chars.indices.filter { chars[$0] == " " }
+        guard let cut = spaces.min(by: { abs($0 - chars.count / 2) < abs($1 - chars.count / 2) }) else { return ([text], one) }
+        let first = String(chars[..<cut]), second = String(chars[(cut + 1)...])
+        let size = min(fitSize(first, base: base - 2, width: width), fitSize(second, base: base - 2, width: width))
+        return size > one ? ([first, second], size) : ([text], one)
+    }
+
+    @ViewBuilder private var guideVoiceBubble: some View {
+        if let content = guideBubbleContent {
+            let boardRect = NumeralGlyphs.traceBoard(board.target)
+            let right = CGFloat(boardRect.x) - 10
+            let left = max(16, right - 266)
+            let top: CGFloat = content.demo ? 250 : 284
+            let scale = metrics.scale
+            ZStack(alignment: .topLeading) {
+                Canvas { canvas, _ in
+                    var g = canvas
+                    g.scaleBy(x: scale, y: scale)
+                    let rect = CGRect(x: 0, y: 0, width: 246, height: 104)
+                    var tail = Path()
+                    tail.move(to: CGPoint(x: 244, y: 40))
+                    tail.addLine(to: CGPoint(x: 266, y: 54))
+                    tail.addLine(to: CGPoint(x: 244, y: 66))
+                    tail.closeSubpath()
+                    g.fill(Path(roundedRect: rect.offsetBy(dx: 0, dy: 5), cornerRadius: 26), with: .color(LM.ink.opacity(0.14)))
+                    g.fill(Path(roundedRect: rect, cornerRadius: 26), with: .color(.white))
+                    g.fill(tail, with: .color(.white))
+                    g.stroke(Path(roundedRect: rect, cornerRadius: 26), with: .color(LM.ink), lineWidth: 4)
+                    var tailEdge = Path()
+                    tailEdge.move(to: CGPoint(x: 245, y: 40))
+                    tailEdge.addLine(to: CGPoint(x: 266, y: 54))
+                    tailEdge.addLine(to: CGPoint(x: 245, y: 66))
+                    g.stroke(tailEdge, with: .color(LM.ink), style: StrokeStyle(lineWidth: 4, lineJoin: .round))
+                    TapCountDrawing.place(TapCountArt.speaker, at: LineMatchPoint(x: 30, y: 52), scale: 0.6, in: &g)
+                }
+                .frame(width: metrics.u(270), height: metrics.u(112))
+                VStack(alignment: .leading, spacing: metrics.u(1)) {
+                    if let previous = content.previous {
+                        CanvasText(previous, size: fitSize(previous, base: content.demo ? 18 : 21, width: 180),
+                                   weight: content.demo ? 800 : 900, color: content.demo ? Color(hex: 0xA39AA8) : LM.ink)
+                    }
+                    let main = bubbleLines(content.main, base: 28, width: 180)
+                    ForEach(Array(main.lines.enumerated()), id: \.offset) { _, line in
+                        CanvasText(line, size: main.size, weight: 900, color: LM.ink)
+                    }
+                    if let sub = content.sub, !sub.isEmpty {
+                        CanvasText(sub, size: fitSize(sub, base: 14, width: 180), weight: 700, color: Color(hex: 0x6B6170))
+                    }
+                }
+                .frame(width: metrics.u(186), height: metrics.u(104), alignment: .leading)
+                .canvasPlaced(x: 56, y: 0)
+            }
+            .canvasPlaced(x: left, y: top)
+            .allowsHitTesting(false)
+            .accessibilityElement(children: .combine)
+            .transition(.opacity)
+        }
     }
 
     private var traceHintOn: Bool {
@@ -202,6 +396,7 @@ private struct TapCountStageContent: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             sceneLayer
+            guideMotionLayer
             if board.stage == .tapping {
                 ForEach(TapCountVehicleLayout.hitTargets(question), id: \.bay) { target in
                     bayHitTarget(target.bay, rect: target.rect)
@@ -218,6 +413,7 @@ private struct TapCountStageContent: View {
                     .accessibilityLabel(lines.tracePrompt(board.target).mainText)
             }
             bubbles
+            guideVoiceBubble
             countedChip
             tray
             pickButtons
@@ -249,6 +445,18 @@ private struct TapCountStageContent: View {
         .onChange(of: traceHintKey) { key in
             if let key { view.onTraceHint(key) }
         }
+        .onChange(of: guideHelp.key) { key in
+            if let key { view.onGuideHelp(key, guideHelp.kind) }
+        }
+        .onChange(of: activeCue?.index) { index in
+            guard let index else { return }
+            if cueShownAt[index] == nil { cueShownAt[index] = Date().timeIntervalSinceReferenceDate }
+            view.onGuideCue(index)
+        }
+        .onChange(of: board.question) { _ in
+            cueShownAt = [:]
+            wiggleAt = nil
+        }
     }
 
     // MARK: The drawn scene (one Canvas; pure function of the board)
@@ -259,7 +467,7 @@ private struct TapCountStageContent: View {
             lifted: bounceBay, paused: paused, now: view.now,
             nudge: !question.isPick && board.stage == .tapping && board.idleNudges > 0
                 && view.now - (board.lastActivityAt ?? 0) < 3,
-            tip: dragSeen ? penTip : nil, hint: traceHintOn)
+            tip: dragSeen && !swallowTouch ? penTip : nil, hint: traceHintOn, guide: guideDraw)
         let scale = metrics.scale
         return Canvas { context, _ in
             var g = context
@@ -418,9 +626,15 @@ private struct TapCountStageContent: View {
             if tracingShown {
                 let centre: CGFloat = question.isPick ? 648 : 640
                 stepChips(first: question.isPick ? lines.stepPick(board.target) : lines.stepTap,
-                          firstDone: true, traceDone: board.stage == .done, centreX: centre)
+                          firstDone: true, traceDone: board.stage == .done, centreX: centre, watching: demoOn)
                 trayStatus(traceStatus, centreX: centre, top: 634)
-                if board.stage == .done { stampLegend(x: 826, width: 214) } else { traceLegend }
+                if board.stage == .done {
+                    stampLegend(x: 826, width: 214)
+                } else if guideRun != nil {
+                    guideLegend
+                } else {
+                    traceLegend
+                }
             } else if question.isPick {
                 if !paused {
                     stepChips(first: lines.stepPick(board.target), firstDone: false, traceDone: false,
@@ -448,13 +662,17 @@ private struct TapCountStageContent: View {
         if board.stage == .done {
             return lines.strokesDoneTray(board.target, scene: question.scene, pick: question.isPick)
         }
+        if guideRun != nil {
+            if demoOn { return lines.guideTrayDemo }
+            if case .stall = guideHelp { return lines.guideTrayStall }
+        }
         if traceHintOn { return lines.offPathStatus }
         if let notice = view.notice { return (notice.mainText, notice.subText ?? "") }
-        if board.target == 5, let trace, let strokes = trace.shapes.first?.strokes.count, strokes > 1,
-           trace.strokeIndex == strokes - 1 {
-            return lines.lastStrokeHat
+        if let trace, let strokes = trace.shapes.first?.strokes.count, strokes > 1, trace.strokeIndex == strokes - 1 {
+            if guideRun != nil, let last = lines.guideLastStroke(board.target) { return last }
+            if board.target == 5 { return lines.lastStrokeHat }
         }
-        return lines.traceStatus
+        return guideRun != nil ? lines.guideTrayTrace : lines.traceStatus
     }
 
     private func trayStatus(_ lines: (String, String), centreX: CGFloat, top: CGFloat) -> some View {
@@ -492,7 +710,8 @@ private struct TapCountStageContent: View {
         }
     }
 
-    private func stepChips(first: String, firstDone: Bool, traceDone: Bool, centreX: CGFloat) -> some View {
+    private func stepChips(first: String, firstDone: Bool, traceDone: Bool, centreX: CGFloat,
+                           watching: Bool = false) -> some View {
         let width: CGFloat = question.isPick ? 146 : 132
         let gap: CGFloat = question.isPick ? 32 : 38
         let left = centreX - width - gap / 2
@@ -505,16 +724,20 @@ private struct TapCountStageContent: View {
                 .stroke(LM.ink, style: StrokeStyle(lineWidth: metrics.u(5), lineCap: .round, lineJoin: .round))
                 .frame(width: metrics.u(12), height: metrics.u(20))
                 .canvasPlaced(x: left + width + gap / 2 - 6, y: 590)
-            chip(lines.stepTrace(board.target), done: traceDone, accent: Color(hex: colour.full), trace: true)
+            chip(lines.stepTrace(board.target), done: traceDone, accent: Color(hex: colour.full), trace: true,
+                 watching: watching)
                 .frame(width: metrics.u(width), height: metrics.u(44))
                 .canvasPlaced(x: left + width + gap, y: 578)
         }
     }
 
-    private func chip(_ text: String, done: Bool, accent: Color, trace: Bool) -> some View {
+    private func chip(_ text: String, done: Bool, accent: Color, trace: Bool, watching: Bool = false) -> some View {
         let green = Color(hex: 0x2F7A3A)
         return HStack(spacing: metrics.u(8)) {
-            if done {
+            if watching {
+                // Guidance demo: 「睇住」 eye on the trace chip (mockup guidance/01).
+                VectorArtView(artwork: TapCountArt.guideEye).frame(width: metrics.u(26), height: metrics.u(22))
+            } else if done {
                 CheckShape()
                     .stroke(green, style: StrokeStyle(lineWidth: metrics.u(5), lineCap: .round, lineJoin: .round))
                     .frame(width: metrics.u(22), height: metrics.u(18))
@@ -571,8 +794,9 @@ private struct TapCountStageContent: View {
         HStack(spacing: metrics.u(10)) {
             icon().frame(width: metrics.u(48), height: metrics.u(44))
             VStack(alignment: .leading, spacing: 0) {
-                CanvasText(zh, size: 20, weight: 900, color: LM.ink)
-                if !en.isEmpty { CanvasText(en, size: 12.5, weight: 700, color: LM.soft) }
+                // Sized to the 214u legend box (CanvasText is fixedSize).
+                CanvasText(zh, size: fitSize(zh, base: 20, width: 136), weight: 900, color: LM.ink)
+                if !en.isEmpty { CanvasText(en, size: fitSize(en, base: 12.5, width: 136), weight: 700, color: LM.soft) }
             }
         }
     }
@@ -622,6 +846,70 @@ private struct TapCountStageContent: View {
                 }
             }
         }
+    }
+
+    /// Guidance legends (mockups guidance/01–03): demo car + route; headlights + crossing sign; stroke
+    /// order + hop. 少啲 (no headlights, no hop) keeps the v0.28 legend.
+    @ViewBuilder private var guideLegend: some View {
+        let plan = guideRun?.plan
+        let multi = (trace?.shapes.first?.strokes.count ?? 1) > 1
+        if demoOn {
+            legendBox(x: 826, width: 214) {
+                VStack(alignment: .leading, spacing: metrics.u(8)) {
+                    legendRow(lines.guideLegendDemoCar) { legendIcon { g in
+                        TapCountDrawing.place(TapCountArt.guideGhostCar, at: LineMatchPoint(x: 24, y: 22), scale: 0.36, in: &g)
+                    } }
+                    legendRow(lines.guideLegendRoute) { legendIcon { g in
+                        TapCountDrawing.legendRoute(in: &g)
+                    } }
+                }
+            }
+        } else if multi, plan?.hops == true {
+            legendBox(x: 826, width: 214) {
+                VStack(alignment: .leading, spacing: metrics.u(8)) {
+                    legendRow(lines.guideLegendStrokeOrder) {
+                        HStack(spacing: metrics.u(4)) { numberDisc(1, radius: 13); numberDisc(2, radius: 13) }
+                    }
+                    legendRow(lines.guideLegendHop) { legendIcon { g in TapCountDrawing.legendHop(in: &g) } }
+                }
+            }
+        } else if plan?.headlights == true {
+            let first = numeralGuide?.cues.first
+            legendBox(x: 826, width: 214) {
+                VStack(alignment: .leading, spacing: metrics.u(8)) {
+                    legendRow(lines.guideLegendHeadlights) { legendIcon { g in TapCountDrawing.legendHeadlights(in: &g) } }
+                    if plan?.cueSigns == true, let first {
+                        if first.sign == .ahead {
+                            legendRow(lines.guideLegendAhead) { legendIcon { g in
+                                TapCountDrawing.place(TapCountArt.guideAhead, at: LineMatchPoint(x: 24, y: 22), scale: 0.72, in: &g)
+                            } }
+                        } else {
+                            let word = lines.guideStopWord
+                            legendRow(lines.guideLegendStop) { legendIcon { g in
+                                TapCountDrawing.stopSign(at: LineMatchPoint(x: 24, y: 22), scale: 0.58, word: word, in: &g)
+                            } }
+                        }
+                    } else {
+                        legendRow(lines.legendStop) {
+                            VectorArtView(artwork: ShapeTraceArt.end).frame(width: metrics.u(46), height: metrics.u(46))
+                        }
+                    }
+                }
+            }
+        } else {
+            traceLegend
+        }
+    }
+
+    /// A 48×44 legend icon drawn in stage units.
+    private func legendIcon(_ draw: @escaping (inout GraphicsContext) -> Void) -> some View {
+        let scale = metrics.scale
+        return Canvas { canvas, _ in
+            var g = canvas
+            g.scaleBy(x: scale, y: scale)
+            draw(&g)
+        }
+        .frame(width: metrics.u(48), height: metrics.u(44))
     }
 
     private func numberDisc(_ n: Int, radius: CGFloat) -> some View {
@@ -752,6 +1040,11 @@ private struct TapCountStageContent: View {
         case .tapping:
             return question.isPick ? lines.pickPrompt(board.target) : question.prompt
         case .counted, .tracing:
+            if question.tracesNumeral, board.stage == .tracing, let run = guideRun {
+                // Guidance (mockups guidance/01–02): 「八架！睇住架車先！」 during the demo, 「到你喇！」 after one.
+                if demoOn { return lines.guideWatchFirst(board.target) }
+                if run.demosPlayed > 0 { return lines.guideYourTurn(board.target) }
+            }
             return question.tracesNumeral ? lines.countedTracePrompt(board.target, pick: question.isPick)
                                           : lines.donePrompt(board.target, scene: question.scene)
         case .done:
@@ -780,7 +1073,10 @@ private struct TapCountStageContent: View {
                     VectorArtView(artwork: CanvasArt.stampy)
                         .frame(width: metrics.u(82), height: metrics.u(82))
                     VStack(alignment: .leading, spacing: metrics.u(2)) {
-                        CanvasText(prompt.mainText, size: 36, weight: 900, color: LM.ink)
+                        // Fit before the card pill (CanvasText is fixedSize, so minimumScaleFactor cannot shrink it):
+                        // "Your turn! Follow the arrows and draw 8!" ran under the pill at 36.
+                        CanvasText(prompt.mainText, size: fitSize(prompt.mainText, base: 36, width: 930, latinEm: 0.7),
+                                   weight: 900, color: LM.ink)
                         if let sub = prompt.subText {
                             CanvasText(sub, size: 20, weight: 700, color: LM.headerSub)
                         }
@@ -849,6 +1145,8 @@ enum TapCountDrawing {
         let nudge: Bool
         let tip: CGPoint?
         let hint: Bool
+        /// v0.30.0 guidance (nil = the v0.28 board).
+        var guide: TapCountGuideDraw? = nil
     }
 
     static func draw(_ s: Snapshot, in g: inout GraphicsContext) {
@@ -856,7 +1154,8 @@ enum TapCountDrawing {
         vehicles(s, in: &g)
         badges(s, in: &g)
         if s.tracing, let trace = s.trace {
-            traceBoard(trace, target: s.board.target, scaffold: s.settings.traceScaffold, tip: s.tip, hint: s.hint, in: &g)
+            traceBoard(trace, target: s.board.target, scaffold: s.settings.traceScaffold, tip: s.tip, hint: s.hint,
+                       guide: s.guide, in: &g)
         } else if s.board.question.isPick {
             worksSign(s, in: &g)
         } else {
@@ -1284,7 +1583,7 @@ enum TapCountDrawing {
     // MARK: Trace board (mockups 03 / 07 / 08)
 
     static func traceBoard(_ trace: ShapeTraceBoard, target n: Int, scaffold: TapCountTraceScaffold, tip: CGPoint?,
-                           hint: Bool, in g: inout GraphicsContext) {
+                           hint: Bool, guide: TapCountGuideDraw? = nil, in g: inout GraphicsContext) {
         let board = rect(NumeralGlyphs.traceBoard(n))
         let k = NumeralGlyphs.tracePlacement(n).scale
         if trace.isComplete {
@@ -1298,19 +1597,26 @@ enum TapCountDrawing {
         guard let shape = trace.shapes.first else { return }
         let palette = LineMatchRoadPalette.color(shape.colorIndex)
         let strokes = shape.strokes
+        // Guidance: strokes not reached yet are faded, with no dots and no markers (mockup guidance/03).
+        let faded: (Int) -> Bool = { index in
+            guard let guide, guide.plan.fadesLaterStrokes, !trace.isComplete else { return false }
+            return index > trace.strokeIndex
+        }
         // Lane: 虛線路 (pale road + thick grey dots) or 淡框 + 箭嘴 (faint outline + chevrons).
-        for stroke in strokes {
+        for (index, stroke) in strokes.enumerated() {
             let p = ShapeTraceDrawing.whole(stroke)
+            var lane = g
+            if faded(index) { lane.opacity = TapCountGuideData.styles.fadedStrokeOpacity }
             switch scaffold {
             case .dots:
-                g.stroke(p, with: .color(ink), style: StrokeStyle(lineWidth: 76 * k, lineCap: .round, lineJoin: .round))
-                g.stroke(p, with: .color(Color(hex: palette.pale)), style: StrokeStyle(lineWidth: 64 * k, lineCap: .round, lineJoin: .round))
+                lane.stroke(p, with: .color(ink), style: StrokeStyle(lineWidth: 76 * k, lineCap: .round, lineJoin: .round))
+                lane.stroke(p, with: .color(Color(hex: palette.pale)), style: StrokeStyle(lineWidth: 64 * k, lineCap: .round, lineJoin: .round))
             case .outline:
-                g.stroke(p, with: .color(ink.opacity(0.3)), style: StrokeStyle(lineWidth: 76 * k, lineCap: .round, lineJoin: .round))
-                g.stroke(p, with: .color(LM.card), style: StrokeStyle(lineWidth: 66 * k, lineCap: .round, lineJoin: .round))
+                lane.stroke(p, with: .color(ink.opacity(0.3)), style: StrokeStyle(lineWidth: 76 * k, lineCap: .round, lineJoin: .round))
+                lane.stroke(p, with: .color(LM.card), style: StrokeStyle(lineWidth: 66 * k, lineCap: .round, lineJoin: .round))
             }
         }
-        for stroke in strokes {
+        for (index, stroke) in strokes.enumerated() where !faded(index) {
             switch scaffold {
             case .dots:
                 g.stroke(ShapeTraceDrawing.whole(stroke), with: .color(guideGrey),
@@ -1345,21 +1651,32 @@ enum TapCountDrawing {
             }
             return
         }
+        // Guidance: headlights on the next dots, then the crossing / turn sign (mockup guidance/02).
+        if let guide, let path = trace.currentPath {
+            guideHeadlights(guide, path: path, progress: trace.progress, scale: k, in: &g)
+            if let cue = guide.cue {
+                guideCueSign(cue, guide: guide, in: &g)
+            }
+        }
         // Markers: ticks on finished strokes; go / end on the current one; stroke-order discs (two strokes).
         let multi = strokes.count > 1
+        // A later stroke's go / end are drawn smaller (mockup guidance/03).
+        let markerScale = guide != nil && trace.strokeIndex > 0 ? 0.64 : 1
         for index in strokes.indices {
             guard let path = trace.path(shape: 0, stroke: index) else { continue }
             if index < done {
                 ShapeTraceDrawing.place(ShapeTraceArt.tickSmall, at: path.end, in: &g)
             } else if index == trace.strokeIndex {
                 if trace.progress < 1 {
-                    ShapeTraceDrawing.place(ShapeTraceArt.go, at: path.start, angle: path.angle(at: 0), in: &g)
+                    ShapeTraceDrawing.place(ShapeTraceArt.go, at: path.start, scale: markerScale, angle: path.angle(at: 0), in: &g)
                 }
                 if path.closed {
                     let d = trace.arrivalDistance(path)
-                    ShapeTraceDrawing.place(ShapeTraceArt.endRing, at: path.point(at: d), angle: path.angle(at: d), in: &g)
+                    ShapeTraceDrawing.place(ShapeTraceArt.endRing, at: path.point(at: d), scale: markerScale,
+                                            angle: path.angle(at: d), in: &g)
                 } else {
-                    ShapeTraceDrawing.place(ShapeTraceArt.end, at: path.end, angle: path.angle(at: path.length), in: &g)
+                    ShapeTraceDrawing.place(ShapeTraceArt.end, at: path.end, scale: markerScale,
+                                            angle: path.angle(at: path.length), in: &g)
                 }
             }
             if multi, index >= done {
@@ -1374,7 +1691,13 @@ enum TapCountDrawing {
                 g.fill(ring, with: .color(LM.glow.opacity(0.55)))
                 g.stroke(ring, with: .color(Color(hex: 0xF5B82E)), style: StrokeStyle(lineWidth: 5, dash: [10, 9]))
             }
-            ShapeTraceDrawing.place(ShapeTraceArt.paintCar, at: vehicle, scale: 0.72, angle: trace.vehicleAngle, in: &g)
+            // With guidance the car lives on the animated layer (hop, wiggle); the board draws it otherwise.
+            if guide == nil {
+                ShapeTraceDrawing.place(ShapeTraceArt.paintCar, at: vehicle, scale: 0.72, angle: trace.vehicleAngle, in: &g)
+            }
+        }
+        if let guide, guide.demo {
+            guideWatchBadge(board: board, in: &g)
         }
         if let tip {
             place(TapCountArt.spark, at: LineMatchPoint(x: Double(tip.x), y: Double(tip.y)), scale: 0.8, in: &g)

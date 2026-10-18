@@ -105,6 +105,8 @@ public struct TapCountBoard: Sendable, Equatable {
     public private(set) var eraserLocked = false
     // Tracing
     public private(set) var trace: ShapeTraceBoard?
+    /// v0.30.0 numeral-formation guidance for this trace (nil = none; the shape-trace engine is unchanged).
+    public private(set) var guide: TapCountGuideRun?
     public private(set) var finishedAt: Double?
     public private(set) var startedAt: Double?
 
@@ -274,11 +276,50 @@ public struct TapCountBoard: Sendable, Equatable {
     // MARK: Tracing
 
     /// ★★ / ★★★: the counted set parks in the strip and the numeral becomes the trace board.
-    public mutating func startTracing(tolerance: LineMatchTolerance, colorIndex: Int = 0) {
+    public mutating func startTracing(tolerance: LineMatchTolerance, colorIndex: Int = 0, guidance: TapCountGuidePlan? = nil,
+                                      now: Double = 0, demoLead: Double = 0) {
         guard stage == .counted, question.tracesNumeral else { return }
         let q = NumeralGlyphs.traceQuestion(target, itemID: question.itemID, kind: question.kind, colorIndex: colorIndex)
         trace = ShapeTraceBoard(question: q, tolerance: tolerance, directionHint: true)
+        if let guidance, let numeral = NumeralGuide(target) {
+            guide = TapCountGuideRun(plan: guidance, demoDuration: TapCountDemoTimeline(guide: numeral).duration,
+                                     now: now, demoLead: demoLead)
+        }
         stage = .tracing
+    }
+
+    // MARK: Guidance (v0.30.0; never touches the trace, fuel or misses)
+
+    /// The demo is on screen (or about to start): the first touch ends it.
+    public func guideDemoPending(now: Double) -> Bool {
+        stage == .tracing && (guide?.demoPending(now: now) ?? false)
+    }
+
+    /// A touch during the demo: it ends at once. Input is never locked by the demo.
+    @discardableResult
+    public mutating func skipGuideDemo(now: Double) -> Bool {
+        guard stage == .tracing else { return false }
+        return guide?.skipDemo(now: now) ?? false
+    }
+
+    /// 20 s with nothing happening: the demo plays again (counts as help).
+    public mutating func restartGuideDemo(now: Double, lead: Double) {
+        guard stage == .tracing else { return }
+        guide?.restartDemo(now: now, lead: lead)
+    }
+
+    /// Notes one help episode (stall ring, ghost, re-demo, off-path / wrong-start hint). First time only.
+    @discardableResult
+    public mutating func noteGuideHelp(key: String, kind: String) -> Bool {
+        guard stage == .tracing else { return false }
+        return guide?.noteHelp(key: key, kind: kind) ?? false
+    }
+
+    /// A cue line is said once per round.
+    @discardableResult
+    public mutating func noteGuideCue(_ index: Int) -> Bool {
+        guard stage == .tracing else { return false }
+        return guide?.noteCue(index) ?? false
     }
 
     /// The view's local trace copy after a pen event. Ignored unless it can only have come from
@@ -356,6 +397,16 @@ public struct TapCountBoard: Sendable, Equatable {
                 if let value = t[key] { fields["trace_\(key)"] = value }
             }
             fields["numeral"] = .int(target)
+            if let guide {
+                fields["guide_level"] = .string(guide.plan.level.rawValue)
+                fields["guide_learned_before"] = .int(guide.plan.learned ? 1 : 0)
+                fields["guide_demo"] = .string(guide.demoCode)
+                fields["guide_redemos"] = .int(guide.redemos)
+                fields["guide_stalls"] = .int(guide.stalls)
+                fields["guide_ghost_to_end"] = .int(guide.ghostsToEnd)
+                fields["guide_helps"] = .int(guide.helpKeys.count)
+                fields["guide_clean"] = .int(guide.clean ? 1 : 0)
+            }
             fields["per_stroke"] = .strings(trace.perShapeRows.map { $0.replacingOccurrences(of: "numeral:", with: "numeral:\(target):") })
         }
         return fields

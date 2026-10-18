@@ -29,7 +29,7 @@ public enum TapCountArt {
 
     /// Every artwork. Names are `tapCount.<name>`.
     public static let all: [CanvasArtwork] = [
-        tram, fireEngine, digger, mixer, dumper, dozer, roller, craneTruck, plane, bus, miniCar, lampOn, fireEngineLit, beaconOn, planeLit, busLit, glow, bayGlow, spark, sparkle, ding, honk, note, speaker, star, go, end, paintCar, tickSmall, chevron, goSmall, endSmall, ringSmall, stopSmall, eraserButton, okButton, tile, iconAll, iconTrace, iconPick, row_tramDepot, row_fireStation, row_site, row_airport, row_busTerminus, yard_tramDepot, yard_fireStation, yard_site, yard_airport, yard_busTerminus, strip_tramDepot, strip_fireStation, strip_site, strip_airport, strip_busTerminus, baypost_tramDepot, baypost_fireStation, baypost_site, baypost_airport, baypost_busTerminus, empty_tramDepot, empty_fireStation, empty_site, empty_airport, empty_busTerminus
+        tram, fireEngine, digger, mixer, dumper, dozer, roller, craneTruck, plane, bus, miniCar, lampOn, fireEngineLit, beaconOn, planeLit, busLit, glow, bayGlow, spark, sparkle, ding, honk, note, speaker, star, go, end, paintCar, tickSmall, chevron, goSmall, endSmall, ringSmall, stopSmall, eraserButton, okButton, tile, iconAll, iconTrace, iconPick, guideGhostCar, guideChev, guideAhead, guideStop, guideEye, guidePop, row_tramDepot, row_fireStation, row_site, row_airport, row_busTerminus, yard_tramDepot, yard_fireStation, yard_site, yard_airport, yard_busTerminus, strip_tramDepot, strip_fireStation, strip_site, strip_airport, strip_busTerminus, baypost_tramDepot, baypost_fireStation, baypost_site, baypost_airport, baypost_busTerminus, empty_tramDepot, empty_fireStation, empty_site, empty_airport, empty_busTerminus
     ]
 
     /// Artwork by short name (`tram`, `row_site`, `empty_airport` …).
@@ -99,6 +99,12 @@ public enum TapCountArt {
         "tapCount.iconAll": LineMatchPoint(x: 3, y: 3),
         "tapCount.iconTrace": LineMatchPoint(x: 3, y: 3),
         "tapCount.iconPick": LineMatchPoint(x: 3, y: 3),
+        "tapCount.guideGhostCar": LineMatchPoint(x: 59, y: 54),
+        "tapCount.guideChev": LineMatchPoint(x: 12, y: 17),
+        "tapCount.guideAhead": LineMatchPoint(x: 26, y: 26),
+        "tapCount.guideStop": LineMatchPoint(x: 35, y: 35),
+        "tapCount.guideEye": LineMatchPoint(x: 20, y: 17),
+        "tapCount.guidePop": LineMatchPoint(x: 45, y: 45),
         "tapCount.row_tramDepot": LineMatchPoint(x: 0, y: 0),
         "tapCount.row_fireStation": LineMatchPoint(x: 0, y: 0),
         "tapCount.row_site": LineMatchPoint(x: 0, y: 0),
@@ -132,7 +138,8 @@ public enum TapCountArt {
         "tapCount.beaconOn": [TapCountGlow(cx: 21, cy: 27, rx: 20, ry: 20, opacity: 1, stops: [TapCountGlowStop(offset: 0, color: 0xFFE9A0, opacity: 1), TapCountGlowStop(offset: 1, color: 0xFFB534, opacity: 0)])],
         "tapCount.planeLit": [TapCountGlow(cx: 16, cy: 21, rx: 16, ry: 16, opacity: 1, stops: [TapCountGlowStop(offset: 0, color: 0xFFF7C2, opacity: 1), TapCountGlowStop(offset: 1, color: 0xFFE066, opacity: 0)])],
         "tapCount.busLit": [TapCountGlow(cx: 16, cy: 19, rx: 16, ry: 16, opacity: 1, stops: [TapCountGlowStop(offset: 0, color: 0xFFF7C2, opacity: 1), TapCountGlowStop(offset: 1, color: 0xFFE066, opacity: 0)])],
-        "tapCount.spark": [TapCountGlow(cx: 38, cy: 38, rx: 38, ry: 38, opacity: 1, stops: [TapCountGlowStop(offset: 0, color: 0xFFFFFF, opacity: 1), TapCountGlowStop(offset: 0.35, color: 0xFFF3A6, opacity: 0.95), TapCountGlowStop(offset: 1, color: 0xFFE066, opacity: 0)])]
+        "tapCount.spark": [TapCountGlow(cx: 38, cy: 38, rx: 38, ry: 38, opacity: 1, stops: [TapCountGlowStop(offset: 0, color: 0xFFFFFF, opacity: 1), TapCountGlowStop(offset: 0.35, color: 0xFFF3A6, opacity: 0.95), TapCountGlowStop(offset: 1, color: 0xFFE066, opacity: 0)])],
+        "tapCount.guideGhostCar": [TapCountGlow(cx: 59, cy: 54, rx: 54, ry: 54, opacity: 1, stops: [TapCountGlowStop(offset: 0, color: 0xFFFFFF, opacity: 0.95), TapCountGlowStop(offset: 0.6, color: 0xFFFFFF, opacity: 0.55), TapCountGlowStop(offset: 1, color: 0xFFFFFF, opacity: 0)])]
     ]
 
     public static let tram = CanvasArtwork(name: "tapCount.tram", width: 173, height: 184, elements: [
@@ -567,6 +574,49 @@ public enum TapCountArt {
         CanvasArtElement(geometry: .circle(cx: 75, cy: 16, r: 7), style: LineMatchArtData.style(0xFFFFFF, 0x2B2630, 2.2)),
         CanvasArtElement(geometry: .circle(cx: 71, cy: 73, r: 9), style: LineMatchArtData.style(0x6CC46F, 0x2B2630, 2.5)),
         CanvasArtElement(geometry: .path(LineMatchArtData.path("M66 73 L70 77 L76 69")), style: LineMatchArtData.style(nil, 0xFFFFFF, 2.6, cap: .round, join: .round))
+    ])
+
+    public static let guideGhostCar = CanvasArtwork(name: "tapCount.guideGhostCar", width: 113, height: 108, elements: [
+        CanvasArtElement(geometry: .rect(x: 31, y: 24, width: 16, height: 9, radius: 3), style: LineMatchArtData.style(0x2B2630, 0x2B2630, 1, cap: .round, join: .round, opacity: 0.5)),
+        CanvasArtElement(geometry: .rect(x: 73, y: 24, width: 16, height: 9, radius: 3), style: LineMatchArtData.style(0x2B2630, 0x2B2630, 1, cap: .round, join: .round, opacity: 0.5)),
+        CanvasArtElement(geometry: .rect(x: 31, y: 75, width: 16, height: 9, radius: 3), style: LineMatchArtData.style(0x2B2630, 0x2B2630, 1, cap: .round, join: .round, opacity: 0.5)),
+        CanvasArtElement(geometry: .rect(x: 73, y: 75, width: 16, height: 9, radius: 3), style: LineMatchArtData.style(0x2B2630, 0x2B2630, 1, cap: .round, join: .round, opacity: 0.5)),
+        CanvasArtElement(geometry: .path(LineMatchArtData.path("M19 54 L29 54")), style: LineMatchArtData.style(0x000000, 0x2B2630, 6, cap: .round, join: .round, opacity: 0.5)),
+        CanvasArtElement(geometry: .rect(x: 9, y: 28, width: 12, height: 52, radius: 5), style: LineMatchArtData.style(0x4C8FE0, 0x2B2630, 4.5, cap: .round, join: .round, opacity: 0.5)),
+        CanvasArtElement(geometry: .rect(x: 25, y: 31, width: 72, height: 46, radius: 16), style: LineMatchArtData.style(0xFFC93C, 0x2B2630, 5, cap: .round, join: .round, opacity: 0.5)),
+        CanvasArtElement(geometry: .rect(x: 41, y: 37, width: 26, height: 34, radius: 8), style: LineMatchArtData.style(0xFFE68F, 0x2B2630, 3.5, cap: .round, join: .round, opacity: 0.5)),
+        CanvasArtElement(geometry: .path(LineMatchArtData.path("M71 38 Q81 40 83 54 Q81 68 71 70 Z")), style: LineMatchArtData.style(0xCDEBFB, 0x2B2630, 3.5, cap: .round, join: .round, opacity: 0.5)),
+        CanvasArtElement(geometry: .circle(cx: 92, cy: 43, r: 5), style: LineMatchArtData.style(0xFFFFFF, 0x2B2630, 2.5, cap: .round, join: .round, opacity: 0.5)),
+        CanvasArtElement(geometry: .circle(cx: 93, cy: 43, r: 2.2), style: LineMatchArtData.style(0x2B2630, nil, 0, opacity: 0.5)),
+        CanvasArtElement(geometry: .circle(cx: 92, cy: 65, r: 5), style: LineMatchArtData.style(0xFFFFFF, 0x2B2630, 2.5, cap: .round, join: .round, opacity: 0.5)),
+        CanvasArtElement(geometry: .circle(cx: 93, cy: 65, r: 2.2), style: LineMatchArtData.style(0x2B2630, nil, 0, opacity: 0.5)),
+        CanvasArtElement(geometry: .rect(x: 3, y: 20, width: 100, height: 68, radius: 24), style: LineMatchArtData.style(nil, 0xFFFFFF, 3.5, dash: [7, 6]))
+    ])
+
+    public static let guideChev = CanvasArtwork(name: "tapCount.guideChev", width: 24, height: 34, elements: [
+        CanvasArtElement(geometry: .path(LineMatchArtData.path("M6 6 L18 17 L6 28")), style: LineMatchArtData.style(nil, 0x2B2630, 10, cap: .round, join: .round)),
+        CanvasArtElement(geometry: .path(LineMatchArtData.path("M6 6 L18 17 L6 28")), style: LineMatchArtData.style(nil, 0xFFFFFF, 5, cap: .round, join: .round))
+    ])
+
+    public static let guideAhead = CanvasArtwork(name: "tapCount.guideAhead", width: 52, height: 52, elements: [
+        CanvasArtElement(geometry: .circle(cx: 26, cy: 26, r: 22), style: LineMatchArtData.style(0x3B7DD8, 0x2B2630, 5)),
+        CanvasArtElement(geometry: .circle(cx: 26, cy: 26, r: 16.5), style: LineMatchArtData.style(nil, 0xFFFFFF, 2.5)),
+        CanvasArtElement(geometry: .path(LineMatchArtData.path("M14 22 L27 22 L27 15 L39 26 L27 37 L27 30 L14 30 Z")), style: LineMatchArtData.style(0xFFFFFF, 0x2B2630, 2, join: .round))
+    ])
+
+    public static let guideStop = CanvasArtwork(name: "tapCount.guideStop", width: 70, height: 70, elements: [
+        CanvasArtElement(geometry: .path(LineMatchArtData.path("M22 4 L48 4 L66 22 L66 48 L48 66 L22 66 L4 48 L4 22 Z")), style: LineMatchArtData.style(0xE8473C, 0x2B2630, 5, join: .round)),
+        CanvasArtElement(geometry: .path(LineMatchArtData.path("M25 10 L45 10 L60 25 L60 45 L45 60 L25 60 L10 45 L10 25 Z")), style: LineMatchArtData.style(nil, 0xFFFFFF, 2.5, join: .round))
+    ])
+
+    public static let guideEye = CanvasArtwork(name: "tapCount.guideEye", width: 40, height: 34, elements: [
+        CanvasArtElement(geometry: .path(LineMatchArtData.path("M3 17 Q20 3 37 17 Q20 31 3 17 Z")), style: LineMatchArtData.style(0xFFFFFF, 0x2B2630, 3.5, join: .round)),
+        CanvasArtElement(geometry: .circle(cx: 20, cy: 17, r: 6), style: LineMatchArtData.style(0x2B2630, nil, 0)),
+        CanvasArtElement(geometry: .circle(cx: 18, cy: 15, r: 2), style: LineMatchArtData.style(0xFFFFFF, nil, 0))
+    ])
+
+    public static let guidePop = CanvasArtwork(name: "tapCount.guidePop", width: 90, height: 90, elements: [
+        CanvasArtElement(geometry: .path(LineMatchArtData.path("M45 11 L45 3 M69 21 L75 15 M79 45 L87 45 M69 69 L75 75 M45 79 L45 87 M21 69 L15 75 M11 45 L3 45 M21 21 L15 15")), style: LineMatchArtData.style(0x000000, 0xF5B82E, 4, cap: .round))
     ])
 
     public static let row_tramDepot = CanvasArtwork(name: "tapCount.row_tramDepot", width: 1280, height: 720, elements: [

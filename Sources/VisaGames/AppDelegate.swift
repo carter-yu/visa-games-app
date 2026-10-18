@@ -195,6 +195,13 @@ final class AppModel: ObservableObject {
     private var tapCountTraceHintSpoken: Set<String> = []
     /// Model clock when the current tap-count board appeared (idle nudge / reprompt base).
     private var tapCountRoundStart: Double = 0
+    /// v0.30.0 識咗 per numeral (2 clean traces in a row). UserDefaults; a failed save never blocks.
+    @Published private(set) var tapCountGuideProgress = TapCountGuideProgress()
+    private let tapCountGuideProgressStore = TapCountGuideProgressStore()
+    /// The guidance line in the voice bubble beside the trace board (cue / hop / stall), until a time.
+    @Published private(set) var tapCountGuideBubble: TapCountGuideBubble?
+    /// Bumped to cancel the demo lines still scheduled (a touch ended the demo, a new round).
+    private var tapCountGuideSpeechGeneration = 0
     /// Rows whose off-road hint was already spoken (at most once per road).
     private var guidedHintSpokenRows: Set<Int> = []
     /// Tags + fields of the 完成 being evaluated (consumed by the answer record).
@@ -269,6 +276,7 @@ final class AppModel: ObservableObject {
         lineMatchSettings = LineMatchSettingsStore().load()
         shapeTraceSettings = ShapeTraceSettingsStore().load()
         tapCountSettings = TapCountSettingsStore().load()
+        tapCountGuideProgress = TapCountGuideProgressStore().load()
         parentPlaytestLog = ParentPlaytestLogStore().load()
         playbackShuffle = VideoPlaybackShuffleStore().load()
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -3843,6 +3851,8 @@ extension AppModel {
     private func resetTapCountTransient() {
         tapCountNotice = nil
         tapCountTraceHintSpoken = []
+        tapCountGuideBubble = nil
+        tapCountGuideSpeechGeneration += 1
         tapCountFuelBefore = 0
         tapCountRoundStart = Date().timeIntervalSinceReferenceDate
     }
@@ -3901,8 +3911,13 @@ extension AppModel {
         case .tapping:
             prompt = board.isPick ? tapCountLines.pickPrompt(board.target) : board.question.prompt
         case .counted, .tracing:
-            prompt = board.question.tracesNumeral ? tapCountLines.tracePrompt(board.target)
-                                                  : tapCountLines.total(board.target, scene: board.question.scene)
+            let clock = Date().timeIntervalSinceReferenceDate
+            if board.question.tracesNumeral, board.stage == .tracing, board.guideDemoPending(now: clock) {
+                prompt = tapCountLines.guideWatchFirst(board.target)
+            } else {
+                prompt = board.question.tracesNumeral ? tapCountLines.tracePrompt(board.target)
+                                                      : tapCountLines.total(board.target, scene: board.question.scene)
+            }
         case .done:
             return
         }
@@ -3952,10 +3967,23 @@ extension AppModel {
             if board.question.tracesNumeral {
                 let tolerance = self.tapCountTolerance
                 let colour = TapCountDrawing.traceColorIndex(board.question.scene)
-                self.changeTapCountBoard(force: true) { $0.startTracing(tolerance: tolerance, colorIndex: colour) }
+                let plan = self.tapCountGuidePlan(for: board)
+                let clock = Date().timeIntervalSinceReferenceDate
+                self.changeTapCountBoard(force: true) {
+                    $0.startTracing(tolerance: tolerance, colorIndex: colour, guidance: plan, now: clock,
+                                    demoLead: Self.tapCountGuideDemoLead)
+                }
                 self.tapCountTraceHintSpoken = []
-                self.guideVoice.speakQueued(self.tapCountLines.tracePrompt(board.target))
-                VisaGamesLog.append("tapCount trace start — 畫 \(board.target) tolerance=\(tolerance.rawValue)")
+                self.tapCountGuideBubble = nil
+                if let started = self.currentTapCountBoard, started.guideDemoPending(now: clock) {
+                    self.guideVoice.speakQueued(self.tapCountLines.guideWatchFirst(board.target))
+                    self.scheduleTapCountGuideDemoSpeech(target: board.target, at: clock + Self.tapCountGuideDemoLead)
+                } else {
+                    self.guideVoice.speakQueued(self.tapCountLines.tracePrompt(board.target))
+                }
+                VisaGamesLog.append(
+                    "tapCount trace start — 畫 \(board.target) tolerance=\(tolerance.rawValue) guide=\(plan.level.rawValue) learned=\(plan.learned) demo=\(plan.demo)"
+                )
             } else {
                 let clock = Date().timeIntervalSinceReferenceDate
                 self.changeTapCountBoard(force: true) { $0.finishWithoutTrace(now: clock) }
@@ -4067,6 +4095,8 @@ extension AppModel {
         }
         if next.isComplete, !current.isComplete {
             guideVoice.speakWordCue(tapCountLines.cuePrompt(board.target), then: nil)
+            tapCountGuideBubble = nil
+            noteTapCountGuideTraceDone(board: board)
             VisaGamesLog.append(
                 "tapCount trace done — 畫好 \(board.target) offPath=\(next.offPathCount) lifts=\(next.lifts) (practice, no miss)"
             )
@@ -4076,29 +4106,164 @@ extension AppModel {
                 self?.finishTapCountRound(token: token, playtest: playtest)
             }
         } else if next.strokesDone > current.strokesDone {
-            guideVoice.speak(tapCountLines.traceNext)
+            if let plan = board.guide?.plan, plan.hops, plan.cueWords, let hop = tapCountLines.guideHop(board.target) {
+                // Guidance: the car hops to the next stroke 「返上去，戴帽！」 (mockup 03).
+                guideVoice.speak(hop)
+                showTapCountGuideBubble(hop, seconds: 3)
+            } else {
+                guideVoice.speak(tapCountLines.traceNext)
+            }
             VisaGamesLog.append("tapCount stroke done — 第 \(next.strokesDone) 筆")
         } else if next.cornersReached.count > current.cornersReached.count, shapeTraceSettings.cornerStop {
-            guideVoice.speak(tapCountLines.cornerPrompt)
+            // A guidance cue line was already said just before this corner: no second voice.
+            let cueSaid = board.guide.map { $0.plan.cueWords && !$0.cuesSaid.isEmpty } ?? false
+            if !cueSaid { guideVoice.speak(tapCountLines.cornerPrompt) }
         }
     }
 
     func tapCountTraceWrongStart() {
         guard tapCountInputOpen else { return }
+        noteTapCountGuideHelp(key: "wrong_start.\(currentTapCountBoard?.trace?.wrongStarts ?? 0)", kind: "wrong_start")
         showTapCountNotice(tapCountLines.wrongStartPrompt)
         VisaGamesLog.append("tapCount wrong start — 由綠色箭嘴開始 (no miss)")
     }
 
     func tapCountTraceReverse() {
         guard tapCountInputOpen else { return }
+        noteTapCountGuideHelp(key: "reverse.\(currentTapCountBoard?.trace?.reverseDirections ?? 0)", kind: "reverse")
         showTapCountNotice(tapCountLines.reversePrompt)
         VisaGamesLog.append("tapCount reverse start — 跟住箭嘴方向 (no miss)")
     }
 
     func tapCountTraceHintShown(key: String) {
         guard tapCountInputOpen, tapCountTraceHintSpoken.insert(key).inserted else { return }
+        noteTapCountGuideHelp(key: "off_path.\(key)", kind: "off_path")
+        // With a stall help (標準 / 多啲) the guidance line speaks instead of 「架車等緊你」.
+        if currentTapCountBoard?.guide?.plan.stallSeconds != nil { return }
         guideVoice.speak(tapCountLines.offPathPrompt)
         VisaGamesLog.append("tapCount hint — 架車等緊你 stroke=\(key) (no miss)")
+    }
+
+    // MARK: Guidance (v0.30.0; Opus spec approved by Carter 2026-10-18)
+
+    /// The watch-first line plays before the demo car sets off.
+    static let tapCountGuideDemoLead: Double = 1.4
+    /// The 20 s re-demo plays at most this often per round.
+    static let tapCountGuideMaxRedemos = 2
+
+    /// Level from 數字設定; 識咗 from the clean-trace streak (both card languages share it).
+    private func tapCountGuidePlan(for board: TapCountBoard) -> TapCountGuidePlan {
+        TapCountGuidePlan(level: tapCountSettings.guidance,
+                          learned: tapCountGuideProgress.isLearned(board.target, language: board.question.language))
+    }
+
+    /// Says each rhyme line as the ghost car starts its beat, then 「到你喇！」. A touch that ends the
+    /// demo (or a new round) bumps the generation and the rest is dropped.
+    private func scheduleTapCountGuideDemoSpeech(target n: Int, at start: Double) {
+        guard let guide = NumeralGuide(n) else { return }
+        tapCountGuideSpeechGeneration += 1
+        let generation = tapCountGuideSpeechGeneration
+        let token = tapCountToken
+        let timeline = TapCountDemoTimeline(guide: guide)
+        let lines = tapCountLines
+        let beats = lines.guideBeats(n)
+        var cues: [(Double, SpokenPrompt)] = zip(timeline.beatStarts, beats).map { ($0, $1) }
+        if let merge = lines.guideMerge(n) { cues.append((timeline.mergeStart, merge)) }
+        let clock = Date().timeIntervalSinceReferenceDate
+        for (offset, prompt) in cues {
+            DispatchQueue.main.asyncAfter(deadline: .now() + max(0, start + offset - clock)) { [weak self] in
+                guard let self, self.tapCountGuideSpeechGeneration == generation, self.tapCountToken == token,
+                      let board = self.currentTapCountBoard, board.stage == .tracing else { return }
+                self.guideVoice.speakQueued(prompt)
+            }
+        }
+    }
+
+    private func showTapCountGuideBubble(_ prompt: SpokenPrompt, seconds: Double) {
+        tapCountGuideBubble = TapCountGuideBubble(prompt: prompt, until: Date().timeIntervalSinceReferenceDate + seconds)
+    }
+
+    /// A touch during the demo: it ends at once (input is never locked); the remaining lines are dropped.
+    func tapCountGuideSkipDemo() {
+        let clock = Date().timeIntervalSinceReferenceDate
+        guard changeTapCountBoard({ $0.skipGuideDemo(now: clock) }) == true, let board = currentTapCountBoard else { return }
+        tapCountGuideSpeechGeneration += 1
+        guideVoice.speak(tapCountLines.guideYourTurn(board.target))
+        VisaGamesLog.append("tapCount guide demo skipped — 落筆，示範停 (no miss)")
+    }
+
+    /// The board shows a help (stall ring + ghost, ghost to the end, or the 20 s re-demo). Noted once;
+    /// any help means this trace is not clean, so the numeral is back to learning (識咗 needs 2 clean).
+    func tapCountGuideHelp(key: String, kind: String) {
+        guard tapCountInputOpen, let board = currentTapCountBoard, let guide = board.guide else { return }
+        if kind == "redemo" {
+            guard guide.redemos < Self.tapCountGuideMaxRedemos else { return }
+        }
+        guard noteTapCountGuideHelp(key: key, kind: kind) else { return }
+        let lines = tapCountLines
+        switch kind {
+        case "stall", "ghost_to_end":
+            guard guide.plan.cueWords, let trace = board.trace, let numeral = NumeralGuide(board.target) else { break }
+            // The rhyme line of the bit ahead.
+            let beats = lines.guideBeats(board.target)
+            if let index = numeral.beats.firstIndex(where: { $0.stroke == trace.strokeIndex && $0.end > trace.progress + 10 }),
+               beats.indices.contains(index) {
+                guideVoice.speak(beats[index])
+                showTapCountGuideBubble(beats[index], seconds: 3)
+            }
+        case "redemo":
+            let clock = Date().timeIntervalSinceReferenceDate
+            changeTapCountBoard { $0.restartGuideDemo(now: clock, lead: Self.tapCountGuideDemoLead) }
+            tapCountGuideBubble = nil
+            guideVoice.speak(lines.guideRedemo(board.target))
+            scheduleTapCountGuideDemoSpeech(target: board.target, at: clock + Self.tapCountGuideDemoLead)
+        default:
+            break
+        }
+        VisaGamesLog.append("tapCount guide help — \(kind) key=\(key) (no miss)")
+    }
+
+    /// Just before a crossing / turn: the cue line, once per round (標準 until 識咗, 多啲).
+    func tapCountGuideCue(index: Int) {
+        guard tapCountInputOpen, let board = currentTapCountBoard, let plan = board.guide?.plan else { return }
+        guard changeTapCountBoard({ $0.noteGuideCue(index) }) == true, plan.cueWords else { return }
+        let cues = tapCountLines.guideCues(board.target)
+        guard cues.indices.contains(index) else { return }
+        guideVoice.speak(cues[index])
+        showTapCountGuideBubble(cues[index], seconds: 3)
+        VisaGamesLog.append("tapCount guide cue — \(board.target) cue=\(index + 1)")
+    }
+
+    /// Notes a help on the board; the first help of a child round puts the numeral back to learning.
+    @discardableResult
+    private func noteTapCountGuideHelp(key: String, kind: String) -> Bool {
+        guard let board = currentTapCountBoard, board.guide != nil else { return false }
+        let wasClean = board.guide?.clean ?? true
+        guard changeTapCountBoard({ $0.noteGuideHelp(key: key, kind: kind) }) == true else { return false }
+        if wasClean, !tapCountUsesPlaytest {
+            var progress = tapCountGuideProgress
+            progress.recordStall(board.target, language: board.question.language)
+            saveTapCountGuideProgress(progress)
+        }
+        return true
+    }
+
+    /// Trace finished: a clean one adds to the streak (2 in a row = 識咗). Playtests never count.
+    private func noteTapCountGuideTraceDone(board: TapCountBoard) {
+        guard let guide = currentTapCountBoard?.guide ?? board.guide, !tapCountUsesPlaytest else { return }
+        guard guide.clean else { return }
+        var progress = tapCountGuideProgress
+        progress.recordClean(board.target, language: board.question.language)
+        saveTapCountGuideProgress(progress)
+        VisaGamesLog.append(
+            "tapCount guide clean — \(board.target) streak=\(progress.streak(board.target, language: board.question.language))"
+        )
+    }
+
+    /// UserDefaults only; a failed write never reaches the child (the in-memory record still applies).
+    private func saveTapCountGuideProgress(_ next: TapCountGuideProgress) {
+        tapCountGuideProgress = next
+        tapCountGuideProgressStore.save(next)
     }
 
     /// Done (★ after the reveal; ★★ / ★★★ after the trace). The child round goes to the usual
@@ -4193,6 +4358,14 @@ extension AppModel {
         var next = tapCountSettings
         next.traceScaffold = scaffold
         saveTapCountSettings(next, what: "trace_scaffold", value: scaffold.code)
+    }
+
+    /// 描數字提示: 多啲 / 標準 / 少啲 (both card languages; the next trace uses it).
+    func setTapCountGuidance(_ level: TapCountGuidanceLevel) {
+        guard session.mode == .parent, level != tapCountSettings.guidance else { return }
+        var next = tapCountSettings
+        next.guidance = level
+        saveTapCountSettings(next, what: "guidance", value: level.rawValue)
     }
 
     /// nil = follow 畫形狀's tolerance.

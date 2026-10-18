@@ -1,5 +1,31 @@
 # Progress
 
+## 2026-10-19 — v0.30.0 / 65 — 描數字提示: tracing guidance for 1–10 (Cantonese and English)
+
+- Carter approved the guidance Opus recommended (`visa-games-design/number-quantity/guidance`, mockups 01–03, options.md). It covers numerals 1–10 in ★★ 數完畫 and ★★★ 揀啱數, on the Cantonese and the English cards alike, through the shared `TapCountLines` and guidance code.
+- **標準 (default)**:
+  - (a) a demo ghost car drives the numeral once before the child's turn, with the rhyme, one line per beat;
+  - (b′) headlights light only the next 3 lane dots ahead of the car;
+  - (f) the rhyme;
+  - (g) a just-in-time sign and line just before each crossing or turn, shown again with a ring and a short ghost run after a 2 s stall.
+- Two-stroke numerals (4, 5, 10): the strokes not reached yet are faded (no dots, no markers); when a stroke finishes, the car hops along a dotted arc to the next one, which lights up, and its ② badge pulses.
+- Parent levels in 數字設定 → 描數字提示: 多啲 / 標準 / 少啲 (copy and contents from the Opus spec).
+- 識咗 = 2 clean traces of a numeral in a row (no help of any kind). At 標準 a learned numeral skips the demo and keeps only the spec's learned features. Any help puts it back to learning. Playtests never change it. Stored best effort in UserDefaults `VisaGames.tapCountGuideProgress.v1`; a failed save never reaches the child.
+- Never blocks the child:
+  - the demo never locks input: the first touch ends it at once (the real car wiggles; that touch paints nothing, per mockup 01), and the next stroke paints;
+  - tracing is never wrong; help never costs fuel or a miss;
+  - the 20 s idle re-demo plays at most twice a round;
+  - speech uses the existing voices; with no voice nothing is said and nothing waits.
+- Reduce Motion: no gliding, hops or pulses. The demo car jumps beat to beat, the route shows whole and steady, and the animation timer is off.
+- Data: `docs/tap-count-guidance-spec.json` (Opus 5.5) → `scripts/guidance_spec_to_swift.py` → `TapCountGuideData.swift`. The engine (`TapCountGuidance.swift`) resolves the spec's glyph points onto the same numeral paths the trace board uses. Art defs (ghost car, chevron, ahead / stop signs, eye, pop) come from the spec's art sheet into `TapCountArt`.
+- Logs: trace results gain `guide_level`, `guide_learned_before`, `guide_demo`, `guide_redemos`, `guide_stalls`, `guide_ghost_to_end`, `guide_helps` and `guide_clean`.
+- ADR 0011 / 0010 / 0003 are unchanged: no presentation, window, level, frame or menu changes; no `assumeIsolated`, `unowned` or KVO hops; no sign-in. The kiosk checklist has a new row.
+- Final Opus 5.5 deliverables (resumed session, 2026-10-19 00:31 HKT): `options.md`, `build/guidance-spec.json` (copied to `docs/tap-count-guidance-spec.json`, regenerated) and `build/guide-art.svg`. The art matches the defs already in `docs/art-tap-count-source.svg`; the new `hop-head` arrowhead is used for the hop arc, and the stop sign carries no baked word (the app writes 停 / STOP).
+- 10's sign sits at the very start of the 0 ("Round to the left!"), so a cue may now be at distance 0 of a stroke (shown as that stroke begins).
+- English card layout: long bubble lines wrap onto two lines at the middle space instead of shrinking, ": " splits like ", ", and the header prompt shrinks to fit before the card pill ("Your turn! Follow the arrows and draw 8!" ran under it).
+- Tests: `sh scripts/test.sh` on the Mac mini → PASS (… 25 tap-count + 8 tap-count-guide + 12 parent-youtube). Offline harness: guide renders (zh + en) and the live NSEvent probe (40 checks, 0 failures).
+
+
 ## 2026-10-18 — v0.29.0 / 64 — Tap & Count in English (three English twins)
 
 - Carter asked for fully English versions of the three 一架一架數 games.

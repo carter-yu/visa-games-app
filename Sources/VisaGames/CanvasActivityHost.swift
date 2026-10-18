@@ -406,7 +406,12 @@ struct CanvasActivityHost: View {
                 onTraceCommit: { next in model.tapCountTraceCommit(next) },
                 onTraceWrongStart: { model.tapCountTraceWrongStart() },
                 onTraceReverse: { model.tapCountTraceReverse() },
-                onTraceHint: { key in model.tapCountTraceHintShown(key: key) }
+                onTraceHint: { key in model.tapCountTraceHintShown(key: key) },
+                // v0.30.0 guidance: the demo never locks input (a touch ends it), so it is not in `locked`.
+                guideBubble: model.tapCountGuideBubble,
+                onGuideSkip: { model.tapCountGuideSkipDemo() },
+                onGuideHelp: { key, kind in model.tapCountGuideHelp(key: key, kind: kind) },
+                onGuideCue: { index in model.tapCountGuideCue(index: index) }
             )
         }
     }
