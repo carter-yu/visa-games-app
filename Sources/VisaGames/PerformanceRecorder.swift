@@ -322,6 +322,14 @@ final class PerformanceRecorder {
         ], actorOverride: .parent)
     }
 
+    /// v0.28.0 數字設定 (shared by the 3 一架一架數 cards).
+    func tapCountSettingChanged(what: String, value: String) {
+        emit(.configChange, [
+            "what": .string("tapCount_\(what)"), "kind": .string(ActivityKind.tapCountAll.rawValue),
+            "value": .string(value)
+        ], actorOverride: .parent)
+    }
+
     func assignmentChanged(kind: ActivityKind, star: Int, on: Bool) {
         emit(.configChange, [
             "what": .string("assignment"), "kind": .string(kind.rawValue),

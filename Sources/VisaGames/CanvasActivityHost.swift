@@ -98,6 +98,8 @@ struct CanvasActivityHost: View {
                 lineMatch
             case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
                 shapeTrace
+            case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
+                tapCount
             case .none:
                 EmptyView()
             }
@@ -379,6 +381,37 @@ struct CanvasActivityHost: View {
                 onWrongStart: { model.shapeTraceWrongStart() },
                 onReverse: { model.shapeTraceReverse() },
                 onHint: { key in model.shapeTraceHintShown(key: key) }
+            )
+        }
+    }
+
+    /// 一架一架數 (v0.28.0): tap & count, then (★★ / ★★★) trace the numeral. `TapCountBoardView`.
+    @ViewBuilder
+    private var tapCount: some View {
+        if let board = model.currentTapCountBoard {
+            TapCountBoardView(
+                board: board,
+                settings: model.tapCountSettings,
+                ticketStars: usingPlaytest ? model.playtestLevel.rawValue : (model.selectedStars ?? 1),
+                pendingMinutes: pendingMinutes,
+                thinkPauseRemaining: thinkRemaining,
+                fuelBefore: model.tapCountFuelBefore,
+                locked: justCompleted || board.isComplete || thinkRemaining > 0 || !model.tapCountInputOpen,
+                notice: model.tapCountNotice,
+                now: model.now.timeIntervalSinceReferenceDate,
+                onSpeak: { speakPrompt() },
+                onTap: { bay in model.tapCountTap(bay: bay) },
+                onSubmit: { model.tapCountSubmit() },
+                onErase: { model.tapCountErase() },
+                onTraceCommit: { next in model.tapCountTraceCommit(next) },
+                onTraceWrongStart: { model.tapCountTraceWrongStart() },
+                onTraceReverse: { model.tapCountTraceReverse() },
+                onTraceHint: { key in model.tapCountTraceHintShown(key: key) },
+                // v0.30.0 guidance: the demo never locks input (a touch ends it), so it is not in `locked`.
+                guideBubble: model.tapCountGuideBubble,
+                onGuideSkip: { model.tapCountGuideSkipDemo() },
+                onGuideHelp: { key, kind in model.tapCountGuideHelp(key: key, kind: kind) },
+                onGuideCue: { index in model.tapCountGuideCue(index: index) }
             )
         }
     }

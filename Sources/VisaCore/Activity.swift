@@ -61,6 +61,17 @@ public enum ActivityKind: String, CaseIterable, Sendable, Codable, Equatable, Ha
     case traceShapesArrows
     /// 畫線畫形 · 畫形狀 · 自己畫: corner dots + model card; the child's own crayon ink; 擦晒 (v0.26.0).
     case traceShapesFree
+    /// 一架一架數 · 點一點: tap every vehicle once (N = target, 1–10); the pale numeral is revealed. Practice only (v0.28.0).
+    case tapCountAll
+    /// 一架一架數 · 數完畫: tap every vehicle, then trace the numeral on a dotted lane. Practice only (v0.28.0).
+    case tapCountTrace
+    /// 一架一架數 · 揀啱數: pick exactly T of N (3–10) vehicles; OK is judged; then trace the numeral (v0.28.0).
+    case tapCountPick
+    /// v0.29.0 English twins of the three 一架一架數 cards: the same game, every child-facing word and
+    /// voice line in English (Carter, 2026-10-18). Shared code; only the language differs.
+    case tapCountAllEnglish
+    case tapCountTraceEnglish
+    case tapCountPickEnglish
 }
 
 extension ActivityKind {
@@ -77,8 +88,54 @@ extension ActivityKind {
         self == .traceLines || self == .traceShapesDotted || self == .traceShapesArrows || self == .traceShapesFree
     }
 
+    /// The three 一架一架數 parent cards (shared 數字設定; separate star assignment; ADR 0017).
+    public var isTapCountFamily: Bool { tapCountBase != nil }
+
+    /// The game a tap-count card plays: the English twins play exactly the Cantonese card's game.
+    /// Every rule (judging, penalty, layout, tracing, guidance) keys off this, never off the language.
+    public var tapCountBase: ActivityKind? {
+        switch self {
+        case .tapCountAll, .tapCountAllEnglish: return .tapCountAll
+        case .tapCountTrace, .tapCountTraceEnglish: return .tapCountTrace
+        case .tapCountPick, .tapCountPickEnglish: return .tapCountPick
+        default: return nil
+        }
+    }
+
+    /// What the child sees and hears on a tap-count card (nil = not a tap-count card).
+    public var tapCountLanguage: TapCountLanguage? {
+        switch self {
+        case .tapCountAll, .tapCountTrace, .tapCountPick: return .cantonese
+        case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return .english
+        default: return nil
+        }
+    }
+
+    /// The twin of a tap-count card in the other language.
+    public func tapCountKind(in language: TapCountLanguage) -> ActivityKind? {
+        guard let base = tapCountBase else { return nil }
+        switch (base, language) {
+        case (.tapCountAll, .cantonese): return .tapCountAll
+        case (.tapCountTrace, .cantonese): return .tapCountTrace
+        case (.tapCountPick, .cantonese): return .tapCountPick
+        case (.tapCountAll, .english): return .tapCountAllEnglish
+        case (.tapCountTrace, .english): return .tapCountTraceEnglish
+        default: return .tapCountPickEnglish
+        }
+    }
+
+    /// Pinned difficulty. The mission star only sets visa length for these cards (design D12).
+    public var tapCountLevel: ActivityLevel? {
+        switch tapCountBase {
+        case .tapCountAll?: return .l1
+        case .tapCountTrace?: return .l2
+        case .tapCountPick?: return .l3
+        default: return nil
+        }
+    }
+
     /// D11: a parent plays the card through once in 試玩 before a star can be turned on.
-    public var requiresPlaytestBeforeStars: Bool { isShapeTraceFamily }
+    public var requiresPlaytestBeforeStars: Bool { isShapeTraceFamily || isTapCountFamily }
 
     /// How this kind deals a line-match question. Guided kinds pin geometry (straight = L1,
     /// bridge = L2); free match uses the mission star's level. Nil when not a line-match kind.
@@ -113,6 +170,10 @@ extension ActivityKind {
         case .traceShapesDotted: return "畫形狀 · 跟虛線"
         case .traceShapesArrows: return "畫形狀 · 跟箭嘴"
         case .traceShapesFree: return "畫形狀 · 自己畫"
+        case .tapCountAll: return "一架一架數 · 點一點"
+        case .tapCountTrace: return "一架一架數 · 數完畫"
+        case .tapCountPick: return "一架一架數 · 揀啱數"
+        case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentCardTitle(self)
         }
     }
 
@@ -136,6 +197,10 @@ extension ActivityKind {
         case .traceShapesDotted: return "Shapes · Follow the dots"
         case .traceShapesArrows: return "Shapes · Follow the arrows"
         case .traceShapesFree: return "Shapes · Draw it yourself"
+        case .tapCountAll: return "Tap & Count · Tap each one"
+        case .tapCountTrace: return "Tap & Count · Count, then trace"
+        case .tapCountPick: return "Tap & Count · Pick just enough"
+        case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentCardEnglish(self)
         }
     }
 
@@ -159,6 +224,10 @@ extension ActivityKind {
         case .traceShapesDotted: return "虛線"
         case .traceShapesArrows: return "箭嘴"
         case .traceShapesFree: return "自己畫"
+        case .tapCountAll: return "點一點"
+        case .tapCountTrace: return "數完畫"
+        case .tapCountPick: return "揀啱數"
+        case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentShortLabel(self)
         }
     }
 
@@ -182,6 +251,10 @@ extension ActivityKind {
         case .traceShapesDotted: return "跟住虛線，畫圓形、正方形同尖頂！"
         case .traceShapesArrows: return "由綠色箭嘴開始，跟住箭嘴畫形狀！"
         case .traceShapesFree: return "照住範本，自己畫形狀！"
+        case .tapCountAll: return "點一點每架車，數吓有幾多架！"
+        case .tapCountTrace: return "點晒啲車，再跟住箭嘴畫個數字！"
+        case .tapCountPick: return "數啱幾架就撳 OK，再畫個數字！"
+        case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentHelpTraditionalChinese(self)
         }
     }
 
@@ -204,6 +277,10 @@ extension ActivityKind {
         case .traceShapesDotted: return "Follow the dots to draw circles, squares and roofs!"
         case .traceShapesArrows: return "Start at the green arrow and follow the arrows!"
         case .traceShapesFree: return "Copy the model and draw the shape yourself!"
+        case .tapCountAll: return "Tap every vehicle and count them!"
+        case .tapCountTrace: return "Tap them all, then trace the number!"
+        case .tapCountPick: return "Tap just the right number, press OK, then trace it!"
+        case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentHelpEnglish(self)
         }
     }
 
@@ -244,6 +321,18 @@ extension ActivityKind {
             return ["shapeTrace.arrows"]
         case .traceShapesFree:
             return ["shapeTrace.free"]
+        case .tapCountAll:
+            return ["tapCount.icon.all"]
+        case .tapCountTrace:
+            return ["tapCount.icon.trace"]
+        case .tapCountPick:
+            return ["tapCount.icon.pick"]
+        case .tapCountAllEnglish:
+            return ["tapCount.icon.all"]
+        case .tapCountTraceEnglish:
+            return ["tapCount.icon.trace"]
+        case .tapCountPickEnglish:
+            return ["tapCount.icon.pick"]
         }
     }
 }
@@ -862,14 +951,21 @@ public enum ActivityCatalog {
         .traceLines,
         .traceShapesDotted,
         .traceShapesArrows,
-        .traceShapesFree
+        .traceShapesFree,
+        .tapCountAll,
+        .tapCountTrace,
+        .tapCountPick,
+        .tapCountAllEnglish,
+        .tapCountTraceEnglish,
+        .tapCountPickEnglish
     ]
 
     /// D7 (Carter 2026-10-13, option B): new kinds join no ticket until a parent turns a star on
     /// in 家長 → 遊戲 (after 試玩). They stay playable from the parent catalog.
     public static let defaultOffKinds: [ActivityKind] = [
         .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch, .traceLines, .traceShapesDotted,
-        .traceShapesArrows, .traceShapesFree
+        .traceShapesArrows, .traceShapesFree, .tapCountAll, .tapCountTrace, .tapCountPick,
+        .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish
     ]
 
     /// Kinds every ticket deals before a parent changes anything (the v0.22 rotation).
@@ -1194,6 +1290,10 @@ public enum ActivityCatalog {
             return LineMatchGuidedCopy.hint
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
             return ShapeTraceCopy.hint
+        case .tapCountAll, .tapCountTrace, .tapCountPick:
+            return TapCountCopy.hint
+        case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
+            return TapCountEnglishCopy.hint
         }
     }
 }

@@ -47,6 +47,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var playtestLineMatchGuidedBoard: LineMatchGuidedBoard?
     /// v0.25.0 畫線畫形 playtest board (nil unless the playtest kind is a shape-trace card).
     @Published private(set) var playtestShapeTraceBoard: ShapeTraceBoard?
+    /// v0.28.0 一架一架數 playtest board (nil unless the playtest kind is a tap-count card).
+    @Published private(set) var playtestTapCountBoard: TapCountBoard?
     private var playtestThinkEndsAt: Date?
     var isParentPlaytest: Bool { playtestKind != nil && session.mode == .parent }
     var playtestChoicesLocked: Bool { playtestThinkEndsAt != nil || playtestCompleted }
@@ -177,6 +179,29 @@ final class AppModel: ObservableObject {
     private let parentPlaytestLogStore = ParentPlaytestLogStore()
     /// Strokes ("shape.stroke") whose off-path hint was already spoken (once per stroke).
     private var shapeTraceHintSpoken: Set<String> = []
+    /// v0.28.0 一架一架數 child board (點一點 / 數完畫 / 揀啱數). Nil on every other kind.
+    @Published private(set) var tapCountBoard: TapCountBoard?
+    /// 數字設定 (shared by the 3 tap-count cards). UserDefaults, not the snapshot.
+    @Published private(set) var tapCountSettings = TapCountSettings.defaults
+    /// Gentle line in the tap-count tray (未揀車喎 / wrong start / 試吓撳 OK). Never a miss.
+    @Published private(set) var tapCountNotice: SpokenPrompt?
+    /// Fuel before the latest ★★★ halving, for the Think Pause card 「15 → 7 分鐘」.
+    @Published private(set) var tapCountFuelBefore = 0
+    private let tapCountSettingsStore = TapCountSettingsStore()
+    /// Last numerals dealt (memory only; the next deal avoids the last 3, design D3).
+    private var tapCountRecentTargets: [Int] = []
+    private var tapCountLastScene: TapCountScene?
+    /// Strokes whose off-path hint was already spoken (once per stroke).
+    private var tapCountTraceHintSpoken: Set<String> = []
+    /// Model clock when the current tap-count board appeared (idle nudge / reprompt base).
+    private var tapCountRoundStart: Double = 0
+    /// v0.30.0 識咗 per numeral (2 clean traces in a row). UserDefaults; a failed save never blocks.
+    @Published private(set) var tapCountGuideProgress = TapCountGuideProgress()
+    private let tapCountGuideProgressStore = TapCountGuideProgressStore()
+    /// The guidance line in the voice bubble beside the trace board (cue / hop / stall), until a time.
+    @Published private(set) var tapCountGuideBubble: TapCountGuideBubble?
+    /// Bumped to cancel the demo lines still scheduled (a touch ended the demo, a new round).
+    private var tapCountGuideSpeechGeneration = 0
     /// Rows whose off-road hint was already spoken (at most once per road).
     private var guidedHintSpokenRows: Set<Int> = []
     /// Tags + fields of the 完成 being evaluated (consumed by the answer record).
@@ -250,6 +275,8 @@ final class AppModel: ObservableObject {
         gameAssignment = MissionGameAssignmentStore().load()
         lineMatchSettings = LineMatchSettingsStore().load()
         shapeTraceSettings = ShapeTraceSettingsStore().load()
+        tapCountSettings = TapCountSettingsStore().load()
+        tapCountGuideProgress = TapCountGuideProgressStore().load()
         parentPlaytestLog = ParentPlaytestLogStore().load()
         playbackShuffle = VideoPlaybackShuffleStore().load()
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -377,6 +404,7 @@ final class AppModel: ObservableObject {
         let current = now
         advanceThinkPauseIfNeeded(now: current)
         advancePlaytestThinkPauseIfNeeded(now: current)
+        tapCountIdleCheck(now: current.timeIntervalSinceReferenceDate)
         if let outcome = resilientStore.retryIfDue(now: current) {
             noteSaveOutcome(outcome, context: "retry")
         }
@@ -822,6 +850,9 @@ final class AppModel: ObservableObject {
             seed: seed, kind: kind, avoidingItem: lastDealtItem[kind]) : nil
         shapeTraceHintSpoken = []
         shapeTraceNotice = nil
+        tapCountBoard = kind.isTapCountFamily ? makeTapCountBoard(
+            seed: seed, kind: kind, avoidingItem: lastDealtItem[kind]) : nil
+        resetTapCountTransient()
         sequenceQuestion = ActivityCatalog.sequenceQuestion()
         halfMatchQuestion = ActivityCatalog.halfMatchQuestion()
         shapeCousinQuestion = ActivityCatalog.shapeCousinQuestion()
@@ -837,8 +868,9 @@ final class AppModel: ObservableObject {
         clearThinkPause()
         taskRoundOpen = true
         let facts = dealFacts(kind: kind, seed: seed, findSame: findSameQuestion, count: countQuestion,
-                              lineMatch: lineMatchBoard.question, shapeTrace: shapeTraceBoard)
+                              lineMatch: lineMatchBoard.question, shapeTrace: shapeTraceBoard, tapCount: tapCountBoard)
         if QuestionGeneration.isGenerated(kind) { lastDealtItem[kind] = facts.item }
+        noteTapCountDealt(tapCountBoard)
         perf.roundDealt(round: seed, kind: kind, stars: stars, pendingStart: difficulty.minutes, pool: pool,
                         facts: facts)
         VisaGamesLog.append("selectDifficulty — 選擇難度 stars=\(stars) kind=\(kind.rawValue) level=\(level.code) item=\(facts.item) seed=\(seed) pendingMin=\(pendingAwardMinutes) pool=\(pool.count)")
@@ -885,6 +917,10 @@ final class AppModel: ObservableObject {
             return lineMatchBoard.question.hintTraditionalChinese
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
             return ShapeTraceCopy.hint
+        case .tapCountAll, .tapCountTrace, .tapCountPick:
+            return TapCountCopy.hint
+        case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
+            return TapCountEnglishCopy.hint
         default: return ActivityCatalog.hintTraditionalChinese(for: kind)
         }
     }
@@ -892,7 +928,7 @@ final class AppModel: ObservableObject {
     /// Performance facts of the question actually dealt (item, slots, gen, level, tags).
     private func dealFacts(kind: ActivityKind, seed: String, findSame: FindSameQuestion,
                            count: CountQuestion, lineMatch: LineMatchQuestion,
-                           shapeTrace: ShapeTraceBoard? = nil) -> PerfDealFacts {
+                           shapeTrace: ShapeTraceBoard? = nil, tapCount: TapCountBoard? = nil) -> PerfDealFacts {
         switch kind {
         case .findTheSame: return PerfChoiceCatalog.facts(findSame: findSame, seed: seed)
         case .countVehicles: return PerfChoiceCatalog.facts(count: count, seed: seed)
@@ -902,6 +938,10 @@ final class AppModel: ObservableObject {
             let board = shapeTrace ?? ShapeTraceBoard(question: ShapeTraceGenerator.reference(kind: kind))
             return PerfChoiceCatalog.facts(shapeTrace: board.question, settings: shapeTraceSettings,
                                            tolerance: board.tolerance)
+        case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
+            let question = tapCount?.question ?? TapCountGenerator.reference(kind: kind)
+            return PerfChoiceCatalog.facts(tapCount: question, settings: tapCountSettings,
+                                           tolerance: tapCountTolerance, recentTargets: tapCountRecentTargets)
         default: return PerfChoiceCatalog.facts(kind: kind, seed: seed)
         }
     }
@@ -949,6 +989,9 @@ final class AppModel: ObservableObject {
             let question = shapeTraceBoard?.question ?? ShapeTraceGenerator.reference(kind: kind)
             zh = question.promptTraditionalChinese
             en = question.promptEnglish
+        case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
+            speakTapCountPrompt()
+            return
         }
         guideVoice.speak(SpokenPrompt(
             key: "activity.\(kind.rawValue)",
@@ -1285,6 +1328,13 @@ final class AppModel: ObservableObject {
         )
         if activeActivityKind?.isLineMatchFamily == true {
             lineMatchBoard.noteUnlocked(now: now.timeIntervalSinceReferenceDate)
+        }
+        if activeActivityKind?.isTapCountFamily == true {
+            // ★★★: after the 2nd miss the rescue is the demo count (rings the first N); it replaces
+            // the text hint and makes the success assisted.
+            tapCountAfterThinkPause(playtest: false)
+            changed?()
+            return
         }
         // Existing assisted/hint rescue still helps when fuel remains.
         if ActivityHintPolicy.shouldAutoHint(afterMissCount: entryMissCount), !entryHintUsed {
@@ -2737,10 +2787,15 @@ final class AppModel: ObservableObject {
             ? makeShapeTraceBoard(seed: playtestChoiceDealSeed, kind: kind, avoidingItem: nil) : nil
         shapeTraceHintSpoken = []
         shapeTraceNotice = nil
+        playtestTapCountBoard = kind.isTapCountFamily
+            ? makeTapCountBoard(seed: playtestChoiceDealSeed, kind: kind, avoidingItem: nil) : nil
+        resetTapCountTransient()
         clearPlaytestThinkPause()
         let facts = dealFacts(kind: kind, seed: playtestChoiceDealSeed,
                               findSame: playtestFindSameQuestion, count: playtestCountQuestion,
-                              lineMatch: playtestLineMatchBoard.question, shapeTrace: playtestShapeTraceBoard)
+                              lineMatch: playtestLineMatchBoard.question, shapeTrace: playtestShapeTraceBoard,
+                              tapCount: playtestTapCountBoard)
+        noteTapCountDealt(playtestTapCountBoard)
         perf.playtestStarted(round: playtestChoiceDealSeed, kind: kind, pendingStart: playtestStartingMinutes,
                              facts: facts)
         VisaGamesLog.append("playtest start — 試玩 kind=\(kind.rawValue) level=\(level.code) item=\(facts.item) mode=parent visa=false")
@@ -2795,6 +2850,9 @@ final class AppModel: ObservableObject {
             let question = playtestShapeTraceBoard?.question ?? ShapeTraceGenerator.reference(kind: kind)
             zh = question.promptTraditionalChinese
             en = question.promptEnglish
+        case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
+            speakTapCountPrompt()
+            return
         }
         guideVoice.speak(SpokenPrompt(
             key: "playtest.\(kind.rawValue)",
@@ -3004,6 +3062,10 @@ final class AppModel: ObservableObject {
         if playtestKind?.isLineMatchFamily == true {
             playtestLineMatchBoard.noteUnlocked(now: Date().timeIntervalSinceReferenceDate)
         }
+        if playtestKind?.isTapCountFamily == true {
+            tapCountAfterThinkPause(playtest: true)
+            return
+        }
         // Fuel may hit 0. Stay on the cover — do not speak the depot line or end the visa.
         if ActivityHintPolicy.shouldAutoHint(afterMissCount: playtestMissCount), !playtestHintUsed {
             playtestHintUsed = true
@@ -3036,6 +3098,8 @@ final class AppModel: ObservableObject {
         playtestChoiceDealSeed = ""
         playtestShapeTraceBoard = nil
         shapeTraceNotice = nil
+        playtestTapCountBoard = nil
+        tapCountNotice = nil
         clearPlaytestThinkPause()
         VisaGamesLog.append("playtest discard — 試玩收起 reason=\(reason)")
     }
@@ -3741,7 +3805,7 @@ struct ShellView: View {
                     onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .twoPictureChoose, .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .traceLines, .traceShapesArrows, .traceShapesFree,
-                 .traceShapesDotted, .none:
+                 .traceShapesDotted, .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .none:
                 // Legacy shell is setup / parent only; 連一連 is canvas-only (CanvasActivityHost).
                 EntryActivityView(
                     question: model.currentTwoPictureQuestion,
@@ -3760,5 +3824,563 @@ struct ShellView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 480, alignment: .top)
         .layoutPriority(1)
+    }
+}
+
+// MARK: - 一架一架數 / Tap & Count (v0.28.0, ADR 0017)
+
+extension AppModel {
+    private var tapCountTolerance: LineMatchTolerance {
+        tapCountSettings.effectiveTolerance(shapeTrace: shapeTraceSettings, lineMatch: lineMatchSettings.tolerance)
+    }
+
+    private func makeTapCountBoard(seed: String, kind: ActivityKind, avoidingItem: String?) -> TapCountBoard {
+        let question = TapCountGenerator.make(seed: seed, kind: kind, settings: tapCountSettings,
+                                              recentTargets: tapCountRecentTargets, avoidingItem: avoidingItem,
+                                              avoidingScene: tapCountLastScene)
+        return TapCountBoard(question: question)
+    }
+
+    /// After the deal facts are written: remember the numeral (last 3 avoided) and the scene.
+    private func noteTapCountDealt(_ board: TapCountBoard?) {
+        guard let board else { return }
+        tapCountRecentTargets = Array((tapCountRecentTargets + [board.target]).suffix(3))
+        tapCountLastScene = board.question.scene
+    }
+
+    private func resetTapCountTransient() {
+        tapCountNotice = nil
+        tapCountTraceHintSpoken = []
+        tapCountGuideBubble = nil
+        tapCountGuideSpeechGeneration += 1
+        tapCountFuelBefore = 0
+        tapCountRoundStart = Date().timeIntervalSinceReferenceDate
+    }
+
+    private var tapCountUsesPlaytest: Bool { isParentPlaytest && playtestKind?.isTapCountFamily == true }
+
+    /// The tap-count board on screen (playtest copy while a parent reviews it).
+    var currentTapCountBoard: TapCountBoard? {
+        tapCountUsesPlaytest ? playtestTapCountBoard : tapCountBoard
+    }
+
+    /// Input is open: the round (or playtest) is on a tap-count card, not finished, not paused.
+    var tapCountInputOpen: Bool {
+        if tapCountUsesPlaytest {
+            return !playtestCompleted && playtestTapCountBoard != nil && !playtestChoicesLocked
+        }
+        return session.mode == .lock && taskRoundOpen && activeActivityKind?.isTapCountFamily == true
+            && !activityJustCompleted && tapCountBoard != nil && !choicesLocked
+    }
+
+    private var tapCountToken: String { tapCountUsesPlaytest ? playtestChoiceDealSeed : choiceDealSeed }
+
+    /// Applies `body` to the board on screen and records the result fields. Nil when input is closed.
+    @discardableResult
+    private func changeTapCountBoard<T>(force: Bool = false, _ body: (inout TapCountBoard) -> T) -> T? {
+        guard force || tapCountInputOpen else { return nil }
+        if tapCountUsesPlaytest {
+            guard var board = playtestTapCountBoard else { return nil }
+            let result = body(&board)
+            playtestTapCountBoard = board
+            perf.playtestResultExtra(board.resultFields)
+            return result
+        }
+        guard var board = tapCountBoard else { return nil }
+        let result = body(&board)
+        tapCountBoard = board
+        perf.roundResultExtra(board.resultFields)
+        return result
+    }
+
+    /// The words of the card on screen (Cantonese or English; the game logic is the same).
+    private var tapCountLines: TapCountLines {
+        TapCountLines(currentTapCountBoard?.question.language ?? .cantonese)
+    }
+
+    private func showTapCountNotice(_ prompt: SpokenPrompt) {
+        tapCountNotice = prompt
+        guideVoice.speak(prompt)
+    }
+
+    /// Stampy / the header: says the line that fits the stage (count, pick, or trace).
+    private func speakTapCountPrompt() {
+        guard let board = currentTapCountBoard else { return }
+        let prompt: SpokenPrompt
+        switch board.stage {
+        case .tapping:
+            prompt = board.isPick ? tapCountLines.pickPrompt(board.target) : board.question.prompt
+        case .counted, .tracing:
+            let clock = Date().timeIntervalSinceReferenceDate
+            if board.question.tracesNumeral, board.stage == .tracing, board.guideDemoPending(now: clock) {
+                prompt = tapCountLines.guideWatchFirst(board.target)
+            } else {
+                prompt = board.question.tracesNumeral ? tapCountLines.tracePrompt(board.target)
+                                                      : tapCountLines.total(board.target, scene: board.question.scene)
+            }
+        case .done:
+            return
+        }
+        guideVoice.speak(prompt)
+    }
+
+    // MARK: Taps
+
+    /// One tap on the vehicle in `bay` (the view's per-vehicle tap target). ★ / ★★: count
+    /// (「一、二、三」, the last one reveals the numeral). ★★★: pick / unpick. Never a miss.
+    func tapCountTap(bay tappedBay: Int) {
+        let clock = Date().timeIntervalSinceReferenceDate
+        guard currentTapCountBoard != nil else { return }
+        let bay: Int? = tappedBay
+        guard let outcome = changeTapCountBoard({ $0.tap(bay: bay, now: clock) }) else { return }
+        guard let board = currentTapCountBoard else { return }
+        let speakCount = tapCountSettings.countVoice
+        switch outcome {
+        case .counted(let k), .selected(let k):
+            tapCountNotice = nil
+            if speakCount { guideVoice.speakQueued(tapCountLines.number(k)) }
+            VisaGamesLog.append("tapCount tap — 點 bay=\(bay ?? -1) k=\(k) pick=\(board.isPick)")
+        case .unselected(let k):
+            tapCountNotice = nil
+            VisaGamesLog.append("tapCount unpick — 唔要 bay=\(bay ?? -1) k=\(k) (no miss)")
+        case .completed(let k):
+            tapCountNotice = nil
+            if speakCount { guideVoice.speakQueued(tapCountLines.number(k)) }
+            guideVoice.speakQueued(tapCountLines.total(k, scene: board.question.scene),
+                                   english: tapCountSettings.english ? TapCountNumber.en(k) : nil)
+            VisaGamesLog.append("tapCount counted — 點晒 \(k) item=\(board.question.itemID) taps=\(board.taps)")
+            scheduleTapCountAfterCount(delay: 2.4)
+        case .recount(let again):
+            VisaGamesLog.append("tapCount recount — 已點 bay=\(again) (badge flashes, not counted again)")
+        case .doubleTapIgnored, .empty, .locked:
+            break
+        }
+    }
+
+    /// After the reveal: ★ finishes; ★★ / ★★★ park the set and open the numeral trace.
+    private func scheduleTapCountAfterCount(delay: Double) {
+        let token = tapCountToken
+        let playtest = tapCountUsesPlaytest
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.tapCountToken == token, self.tapCountUsesPlaytest == playtest,
+                  let board = self.currentTapCountBoard, board.stage == .counted else { return }
+            if board.question.tracesNumeral {
+                let tolerance = self.tapCountTolerance
+                let colour = TapCountDrawing.traceColorIndex(board.question.scene)
+                let plan = self.tapCountGuidePlan(for: board)
+                let clock = Date().timeIntervalSinceReferenceDate
+                self.changeTapCountBoard(force: true) {
+                    $0.startTracing(tolerance: tolerance, colorIndex: colour, guidance: plan, now: clock,
+                                    demoLead: Self.tapCountGuideDemoLead)
+                }
+                self.tapCountTraceHintSpoken = []
+                self.tapCountGuideBubble = nil
+                if let started = self.currentTapCountBoard, started.guideDemoPending(now: clock) {
+                    self.guideVoice.speakQueued(self.tapCountLines.guideWatchFirst(board.target))
+                    self.scheduleTapCountGuideDemoSpeech(target: board.target, at: clock + Self.tapCountGuideDemoLead)
+                } else {
+                    self.guideVoice.speakQueued(self.tapCountLines.tracePrompt(board.target))
+                }
+                VisaGamesLog.append(
+                    "tapCount trace start — 畫 \(board.target) tolerance=\(tolerance.rawValue) guide=\(plan.level.rawValue) learned=\(plan.learned) demo=\(plan.demo)"
+                )
+            } else {
+                let clock = Date().timeIntervalSinceReferenceDate
+                self.changeTapCountBoard(force: true) { $0.finishWithoutTrace(now: clock) }
+                self.finishTapCountRound(token: token, playtest: playtest)
+            }
+        }
+    }
+
+    // MARK: ★★★ OK and 擦晒
+
+    /// OK: judged once. Stampy recounts the picks first (「一、二、三、四。四架。」). Right = the trace;
+    /// wrong (more or fewer) = one miss with the existing policy (half the fuel + Think Pause).
+    func tapCountSubmit() {
+        let clock = Date().timeIntervalSinceReferenceDate
+        guard let outcome = changeTapCountBoard({ $0.submit(now: clock) }) else { return }
+        guard let board = currentTapCountBoard else { return }
+        switch outcome {
+        case .needsSelection:
+            showTapCountNotice(tapCountLines.noneYet)
+            VisaGamesLog.append("tapCount OK empty — 未揀車 (no miss)")
+        case .judged(let correct, let k):
+            tapCountNotice = nil
+            pendingAnswerRecord = (board.submitTags(now: clock), board.resultFields)
+            guideVoice.speakQueued(tapCountLines.recount(k), interrupt: true)
+            VisaGamesLog.append(
+                "tapCount OK — 撳 OK picked=\(k) target=\(board.target) correct=\(correct) submits=\(board.submits) item=\(board.question.itemID)"
+            )
+            if correct {
+                recordTapCountCorrect()
+                pendingAnswerRecord = nil
+                scheduleTapCountAfterCount(delay: 0.9 * Double(k) + 1.2)
+            } else {
+                let playtest = tapCountUsesPlaytest
+                tapCountFuelBefore = playtest ? playtestPendingMinutes : pendingAwardMinutes
+                if playtest {
+                    playtestHandle(.incorrect, selectionLabel: TapCountSubmitChoice.choice)
+                } else {
+                    handleEvaluation(.incorrect, selectionLabel: TapCountSubmitChoice.choice)
+                }
+                pendingAnswerRecord = nil
+                guideVoice.speakQueued(tapCountLines.need(board.target))
+            }
+        case .locked:
+            break
+        }
+    }
+
+    /// A right OK is recorded now (mastery evidence); the visa waits for the trace.
+    private func recordTapCountCorrect() {
+        if tapCountUsesPlaytest {
+            perf.playtestAnswer(choice: TapCountSubmitChoice.choice, correct: true, pendingBefore: playtestPendingMinutes,
+                                pendingAfter: playtestPendingMinutes, hintOn: playtestHintUsed,
+                                sequence: nil, record: pendingAnswerRecord)
+        } else {
+            perf.roundAnswer(choice: TapCountSubmitChoice.choice, correct: true, pendingBefore: pendingAwardMinutes,
+                             pendingAfter: pendingAwardMinutes, hintOn: entryHintUsed,
+                             sequence: nil, record: pendingAnswerRecord)
+        }
+    }
+
+    /// 擦晒: clears every pick (never a miss). 3 s cooldown; the 4th press nudges OK; the 6th hides it.
+    func tapCountErase() {
+        let clock = Date().timeIntervalSinceReferenceDate
+        guard let outcome = changeTapCountBoard({ $0.erase(now: clock) }) else { return }
+        switch outcome {
+        case .clearedNudge:
+            showTapCountNotice(tapCountLines.eraserNudge)
+        case .cleared, .clearedAndHidden:
+            tapCountNotice = nil
+        case .coolingDown, .unavailable:
+            return
+        }
+        VisaGamesLog.append("tapCount 擦晒 — outcome=\(outcome) erases=\(currentTapCountBoard?.erases ?? 0) (no miss)")
+    }
+
+    /// After a ★★★ Think Pause: from the 2nd miss the demo count rings the first N vehicles
+    /// (「一、二、三。三架。」); the success then counts as assisted.
+    private func tapCountAfterThinkPause(playtest: Bool) {
+        guard let board = currentTapCountBoard, board.isPick, board.stage == .tapping else { return }
+        tapCountRoundStart = Date().timeIntervalSinceReferenceDate
+        if board.misses >= TapCountBoard.demoAfterMisses, board.demoBays.isEmpty {
+            changeTapCountBoard(force: true) { $0.startDemo() }
+            guideVoice.speakQueued(tapCountLines.demo(board.target), interrupt: true)
+            if playtest {
+                playtestHintUsed = true
+                perf.playtestHint(afterMisses: playtestMissCount)
+            } else {
+                entryHintUsed = true
+                perf.roundHint(afterMisses: entryMissCount)
+            }
+            VisaGamesLog.append("tapCount demo — 示範數 \(board.target) after misses=\(board.misses) → assisted")
+        } else {
+            guideVoice.speak(tapCountLines.pickPrompt(board.target))
+        }
+    }
+
+    // MARK: Trace
+
+    /// The view drives the paint car on a local copy and hands the trace over at milestones and
+    /// pen-up. Only a trace that grew from the current one is taken.
+    func tapCountTraceCommit(_ next: ShapeTraceBoard) {
+        guard tapCountInputOpen, let board = currentTapCountBoard, board.stage == .tracing,
+              let current = board.trace else { return }
+        guard next.isMonotonicSuccessor(of: current), next != current else { return }
+        let clock = Date().timeIntervalSinceReferenceDate
+        changeTapCountBoard { $0.updateTrace(next, now: clock) }
+        if tapCountNotice != nil, next.strokesDone != current.strokesDone || next.progress > current.progress + 20 {
+            tapCountNotice = nil
+        }
+        if next.isComplete, !current.isComplete {
+            guideVoice.speakWordCue(tapCountLines.cuePrompt(board.target), then: nil)
+            tapCountGuideBubble = nil
+            noteTapCountGuideTraceDone(board: board)
+            VisaGamesLog.append(
+                "tapCount trace done — 畫好 \(board.target) offPath=\(next.offPathCount) lifts=\(next.lifts) (practice, no miss)"
+            )
+            let token = tapCountToken
+            let playtest = tapCountUsesPlaytest
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) { [weak self] in
+                self?.finishTapCountRound(token: token, playtest: playtest)
+            }
+        } else if next.strokesDone > current.strokesDone {
+            if let plan = board.guide?.plan, plan.hops, plan.cueWords, let hop = tapCountLines.guideHop(board.target) {
+                // Guidance: the car hops to the next stroke 「返上去，戴帽！」 (mockup 03).
+                guideVoice.speak(hop)
+                showTapCountGuideBubble(hop, seconds: 3)
+            } else {
+                guideVoice.speak(tapCountLines.traceNext)
+            }
+            VisaGamesLog.append("tapCount stroke done — 第 \(next.strokesDone) 筆")
+        } else if next.cornersReached.count > current.cornersReached.count, shapeTraceSettings.cornerStop {
+            // A guidance cue line was already said just before this corner: no second voice.
+            let cueSaid = board.guide.map { $0.plan.cueWords && !$0.cuesSaid.isEmpty } ?? false
+            if !cueSaid { guideVoice.speak(tapCountLines.cornerPrompt) }
+        }
+    }
+
+    func tapCountTraceWrongStart() {
+        guard tapCountInputOpen else { return }
+        noteTapCountGuideHelp(key: "wrong_start.\(currentTapCountBoard?.trace?.wrongStarts ?? 0)", kind: "wrong_start")
+        showTapCountNotice(tapCountLines.wrongStartPrompt)
+        VisaGamesLog.append("tapCount wrong start — 由綠色箭嘴開始 (no miss)")
+    }
+
+    func tapCountTraceReverse() {
+        guard tapCountInputOpen else { return }
+        noteTapCountGuideHelp(key: "reverse.\(currentTapCountBoard?.trace?.reverseDirections ?? 0)", kind: "reverse")
+        showTapCountNotice(tapCountLines.reversePrompt)
+        VisaGamesLog.append("tapCount reverse start — 跟住箭嘴方向 (no miss)")
+    }
+
+    func tapCountTraceHintShown(key: String) {
+        guard tapCountInputOpen, tapCountTraceHintSpoken.insert(key).inserted else { return }
+        noteTapCountGuideHelp(key: "off_path.\(key)", kind: "off_path")
+        // With a stall help (標準 / 多啲) the guidance line speaks instead of 「架車等緊你」.
+        if currentTapCountBoard?.guide?.plan.stallSeconds != nil { return }
+        guideVoice.speak(tapCountLines.offPathPrompt)
+        VisaGamesLog.append("tapCount hint — 架車等緊你 stroke=\(key) (no miss)")
+    }
+
+    // MARK: Guidance (v0.30.0; Opus spec approved by Carter 2026-10-18)
+
+    /// The watch-first line plays before the demo car sets off.
+    static let tapCountGuideDemoLead: Double = 1.4
+    /// The 20 s re-demo plays at most this often per round.
+    static let tapCountGuideMaxRedemos = 2
+
+    /// Level from 數字設定; 識咗 from the clean-trace streak (both card languages share it).
+    private func tapCountGuidePlan(for board: TapCountBoard) -> TapCountGuidePlan {
+        TapCountGuidePlan(level: tapCountSettings.guidance,
+                          learned: tapCountGuideProgress.isLearned(board.target, language: board.question.language))
+    }
+
+    /// Says each rhyme line as the ghost car starts its beat, then 「到你喇！」. A touch that ends the
+    /// demo (or a new round) bumps the generation and the rest is dropped.
+    private func scheduleTapCountGuideDemoSpeech(target n: Int, at start: Double) {
+        guard let guide = NumeralGuide(n) else { return }
+        tapCountGuideSpeechGeneration += 1
+        let generation = tapCountGuideSpeechGeneration
+        let token = tapCountToken
+        let timeline = TapCountDemoTimeline(guide: guide)
+        let lines = tapCountLines
+        let beats = lines.guideBeats(n)
+        var cues: [(Double, SpokenPrompt)] = zip(timeline.beatStarts, beats).map { ($0, $1) }
+        if let merge = lines.guideMerge(n) { cues.append((timeline.mergeStart, merge)) }
+        let clock = Date().timeIntervalSinceReferenceDate
+        for (offset, prompt) in cues {
+            DispatchQueue.main.asyncAfter(deadline: .now() + max(0, start + offset - clock)) { [weak self] in
+                guard let self, self.tapCountGuideSpeechGeneration == generation, self.tapCountToken == token,
+                      let board = self.currentTapCountBoard, board.stage == .tracing else { return }
+                self.guideVoice.speakQueued(prompt)
+            }
+        }
+    }
+
+    private func showTapCountGuideBubble(_ prompt: SpokenPrompt, seconds: Double) {
+        tapCountGuideBubble = TapCountGuideBubble(prompt: prompt, until: Date().timeIntervalSinceReferenceDate + seconds)
+    }
+
+    /// A touch during the demo: it ends at once (input is never locked); the remaining lines are dropped.
+    func tapCountGuideSkipDemo() {
+        let clock = Date().timeIntervalSinceReferenceDate
+        guard changeTapCountBoard({ $0.skipGuideDemo(now: clock) }) == true, let board = currentTapCountBoard else { return }
+        tapCountGuideSpeechGeneration += 1
+        guideVoice.speak(tapCountLines.guideYourTurn(board.target))
+        VisaGamesLog.append("tapCount guide demo skipped — 落筆，示範停 (no miss)")
+    }
+
+    /// The board shows a help (stall ring + ghost, ghost to the end, or the 20 s re-demo). Noted once;
+    /// any help means this trace is not clean, so the numeral is back to learning (識咗 needs 2 clean).
+    func tapCountGuideHelp(key: String, kind: String) {
+        guard tapCountInputOpen, let board = currentTapCountBoard, let guide = board.guide else { return }
+        if kind == "redemo" {
+            guard guide.redemos < Self.tapCountGuideMaxRedemos else { return }
+        }
+        guard noteTapCountGuideHelp(key: key, kind: kind) else { return }
+        let lines = tapCountLines
+        switch kind {
+        case "stall", "ghost_to_end":
+            guard guide.plan.cueWords, let trace = board.trace, let numeral = NumeralGuide(board.target) else { break }
+            // The rhyme line of the bit ahead.
+            let beats = lines.guideBeats(board.target)
+            if let index = numeral.beats.firstIndex(where: { $0.stroke == trace.strokeIndex && $0.end > trace.progress + 10 }),
+               beats.indices.contains(index) {
+                guideVoice.speak(beats[index])
+                showTapCountGuideBubble(beats[index], seconds: 3)
+            }
+        case "redemo":
+            let clock = Date().timeIntervalSinceReferenceDate
+            changeTapCountBoard { $0.restartGuideDemo(now: clock, lead: Self.tapCountGuideDemoLead) }
+            tapCountGuideBubble = nil
+            guideVoice.speak(lines.guideRedemo(board.target))
+            scheduleTapCountGuideDemoSpeech(target: board.target, at: clock + Self.tapCountGuideDemoLead)
+        default:
+            break
+        }
+        VisaGamesLog.append("tapCount guide help — \(kind) key=\(key) (no miss)")
+    }
+
+    /// Just before a crossing / turn: the cue line, once per round (標準 until 識咗, 多啲).
+    func tapCountGuideCue(index: Int) {
+        guard tapCountInputOpen, let board = currentTapCountBoard, let plan = board.guide?.plan else { return }
+        guard changeTapCountBoard({ $0.noteGuideCue(index) }) == true, plan.cueWords else { return }
+        let cues = tapCountLines.guideCues(board.target)
+        guard cues.indices.contains(index) else { return }
+        guideVoice.speak(cues[index])
+        showTapCountGuideBubble(cues[index], seconds: 3)
+        VisaGamesLog.append("tapCount guide cue — \(board.target) cue=\(index + 1)")
+    }
+
+    /// Notes a help on the board; the first help of a child round puts the numeral back to learning.
+    @discardableResult
+    private func noteTapCountGuideHelp(key: String, kind: String) -> Bool {
+        guard let board = currentTapCountBoard, board.guide != nil else { return false }
+        let wasClean = board.guide?.clean ?? true
+        guard changeTapCountBoard({ $0.noteGuideHelp(key: key, kind: kind) }) == true else { return false }
+        if wasClean, !tapCountUsesPlaytest {
+            var progress = tapCountGuideProgress
+            progress.recordStall(board.target, language: board.question.language)
+            saveTapCountGuideProgress(progress)
+        }
+        return true
+    }
+
+    /// Trace finished: a clean one adds to the streak (2 in a row = 識咗). Playtests never count.
+    private func noteTapCountGuideTraceDone(board: TapCountBoard) {
+        guard let guide = currentTapCountBoard?.guide ?? board.guide, !tapCountUsesPlaytest else { return }
+        guard guide.clean else { return }
+        var progress = tapCountGuideProgress
+        progress.recordClean(board.target, language: board.question.language)
+        saveTapCountGuideProgress(progress)
+        VisaGamesLog.append(
+            "tapCount guide clean — \(board.target) streak=\(progress.streak(board.target, language: board.question.language))"
+        )
+    }
+
+    /// UserDefaults only; a failed write never reaches the child (the in-memory record still applies).
+    private func saveTapCountGuideProgress(_ next: TapCountGuideProgress) {
+        tapCountGuideProgress = next
+        tapCountGuideProgressStore.save(next)
+    }
+
+    /// Done (★ after the reveal; ★★ / ★★★ after the trace). The child round goes to the usual
+    /// stamp; a finished 試玩 unlocks the stars (D11). Saving the playtest log never blocks.
+    private func finishTapCountRound(token: String, playtest: Bool) {
+        if playtest {
+            guard isParentPlaytest, let kind = playtestKind, kind.isTapCountFamily, playtestChoiceDealSeed == token,
+                  !playtestCompleted, let board = playtestTapCountBoard, board.isComplete else { return }
+            perf.playtestSolved(earnedMinutes: playtestPendingMinutes, assisted: board.assisted || playtestHintUsed)
+            playtestLastCorrectID = "tap_count"
+            playtestCompleted = true
+            playtestFuelMessage = nil
+            clearPlaytestThinkPause()
+            if parentPlaytestLog.playtestedOn(kind) == nil {
+                parentPlaytestLog = parentPlaytestLog.recording(kind, on: Date())
+                parentPlaytestLogStore.save(parentPlaytestLog)
+                if gameAssignmentBanner == ParentPlaytestLog.needsPlaytestBanner { gameAssignmentBanner = nil }
+            }
+            VisaGamesLog.append("playtest tapCount done — 試玩一架一架數完成 kind=\(kind.rawValue) stars unlocked, no visa")
+            return
+        }
+        guard session.mode == .lock, taskRoundOpen, activeActivityKind?.isTapCountFamily == true,
+              choiceDealSeed == token, !activityJustCompleted, let board = tapCountBoard, board.isComplete else { return }
+        guard pendingAwardMinutes > 0 else {
+            VisaGamesLog.append("tapCount done blocked — pending=0 → depot")
+            returnToDepotOutOfFuel()
+            return
+        }
+        let assisted = board.assisted || (board.isPick && entryHintUsed)
+        lastCorrectChoiceID = "tap_count"
+        lastIncorrectChoiceID = nil
+        activityJustCompleted = true
+        VisaGamesLog.append(
+            "tapCount done — 完成 item=\(board.question.itemID) target=\(board.target) misses=\(board.misses) earnedMin=\(pendingAwardMinutes) assisted=\(assisted)"
+        )
+        applyEntrySuccess(assisted: assisted)
+    }
+
+    // MARK: Idle (model clock)
+
+    /// ★ / ★★: after 8 s with nothing tapped the next vehicle blinks (twice at most).
+    /// ★★★: after 10 s the prompt is read again. Never a miss.
+    private func tapCountIdleCheck(now clock: Double) {
+        guard tapCountInputOpen, let board = currentTapCountBoard, board.stage == .tapping else { return }
+        let idle = board.idleFor(now: clock, since: tapCountRoundStart)
+        if board.isPick {
+            guard idle >= TapCountBoard.pickRepromptSeconds, board.idleReprompts < TapCountBoard.maxNudges else { return }
+            changeTapCountBoard { $0.reprompt(now: clock) }
+            guideVoice.speak(tapCountLines.pickPrompt(board.target))
+            VisaGamesLog.append("tapCount idle reprompt — 再讀題 (no miss)")
+        } else {
+            guard idle >= TapCountBoard.nudgeAfterSeconds, board.idleNudges < TapCountBoard.maxNudges else { return }
+            if changeTapCountBoard({ $0.nudge(now: clock) }) == true {
+                guideVoice.speak(board.question.prompt)
+                VisaGamesLog.append("tapCount idle nudge — 閃下一架 (no miss)")
+            }
+        }
+    }
+
+    // MARK: 數字設定 (parent; shared by the 3 cards)
+
+    func setTapCountRange(_ range: TapCountRange) {
+        guard session.mode == .parent, range != tapCountSettings.range else { return }
+        var next = tapCountSettings
+        next.range = range
+        saveTapCountSettings(next, what: "range", value: range.label)
+    }
+
+    func setTapCountCountVoice(_ on: Bool) {
+        guard session.mode == .parent, on != tapCountSettings.countVoice else { return }
+        var next = tapCountSettings
+        next.countVoice = on
+        saveTapCountSettings(next, what: "count_voice", value: on ? "on" : "off")
+    }
+
+    func setTapCountEnglish(_ on: Bool) {
+        guard session.mode == .parent, on != tapCountSettings.english else { return }
+        var next = tapCountSettings
+        next.english = on
+        saveTapCountSettings(next, what: "english", value: on ? "on" : "off")
+    }
+
+    func setTapCountBadgeStyle(_ style: TapCountBadgeStyle) {
+        guard session.mode == .parent, style != tapCountSettings.badgeStyle else { return }
+        var next = tapCountSettings
+        next.badgeStyle = style
+        saveTapCountSettings(next, what: "badge_style", value: style.rawValue)
+    }
+
+    func setTapCountTraceScaffold(_ scaffold: TapCountTraceScaffold) {
+        guard session.mode == .parent, scaffold != tapCountSettings.traceScaffold else { return }
+        var next = tapCountSettings
+        next.traceScaffold = scaffold
+        saveTapCountSettings(next, what: "trace_scaffold", value: scaffold.code)
+    }
+
+    /// 描數字提示: 多啲 / 標準 / 少啲 (both card languages; the next trace uses it).
+    func setTapCountGuidance(_ level: TapCountGuidanceLevel) {
+        guard session.mode == .parent, level != tapCountSettings.guidance else { return }
+        var next = tapCountSettings
+        next.guidance = level
+        saveTapCountSettings(next, what: "guidance", value: level.rawValue)
+    }
+
+    /// nil = follow 畫形狀's tolerance.
+    func setTapCountTolerance(_ tolerance: LineMatchTolerance?) {
+        guard session.mode == .parent, tolerance != tapCountSettings.tolerance else { return }
+        var next = tapCountSettings
+        next.tolerance = tolerance
+        saveTapCountSettings(next, what: "tolerance", value: tolerance?.rawValue ?? "follow_shape_trace")
+    }
+
+    /// UserDefaults only; a failed write never reaches the child (the in-memory setting still applies).
+    private func saveTapCountSettings(_ next: TapCountSettings, what: String, value: String) {
+        tapCountSettings = next
+        tapCountSettingsStore.save(next)
+        perf.tapCountSettingChanged(what: what, value: value)
+        VisaGamesLog.append("tapCount settings — 數字設定 \(what)=\(value)")
     }
 }

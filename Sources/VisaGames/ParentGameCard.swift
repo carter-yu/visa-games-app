@@ -44,6 +44,13 @@ struct ParentGameCard: View {
                 playtestStatus
             }
 
+            if kind.isTapCountFamily {
+                // Q8 (default A): any star may be ticked; the card only suggests one.
+                Text(TapCountCopy.recommendedStar(kind))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.inkSoft)
+            }
+
             HStack(spacing: 6) {
                 ForEach(ChildDifficulty.allCases, id: \.rawValue) { star in
                     starToggle(star)
@@ -183,6 +190,9 @@ private struct ParentGameArtWell: View {
             HalfVehicleClip(assetID: asset, side: .left, mood: .happy)
         } else if kind == .shadowMatch, let asset = kind.parentHeroAssetIDs.first {
             ActivityAssetView(assetID: asset, mood: .calm, asShadow: true)
+        } else if kind.isTapCountFamily {
+            // 一架一架數: the mockup 09 tile (lit cars with badges / a half-painted 3 / picks + OK).
+            TapCountIconView(kind: kind)
         } else if kind.isShapeTraceFamily {
             // 畫線畫形: the original fire engine / paint car on a coloured lane.
             HStack(spacing: 6) {

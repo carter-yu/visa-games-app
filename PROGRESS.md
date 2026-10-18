@@ -1,5 +1,96 @@
 # Progress
 
+## 2026-10-19 — v0.30.0 / 65 — 描數字提示: tracing guidance for 1–10 (Cantonese and English)
+
+- Carter approved the guidance Opus recommended (`visa-games-design/number-quantity/guidance`, mockups 01–03, options.md). It covers numerals 1–10 in ★★ 數完畫 and ★★★ 揀啱數, on the Cantonese and the English cards alike, through the shared `TapCountLines` and guidance code.
+- **標準 (default)**:
+  - (a) a demo ghost car drives the numeral once before the child's turn, with the rhyme, one line per beat;
+  - (b′) headlights light only the next 3 lane dots ahead of the car;
+  - (f) the rhyme;
+  - (g) a just-in-time sign and line just before each crossing or turn, shown again with a ring and a short ghost run after a 2 s stall.
+- Two-stroke numerals (4, 5, 10): the strokes not reached yet are faded (no dots, no markers); when a stroke finishes, the car hops along a dotted arc to the next one, which lights up, and its ② badge pulses.
+- Parent levels in 數字設定 → 描數字提示: 多啲 / 標準 / 少啲 (copy and contents from the Opus spec).
+- 識咗 = 2 clean traces of a numeral in a row (no help of any kind). At 標準 a learned numeral skips the demo and keeps only the spec's learned features. Any help puts it back to learning. Playtests never change it. Stored best effort in UserDefaults `VisaGames.tapCountGuideProgress.v1`; a failed save never reaches the child.
+- Never blocks the child:
+  - the demo never locks input: the first touch ends it at once (the real car wiggles; that touch paints nothing, per mockup 01), and the next stroke paints;
+  - tracing is never wrong; help never costs fuel or a miss;
+  - the 20 s idle re-demo plays at most twice a round;
+  - speech uses the existing voices; with no voice nothing is said and nothing waits.
+- Reduce Motion: no gliding, hops or pulses. The demo car jumps beat to beat, the route shows whole and steady, and the animation timer is off.
+- Data: `docs/tap-count-guidance-spec.json` (Opus 5.5) → `scripts/guidance_spec_to_swift.py` → `TapCountGuideData.swift`. The engine (`TapCountGuidance.swift`) resolves the spec's glyph points onto the same numeral paths the trace board uses. Art defs (ghost car, chevron, ahead / stop signs, eye, pop) come from the spec's art sheet into `TapCountArt`.
+- Logs: trace results gain `guide_level`, `guide_learned_before`, `guide_demo`, `guide_redemos`, `guide_stalls`, `guide_ghost_to_end`, `guide_helps` and `guide_clean`.
+- ADR 0011 / 0010 / 0003 are unchanged: no presentation, window, level, frame or menu changes; no `assumeIsolated`, `unowned` or KVO hops; no sign-in. The kiosk checklist has a new row.
+- Final Opus 5.5 deliverables (resumed session, 2026-10-19 00:31 HKT): `options.md`, `build/guidance-spec.json` (copied to `docs/tap-count-guidance-spec.json`, regenerated) and `build/guide-art.svg`. The art matches the defs already in `docs/art-tap-count-source.svg`; the new `hop-head` arrowhead is used for the hop arc, and the stop sign carries no baked word (the app writes 停 / STOP).
+- 10's sign sits at the very start of the 0 ("Round to the left!"), so a cue may now be at distance 0 of a stroke (shown as that stroke begins).
+- English card layout: long bubble lines wrap onto two lines at the middle space instead of shrinking, ": " splits like ", ", and the header prompt shrinks to fit before the card pill ("Your turn! Follow the arrows and draw 8!" ran under it).
+- Tests: `sh scripts/test.sh` on the Mac mini → PASS (… 25 tap-count + 8 tap-count-guide + 12 parent-youtube). Offline harness: guide renders (zh + en) and the live NSEvent probe (40 checks, 0 failures).
+
+
+## 2026-10-18 — v0.29.0 / 64 — Tap & Count in English (three English twins)
+
+- Carter asked for fully English versions of the three 一架一架數 games.
+- Three new cards: `tapCountAllEnglish`, `tapCountTraceEnglish` and `tapCountPickEnglish`. Each is an independent card with its own stars and its own 試玩. All three are off by default, and their stars stay locked until that card has been playtested.
+- Parent cards are bilingual: 一架一架數（英文）· 點一點 / Tap & Count in English · Tap each one (and 數完畫 / Count & draw, 揀啱數 / Just right). They reuse the 一架一架數 icons and share the 數字設定 panel.
+- One game in two languages, not a fork:
+  - `ActivityKind.tapCountBase` maps each English card to its Cantonese card. Generation, judging, level, layout, tap targets, penalty, demo, trace, mastery and practice-only rules all use the base card.
+  - The same seed deals the same round in both languages.
+  - `TapCountLines(language)` is the only source of words for `TapCountBoardView` and the model's tap-count speech. Cantonese returns `TapCountCopy` unchanged. English returns `TapCountEnglishCopy`.
+  - Any later guidance change to the game is therefore shared by both languages.
+- Everything the child sees or hears on an English card is English:
+  - prompts, per-tap counting, totals ("Four trams!"), the ★★★ recount (digits on screen, words in the voice), "We need eight!", tray, chips, legends, buttons (Clear / OK · Done);
+  - the Think Pause card, the visa ticket ("min" / "Visa"), the ding / beep marks, trace hints and the hint line.
+  - Copy by Claude Code Opus 5.5 (`visa-games-design/number-quantity/english/english-copy.md`).
+- Voice: `SpokenPrompt.language = .english` is spoken by the en-GB system voice only. A recorded clip `Voice/en.tapCount.<key>.m4a` wins when bundled. With no English voice nothing is said; nothing crashes or waits, and the screen line still shows.
+- Not changed: the shared stamp / watch / out-of-fuel screens after or around a round still use the app's usual bilingual flow.
+- Tests:
+  - `testEnglishCardsAreDefaultOffIndependentAndNeedAPlaytest`;
+  - `testEnglishChildFacingWordsHaveNoChineseAtAll` (every line for 1–10 × every scene; no CJK ideographs or full-width punctuation; English-only `en.` prompts);
+  - `testEnglishCardsPlayExactlyTheSameGame` (1,200 deals: same rounds, tap targets, outcomes, misses, chance, trace roads and trace results);
+  - `testEnglishVersionsShareTheCodeNotAFork` (source guards: no `TapCountCopy` or Chinese literals in the view, tap-count speech only via `tapCountLines`, base-keyed rules, no forked view).
+
+## 2026-10-18 — v0.28.2 / 63 — 喎 spoken low (UAT)
+
+- UAT (Carter, v0.28.1): in 「要八架喎！」, Sinji said 喎 like 蛙 / 窩 (wo1, high) instead of the intended low particle (like 禍).
+- Measured on the Mac mini: the lines were rendered through AVSpeechSynthesizer with Sinji (the app's speech path) and the final syllable's pitch was measured with Praat.
+  - 「要八架喎！」: 240 Hz, the same as the 窩 control at 242 Hz.
+  - 「要八架禍！」: 179 Hz, about 5 semitones lower.
+  - The other lines show the same pattern: 未揀車喎 258 vs 188 Hz, 多咗喎 240 vs 186 Hz, 仲未夠喎 245 vs 179 Hz.
+- Fix: `CantoneseSpeech.spoken` swaps 喎 → 禍 in the string sent to the system voice only. The screen copy, the keys and the recorded clips keep 喎.
+- Test: `testSpokenParticleReadsLowAndScreenKeepsWo`.
+
+## 2026-10-18 — v0.28.1 / 62 — 一架一架數 tap targets fixed (UAT)
+
+- UAT (Carter, v0.28.0): in the 10-vehicle round (two rows of five), tapping a row-1 vehicle did nothing, tapping row 2 lit row 1, and tapping below row 2 lit row 2.
+- Cause: the tap and pen overlays were placed at stage y = 118 (the workspace top), but their gesture locations, which start at 0 at that edge, were read as stage coordinates. Every target therefore sat 118u lower than its vehicle: about one ten-frame row (132u). In the one-row layouts only the lower part of each vehicle worked. The pen had the same offset.
+- Fix:
+  - one tap target per vehicle, laid on `TapCountVehicleLayout.hitRect` (the bay plus 6u, in stage units) with its own handler that passes the bay; the model no longer converts a point;
+  - the drawing takes its scale from the same `TapCountVehicleLayout`;
+  - pen points now add the workspace top.
+- Test: `testHitTargetsMatchTheDrawnVehiclesForEveryCount` covers every star × scene × count the generator deals (★/★★ 1–10, ★★★ 3–10). For each case it checks that each drawn vehicle's centre and body points hit its own target and no other, that targets don't overlap, and that a point 118u below a vehicle is not that vehicle. The source guards forbid point hit tests in the view.
+- Offline render check: the real tap views were tinted (debug-only environment flag) over the drawing for every scene at 4/7/10 vehicles.
+- Live input probe (offline harness, outside the repo): real mouse events were sent to an offscreen NSHostingView, with stage → window mapping computed independently from `DesignTokens.stageLayout`.
+  - Vehicle taps: 140 layouts and 2,430 clicks on the drawn vehicles, all landing on the right bay. Empty bays and open workspace take no taps.
+  - Buttons: the OK, 擦晒 and replay buttons fire inside their frames and not outside them. The parent corner takes no input.
+  - Tracing: numerals 1–10 in ★★ and ★★★ complete when the pen follows the drawn path, and the paint car stays under the pointer. The same drags shifted 118u never complete.
+  - Arrows: a pen-down on the red stop arrow is flagged.
+- Shape-trace, guided line-match and line-match were audited. Their input overlays are full-stage (origin 0,0) with no offset, so they never had this bug.
+
+## 2026-10-18 — v0.28.0 / 61 — 一架一架數 / Tap & Count (number and quantity 1–10)
+
+Branch `feat/number-quantity-v028` from main `b91eb83`. ADR 0017. Carter approved the design defaults (Q1 one numeral, Q2 judge at OK, Q4 LWT strokes with 9 in one stroke, Q6 Sinji + English, the rest bold defaults).
+
+- **VisaCore:**
+  - Kinds `tapCountAll` ★ 點一點, `tapCountTrace` ★★ 數完畫, `tapCountPick` ★★★ 揀啱數: default off, playtest-gated, own parent cards.
+  - `TapCountGenerator` (pure; T 1–10, half weight for 1–2, last 3 avoided; ★★★ N > T except T = 10), `TapCountBoard` (count / pick / OK / 擦晒 / demo / trace stages, monotonic), `TapCountSettings` + store, copy, perf facts (Give-N tags).
+  - `NumeralGlyphs` 0–10 centre lines; the trace engine gains cubic segments, corners and cusp windows.
+  - `TapCountArt` generated from the mockup defs and the Opus scene kit.
+- **App:**
+  - `TapCountBoardView` per mockups 01–08: row / ten-frame / yard, badges, count bubbles, reveal (underbrace, glow, sparkles, 叮 / 嘟 marks), parking strip + numeral trace board, tray (progress dots, step chips, legends, stamp box), 擦晒 and OK, tray Think Pause (06).
+  - AppModel wiring for the child round and 試玩; ★★★ wrong answers use the existing penalty; idle nudge / reprompt; 數字設定 in parent controls; mockup 09 card icons.
+  - `speakQueued` (rapid counts, optional `Resources/Voice/*.m4a` clips, silent without a voice).
+- **Kiosk:** no window, presentation or menu changes (ADR 0011). New checklist row 「一架一架數 tap & count」.
+- Version: Info.plist **0.28.0 / 61**, parent footer **Visa Games v0.28.0**.
+
 ## 2026-10-17 — v0.27.1 / 60 — Finder aligned with the design (D1–D17, mockups 01, 06–10)
 
 Same branch and PR (#26). Carter approved every bold default in the design notes.

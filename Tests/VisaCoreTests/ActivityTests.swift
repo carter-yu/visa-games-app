@@ -136,7 +136,7 @@ final class ActivityTests {
     }
 
     func testCatalogPlayableKindsAndRotation() {
-        expectEqual(ActivityCatalog.playableKinds.count, 17)
+        expectEqual(ActivityCatalog.playableKinds.count, 23)
         expectTrue(ActivityCatalog.playableKinds.contains(.twoPictureChoose))
         expectTrue(ActivityCatalog.playableKinds.contains(.findTheSame))
         expectTrue(ActivityCatalog.playableKinds.contains(.countVehicles))
@@ -154,9 +154,13 @@ final class ActivityTests {
         expectTrue(ActivityCatalog.playableKinds.contains(.traceShapesDotted))
         expectTrue(ActivityCatalog.playableKinds.contains(.traceShapesArrows))
         expectTrue(ActivityCatalog.playableKinds.contains(.traceShapesFree))
+        expectTrue(ActivityCatalog.playableKinds.contains(.tapCountAll))
+        expectTrue(ActivityCatalog.playableKinds.contains(.tapCountTrace))
+        expectTrue(ActivityCatalog.playableKinds.contains(.tapCountPick))
         expectEqual(ActivityCatalog.defaultOffKinds,
                     [.lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch, .traceLines, .traceShapesDotted,
-                     .traceShapesArrows, .traceShapesFree])
+                     .traceShapesArrows, .traceShapesFree, .tapCountAll, .tapCountTrace, .tapCountPick,
+                     .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish])
         expectEqual(ActivityCatalog.defaultOnKinds.count, 10)
         expectEqual(ActivityCatalog.stubKinds, [])
         // Deterministic: same seed → same kind; covering seeds hit every default-on kind (D7:
@@ -284,7 +288,13 @@ final class ActivityTests {
     func testCatalogHintsAreBilingualTraditional() {
         for kind in ActivityCatalog.playableKinds {
             let hint = ActivityCatalog.hintTraditionalChinese(for: kind)
-            expectTrue(hint.contains(" / "))
+            // v0.29.0: the English tap-count cards show an English-only hint (the child sees no Chinese).
+            if kind.tapCountLanguage == .english {
+                expectFalse(hint.contains(" / "))
+                expectTrue(hint.hasPrefix("Hint:"))
+            } else {
+                expectTrue(hint.contains(" / "))
+            }
             expectFalse(hint.contains("机车")) // Simplified fragment check
         }
     }

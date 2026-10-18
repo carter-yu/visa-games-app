@@ -2,16 +2,43 @@ import Foundation
 
 /// A line the guide speaks. Cantonese is spoken; English is only a small parent subtitle.
 /// `key` names the future recorded clip (UX Phase 5).
+/// The voice a prompt is spoken in.
+public enum SpokenLanguage: String, Equatable, Sendable {
+    case cantonese
+    case english
+}
+
 public struct SpokenPrompt: Equatable, Sendable {
     public let key: String
     public let traditionalChinese: String
     public let english: String
+    /// v0.29.0: which voice says it. `.english` prompts (the English tap-count cards) are spoken
+    /// in English only by the en-GB voice, with `english` as both the words and the screen text.
+    public let language: SpokenLanguage
 
     public init(key: String, traditionalChinese: String, english: String) {
         self.key = key
         self.traditionalChinese = traditionalChinese
         self.english = english
+        self.language = .cantonese
     }
+
+    /// An English-only line (shown and spoken in English; no Chinese at all).
+    public static func englishOnly(key: String, _ text: String) -> SpokenPrompt {
+        SpokenPrompt(key: key, english: text)
+    }
+
+    private init(key: String, english: String) {
+        self.key = key
+        self.traditionalChinese = ""
+        self.english = english
+        self.language = .english
+    }
+
+    /// Big screen line: Chinese for Cantonese prompts, the English line for English ones.
+    public var mainText: String { language == .english ? english : traditionalChinese }
+    /// Small screen line under it (Cantonese prompts only).
+    public var subText: String? { language == .english || english.isEmpty ? nil : english }
 
     public static let depotPickTicket = SpokenPrompt(
         key: "depot.pickTicket", traditionalChinese: "揀一張車票！", english: "Pick a ticket!")

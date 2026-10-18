@@ -535,6 +535,9 @@ private struct StageContent: View {
 struct VisaTicketBadge: View {
     let stars: Int
     let minutes: Int
+    /// v0.29.0 English tap-count cards pass English words; everything else keeps 分鐘 / 簽證 Visa.
+    var minutesWord: String = "分鐘"
+    var visaWord: String = "簽證 Visa"
     @Environment(\.canvasMetrics) private var metrics
 
     var body: some View {
@@ -543,7 +546,7 @@ struct VisaTicketBadge: View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
                 CanvasText("\(minutes)", size: 32, weight: 900, color: text, lineHeight: 1.05)
-                CanvasText("分鐘", size: 15, weight: 700, color: text)
+                CanvasText(minutesWord, size: 15, weight: 700, color: text)
             }
             .frame(width: metrics.u(72), height: metrics.u(74))
             .background(LM.ticketStub(stars))
@@ -558,7 +561,7 @@ struct VisaTicketBadge: View {
                             .opacity(index <= stars ? 1 : 0.25)
                     }
                 }
-                CanvasText("簽證 Visa", size: 17, weight: 900, color: LM.ink)
+                CanvasText(visaWord, size: 17, weight: 900, color: LM.ink)
             }
             .frame(maxWidth: .infinity)
         }
