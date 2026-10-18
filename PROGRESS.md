@@ -1,5 +1,16 @@
 # Progress
 
+## 2026-10-18 — v0.28.1 / 62 — 一架一架數 tap targets fixed (UAT)
+
+- UAT (Carter, v0.28.0): in the 10-vehicle round (two rows of five), tapping a row-1 vehicle did nothing, tapping row 2 lit row 1, and tapping below row 2 lit row 2.
+- Cause: the tap and pen overlays were placed at stage y = 118 (the workspace top), but their gesture locations, which start at 0 at that edge, were read as stage coordinates. Every target therefore sat 118u lower than its vehicle: about one ten-frame row (132u). In the one-row layouts only the lower part of each vehicle worked. The pen had the same offset.
+- Fix:
+  - one tap target per vehicle, laid on `TapCountVehicleLayout.hitRect` (the bay plus 6u, in stage units) with its own handler that passes the bay; the model no longer converts a point;
+  - the drawing takes its scale from the same `TapCountVehicleLayout`;
+  - pen points now add the workspace top.
+- Test: `testHitTargetsMatchTheDrawnVehiclesForEveryCount` covers every star × scene × count the generator deals (★/★★ 1–10, ★★★ 3–10). For each case it checks that each drawn vehicle's centre and body points hit its own target and no other, that targets don't overlap, and that a point 118u below a vehicle is not that vehicle. The source guards forbid point hit tests in the view.
+- Offline render check: the real tap views were tinted (debug-only environment flag) over the drawing for every scene at 4/7/10 vehicles.
+
 ## 2026-10-18 — v0.28.0 / 61 — 一架一架數 / Tap & Count (number and quantity 1–10)
 
 Branch `feat/number-quantity-v028` from main `b91eb83`. ADR 0017. Carter approved the design defaults (Q1 one numeral, Q2 judge at OK, Q4 LWT strokes with 9 in one stroke, Q6 Sinji + English, the rest bold defaults).
