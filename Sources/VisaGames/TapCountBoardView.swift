@@ -61,6 +61,15 @@ private struct TapCountStageContent: View {
 
     @Environment(\.tapCountShowsHitTargets) private var showsHitTargets
     private var board: TapCountBoard { view.board }
+
+    /// Off in the app; the offline render check turns it on to see the real hit frames.
+    @ViewBuilder private var debugHitTint: some View {
+        if showsHitTargets {
+            Rectangle().fill(Color.red.opacity(0.22))
+                .overlay(Rectangle().strokeBorder(Color.red, lineWidth: metrics.u(3)))
+                .allowsHitTesting(false)
+        }
+    }
     private var question: TapCountQuestion { board.question }
     private var tracingShown: Bool {
         question.tracesNumeral && (board.stage == .tracing || board.stage == .done) && board.trace != nil
@@ -91,13 +100,7 @@ private struct TapCountStageContent: View {
     private func bayHitTarget(_ bay: Int, rect r: LineMatchRect) -> some View {
         Color.clear
             .frame(width: metrics.u(CGFloat(r.width)), height: metrics.u(CGFloat(r.height)))
-            .overlay {
-                // Off in the app; the offline render check turns it on to see the real targets.
-                if showsHitTargets {
-                    Rectangle().fill(Color.red.opacity(0.22))
-                        .overlay(Rectangle().strokeBorder(Color.red, lineWidth: metrics.u(3)))
-                }
-            }
+            .overlay { debugHitTint }
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -656,6 +659,7 @@ private struct TapCountStageContent: View {
                             .canvasPlaced(x: 0, y: 132)
                     }
                     .frame(width: metrics.u(200), height: metrics.u(160), alignment: .topLeading)
+                    .overlay { debugHitTint }
                     .contentShape(Rectangle())
                     .saturation(on ? 1 : 0)
                     .opacity(on ? 1 : 0.5)
@@ -686,6 +690,7 @@ private struct TapCountStageContent: View {
                         .canvasPlaced(x: 102, y: 112)
                 }
                 .frame(width: metrics.u(240), height: metrics.u(160), alignment: .topLeading)
+                .overlay { debugHitTint }
                 .contentShape(Rectangle())
                 .saturation(board.okEnabled ? 1 : 0)
                 .opacity(board.okEnabled ? 1 : 0.5)
@@ -758,6 +763,7 @@ private struct TapCountStageContent: View {
                     .minimumScaleFactor(0.7)
                 }
                 .frame(width: metrics.u(800), height: metrics.u(92), alignment: .leading)
+                .overlay { debugHitTint }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
