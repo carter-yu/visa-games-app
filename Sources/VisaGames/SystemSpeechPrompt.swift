@@ -63,7 +63,7 @@ final class SystemSpeechPrompt {
         if synthesizer.isSpeaking {
             synthesizer.stopSpeaking(at: .immediate)
         }
-        let utterance = AVSpeechUtterance(string: prompt.traditionalChinese)
+        let utterance = AVSpeechUtterance(string: CantoneseSpeech.spoken(prompt.traditionalChinese))
         utterance.voice = voice
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
         utterance.volume = 1.0
@@ -82,7 +82,7 @@ final class SystemSpeechPrompt {
         if synthesizer.isSpeaking {
             synthesizer.stopSpeaking(at: .immediate)
         }
-        let word = AVSpeechUtterance(string: cue.traditionalChinese)
+        let word = AVSpeechUtterance(string: CantoneseSpeech.spoken(cue.traditionalChinese))
         word.voice = voice
         word.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
         word.postUtteranceDelay = 0.2
@@ -96,7 +96,7 @@ final class SystemSpeechPrompt {
         }
         if let follow {
             // v0.25.0 畫直線: the next line's start words, in Cantonese only.
-            let line = AVSpeechUtterance(string: follow.traditionalChinese)
+            let line = AVSpeechUtterance(string: CantoneseSpeech.spoken(follow.traditionalChinese))
             line.voice = voice
             line.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
             synthesizer.speak(line)
@@ -118,7 +118,7 @@ final class SystemSpeechPrompt {
             VisaGamesLog.append("voice skip — 無粵語語音 key=\(prompt.key)")
             return
         }
-        let word = AVSpeechUtterance(string: prompt.traditionalChinese)
+        let word = AVSpeechUtterance(string: CantoneseSpeech.spoken(prompt.traditionalChinese))
         word.voice = voice
         word.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
         word.postUtteranceDelay = english == nil ? 0.05 : 0.2

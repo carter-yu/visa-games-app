@@ -347,6 +347,29 @@ final class TapCountTests {
         expectTrue(minCoverage >= 0.75, "drawn art inside its target ≥ 75% (worst \(worst): \(minCoverage))")
     }
 
+    // MARK: Spoken 喎 (v0.28.2)
+
+    /// UAT v0.28.1: Sinji read 「要八架喎！」 with 喎 as 窩 (wo1). The voice gets 禍 (wo6) instead;
+    /// the screen, the keys and the recorded clips keep 喎.
+    func testSpokenParticleReadsLowAndScreenKeepsWo() throws {
+        let lines = [TapCountCopy.noneYet, TapCountCopy.need(8), TapCountCopy.over, TapCountCopy.under]
+        for line in lines {
+            expectTrue(line.traditionalChinese.contains("喎"), "screen keeps 喎: \(line.traditionalChinese)")
+            let spoken = CantoneseSpeech.spoken(line.traditionalChinese)
+            expectFalse(spoken.contains("喎"), "voice never gets 喎: \(spoken)")
+            expectEqual(spoken, line.traditionalChinese.replacingOccurrences(of: "喎", with: "禍"))
+        }
+        expectEqual(CantoneseSpeech.spoken("要八架喎！"), "要八架禍！")
+        expectEqual(CantoneseSpeech.spoken("點一點每架叮叮！"), "點一點每架叮叮！")
+        for n in 1...10 { expectFalse(CantoneseSpeech.spoken(TapCountCopy.need(n).traditionalChinese).contains("喎"), "need \(n)") }
+        // Every Cantonese system-voice utterance goes through the spoken mapping.
+        let speech = try source("Sources/VisaGames/SystemSpeechPrompt.swift")
+        for field in ["prompt", "cue", "follow"] {
+            expectFalse(speech.contains("AVSpeechUtterance(string: \(field).traditionalChinese)"), "raw \(field) text")
+        }
+        expectTrue(speech.contains("AVSpeechUtterance(string: CantoneseSpeech.spoken(prompt.traditionalChinese))"))
+    }
+
     // MARK: Reducer
 
     private func pickQuestion(target: Int, cars: Int) -> TapCountQuestion {
