@@ -1,5 +1,16 @@
 # Progress
 
+## 2026-10-19 — v0.31.0 / 66 — 筆順動畫: stroke-order animation for 1–10 (Cantonese and English)
+
+- Carter approved every Opus default in `visa-games-design/stroke-order` (design.md D1–D15, mockups 01–04). Built for digits only (S0–S2); letters and Chinese characters are still design-only. See ADR 0018.
+- ★ 點一點: when the numeral lights up, a silent smiley pen writes it once on the plate (提; 一閃 once 識咗; 教 if the parent picks it). Tapping the plate while it writes finishes it at once; tapping afterwards replays it (at most 2 times). The round waits for the pen plus 0.8 s, never less than 2.4 s. Never a miss.
+- ★★ 數完畫 / ★★★: the v0.30 demo car still plays while a numeral is being learned. Once it is 識咗 at 標準, a silent pen glance replaces it, 3 times, then nothing. One refresh glance comes after 7+ days without that numeral. The car and the pen never play together. The first touch ends the glance, paints nothing and is not a miss. A glance is not help. A stall refills the 3 glances. Playtests never use them up.
+- Parent: 數字設定 → 筆順動畫 教 / 提 / 熄 (digits default to 提; copy from design D4). v0.30 settings load as 提.
+- Reduce Motion: no gliding; each chunk fades in over 0.2 s. The ink on the trace board fades over 1.5 s.
+- Code: `VisaCore/StrokeOrder.swift` (glyph model, D7 timeline, progress store, ★ reveal) and `VisaGames/StrokeOrderDrawing.swift`. The pen and start-dot art come from mockup 01 via `docs/art-tap-count-source.svg` → `TapCountArt`.
+- Logs: `stroke_reveal`, `stroke_replays`, `stroke_skips`, `stroke_glance`; `guide_demo` = `glance` / `glance_skipped`.
+- Tests: new `StrokeOrderTests` (7 checks).
+
 ## 2026-10-19 — v0.30.0 / 65 — 描數字提示: tracing guidance for 1–10 (Cantonese and English)
 
 - Carter approved the guidance Opus recommended (`visa-games-design/number-quantity/guidance`, mockups 01–03, options.md). It covers numerals 1–10 in ★★ 數完畫 and ★★★ 揀啱數, on the Cantonese and the English cards alike, through the shared `TapCountLines` and guidance code.

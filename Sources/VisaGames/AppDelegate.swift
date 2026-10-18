@@ -198,6 +198,9 @@ final class AppModel: ObservableObject {
     /// v0.30.0 識咗 per numeral (2 clean traces in a row). UserDefaults; a failed save never blocks.
     @Published private(set) var tapCountGuideProgress = TapCountGuideProgress()
     private let tapCountGuideProgressStore = TapCountGuideProgressStore()
+    /// v0.31.0 筆順動畫: glances left after 識咗 and the last trace day per numeral (UserDefaults, best effort).
+    private(set) var strokeOrderProgress = StrokeOrderProgress()
+    private let strokeOrderProgressStore = StrokeOrderProgressStore()
     /// The guidance line in the voice bubble beside the trace board (cue / hop / stall), until a time.
     @Published private(set) var tapCountGuideBubble: TapCountGuideBubble?
     /// Bumped to cancel the demo lines still scheduled (a touch ended the demo, a new round).
@@ -277,6 +280,7 @@ final class AppModel: ObservableObject {
         shapeTraceSettings = ShapeTraceSettingsStore().load()
         tapCountSettings = TapCountSettingsStore().load()
         tapCountGuideProgress = TapCountGuideProgressStore().load()
+        strokeOrderProgress = StrokeOrderProgressStore().load()
         parentPlaytestLog = ParentPlaytestLogStore().load()
         playbackShuffle = VideoPlaybackShuffleStore().load()
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -3912,7 +3916,8 @@ extension AppModel {
             prompt = board.isPick ? tapCountLines.pickPrompt(board.target) : board.question.prompt
         case .counted, .tracing:
             let clock = Date().timeIntervalSinceReferenceDate
-            if board.question.tracesNumeral, board.stage == .tracing, board.guideDemoPending(now: clock) {
+            if board.question.tracesNumeral, board.stage == .tracing, board.guide?.isGlance != true,
+               board.guideDemoPending(now: clock) {
                 prompt = tapCountLines.guideWatchFirst(board.target)
             } else {
                 prompt = board.question.tracesNumeral ? tapCountLines.tracePrompt(board.target)
@@ -3949,7 +3954,7 @@ extension AppModel {
             guideVoice.speakQueued(tapCountLines.total(k, scene: board.question.scene),
                                    english: tapCountSettings.english ? TapCountNumber.en(k) : nil)
             VisaGamesLog.append("tapCount counted — 點晒 \(k) item=\(board.question.itemID) taps=\(board.taps)")
-            scheduleTapCountAfterCount(delay: 2.4)
+            scheduleTapCountAfterCount(delay: startTapCountStrokeReveal(board: board, now: clock))
         case .recount(let again):
             VisaGamesLog.append("tapCount recount — 已點 bay=\(again) (badge flashes, not counted again)")
         case .doubleTapIgnored, .empty, .locked:
@@ -3969,13 +3974,18 @@ extension AppModel {
                 let colour = TapCountDrawing.traceColorIndex(board.question.scene)
                 let plan = self.tapCountGuidePlan(for: board)
                 let clock = Date().timeIntervalSinceReferenceDate
+                let glance = self.strokeGlance(for: board, plan: plan, now: clock)
                 self.changeTapCountBoard(force: true) {
                     $0.startTracing(tolerance: tolerance, colorIndex: colour, guidance: plan, now: clock,
-                                    demoLead: Self.tapCountGuideDemoLead)
+                                    demoLead: Self.tapCountGuideDemoLead, glanceDuration: glance?.duration ?? 0)
                 }
                 self.tapCountTraceHintSpoken = []
                 self.tapCountGuideBubble = nil
-                if let started = self.currentTapCountBoard, started.guideDemoPending(now: clock) {
+                self.noteStrokeGlance(board: board, reason: glance?.reason, now: clock)
+                if let started = self.currentTapCountBoard, started.guide?.isGlance == true {
+                    // The glance is silent (D8): only the usual trace prompt.
+                    self.guideVoice.speakQueued(self.tapCountLines.tracePrompt(board.target))
+                } else if let started = self.currentTapCountBoard, started.guideDemoPending(now: clock) {
                     self.guideVoice.speakQueued(self.tapCountLines.guideWatchFirst(board.target))
                     self.scheduleTapCountGuideDemoSpeech(target: board.target, at: clock + Self.tapCountGuideDemoLead)
                 } else {
@@ -3986,6 +3996,14 @@ extension AppModel {
                 )
             } else {
                 let clock = Date().timeIntervalSinceReferenceDate
+                // 筆順動畫: a replay (tap on the plate) moves the end; wait for the pen, then the flash.
+                if let reveal = board.strokeReveal {
+                    let wait = reveal.endsAt(now: clock) + Self.strokeRevealFlash - clock
+                    if wait > 0.05 {
+                        self.scheduleTapCountAfterCount(delay: wait)
+                        return
+                    }
+                }
                 self.changeTapCountBoard(force: true) { $0.finishWithoutTrace(now: clock) }
                 self.finishTapCountRound(token: token, playtest: playtest)
             }
@@ -4186,8 +4204,14 @@ extension AppModel {
     /// A touch during the demo: it ends at once (input is never locked); the remaining lines are dropped.
     func tapCountGuideSkipDemo() {
         let clock = Date().timeIntervalSinceReferenceDate
+        let glance = currentTapCountBoard?.guide?.isGlance == true
         guard changeTapCountBoard({ $0.skipGuideDemo(now: clock) }) == true, let board = currentTapCountBoard else { return }
         tapCountGuideSpeechGeneration += 1
+        if glance {
+            // 筆順動畫 glance: silent (D8); the touch just ends it, nothing is painted.
+            VisaGamesLog.append("tapCount stroke glance skipped — 落筆 (no miss)")
+            return
+        }
         guideVoice.speak(tapCountLines.guideYourTurn(board.target))
         VisaGamesLog.append("tapCount guide demo skipped — 落筆，示範停 (no miss)")
     }
@@ -4244,6 +4268,10 @@ extension AppModel {
             var progress = tapCountGuideProgress
             progress.recordStall(board.target, language: board.question.language)
             saveTapCountGuideProgress(progress)
+            // Back to learning: the 3 glances come back for when it is learned again.
+            var strokes = strokeOrderProgress
+            strokes.reset(TapCountGuideProgress.key(board.target, language: board.question.language))
+            saveStrokeOrderProgress(strokes)
         }
         return true
     }
@@ -4264,6 +4292,67 @@ extension AppModel {
     private func saveTapCountGuideProgress(_ next: TapCountGuideProgress) {
         tapCountGuideProgress = next
         tapCountGuideProgressStore.save(next)
+    }
+
+    // MARK: 筆順動畫 (v0.31.0; stroke-order design D2–D4, digits only)
+
+    /// ★ after the pen is done: the plate glows this long before the round finishes.
+    static let strokeRevealFlash: Double = 0.8
+    /// ★ the pen starts this long after 「八架！」 begins (D2).
+    static let strokeRevealLead: Double = 0.2
+
+    /// ★: the pen writes the lit numeral (提 / 一閃 once learned / 教). Returns the finish delay
+    /// (2.4 s as in v0.30 when the pen is off or the numeral has no data).
+    private func startTapCountStrokeReveal(board: TapCountBoard, now clock: Double) -> Double {
+        guard !board.question.tracesNumeral, !board.isPick else { return 2.4 }
+        let learned = tapCountGuideProgress.isLearned(board.target, language: board.question.language)
+        guard let dosage = StrokeOrderPlan.star1(setting: tapCountSettings.strokeOrder, learned: learned),
+              let timeline = StrokeOrderTimeline.digit(board.target, dosage: dosage) else {
+            VisaGamesLog.append("tapCount stroke reveal — off or no data n=\(board.target)")
+            return 2.4
+        }
+        changeTapCountBoard(force: true) {
+            $0.startStrokeReveal(dosage: dosage, duration: timeline.duration, startAt: clock + Self.strokeRevealLead)
+        }
+        VisaGamesLog.append("tapCount stroke reveal — 筆仔寫 \(board.target) dose=\(dosage.rawValue) s=\(timeline.duration)")
+        return max(2.4, Self.strokeRevealLead + timeline.duration + Self.strokeRevealFlash)
+    }
+
+    /// ★: a tap on the numeral plate (writing → finish now; written → replay, at most 2). Never a miss.
+    func tapCountStrokeRevealTap() {
+        let clock = Date().timeIntervalSinceReferenceDate
+        guard let result = changeTapCountBoard({ $0.tapStrokeReveal(now: clock) }), result != .ignored else { return }
+        VisaGamesLog.append("tapCount stroke reveal tap — \(result == .finished ? "寫完" : "再寫") (no miss)")
+    }
+
+    /// ★★ / ★★★: a silent pen glance instead of nothing, for a learned numeral at 標準 (D3).
+    private func strokeGlance(for board: TapCountBoard, plan: TapCountGuidePlan,
+                              now clock: Double) -> (duration: Double, reason: StrokeOrderProgress.GlanceReason)? {
+        let key = TapCountGuideProgress.key(board.target, language: board.question.language)
+        guard let reason = StrokeOrderPlan.star2Glance(
+                setting: tapCountSettings.strokeOrder, guidance: plan.level, learned: plan.learned, carDemo: plan.demo,
+                progress: strokeOrderProgress, key: key, today: StrokeOrderProgress.day(clock: clock)),
+              let timeline = StrokeOrderTimeline.digit(board.target, dosage: .glance) else { return nil }
+        return (timeline.duration, reason)
+    }
+
+    /// Glance budget and the 7-day day stamp (child rounds only; playtests never change it).
+    private func noteStrokeGlance(board: TapCountBoard, reason: StrokeOrderProgress.GlanceReason?, now clock: Double) {
+        guard !tapCountUsesPlaytest else { return }
+        let key = TapCountGuideProgress.key(board.target, language: board.question.language)
+        var next = strokeOrderProgress
+        if let reason, currentTapCountBoard?.guide?.isGlance == true {
+            next.consume(key, reason: reason)
+            VisaGamesLog.append("tapCount stroke glance — \(board.target) reason=\(reason.rawValue) left=\(next.remaining(key))")
+        }
+        next.noteTraced(key, today: StrokeOrderProgress.day(clock: clock))
+        saveStrokeOrderProgress(next)
+    }
+
+    /// UserDefaults only; a failed write never reaches the child.
+    private func saveStrokeOrderProgress(_ next: StrokeOrderProgress) {
+        strokeOrderProgress = next
+        strokeOrderProgressStore.save(next)
     }
 
     /// Done (★ after the reveal; ★★ / ★★★ after the trace). The child round goes to the usual
@@ -4366,6 +4455,14 @@ extension AppModel {
         var next = tapCountSettings
         next.guidance = level
         saveTapCountSettings(next, what: "guidance", value: level.rawValue)
+    }
+
+    /// 筆順動畫 for digits: 教 / 提 / 熄 (★ reveal and the ★★ glance; both card languages).
+    func setTapCountStrokeOrder(_ setting: StrokeOrderSetting) {
+        guard session.mode == .parent, setting != tapCountSettings.strokeOrder else { return }
+        var next = tapCountSettings
+        next.strokeOrder = setting
+        saveTapCountSettings(next, what: "stroke_order", value: setting.rawValue)
     }
 
     /// nil = follow 畫形狀's tolerance.

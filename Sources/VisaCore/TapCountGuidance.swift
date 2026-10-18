@@ -851,15 +851,30 @@ public struct TapCountGuideRun: Equatable, Sendable {
     public private(set) var redemos = 0
     public private(set) var otherHelps = 0
     public private(set) var cuesSaid: [Int] = []
-    public let demoDuration: Double
+    /// How long the piece on screen lasts: the car demo, or (v0.31.0) the pen's silent glance.
+    public private(set) var demoDuration: Double
+    /// The v0.30 car demo's length (the 20 s re-demo always uses the car).
+    public let carDemoDuration: Double
+    /// v0.31.0 筆順動畫: the pre-trace piece is the pen's glance, not the car (識咗 at 標準). Never both.
+    public private(set) var isGlance = false
+    public private(set) var glancesPlayed = 0
+    public private(set) var glanceSkips = 0
 
-    public init(plan: TapCountGuidePlan, demoDuration: Double, now: Double, demoLead: Double) {
+    public init(plan: TapCountGuidePlan, demoDuration: Double, now: Double, demoLead: Double, glanceDuration: Double = 0) {
         self.plan = plan
+        self.carDemoDuration = demoDuration
         self.demoDuration = demoDuration
         if plan.demo, demoDuration > 0 {
             demoStartedAt = now + demoLead
             demosPlayed = 1
             readyAt = now + demoLead + demoDuration
+        } else if glanceDuration > 0 {
+            // The car never plays when the glance does (stroke-order D3).
+            self.demoDuration = glanceDuration
+            isGlance = true
+            glancesPlayed = 1
+            demoStartedAt = now + demoLead
+            readyAt = now + demoLead + glanceDuration
         } else {
             readyAt = now
         }
@@ -883,13 +898,15 @@ public struct TapCountGuideRun: Equatable, Sendable {
     public mutating func skipDemo(now: Double) -> Bool {
         guard demoPending(now: now) else { return false }
         demoStoppedAt = now
-        demoSkips += 1
+        if isGlance { glanceSkips += 1 } else { demoSkips += 1 }
         readyAt = now
         return true
     }
 
     public mutating func restartDemo(now: Double, lead: Double) {
-        guard demoDuration > 0 else { return }
+        guard carDemoDuration > 0 else { return }
+        isGlance = false
+        demoDuration = carDemoDuration
         demoStartedAt = now + lead
         demoStoppedAt = nil
         demosPlayed += 1
@@ -920,8 +937,21 @@ public struct TapCountGuideRun: Equatable, Sendable {
 
     public var clean: Bool { helpKeys.isEmpty }
 
+    /// Seconds into the glance while the pen writes (nil for the car or when stopped).
+    public func glanceTime(now: Double) -> Double? { isGlance ? demoTime(now: now) : nil }
+
+    /// After a glance that played to the end: seconds since it ended (for the 1.5 s ink fade).
+    public func glanceEndedFor(now: Double) -> Double? {
+        guard isGlance, let start = demoStartedAt, demoStoppedAt == nil else { return nil }
+        let dt = now - (start + demoDuration)
+        return dt >= 0 ? dt : nil
+    }
+
     public var demoCode: String {
-        if demosPlayed == 0 { return "none" }
+        if demosPlayed == 0 {
+            if glancesPlayed > 0 { return glanceSkips > 0 ? "glance_skipped" : "glance" }
+            return "none"
+        }
         return demoSkips > 0 ? "skipped" : "played"
     }
 }

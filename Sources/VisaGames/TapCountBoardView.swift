@@ -44,6 +44,8 @@ struct TapCountBoardView: View {
     var onGuideHelp: (String, String) -> Void = { _, _ in }
     /// The car is coming up to cue `index` (a crossing or a turn).
     var onGuideCue: (Int) -> Void = { _ in }
+    /// v0.31.0 筆順動畫 ★: a tap on the lit numeral plate (writing → finish now; written → replay, at most 2).
+    var onStrokeRevealTap: () -> Void = {}
 
     var body: some View {
         CanvasStage {
@@ -213,11 +215,39 @@ private struct TapCountStageContent: View {
         penTip = nil
     }
 
+    // MARK: 筆順動畫 ★ (v0.31.0; the smiley pen writes the lit numeral on the plate, mockup stroke-order/01)
+
+    @ViewBuilder private var strokeRevealLayer: some View {
+        if board.stage == .counted, let reveal = board.strokeReveal, reveal.writing(now: Date().timeIntervalSinceReferenceDate),
+           let timeline = StrokeOrderCache.timeline(board.target, reveal.dosage) {
+            let scale = metrics.scale
+            let n = board.target
+            let colour = LineMatchRoadPalette.color(TapCountDrawing.traceColorIndex(question.scene)).full
+            let motion = reduceMotion
+            TimelineView(.animation(minimumInterval: 1.0 / 30, paused: false)) { context in
+                let now = context.date.timeIntervalSinceReferenceDate
+                Canvas { canvas, _ in
+                    guard reveal.writing(now: now) else { return }
+                    var g = canvas
+                    g.scaleBy(x: scale, y: scale)
+                    TapCountDrawing.strokeRevealPlate(n: n, timeline: timeline, t: max(0, now - reveal.startedAt),
+                                                      colour: colour, reduceMotion: motion, in: &g)
+                }
+            }
+            .frame(width: metrics.u(1280), height: metrics.u(720))
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+    }
+
     // MARK: Guidance (v0.30.0)
 
     private var guideRun: TapCountGuideRun? { board.stage == .tracing || board.stage == .done ? board.guide : nil }
     private var numeralGuide: NumeralGuide? { guideRun == nil ? nil : TapCountGuideCache.guide(board.target) }
-    private var demoOn: Bool { board.stage == .tracing && board.guideDemoPending(now: view.now) }
+    /// The car demo (not the 筆順 glance, which is silent and has no 「睇住」 header or bubble).
+    private var demoOn: Bool {
+        board.stage == .tracing && board.guide?.isGlance != true && board.guideDemoPending(now: view.now)
+    }
 
     /// The help the board shows now (stall ring + ghost, ghost to the end, or the 20 s re-demo).
     private var guideHelp: TapCountGuideHelp {
@@ -238,7 +268,7 @@ private struct TapCountStageContent: View {
         let cue = demo || !run.plan.cueSigns ? nil : activeCue
         let clock = Date().timeIntervalSinceReferenceDate
         return TapCountGuideDraw(
-            plan: run.plan, numeral: numeralGuide, demo: demo,
+            plan: run.plan, numeral: numeralGuide, demo: demo && !run.isGlance,
             headlights: demo ? [] : TapCountGuideCoach.headlights(plan: run.plan, guide: numeralGuide, trace: trace),
             cue: cue, popAt: cue.flatMap { cueShownAt[$0.index] }, stopWord: lines.guideStopWord,
             reduceMotion: reduceMotion, now: clock)
@@ -246,8 +276,12 @@ private struct TapCountStageContent: View {
 
     /// Whether the guidance layer needs frames (demo, a hop, a help ghost, a wiggle). Off = no timer.
     private var guideAnimating: Bool {
-        guard !reduceMotion, let run = guideRun, let trace, board.stage == .tracing else { return false }
+        guard let run = guideRun, trace != nil, board.stage == .tracing else { return false }
         let clock = Date().timeIntervalSinceReferenceDate
+        // 筆順 glance: frames even with Reduce Motion (chunks fade in; nothing glides).
+        if run.isGlance, run.demoPending(now: clock) { return true }
+        if let dt = run.glanceEndedFor(now: clock), dt < StrokeOrderPacing.inkFadeSeconds + 0.1 { return true }
+        guard !reduceMotion, let trace else { return false }
         if run.demoPending(now: clock) { return true }
         if let at = wiggleAt, clock - at < 0.6 { return true }
         if run.plan.hops, trace.strokeIndex > 0, trace.progress < 0.5, let at = trace.lastProgressAt,
@@ -263,7 +297,9 @@ private struct TapCountStageContent: View {
             let state = TapCountGuideMotionState(
                 numeral: numeralGuide, timeline: TapCountGuideCache.timeline(board.target), run: run, trace: trace,
                 help: guideHelp, wiggleAt: wiggleAt, reduceMotion: reduceMotion,
-                board: NumeralGlyphs.traceBoard(board.target), stopWord: lines.guideStopWord)
+                board: NumeralGlyphs.traceBoard(board.target), stopWord: lines.guideStopWord,
+                glance: run.isGlance ? StrokeOrderCache.timeline(board.target, .glance) : nil,
+                glanceColour: LineMatchRoadPalette.color(TapCountDrawing.traceColorIndex(question.scene)).full)
             let scale = metrics.scale
             let animating = guideAnimating
             TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !animating)) { context in
@@ -284,6 +320,7 @@ private struct TapCountStageContent: View {
     /// grey), or the model's cue / hop / stall line.
     private var guideBubbleContent: (previous: String?, main: String, sub: String?, demo: Bool)? {
         guard board.stage == .tracing, let run = guideRun else { return nil }
+        if run.isGlance, run.demoPending(now: view.now) { return nil }
         if let t = run.demoTime(now: view.now) {
             guard t >= 0, let timeline = TapCountGuideCache.timeline(board.target) else { return nil }
             let beats = lines.guideBeats(board.target)
@@ -396,7 +433,21 @@ private struct TapCountStageContent: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             sceneLayer
+            strokeRevealLayer
             guideMotionLayer
+            if board.stage == .counted, board.strokeReveal != nil {
+                let tile = TapCountLayoutGeometry.tile
+                Color.clear
+                    .frame(width: metrics.u(CGFloat(tile.width)), height: metrics.u(CGFloat(tile.height)))
+                    .overlay { debugHitTint }
+                    .contentShape(Rectangle())
+                    .onTapGesture { view.onStrokeRevealTap() }
+                    .allowsHitTesting(!view.locked)
+                    .canvasPlaced(x: CGFloat(tile.x), y: CGFloat(tile.y))
+                    .accessibilityElement()
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityLabel(lines.number(board.target).mainText)
+            }
             if board.stage == .tapping {
                 ForEach(TapCountVehicleLayout.hitTargets(question), id: \.bay) { target in
                     bayHitTarget(target.bay, rect: target.rect)
@@ -488,7 +539,9 @@ private struct TapCountStageContent: View {
             if let (rect, word) = countBubble {
                 speechBubble(text: word, english: nil, rect: rect, size: question.layout == .row ? 30 : 27)
             }
-            if !question.isPick, board.stage == .counted || (board.stage == .done && !question.tracesNumeral) {
+            // 筆順動畫 ★: 「八、eight」 comes after the pen has written the numeral (D2).
+            if !question.isPick, board.stage == .counted || (board.stage == .done && !question.tracesNumeral),
+               board.stage == .done || board.strokeReveal?.writing(now: view.now) != true {
                 let reveal = lines.revealBubble(board.target, addEnglish: view.settings.english)
                 speechBubble(text: reveal.0, english: reveal.1,
                              rect: LineMatchRect(x: 806, y: 434,
@@ -1546,6 +1599,29 @@ enum TapCountDrawing {
                                                         (488, 430, 0.6), (790, 462, 0.6)]
             for (x, y, size) in sparkles { place(TapCountArt.sparkle, at: LineMatchPoint(x: x, y: y), scale: size, in: &g) }
         }
+    }
+
+    /// ★ 筆順: the plate while the pen writes — the numeral pale, the written part in the reveal colour.
+    static func strokeRevealPlate(n: Int, timeline: StrokeOrderTimeline, t: Double, colour: UInt32, reduceMotion: Bool,
+                                  in g: inout GraphicsContext) {
+        let tile = rect(TapCountLayoutGeometry.tile).insetBy(dx: 6, dy: 6)
+        g.fill(Path(roundedRect: tile, cornerRadius: 21), with: .color(LM.card))
+        let k = 0.38
+        let place = StrokeOrderDrawing.Placement(
+            offset: LineMatchPoint(x: 640 - NumeralGlyphs.box(n).width * k / 2, y: 403), scale: k)
+        let paths = NumeralGlyphs.paths(n, offset: place.offset, scale: k)
+        for path in paths {
+            g.stroke(ShapeTraceDrawing.whole(path), with: .color(Color(hex: 0xE4DDE8)),
+                     style: StrokeStyle(lineWidth: 76 * k, lineCap: .round, lineJoin: .round))
+        }
+        for path in paths {
+            g.stroke(ShapeTraceDrawing.whole(path), with: .color(Color(hex: 0xF7F3F8)),
+                     style: StrokeStyle(lineWidth: 62 * k, lineCap: .round, lineJoin: .round))
+        }
+        StrokeOrderDrawing.ink(timeline, at: t, reduceMotion: reduceMotion, place: place, colour: Color(hex: colour),
+                               outline: 76, core: 58, in: &g)
+        StrokeOrderDrawing.pen(timeline, at: t, reduceMotion: reduceMotion, place: place, nibColour: colour,
+                               penScale: 0.5, in: &g)
     }
 
     // MARK: ★★★ works sign (mockup 05; orange dashed ring after a miss, mockup 06)

@@ -411,7 +411,8 @@ struct CanvasActivityHost: View {
                 guideBubble: model.tapCountGuideBubble,
                 onGuideSkip: { model.tapCountGuideSkipDemo() },
                 onGuideHelp: { key, kind in model.tapCountGuideHelp(key: key, kind: kind) },
-                onGuideCue: { index in model.tapCountGuideCue(index: index) }
+                onGuideCue: { index in model.tapCountGuideCue(index: index) },
+                onStrokeRevealTap: { model.tapCountStrokeRevealTap() }
             )
         }
     }
