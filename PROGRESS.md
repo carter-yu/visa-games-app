@@ -1,5 +1,15 @@
 # Progress
 
+## 2026-10-18 — v0.28.2 / 63 — 喎 spoken low (UAT)
+
+- UAT (Carter, v0.28.1): in 「要八架喎！」, Sinji said 喎 like 蛙 / 窩 (wo1, high) instead of the intended low particle (like 禍).
+- Measured on the Mac mini: the lines were rendered through AVSpeechSynthesizer with Sinji (the app's speech path) and the final syllable's pitch was measured with Praat.
+  - 「要八架喎！」: 240 Hz, the same as the 窩 control at 242 Hz.
+  - 「要八架禍！」: 179 Hz, about 5 semitones lower.
+  - The other lines show the same pattern: 未揀車喎 258 vs 188 Hz, 多咗喎 240 vs 186 Hz, 仲未夠喎 245 vs 179 Hz.
+- Fix: `CantoneseSpeech.spoken` swaps 喎 → 禍 in the string sent to the system voice only. The screen copy, the keys and the recorded clips keep 喎.
+- Test: `testSpokenParticleReadsLowAndScreenKeepsWo`.
+
 ## 2026-10-18 — v0.28.1 / 62 — 一架一架數 tap targets fixed (UAT)
 
 - UAT (Carter, v0.28.0): in the 10-vehicle round (two rows of five), tapping a row-1 vehicle did nothing, tapping row 2 lit row 1, and tapping below row 2 lit row 2.
