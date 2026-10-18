@@ -10,6 +10,12 @@
   - pen points now add the workspace top.
 - Test: `testHitTargetsMatchTheDrawnVehiclesForEveryCount` covers every star × scene × count the generator deals (★/★★ 1–10, ★★★ 3–10). For each case it checks that each drawn vehicle's centre and body points hit its own target and no other, that targets don't overlap, and that a point 118u below a vehicle is not that vehicle. The source guards forbid point hit tests in the view.
 - Offline render check: the real tap views were tinted (debug-only environment flag) over the drawing for every scene at 4/7/10 vehicles.
+- Live input probe (offline harness, outside the repo): real mouse events were sent to an offscreen NSHostingView, with stage → window mapping computed independently from `DesignTokens.stageLayout`.
+  - Vehicle taps: 140 layouts and 2,430 clicks on the drawn vehicles, all landing on the right bay. Empty bays and open workspace take no taps.
+  - Buttons: the OK, 擦晒 and replay buttons fire inside their frames and not outside them. The parent corner takes no input.
+  - Tracing: numerals 1–10 in ★★ and ★★★ complete when the pen follows the drawn path, and the paint car stays under the pointer. The same drags shifted 118u never complete.
+  - Arrows: a pen-down on the red stop arrow is flagged.
+- Shape-trace, guided line-match and line-match were audited. Their input overlays are full-stage (origin 0,0) with no offset, so they never had this bug.
 
 ## 2026-10-18 — v0.28.0 / 61 — 一架一架數 / Tap & Count (number and quantity 1–10)
 
