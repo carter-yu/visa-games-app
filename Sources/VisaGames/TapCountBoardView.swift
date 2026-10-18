@@ -59,6 +59,7 @@ private struct TapCountStageContent: View {
     /// The vehicle that hops 6u right after its tap.
     @State private var bounceBay: Int?
 
+    @Environment(\.tapCountShowsHitTargets) private var showsHitTargets
     private var board: TapCountBoard { view.board }
     private var question: TapCountQuestion { board.question }
     private var tracingShown: Bool {
@@ -90,6 +91,13 @@ private struct TapCountStageContent: View {
     private func bayHitTarget(_ bay: Int, rect r: LineMatchRect) -> some View {
         Color.clear
             .frame(width: metrics.u(CGFloat(r.width)), height: metrics.u(CGFloat(r.height)))
+            .overlay {
+                // Off in the app; the offline render check turns it on to see the real targets.
+                if showsHitTargets {
+                    Rectangle().fill(Color.red.opacity(0.22))
+                        .overlay(Rectangle().strokeBorder(Color.red, lineWidth: metrics.u(3)))
+                }
+            }
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -1353,5 +1361,17 @@ enum TapCountDrawing {
             layer.stroke(chev, with: .color(guideGrey), style: StrokeStyle(lineWidth: 5.5, lineCap: .round, lineJoin: .round))
             d += 56
         }
+    }
+}
+
+/// Debug only: tint the per-vehicle tap targets (the offline render check). Always false in the app.
+private struct TapCountShowsHitTargetsKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var tapCountShowsHitTargets: Bool {
+        get { self[TapCountShowsHitTargetsKey.self] }
+        set { self[TapCountShowsHitTargetsKey.self] = newValue }
     }
 }
