@@ -125,7 +125,7 @@ struct TapCountIconView: View {
     let kind: ActivityKind
 
     private var artwork: CanvasArtwork {
-        switch kind {
+        switch kind.tapCountBase ?? kind {
         case .tapCountTrace: return TapCountArt.iconTrace
         case .tapCountPick: return TapCountArt.iconPick
         default: return TapCountArt.iconAll
@@ -134,7 +134,7 @@ struct TapCountIconView: View {
 
     /// Digit centres in tile units (mockup 09 text positions minus the tile origin).
     private var digits: [(String, CGPoint, CGFloat)] {
-        switch kind {
+        switch kind.tapCountBase ?? kind {
         case .tapCountAll: return [("1", CGPoint(x: 16, y: 26), 12), ("2", CGPoint(x: 40, y: 26), 12), ("3", CGPoint(x: 64, y: 26), 12)]
         case .tapCountPick: return [("1", CGPoint(x: 34, y: 13), 11), ("2", CGPoint(x: 72, y: 13), 11)]
         default: return []

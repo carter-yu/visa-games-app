@@ -31,7 +31,8 @@ final class QuestionGeneratorTests {
         expectEqual(QuestionGeneration.generatedKinds,
                     [.countVehicles, .findTheSame, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch,
                      .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree,
-                     .tapCountAll, .tapCountTrace, .tapCountPick])
+                     .tapCountAll, .tapCountTrace, .tapCountPick,
+                     .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish])
     }
 
     func testQuestionRNGIsDeterministicAndUniform() {

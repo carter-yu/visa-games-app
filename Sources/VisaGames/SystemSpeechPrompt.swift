@@ -56,6 +56,7 @@ final class SystemSpeechPrompt {
     var isAvailable: Bool { voice != nil }
 
     func speak(_ prompt: SpokenPrompt) {
+        if prompt.language == .english { speakEnglish(prompt, queued: false); return }
         guard let voice else {
             VisaGamesLog.append("voice skip — 無粵語語音 key=\(prompt.key)")
             return
@@ -75,6 +76,11 @@ final class SystemSpeechPrompt {
     /// With no Hong Kong Cantonese voice nothing is spoken at all (the bubble still shows);
     /// it never falls back to Mandarin.
     func speakWordCue(_ cue: SpokenPrompt, then follow: SpokenPrompt? = nil) {
+        if cue.language == .english {
+            speakEnglish(cue, queued: false)
+            if let follow { speakEnglish(follow, queued: true) }
+            return
+        }
         guard let voice else {
             VisaGamesLog.append("voice skip — 無粵語語音 key=\(cue.key)")
             return
@@ -113,6 +119,7 @@ final class SystemSpeechPrompt {
     /// clip falls back to the system voice, and with no Cantonese voice the word is simply not said.
     func speakQueued(_ prompt: SpokenPrompt, english: String? = nil, interrupt: Bool = false) {
         if interrupt { stop() }
+        if prompt.language == .english { speakEnglish(prompt, queued: true); return }
         if playClips(zhKey: prompt.key, english: english) { return }
         guard let voice else {
             VisaGamesLog.append("voice skip — 無粵語語音 key=\(prompt.key)")
@@ -129,6 +136,24 @@ final class SystemSpeechPrompt {
             utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.85
             synthesizer.speak(utterance)
         }
+    }
+
+    /// v0.29.0 English tap-count cards: English only, by the en-GB voice. A recorded clip
+    /// `Voice/<key>.m4a` (English keys start `en.`) wins; with no clip and no English voice
+    /// nothing is said and nothing crashes or waits (the screen line still shows).
+    private func speakEnglish(_ prompt: SpokenPrompt, queued: Bool) {
+        if !queued, synthesizer.isSpeaking { synthesizer.stopSpeaking(at: .immediate) }
+        if playClips(zhKey: prompt.key, english: nil) { return }
+        guard let englishVoice, !prompt.english.isEmpty else {
+            VisaGamesLog.append("voice skip — no English voice key=\(prompt.key)")
+            return
+        }
+        let utterance = AVSpeechUtterance(string: prompt.english)
+        utterance.voice = englishVoice
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.88
+        utterance.postUtteranceDelay = queued ? 0.05 : 0
+        synthesizer.speak(utterance)
+        VisaGamesLog.append("voice speak — English key=\(prompt.key) voice=\(englishVoice.name)")
     }
 
     /// Recorded clips: `Voice/<key>.m4a` in the app bundle, English as `Voice/<key>.en.m4a`.

@@ -98,7 +98,7 @@ struct CanvasActivityHost: View {
                 lineMatch
             case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
                 shapeTrace
-            case .tapCountAll, .tapCountTrace, .tapCountPick:
+            case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
                 tapCount
             case .none:
                 EmptyView()

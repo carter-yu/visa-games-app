@@ -236,8 +236,11 @@ public struct TapCountQuestion: Sendable, Equatable {
 
     public var count: Int { vehicles.count }
     public var bayCount: Int { layout == .row ? vehicles.count : 10 }
-    public var tracesNumeral: Bool { kind == .tapCountTrace || kind == .tapCountPick }
-    public var isPick: Bool { kind == .tapCountPick }
+    /// The game this card plays (the English twins play their Cantonese card's game exactly).
+    public var base: ActivityKind { kind.tapCountBase ?? kind }
+    public var language: TapCountLanguage { kind.tapCountLanguage ?? .cantonese }
+    public var tracesNumeral: Bool { base == .tapCountTrace || base == .tapCountPick }
+    public var isPick: Bool { base == .tapCountPick }
     public var occupiedBays: [Int] { vehicles.map(\.bay) }
 
     public func vehicle(atBay bay: Int) -> TapCountVehicle? { vehicles.first { $0.bay == bay } }
@@ -284,11 +287,10 @@ public struct TapCountQuestion: Sendable, Equatable {
     /// Reading order (left → right, top → bottom) = bay order.
     public var readingOrder: [Int] { occupiedBays }
 
+    /// The round's opening prompt in the card's language.
     public var prompt: SpokenPrompt {
-        switch kind {
-        case .tapCountPick: return TapCountCopy.pickPrompt(target)
-        default: return TapCountCopy.allPrompt(scene)
-        }
+        let lines = TapCountLines(language)
+        return isPick ? lines.pickPrompt(target) : lines.allPrompt(scene)
     }
 
     public var hintTraditionalChinese: String { TapCountCopy.hint }
@@ -301,7 +303,7 @@ public struct TapCountQuestion: Sendable, Equatable {
         }
         let bays = occupiedBays
         guard Set(bays).count == bays.count, bays.allSatisfy({ (0..<bayCount).contains($0) }) else { return false }
-        switch kind {
+        switch base {
         case .tapCountPick:
             guard layout == .yard, count <= 10 else { return false }
             guard target == 10 ? count == 10 : (count > target && count >= 3) else { return false }
@@ -466,7 +468,8 @@ public enum TapCountGenerator {
 
     private static func deal(seed: String, salt: Int, kind: ActivityKind, settings: TapCountSettings,
                              recentTargets: [Int], avoidingScene: TapCountScene?) -> TapCountQuestion {
-        var rng = QuestionRNG(seed: seed, salt: "tapCount.\(kind.rawValue).\(salt)")
+        // Seeded by the game, not the language: an English twin deals the very same round.
+        var rng = QuestionRNG(seed: seed, salt: "tapCount.\((kind.tapCountBase ?? kind).rawValue).\(salt)")
         let target = rng.pick(targetPool(range: settings.range, recentTargets: recentTargets))
         let scenes = TapCountScene.allCases.filter { $0 != avoidingScene }
         let scene = rng.pick(scenes.isEmpty ? TapCountScene.allCases : scenes)
@@ -478,7 +481,7 @@ public enum TapCountGenerator {
     private static func build(kind: ActivityKind, target: Int, scene: TapCountScene,
                               rng: inout QuestionRNG) -> TapCountQuestion {
         let level = kind.tapCountLevel ?? .l1
-        if kind == .tapCountPick {
+        if kind.tapCountBase == .tapCountPick {
             let cars = rng.int(in: carRange(target: target))
             let bays = Array(rng.shuffled(Array(0..<10)).prefix(cars)).sorted()
             var vehicles: [TapCountVehicle] = []
@@ -509,7 +512,7 @@ public enum TapCountGenerator {
             TapCountVehicle(bay: index, model: model, color: palette[(variant + index) % palette.count],
                             jitter: layout == .row ? 0 : jitter(&rng))
         }
-        let prefix = kind == .tapCountTrace ? "trace" : "all"
+        let prefix = kind.tapCountBase == .tapCountTrace ? "trace" : "all"
         return TapCountQuestion(itemID: "tapCount.\(prefix).\(scene.rawValue).n\(target).c\(variant)", kind: kind,
                                 level: level, target: target, scene: scene, layout: layout, vehicles: vehicles,
                                 variant: variant)
@@ -517,9 +520,10 @@ public enum TapCountGenerator {
 
     /// Fixed reference item per kind (performance catalog slots / parent previews).
     public static func reference(kind: ActivityKind) -> TapCountQuestion {
-        var rng = QuestionRNG(seed: "reference", salt: "tapCount.\(kind.rawValue)")
-        let scene: TapCountScene = kind == .tapCountPick ? .site : (kind == .tapCountTrace ? .fireStation : .tramDepot)
-        return build(kind: kind, target: kind == .tapCountAll ? 4 : 3, scene: scene, rng: &rng)
+        let base = kind.tapCountBase ?? kind
+        var rng = QuestionRNG(seed: "reference", salt: "tapCount.\(base.rawValue)")
+        let scene: TapCountScene = base == .tapCountPick ? .site : (base == .tapCountTrace ? .fireStation : .tramDepot)
+        return build(kind: kind, target: base == .tapCountAll ? 4 : 3, scene: scene, rng: &rng)
     }
 }
 
@@ -544,7 +548,7 @@ public enum TapCountCopy {
 
     /// Child header chip second line (design §10).
     public static func chipSubtitle(_ kind: ActivityKind) -> String {
-        switch kind {
+        switch kind.tapCountBase ?? kind {
         case .tapCountTrace: return "數完畫 · Count & trace"
         case .tapCountPick: return "揀啱數 · Just right"
         default: return "點一點 · Tap each"
@@ -695,19 +699,19 @@ public enum TapCountCopy {
 
     // Parent settings (mockup 09, design §9).
     public static let parentGroupTitle = "一架一架數"
-    public static func parentGroupSubtitle(_ range: TapCountRange) -> String { "Tap & Count · 3 張卡 · 數字 \(range.label)" }
+    public static func parentGroupSubtitle(_ range: TapCountRange) -> String { "Tap & Count · 3 張卡 + 3 張英文版 · 數字 \(range.label)" }
     public static let parentDefaultOff = "預設全部關閉。試玩一次，再揀邊個星級出呢張卡。"
     public static let parentDefaultOffEnglish = "Off by default. Try a card, then choose which tickets (★ / ★★ / ★★★) may deal it."
     public static let recommended = "建議"
     public static func recommendedStar(_ kind: ActivityKind) -> String {
-        switch kind {
+        switch kind.tapCountBase ?? kind {
         case .tapCountTrace: return "建議 ★★"
         case .tapCountPick: return "建議 ★★★"
         default: return "建議 ★"
         }
     }
     public static let settingsTitle = "數字設定"
-    public static let settingsSubtitle = "Shared by the 3 cards"
+    public static let settingsSubtitle = "Shared by the 3 cards and their 3 English versions"
     public static let rangeTitle = "數字範圍"
     public static let rangeEnglish = "Numbers"
     public static let countVoiceTitle = "點車讀數"

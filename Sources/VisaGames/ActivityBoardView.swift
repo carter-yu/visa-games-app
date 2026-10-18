@@ -157,6 +157,8 @@ struct ThinkPauseOverlay: View {
     /// Tray card only: 「15 → 7 分鐘」.
     var minutesBefore: Int = 0
     var minutesAfter: Int = 0
+    /// Tray card words (v0.29.0: an English tap-count card passes English ones).
+    var trayLines: TapCountLines = TapCountLines(.cantonese)
     @Environment(\.canvasMetrics) private var metrics
 
     var body: some View {
@@ -183,11 +185,13 @@ struct ThinkPauseOverlay: View {
                         .strokeBorder(Color.ink, lineWidth: metrics.u(6)))
                     .frame(width: metrics.u(536), height: metrics.u(148))
                 VStack(alignment: .leading, spacing: metrics.u(2)) {
-                    CanvasText(WrongAnswerCopy.thinkPauseTraditionalChinese, size: 34, weight: 900, color: Color.ink)
-                    CanvasText(WrongAnswerCopy.thinkPauseEnglish, size: 17, weight: 700, color: Color(hex: 0x6B6170))
-                    CanvasText(WrongAnswerCopy.fuelHalvedTraditionalChinese, size: 22, weight: 900, color: Color(hex: 0xE8473C))
+                    CanvasText(trayLines.thinkPause.0, size: 34, weight: 900, color: Color.ink)
+                    if !trayLines.thinkPause.1.isEmpty {
+                        CanvasText(trayLines.thinkPause.1, size: 17, weight: 700, color: Color(hex: 0x6B6170))
+                    }
+                    CanvasText(trayLines.fuelHalved, size: 22, weight: 900, color: Color(hex: 0xE8473C))
                         .padding(.top, metrics.u(6))
-                    CanvasText(TapCountCopy.fuelDropLine(from: minutesBefore, to: minutesAfter), size: 14, weight: 700,
+                    CanvasText(trayLines.fuelDropLine(from: minutesBefore, to: minutesAfter), size: 14, weight: 700,
                                color: Color(hex: 0x6B6170))
                 }
                 .padding(.leading, metrics.u(30))
@@ -207,7 +211,7 @@ struct ThinkPauseOverlay: View {
         }
         .allowsHitTesting(true) // absorb taps; mash does not skip or re-penalize
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(WrongAnswerCopy.thinkPauseTraditionalChinese) \(remainingSeconds)")
+        .accessibilityLabel("\(trayLines.thinkPause.0) \(remainingSeconds)")
     }
 
     private var centred: some View {

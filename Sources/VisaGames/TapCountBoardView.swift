@@ -71,6 +71,9 @@ private struct TapCountStageContent: View {
         }
     }
     private var question: TapCountQuestion { board.question }
+    /// Words in the card's language (English cards share every rule and drawing with 一架一架數).
+    private var lines: TapCountLines { TapCountLines(question.language) }
+    private var english: Bool { question.language == .english }
     private var tracingShown: Bool {
         question.tracesNumeral && (board.stage == .tracing || board.stage == .done) && board.trace != nil
     }
@@ -119,7 +122,7 @@ private struct TapCountStageContent: View {
             .canvasPlaced(x: CGFloat(r.x), y: CGFloat(r.y))
             .accessibilityElement()
             .accessibilityAddTraits(.isButton)
-            .accessibilityLabel("\(question.prompt.traditionalChinese) \(bay + 1)")
+            .accessibilityLabel("\(question.prompt.mainText) \(bay + 1)")
     }
 
     // MARK: Pen (numeral trace; the ShapeTraceStageContent pattern)
@@ -212,7 +215,7 @@ private struct TapCountStageContent: View {
                     .gesture(penGesture)
                     .allowsHitTesting(!view.locked)
                     .canvasPlaced(x: 0, y: Self.workspaceTop)
-                    .accessibilityLabel(TapCountCopy.tracePrompt(board.target).traditionalChinese)
+                    .accessibilityLabel(lines.tracePrompt(board.target).mainText)
             }
             bubbles
             countedChip
@@ -222,7 +225,8 @@ private struct TapCountStageContent: View {
             if paused, question.isPick {
                 pauseDim
                 ThinkPauseOverlay(remainingSeconds: view.thinkPauseRemaining, placement: .tray,
-                                  minutesBefore: view.fuelBefore, minutesAfter: view.pendingMinutes)
+                                  minutesBefore: view.fuelBefore, minutesAfter: view.pendingMinutes,
+                                  trayLines: lines)
                     .transition(.opacity)
             }
             recountBubble
@@ -265,7 +269,7 @@ private struct TapCountStageContent: View {
         .frame(width: metrics.u(1280), height: metrics.u(720))
         .allowsHitTesting(false)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(question.prompt.traditionalChinese)
+        .accessibilityLabel(question.prompt.mainText)
     }
 
     // MARK: Bubbles (count word beside the latest badge; the reveal cue 「四、four」)
@@ -277,9 +281,10 @@ private struct TapCountStageContent: View {
                 speechBubble(text: word, english: nil, rect: rect, size: question.layout == .row ? 30 : 27)
             }
             if !question.isPick, board.stage == .counted || (board.stage == .done && !question.tracesNumeral) {
-                speechBubble(text: "\(TapCountNumber.zh(board.target))、",
-                             english: view.settings.english ? TapCountNumber.en(board.target) : nil,
-                             rect: LineMatchRect(x: 806, y: 434, width: view.settings.english ? 214 : 150, height: 62),
+                let reveal = lines.revealBubble(board.target, addEnglish: view.settings.english)
+                speechBubble(text: reveal.0, english: reveal.1,
+                             rect: LineMatchRect(x: 806, y: 434,
+                                                 width: english ? 196 : (reveal.1 != nil ? 214 : 150), height: 62),
                              size: 30)
             }
         }
@@ -292,15 +297,16 @@ private struct TapCountStageContent: View {
               let bay = board.lastTapBay, let k = board.badge(forBay: bay), let at = board.lastTapAt,
               view.now - at < 1.6 else { return nil }
         let badge = TapCountDrawing.badgeCentre(question, bay: bay)
+        // English words are longer than 一二三: the bubble widens, same place and height.
         let rect = question.layout == .row
-            ? LineMatchRect(x: badge.x + 46, y: badge.y - 28, width: 104, height: 54)
-            : LineMatchRect(x: badge.x + 32, y: badge.y - 25, width: 96, height: 50)
+            ? LineMatchRect(x: badge.x + 46, y: badge.y - 28, width: english ? 150 : 104, height: 54)
+            : LineMatchRect(x: badge.x + 32, y: badge.y - 25, width: english ? 136 : 96, height: 50)
         // Keep it on the stage: flip to the left of the badge near the right edge.
         if rect.maxX > 1268 {
             return (LineMatchRect(x: 2 * badge.x - rect.maxX, y: rect.y, width: rect.width, height: rect.height),
-                    TapCountNumber.zh(k))
+                    lines.countWord(k))
         }
-        return (rect, TapCountNumber.zh(k))
+        return (rect, lines.countWord(k))
     }
 
     private func speechBubble(text: String, english: String?, rect: LineMatchRect, size: CGFloat) -> some View {
@@ -332,8 +338,8 @@ private struct TapCountStageContent: View {
     private var recountBubble: some View {
         if question.isPick, board.stage == .tapping, board.missFeedback != nil, let k = board.attempts.last, k > 0 {
             let orange = Color(hex: 0xD9701E)
-            let need = TapCountCopy.need(board.target)
-            let english = (1...k).map(TapCountNumber.enCapitalised).joined(separator: ", ") + ". " + need.english
+            let need = lines.need(board.target)
+            let subline = lines.recountSubline(k, target: board.target)
             let shape = RoundedRectangle(cornerRadius: metrics.u(28), style: .continuous)
             ZStack(alignment: .topLeading) {
                 shape.fill(LM.ink.opacity(0.2)).offset(y: metrics.u(6))
@@ -344,17 +350,24 @@ private struct TapCountStageContent: View {
                     .canvasPlaced(x: 20, y: 18)
                 HStack(spacing: 0) {
                     ForEach(1...k, id: \.self) { index in
-                        CanvasText(TapCountNumber.zh(index) + (index < k ? "、" : "。"), size: 25, weight: 900,
+                        CanvasText(lines.recountWord(index, last: index == k), size: recountSize(k), weight: 900,
                                    color: index > board.target ? orange : LM.ink)
                     }
-                    CanvasText("\(TapCountNumber.zh(k))架。", size: 25, weight: 900, color: LM.ink)
+                    // English: 「That's four.」 opens line 2 instead (digits on line 1, words in the voice).
+                    if !english { CanvasText(lines.recountTotal(k), size: 25, weight: 900, color: LM.ink) }
                 }
+                .frame(width: metrics.u(384), alignment: .leading)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
                 .canvasPlaced(x: 62, y: 14)
                 HStack(alignment: .lastTextBaseline, spacing: metrics.u(12)) {
-                    CanvasText(need.traditionalChinese, size: 22, weight: 900, color: orange)
-                    CanvasText(english, size: 14, weight: 700, color: LM.soft)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
+                    if english { CanvasText(lines.recountTotal(k), size: 22, weight: 900, color: LM.ink) }
+                    CanvasText(need.mainText, size: 22, weight: 900, color: orange)
+                    if !subline.isEmpty {
+                        CanvasText(subline, size: 14, weight: 700, color: LM.soft)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
                 }
                 .frame(width: metrics.u(380), alignment: .leading)
                 .canvasPlaced(x: 62, y: 52)
@@ -363,8 +376,16 @@ private struct TapCountStageContent: View {
             .canvasPlaced(x: 772, y: 400)
             .allowsHitTesting(false)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(TapCountCopy.recount(k).traditionalChinese) \(need.traditionalChinese)")
+            .accessibilityLabel("\(lines.recount(k).mainText) \(need.mainText)")
         }
+    }
+
+    /// CanvasText is fixedSize, so the English digit row picks a size that fits its 384u instead of
+    /// scaling (「1, 2, 3, 4, 5, 6, 7, 8, 9, 10」 is the longest).
+    private func recountSize(_ k: Int) -> CGFloat {
+        guard english else { return 25 }
+        let chars = CGFloat((1...max(k, 1)).map { lines.recountWord($0, last: $0 == k).count }.reduce(0, +))
+        return min(25, 384 / (0.6 * max(chars, 1)))
     }
 
     // MARK: 「三架！ 3 counted」 chip above the strip (mockup 03)
@@ -372,14 +393,14 @@ private struct TapCountStageContent: View {
     @ViewBuilder
     private var countedChip: some View {
         if tracingShown, TapCountDrawing.stripLeftEdge(board) > 366 {
-            let chip = TapCountCopy.countedChip(board.target, pick: question.isPick)
+            let chip = lines.countedChip(board.target, pick: question.isPick)
             let green = Color(hex: 0x2F7A3A)
             HStack(spacing: metrics.u(8)) {
                 CheckShape()
                     .stroke(green, style: StrokeStyle(lineWidth: metrics.u(5), lineCap: .round, lineJoin: .round))
                     .frame(width: metrics.u(22), height: metrics.u(18))
                 CanvasText(chip.top, size: 19, weight: 900, color: green)
-                CanvasText(chip.bottom, size: 12, weight: 700, color: green)
+                if !chip.bottom.isEmpty { CanvasText(chip.bottom, size: 12, weight: 700, color: green) }
             }
             .frame(width: metrics.u(208), height: metrics.u(44))
             .background(Capsule().fill(Color(hex: 0xDFF3DF)))
@@ -396,16 +417,16 @@ private struct TapCountStageContent: View {
         ZStack(alignment: .topLeading) {
             if tracingShown {
                 let centre: CGFloat = question.isPick ? 648 : 640
-                stepChips(first: question.isPick ? TapCountCopy.stepPick(board.target) : TapCountCopy.stepTap,
+                stepChips(first: question.isPick ? lines.stepPick(board.target) : lines.stepTap,
                           firstDone: true, traceDone: board.stage == .done, centreX: centre)
                 trayStatus(traceStatus, centreX: centre, top: 634)
                 if board.stage == .done { stampLegend(x: 826, width: 214) } else { traceLegend }
             } else if question.isPick {
                 if !paused {
-                    stepChips(first: TapCountCopy.stepPick(board.target), firstDone: false, traceDone: false,
+                    stepChips(first: lines.stepPick(board.target), firstDone: false, traceDone: false,
                               centreX: 512)
                     if let notice = view.notice {
-                        trayStatus((notice.traditionalChinese, notice.english), centreX: 512, top: 634)
+                        trayStatus((notice.mainText, notice.subText ?? ""), centreX: 512, top: 634)
                     }
                 }
             } else {
@@ -418,29 +439,28 @@ private struct TapCountStageContent: View {
     }
 
     private var countStatus: (String, String) {
-        if board.stage != .tapping { return (TapCountCopy.allTappedTray, TapCountCopy.allTappedTrayEnglish) }
-        if let notice = view.notice { return (notice.traditionalChinese, notice.english) }
-        return (TapCountCopy.remainingTraditionalChinese(board.remaining), TapCountCopy.remainingEnglish(board.remaining))
+        if board.stage != .tapping { return lines.allTappedTray }
+        if let notice = view.notice { return (notice.mainText, notice.subText ?? "") }
+        return lines.remaining(board.remaining)
     }
 
     private var traceStatus: (String, String) {
         if board.stage == .done {
-            return (TapCountCopy.strokesDoneTray(board.target, scene: question.scene),
-                    TapCountCopy.strokesDoneTrayEnglish(board.target, scene: question.scene))
+            return lines.strokesDoneTray(board.target, scene: question.scene, pick: question.isPick)
         }
-        if traceHintOn { return (ShapeTraceCopy.offPathTraditionalChinese, ShapeTraceCopy.offPathEnglish) }
-        if let notice = view.notice { return (notice.traditionalChinese, notice.english) }
+        if traceHintOn { return lines.offPathStatus }
+        if let notice = view.notice { return (notice.mainText, notice.subText ?? "") }
         if board.target == 5, let trace, let strokes = trace.shapes.first?.strokes.count, strokes > 1,
            trace.strokeIndex == strokes - 1 {
-            return (TapCountCopy.lastStrokeHatTraditionalChinese, TapCountCopy.lastStrokeHatEnglish)
+            return lines.lastStrokeHat
         }
-        return (TapCountCopy.traceStatusTraditionalChinese, TapCountCopy.traceStatusEnglish)
+        return lines.traceStatus
     }
 
     private func trayStatus(_ lines: (String, String), centreX: CGFloat, top: CGFloat) -> some View {
         VStack(spacing: metrics.u(1)) {
             CanvasText(lines.0, size: 26, weight: 900, color: LM.ink)
-            CanvasText(lines.1, size: 18, weight: 700, color: LM.soft)
+            if !lines.1.isEmpty { CanvasText(lines.1, size: 18, weight: 700, color: LM.soft) }
         }
         .lineLimit(1)
         .minimumScaleFactor(0.7)
@@ -485,7 +505,7 @@ private struct TapCountStageContent: View {
                 .stroke(LM.ink, style: StrokeStyle(lineWidth: metrics.u(5), lineCap: .round, lineJoin: .round))
                 .frame(width: metrics.u(12), height: metrics.u(20))
                 .canvasPlaced(x: left + width + gap / 2 - 6, y: 590)
-            chip(TapCountCopy.stepTrace(board.target), done: traceDone, accent: Color(hex: colour.full), trace: true)
+            chip(lines.stepTrace(board.target), done: traceDone, accent: Color(hex: colour.full), trace: true)
                 .frame(width: metrics.u(width), height: metrics.u(44))
                 .canvasPlaced(x: left + width + gap, y: 578)
         }
@@ -543,12 +563,16 @@ private struct TapCountStageContent: View {
             .canvasPlaced(x: x, y: 568)
     }
 
+    private func legendRow<Icon: View>(_ pair: (String, String), @ViewBuilder icon: () -> Icon) -> some View {
+        legendRow(pair.0, pair.1, icon: icon)
+    }
+
     private func legendRow<Icon: View>(_ zh: String, _ en: String, @ViewBuilder icon: () -> Icon) -> some View {
         HStack(spacing: metrics.u(10)) {
             icon().frame(width: metrics.u(48), height: metrics.u(44))
             VStack(alignment: .leading, spacing: 0) {
                 CanvasText(zh, size: 20, weight: 900, color: LM.ink)
-                CanvasText(en, size: 12.5, weight: 700, color: LM.soft)
+                if !en.isEmpty { CanvasText(en, size: 12.5, weight: 700, color: LM.soft) }
             }
         }
     }
@@ -557,7 +581,7 @@ private struct TapCountStageContent: View {
     private var countLegend: some View {
         legendBox(x: 790, width: 250) {
             VStack(alignment: .leading, spacing: metrics.u(8)) {
-                legendRow(TapCountCopy.legendTapped, TapCountCopy.legendTappedEnglish) {
+                legendRow(lines.legendTapped) {
                     ZStack {
                         RoundedRectangle(cornerRadius: metrics.u(10)).fill(Color(hex: 0xFFF1A8))
                         RoundedRectangle(cornerRadius: metrics.u(10)).strokeBorder(Color(hex: 0xFFC93C), lineWidth: metrics.u(5))
@@ -565,7 +589,7 @@ private struct TapCountStageContent: View {
                     }
                     .frame(width: metrics.u(44), height: metrics.u(40))
                 }
-                legendRow(TapCountCopy.legendNotYet, TapCountCopy.legendNotYetEnglish) {
+                legendRow(lines.legendNotYet) {
                     ZStack {
                         RoundedRectangle(cornerRadius: metrics.u(10)).fill(Color(hex: 0xEDE7F0))
                         RoundedRectangle(cornerRadius: metrics.u(10)).strokeBorder(Color(hex: 0xB9B0BE), lineWidth: metrics.u(4))
@@ -582,17 +606,17 @@ private struct TapCountStageContent: View {
         return legendBox(x: 826, width: 214) {
             VStack(alignment: .leading, spacing: metrics.u(8)) {
                 if multi {
-                    legendRow(TapCountCopy.legendStrokeNumber, TapCountCopy.legendStrokeNumberEnglish) {
+                    legendRow(lines.legendStrokeNumber) {
                         HStack(spacing: metrics.u(4)) { numberDisc(1, radius: 13); numberDisc(2, radius: 13) }
                     }
-                    legendRow(TapCountCopy.legendStrokeDone, TapCountCopy.legendStrokeDoneEnglish) {
+                    legendRow(lines.legendStrokeDone) {
                         VectorArtView(artwork: ShapeTraceArt.tickSmall).frame(width: metrics.u(36), height: metrics.u(36))
                     }
                 } else {
-                    legendRow(TapCountCopy.legendStart, TapCountCopy.legendStartEnglish) {
+                    legendRow(lines.legendStart) {
                         VectorArtView(artwork: ShapeTraceArt.go).frame(width: metrics.u(46), height: metrics.u(46))
                     }
-                    legendRow(TapCountCopy.legendStop, TapCountCopy.legendStopEnglish) {
+                    legendRow(lines.legendStop) {
                         VectorArtView(artwork: ShapeTraceArt.end).frame(width: metrics.u(46), height: metrics.u(46))
                     }
                 }
@@ -617,16 +641,14 @@ private struct TapCountStageContent: View {
             HStack(spacing: metrics.u(8)) {
                 VectorArtView(artwork: CanvasArt.stampy).frame(width: metrics.u(58), height: metrics.u(58))
                 VStack(alignment: .leading, spacing: metrics.u(1)) {
-                    CanvasText(TapCountCopy.stampNextTray, size: 20, weight: 900, color: LM.ink)
-                    CanvasText(TapCountCopy.stampNextTrayEnglish, size: 12, weight: 700, color: LM.soft)
-                    if question.kind == .tapCountAll {
-                        CanvasText(TapCountCopy.noMissTray, size: 13, weight: 900, color: green)
-                        CanvasText(TapCountCopy.noMissTrayEnglish, size: 11, weight: 700, color: LM.soft)
-                    } else {
-                        CanvasText(TapCountCopy.visaTray(minutes), size: 13, weight: 900, color: green)
-                        CanvasText(board.misses == 0 ? TapCountCopy.firstTryTrayEnglish : TapCountCopy.visaTrayEnglish(minutes),
-                                   size: 11, weight: 700, color: LM.soft)
-                    }
+                    let next = lines.stampNextTray
+                    let visa = question.base == .tapCountAll ? lines.noMissTray
+                                                             : lines.visaTray(minutes, firstTry: board.misses == 0)
+                    // English lines run longer than 跟住：蓋印！; one size down keeps them inside the box.
+                    CanvasText(next.0, size: english ? 16.5 : 20, weight: 900, color: LM.ink)
+                    if !next.1.isEmpty { CanvasText(next.1, size: 12, weight: 700, color: LM.soft) }
+                    CanvasText(visa.0, size: english ? 12.5 : 13, weight: 900, color: green)
+                    if !visa.1.isEmpty { CanvasText(visa.1, size: 11, weight: 700, color: LM.soft) }
                 }
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -651,12 +673,14 @@ private struct TapCountStageContent: View {
                 Button(action: view.onErase) {
                     ZStack(alignment: .topLeading) {
                         buttonArt(TapCountArt.eraserButton)
-                        CanvasText(TapCountCopy.eraserTraditionalChinese, size: 34, weight: 900, color: LM.ink)
+                        CanvasText(lines.eraser.0, size: 34, weight: 900, color: LM.ink)
                             .frame(width: metrics.u(200))
-                            .canvasPlaced(x: 0, y: 92)
-                        CanvasText(TapCountCopy.eraserEnglish, size: 18, weight: 700, color: LM.soft)
-                            .frame(width: metrics.u(200))
-                            .canvasPlaced(x: 0, y: 132)
+                            .canvasPlaced(x: 0, y: lines.eraser.1.isEmpty ? 104 : 92)
+                        if !lines.eraser.1.isEmpty {
+                            CanvasText(lines.eraser.1, size: 18, weight: 700, color: LM.soft)
+                                .frame(width: metrics.u(200))
+                                .canvasPlaced(x: 0, y: 132)
+                        }
                     }
                     .frame(width: metrics.u(200), height: metrics.u(160), alignment: .topLeading)
                     .overlay { debugHitTint }
@@ -667,7 +691,7 @@ private struct TapCountStageContent: View {
                 .buttonStyle(.plain)
                 .disabled(!on)
                 .canvasPlaced(x: 24, y: 548)
-                .accessibilityLabel("\(TapCountCopy.eraserTraditionalChinese) / \(TapCountCopy.eraserEnglish)")
+                .accessibilityLabel([lines.eraser.0, lines.eraser.1].filter { !$0.isEmpty }.joined(separator: " / "))
             }
             let okOn = board.okEnabled && !view.locked
             if okOn {
@@ -682,10 +706,10 @@ private struct TapCountStageContent: View {
             Button(action: view.onSubmit) {
                 ZStack(alignment: .topLeading) {
                     buttonArt(TapCountArt.okButton)
-                    CanvasText(TapCountCopy.okLabel, size: 62, weight: 800, color: LM.ink)
+                    CanvasText(lines.ok.0, size: 62, weight: 800, color: LM.ink)
                         .frame(width: metrics.u(140))
                         .canvasPlaced(x: 102, y: 30)
-                    CanvasText(TapCountCopy.okSub, size: 20, weight: 900, color: LM.doneText)
+                    CanvasText(lines.ok.1, size: 20, weight: 900, color: LM.doneText)
                         .frame(width: metrics.u(140))
                         .canvasPlaced(x: 102, y: 112)
                 }
@@ -699,7 +723,7 @@ private struct TapCountStageContent: View {
             // A grey OK still answers with 「未揀車喎！」 (no penalty); only a lock blocks it.
             .disabled(view.locked)
             .canvasPlaced(x: 800, y: 548)
-            .accessibilityLabel("\(TapCountCopy.okLabel) / \(TapCountCopy.okSub)")
+            .accessibilityLabel("\(lines.ok.0) / \(lines.ok.1)")
         }
     }
 
@@ -726,13 +750,13 @@ private struct TapCountStageContent: View {
     private var headerPrompt: SpokenPrompt {
         switch board.stage {
         case .tapping:
-            return question.isPick ? TapCountCopy.pickPrompt(board.target) : question.prompt
+            return question.isPick ? lines.pickPrompt(board.target) : question.prompt
         case .counted, .tracing:
-            return question.tracesNumeral ? TapCountCopy.countedTracePrompt(board.target, pick: question.isPick)
-                                          : TapCountCopy.donePrompt(board.target, scene: question.scene)
+            return question.tracesNumeral ? lines.countedTracePrompt(board.target, pick: question.isPick)
+                                          : lines.donePrompt(board.target, scene: question.scene)
         case .done:
-            return question.tracesNumeral ? TapCountCopy.traceDonePrompt(board.target)
-                                          : TapCountCopy.donePrompt(board.target, scene: question.scene)
+            return question.tracesNumeral ? lines.traceDonePrompt(board.target)
+                                          : lines.donePrompt(board.target, scene: question.scene)
         }
     }
 
@@ -756,8 +780,10 @@ private struct TapCountStageContent: View {
                     VectorArtView(artwork: CanvasArt.stampy)
                         .frame(width: metrics.u(82), height: metrics.u(82))
                     VStack(alignment: .leading, spacing: metrics.u(2)) {
-                        CanvasText(prompt.traditionalChinese, size: 36, weight: 900, color: LM.ink)
-                        CanvasText(prompt.english, size: 20, weight: 700, color: LM.headerSub)
+                        CanvasText(prompt.mainText, size: 36, weight: 900, color: LM.ink)
+                        if let sub = prompt.subText {
+                            CanvasText(sub, size: 20, weight: 700, color: LM.headerSub)
+                        }
                     }
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -768,12 +794,12 @@ private struct TapCountStageContent: View {
             }
             .buttonStyle(.plain)
             .canvasPlaced(x: 40, y: 18)
-            .accessibilityLabel("再聽一次：\(prompt.traditionalChinese) / Hear it again: \(prompt.english)")
+            .accessibilityLabel(lines.hearAgain(prompt))
 
             VStack(spacing: 0) {
-                CanvasText(TapCountCopy.familyTitle, size: 22, weight: 900, color: LM.ink)
+                CanvasText(lines.familyTitle, size: english ? 19 : 22, weight: 900, color: LM.ink)
                 // CanvasText is fixedSize, so pick a size that fits the 150u pill instead of scaling.
-                let subtitle = TapCountCopy.chipSubtitle(question.kind)
+                let subtitle = lines.chipSubtitle(question.kind)
                 CanvasText(subtitle, size: subtitle.count > 17 ? 12.5 : 15, weight: 700, color: LM.headerSub)
             }
             .frame(width: metrics.u(150), height: metrics.u(68))
@@ -783,11 +809,12 @@ private struct TapCountStageContent: View {
             .canvasPlaced(x: 850, y: 30)
             .allowsHitTesting(false)
 
-            VisaTicketBadge(stars: stars, minutes: max(0, view.pendingMinutes))
+            VisaTicketBadge(stars: stars, minutes: max(0, view.pendingMinutes),
+                            minutesWord: lines.minutesWord, visaWord: lines.visaWord)
                 .frame(width: metrics.u(220), height: metrics.u(74))
                 .canvasPlaced(x: 1026, y: 27)
                 .allowsHitTesting(false)
-                .accessibilityLabel("剩餘 \(view.pendingMinutes) 分鐘 / \(view.pendingMinutes) minutes left")
+                .accessibilityLabel(lines.minutesLeft(view.pendingMinutes))
         }
     }
 }
@@ -1095,7 +1122,7 @@ enum TapCountDrawing {
                 // Done: the horns / bells sound along the strip (mockup 04).
                 if board.stage == .done, !small {
                     let fade = 0.5 + 0.5 * Double(index + 1) / Double(max(1, cars.count))
-                    revealMark(mark, tram: q.scene == .tramDepot, at: LineMatchPoint(x: x + 35, y: 146),
+                    revealMark(mark, tram: q.scene == .tramDepot, word: TapCountLines(q.language).tapMark(tram: q.scene == .tramDepot), at: LineMatchPoint(x: x + 35, y: 146),
                                scale: index == cars.count - 1 ? 1 : 0.75, opacity: fade, in: &g)
                 }
             }
@@ -1145,7 +1172,7 @@ enum TapCountDrawing {
                 let fade = 0.55 + 0.45 * Double(index + 1) / Double(max(1, board.order.count))
                 let at = row ? LineMatchPoint(x: c.x - 64, y: c.y - 34 - (last ? 4 : 0))
                              : LineMatchPoint(x: c.x - 56, y: c.y + 2)
-                revealMark(mark, tram: q.scene == .tramDepot, at: at,
+                revealMark(mark, tram: q.scene == .tramDepot, word: TapCountLines(q.language).tapMark(tram: q.scene == .tramDepot), at: at,
                            scale: row ? (last ? 1 : 0.8) : 0.7, opacity: fade, in: &g)
             }
         }
@@ -1158,14 +1185,16 @@ enum TapCountDrawing {
     }
 
     /// 叮 star (mockup 02) or 嘟 horn (mockup 04). The word is part of the mark (sound itself stays silent).
-    static func revealMark(_ mark: CanvasArtwork, tram: Bool, at p: LineMatchPoint, scale k: Double, opacity: Double,
+    static func revealMark(_ mark: CanvasArtwork, tram: Bool, word: String, at p: LineMatchPoint, scale k: Double, opacity: Double,
                            in g: inout GraphicsContext) {
         place(mark, at: p, scale: k, opacity: opacity, in: &g)
         var layer = g
         layer.opacity = g.opacity * opacity
-        let word = tram ? "叮" : "嘟"
-        let centre = tram ? CGPoint(x: p.x, y: p.y + 1 * k) : CGPoint(x: p.x + 38 * k, y: p.y)
-        layer.draw(Text(word).font(CanvasFont.font(size: (tram ? 17 : 19) * k, weight: 900)).foregroundColor(ink),
+        // One CJK glyph fits the star / horn; a longer English word gets a smaller size.
+        let long = word.count > 1
+        let centre = tram ? CGPoint(x: p.x, y: p.y + 1 * k) : CGPoint(x: p.x + (long ? 44 : 38) * k, y: p.y)
+        let size: Double = tram ? (long ? 12 : 17) : (long ? 14 : 19)
+        layer.draw(Text(word).font(CanvasFont.font(size: size * k, weight: 900)).foregroundColor(ink),
                    at: centre, anchor: .center)
     }
 

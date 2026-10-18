@@ -261,7 +261,7 @@ public enum PerfQuestionGeneration {
     /// (design "Guided level" → Stats). Review counts them on their own line.
     public static func isPracticeOnly(_ dealt: PerfEvent) -> Bool {
         if let kind = dealt.string("kind").flatMap(ActivityKind.init(rawValue:)),
-           kind.isShapeTraceFamily || kind == .tapCountAll || kind == .tapCountTrace { return true }
+           kind.isShapeTraceFamily || kind.tapCountBase == .tapCountAll || kind.tapCountBase == .tapCountTrace { return true }
         return matchMode(of: dealt) == .guided
     }
 

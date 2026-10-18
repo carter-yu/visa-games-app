@@ -239,7 +239,7 @@ final class PerformanceRecordTests {
                 expectEqual(Set(slots), Set(all))
             }
             // 畫線畫形 and 一架一架數 ★ / ★★ are practice only: nothing to guess (chance 1, never mastery evidence).
-            let ceiling = kind.isShapeTraceFamily || kind == .tapCountAll || kind == .tapCountTrace ? 1.0 : 0.5
+            let ceiling = kind.isShapeTraceFamily || kind.tapCountBase == .tapCountAll || kind.tapCountBase == .tapCountTrace ? 1.0 : 0.5
             expectTrue(PerfChoiceCatalog.chance(for: kind) > 0 && PerfChoiceCatalog.chance(for: kind) <= ceiling)
             expectFalse(PerfChoiceCatalog.item(for: kind).isEmpty)
         }
@@ -534,8 +534,8 @@ final class PerformanceRecordTests {
         }
         let version = plistValue("CFBundleShortVersionString") ?? "?"
         expectTrue(view.contains("static let versionLabel = \"Visa Games v\(version)\""))
-        expectEqual(version, "0.28.2")
-        expectEqual(plistValue("CFBundleVersion"), "63")
+        expectEqual(version, "0.29.0")
+        expectEqual(plistValue("CFBundleVersion"), "64")
         guard let start = view.range(of: "private func advancedSection("),
               let end = view.range(of: "private var advancedContent", range: start.upperBound..<view.endIndex) else {
             expectTrue(false)

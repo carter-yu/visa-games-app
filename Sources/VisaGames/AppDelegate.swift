@@ -911,6 +911,8 @@ final class AppModel: ObservableObject {
             return ShapeTraceCopy.hint
         case .tapCountAll, .tapCountTrace, .tapCountPick:
             return TapCountCopy.hint
+        case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
+            return TapCountEnglishCopy.hint
         default: return ActivityCatalog.hintTraditionalChinese(for: kind)
         }
     }
@@ -928,7 +930,7 @@ final class AppModel: ObservableObject {
             let board = shapeTrace ?? ShapeTraceBoard(question: ShapeTraceGenerator.reference(kind: kind))
             return PerfChoiceCatalog.facts(shapeTrace: board.question, settings: shapeTraceSettings,
                                            tolerance: board.tolerance)
-        case .tapCountAll, .tapCountTrace, .tapCountPick:
+        case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             let question = tapCount?.question ?? TapCountGenerator.reference(kind: kind)
             return PerfChoiceCatalog.facts(tapCount: question, settings: tapCountSettings,
                                            tolerance: tapCountTolerance, recentTargets: tapCountRecentTargets)
@@ -979,7 +981,7 @@ final class AppModel: ObservableObject {
             let question = shapeTraceBoard?.question ?? ShapeTraceGenerator.reference(kind: kind)
             zh = question.promptTraditionalChinese
             en = question.promptEnglish
-        case .tapCountAll, .tapCountTrace, .tapCountPick:
+        case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             speakTapCountPrompt()
             return
         }
@@ -2840,7 +2842,7 @@ final class AppModel: ObservableObject {
             let question = playtestShapeTraceBoard?.question ?? ShapeTraceGenerator.reference(kind: kind)
             zh = question.promptTraditionalChinese
             en = question.promptEnglish
-        case .tapCountAll, .tapCountTrace, .tapCountPick:
+        case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             speakTapCountPrompt()
             return
         }
@@ -3795,7 +3797,7 @@ struct ShellView: View {
                     onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .twoPictureChoose, .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .traceLines, .traceShapesArrows, .traceShapesFree,
-                 .traceShapesDotted, .tapCountAll, .tapCountTrace, .tapCountPick, .none:
+                 .traceShapesDotted, .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .none:
                 // Legacy shell is setup / parent only; 連一連 is canvas-only (CanvasActivityHost).
                 EntryActivityView(
                     question: model.currentTwoPictureQuestion,
@@ -3881,6 +3883,11 @@ extension AppModel {
         return result
     }
 
+    /// The words of the card on screen (Cantonese or English; the game logic is the same).
+    private var tapCountLines: TapCountLines {
+        TapCountLines(currentTapCountBoard?.question.language ?? .cantonese)
+    }
+
     private func showTapCountNotice(_ prompt: SpokenPrompt) {
         tapCountNotice = prompt
         guideVoice.speak(prompt)
@@ -3892,10 +3899,10 @@ extension AppModel {
         let prompt: SpokenPrompt
         switch board.stage {
         case .tapping:
-            prompt = board.isPick ? TapCountCopy.pickPrompt(board.target) : board.question.prompt
+            prompt = board.isPick ? tapCountLines.pickPrompt(board.target) : board.question.prompt
         case .counted, .tracing:
-            prompt = board.question.tracesNumeral ? TapCountCopy.tracePrompt(board.target)
-                                                  : TapCountCopy.total(board.target, scene: board.question.scene)
+            prompt = board.question.tracesNumeral ? tapCountLines.tracePrompt(board.target)
+                                                  : tapCountLines.total(board.target, scene: board.question.scene)
         case .done:
             return
         }
@@ -3916,15 +3923,15 @@ extension AppModel {
         switch outcome {
         case .counted(let k), .selected(let k):
             tapCountNotice = nil
-            if speakCount { guideVoice.speakQueued(TapCountCopy.number(k)) }
+            if speakCount { guideVoice.speakQueued(tapCountLines.number(k)) }
             VisaGamesLog.append("tapCount tap — 點 bay=\(bay ?? -1) k=\(k) pick=\(board.isPick)")
         case .unselected(let k):
             tapCountNotice = nil
             VisaGamesLog.append("tapCount unpick — 唔要 bay=\(bay ?? -1) k=\(k) (no miss)")
         case .completed(let k):
             tapCountNotice = nil
-            if speakCount { guideVoice.speakQueued(TapCountCopy.number(k)) }
-            guideVoice.speakQueued(TapCountCopy.total(k, scene: board.question.scene),
+            if speakCount { guideVoice.speakQueued(tapCountLines.number(k)) }
+            guideVoice.speakQueued(tapCountLines.total(k, scene: board.question.scene),
                                    english: tapCountSettings.english ? TapCountNumber.en(k) : nil)
             VisaGamesLog.append("tapCount counted — 點晒 \(k) item=\(board.question.itemID) taps=\(board.taps)")
             scheduleTapCountAfterCount(delay: 2.4)
@@ -3947,7 +3954,7 @@ extension AppModel {
                 let colour = TapCountDrawing.traceColorIndex(board.question.scene)
                 self.changeTapCountBoard(force: true) { $0.startTracing(tolerance: tolerance, colorIndex: colour) }
                 self.tapCountTraceHintSpoken = []
-                self.guideVoice.speakQueued(TapCountCopy.tracePrompt(board.target))
+                self.guideVoice.speakQueued(self.tapCountLines.tracePrompt(board.target))
                 VisaGamesLog.append("tapCount trace start — 畫 \(board.target) tolerance=\(tolerance.rawValue)")
             } else {
                 let clock = Date().timeIntervalSinceReferenceDate
@@ -3967,12 +3974,12 @@ extension AppModel {
         guard let board = currentTapCountBoard else { return }
         switch outcome {
         case .needsSelection:
-            showTapCountNotice(TapCountCopy.noneYet)
+            showTapCountNotice(tapCountLines.noneYet)
             VisaGamesLog.append("tapCount OK empty — 未揀車 (no miss)")
         case .judged(let correct, let k):
             tapCountNotice = nil
             pendingAnswerRecord = (board.submitTags(now: clock), board.resultFields)
-            guideVoice.speakQueued(TapCountCopy.recount(k), interrupt: true)
+            guideVoice.speakQueued(tapCountLines.recount(k), interrupt: true)
             VisaGamesLog.append(
                 "tapCount OK — 撳 OK picked=\(k) target=\(board.target) correct=\(correct) submits=\(board.submits) item=\(board.question.itemID)"
             )
@@ -3989,7 +3996,7 @@ extension AppModel {
                     handleEvaluation(.incorrect, selectionLabel: TapCountSubmitChoice.choice)
                 }
                 pendingAnswerRecord = nil
-                guideVoice.speakQueued(TapCountCopy.need(board.target))
+                guideVoice.speakQueued(tapCountLines.need(board.target))
             }
         case .locked:
             break
@@ -4015,7 +4022,7 @@ extension AppModel {
         guard let outcome = changeTapCountBoard({ $0.erase(now: clock) }) else { return }
         switch outcome {
         case .clearedNudge:
-            showTapCountNotice(TapCountCopy.eraserNudge)
+            showTapCountNotice(tapCountLines.eraserNudge)
         case .cleared, .clearedAndHidden:
             tapCountNotice = nil
         case .coolingDown, .unavailable:
@@ -4031,7 +4038,7 @@ extension AppModel {
         tapCountRoundStart = Date().timeIntervalSinceReferenceDate
         if board.misses >= TapCountBoard.demoAfterMisses, board.demoBays.isEmpty {
             changeTapCountBoard(force: true) { $0.startDemo() }
-            guideVoice.speakQueued(TapCountCopy.demo(board.target), interrupt: true)
+            guideVoice.speakQueued(tapCountLines.demo(board.target), interrupt: true)
             if playtest {
                 playtestHintUsed = true
                 perf.playtestHint(afterMisses: playtestMissCount)
@@ -4041,7 +4048,7 @@ extension AppModel {
             }
             VisaGamesLog.append("tapCount demo — 示範數 \(board.target) after misses=\(board.misses) → assisted")
         } else {
-            guideVoice.speak(TapCountCopy.pickPrompt(board.target))
+            guideVoice.speak(tapCountLines.pickPrompt(board.target))
         }
     }
 
@@ -4059,7 +4066,7 @@ extension AppModel {
             tapCountNotice = nil
         }
         if next.isComplete, !current.isComplete {
-            guideVoice.speakWordCue(TapCountCopy.cuePrompt(board.target), then: nil)
+            guideVoice.speakWordCue(tapCountLines.cuePrompt(board.target), then: nil)
             VisaGamesLog.append(
                 "tapCount trace done — 畫好 \(board.target) offPath=\(next.offPathCount) lifts=\(next.lifts) (practice, no miss)"
             )
@@ -4069,28 +4076,28 @@ extension AppModel {
                 self?.finishTapCountRound(token: token, playtest: playtest)
             }
         } else if next.strokesDone > current.strokesDone {
-            guideVoice.speak(TapCountCopy.traceNext)
+            guideVoice.speak(tapCountLines.traceNext)
             VisaGamesLog.append("tapCount stroke done — 第 \(next.strokesDone) 筆")
         } else if next.cornersReached.count > current.cornersReached.count, shapeTraceSettings.cornerStop {
-            guideVoice.speak(ShapeTraceCopy.cornerPrompt)
+            guideVoice.speak(tapCountLines.cornerPrompt)
         }
     }
 
     func tapCountTraceWrongStart() {
         guard tapCountInputOpen else { return }
-        showTapCountNotice(ShapeTraceCopy.wrongStartPrompt)
+        showTapCountNotice(tapCountLines.wrongStartPrompt)
         VisaGamesLog.append("tapCount wrong start — 由綠色箭嘴開始 (no miss)")
     }
 
     func tapCountTraceReverse() {
         guard tapCountInputOpen else { return }
-        showTapCountNotice(ShapeTraceCopy.reversePrompt)
+        showTapCountNotice(tapCountLines.reversePrompt)
         VisaGamesLog.append("tapCount reverse start — 跟住箭嘴方向 (no miss)")
     }
 
     func tapCountTraceHintShown(key: String) {
         guard tapCountInputOpen, tapCountTraceHintSpoken.insert(key).inserted else { return }
-        guideVoice.speak(ShapeTraceCopy.offPathPrompt)
+        guideVoice.speak(tapCountLines.offPathPrompt)
         VisaGamesLog.append("tapCount hint — 架車等緊你 stroke=\(key) (no miss)")
     }
 
@@ -4140,7 +4147,7 @@ extension AppModel {
         if board.isPick {
             guard idle >= TapCountBoard.pickRepromptSeconds, board.idleReprompts < TapCountBoard.maxNudges else { return }
             changeTapCountBoard { $0.reprompt(now: clock) }
-            guideVoice.speak(TapCountCopy.pickPrompt(board.target))
+            guideVoice.speak(tapCountLines.pickPrompt(board.target))
             VisaGamesLog.append("tapCount idle reprompt — 再讀題 (no miss)")
         } else {
             guard idle >= TapCountBoard.nudgeAfterSeconds, board.idleNudges < TapCountBoard.maxNudges else { return }

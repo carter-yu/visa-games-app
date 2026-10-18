@@ -628,7 +628,7 @@ final class TapCountTests {
     func testAppWiringSourceGuards() throws {
         let model = try source("Sources/VisaGames/AppDelegate.swift")
         let host = try source("Sources/VisaGames/CanvasActivityHost.swift")
-        expectTrue(host.contains("case .tapCountAll, .tapCountTrace, .tapCountPick:"))
+        expectTrue(host.contains("case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:"))
         let view = try source("Sources/VisaGames/TapCountBoardView.swift")
         expectFalse(view.contains("assumeIsolated"))
         expectFalse(view.contains("unowned"))
@@ -650,5 +650,198 @@ final class TapCountTests {
         expectTrue(model.contains("TapCountGenerator.make("))
         let checklist = try source("docs/phase-0-kiosk-checklist.md")
         expectTrue(checklist.contains("一架一架數"))
+    }
+
+    // MARK: v0.29.0 English versions (same games, English words)
+
+    private let englishKinds: [ActivityKind] = [.tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish]
+
+    /// CJK ideographs, CJK punctuation and full-width forms (「」、。！ etc.).
+    private func hasChinese(_ text: String) -> Bool {
+        text.unicodeScalars.contains { s in
+            (0x2E80...0x9FFF).contains(s.value) || (0xF900...0xFAFF).contains(s.value)
+                || (0xFE30...0xFE4F).contains(s.value) || (0xFF00...0xFFEF).contains(s.value)
+                || (0x20000...0x3FFFF).contains(s.value)
+        }
+    }
+
+    func testEnglishCardsAreDefaultOffIndependentAndNeedAPlaytest() {
+        for (english, base) in zip(englishKinds, kinds) {
+            expectTrue(ActivityCatalog.playableKinds.contains(english))
+            expectTrue(ActivityCatalog.defaultOffKinds.contains(english))
+            expectFalse(ActivityCatalog.defaultOnKinds.contains(english))
+            expectTrue(english.isTapCountFamily)
+            expectTrue(english.requiresPlaytestBeforeStars)
+            expectTrue(QuestionGeneration.isGenerated(english))
+            expectEqual(english.tapCountBase, base)
+            expectEqual(base.tapCountBase, base)
+            expectEqual(english.tapCountLanguage, .english)
+            expectEqual(base.tapCountLanguage, .cantonese)
+            expectEqual(english.tapCountLevel, base.tapCountLevel)
+            expectTrue(english.rawValue != base.rawValue)
+            // Independent: its own stars and its own playtest (playtesting the Cantonese card unlocks nothing here).
+            expectFalse(ParentPlaytestLog().allowsStars(for: english))
+            expectFalse(ParentPlaytestLog().recording(base, on: Date()).allowsStars(for: english))
+            expectTrue(ParentPlaytestLog().recording(english, on: Date()).allowsStars(for: english))
+            for star in ChildDifficulty.allCases {
+                expectFalse(MissionGameAssignment.defaults.isEnabled(english, star: star))
+            }
+            // Parent card: bilingual is fine; it names the English version.
+            expectTrue(english.parentCardTitle.contains("英文"))
+            expectTrue(english.parentCardEnglish.hasPrefix("Tap & Count in English"))
+            expectTrue(english.parentCardTitle != base.parentCardTitle)
+            expectFalse(english.parentShortLabel.isEmpty)
+        }
+        let all = ActivityCatalog.playableKinds
+        expectEqual(Set(all).count, all.count)
+    }
+
+    func testEnglishChildFacingWordsHaveNoChineseAtAll() {
+        let english = TapCountLines(.english)
+        let lines = english.allChildFacingLines
+        expectTrue(lines.count > 300)
+        for line in lines {
+            expectFalse(line.isEmpty, "empty English line")
+            expectFalse(hasChinese(line), "Chinese in an English card line: \(line)")
+        }
+        for prompt in english.allSpokenPrompts {
+            expectEqual(prompt.language, .english)
+            expectEqual(prompt.traditionalChinese, "")
+            expectNil(prompt.subText)
+            expectTrue(prompt.key.hasPrefix("en."), "English clip key: \(prompt.key)")
+            expectFalse(hasChinese(prompt.english), "Chinese in English speech: \(prompt.english)")
+        }
+        for kind in englishKinds {
+            let q = TapCountGenerator.make(seed: "en", kind: kind)
+            expectEqual(q.language, .english)
+            expectFalse(hasChinese(q.prompt.mainText))
+            expectFalse(hasChinese(ActivityCatalog.hintTraditionalChinese(for: kind)))
+        }
+        // Opus 5.5 copy (english-copy.md), spot checks.
+        expectEqual(english.need(8).english, "We need eight!")
+        expectEqual(english.recount(4).english, "One, two, three, four. That's four.")
+        expectEqual(english.traceDonePrompt(8).english, "Great! You drew an 8!")
+        expectEqual(english.traceDonePrompt(4).english, "Great! You drew a 4!")
+        expectEqual(english.total(4, scene: .fireStation).english, "Four fire engines!")
+        expectEqual(english.pickPrompt(1).english, "Tap 1 vehicle, then press OK!")
+        expectEqual(english.countedTracePrompt(3, pick: true).english, "Just right! Now draw 3!")
+        expectEqual(english.strokesDoneTray(4, scene: .site, pick: true).0, "Four vehicles!")
+        expectEqual(english.tapMark(tram: true), "ding")
+        expectEqual(english.visaWord, "Visa")
+        // The Cantonese cards keep their words exactly.
+        let yue = TapCountLines(.cantonese)
+        expectEqual(yue.pickPrompt(3), TapCountCopy.pickPrompt(3))
+        expectEqual(yue.recount(4), TapCountCopy.recount(4))
+        expectEqual(yue.need(8), TapCountCopy.need(8))
+        expectEqual(yue.allPrompt(.tramDepot).language, .cantonese)
+        expectEqual(yue.tapMark(tram: true), "叮")
+        expectEqual(yue.visaWord, "簽證 Visa")
+        expectEqual(yue.cornerPrompt, ShapeTraceCopy.cornerPrompt)
+    }
+
+    func testEnglishCardsPlayExactlyTheSameGame() {
+        var clock = 0.0
+        for (english, base) in zip(englishKinds, kinds) {
+            for i in 0..<400 {
+                let range = TapCountRange.allCases[i % TapCountRange.allCases.count]
+                let settings = TapCountSettings(range: range, countVoice: true, english: i % 2 == 0, badgeStyle: .numbers,
+                                                traceScaffold: .dots, tolerance: nil)
+                let recent = [i % 10 + 1]
+                let a = TapCountGenerator.make(seed: "same\(i)", kind: base, settings: settings, recentTargets: recent)
+                let b = TapCountGenerator.make(seed: "same\(i)", kind: english, settings: settings, recentTargets: recent)
+                expectEqual(b.kind, english)
+                expectEqual(b.base, base)
+                expectEqual(a.itemID, b.itemID)
+                expectEqual(a.target, b.target)
+                expectEqual(a.scene, b.scene)
+                expectEqual(a.layout, b.layout)
+                expectEqual(a.vehicles, b.vehicles)
+                expectEqual(a.variant, b.variant)
+                expectEqual(a.level, b.level)
+                expectEqual(a.tracesNumeral, b.tracesNumeral)
+                expectEqual(a.isPick, b.isPick)
+                expectTrue(b.isWellFormed)
+                // Same hit targets and drawn frames.
+                let ha = TapCountVehicleLayout.hitTargets(a), hb = TapCountVehicleLayout.hitTargets(b)
+                expectEqual(ha.map { $0.bay }, hb.map { $0.bay })
+                expectEqual(ha.map { $0.rect }, hb.map { $0.rect })
+                // Same judging: the same taps give the same outcomes, misses, stage and trace.
+                var ba = TapCountBoard(question: a), bb = TapCountBoard(question: b)
+                let bays = a.occupiedBays
+                let taps = a.isPick ? Array(bays.prefix(i % 3 == 0 ? min(bays.count, a.target + 1) : a.target)) : bays
+                for bay in taps {
+                    clock += 0.7
+                    expectEqual(ba.tap(bay: bay, now: clock), bb.tap(bay: bay, now: clock))
+                }
+                if a.isPick {
+                    clock += 1
+                    expectEqual(ba.submit(now: clock), bb.submit(now: clock))
+                    expectEqual(ba.misses, bb.misses)
+                    let fa = PerfChoiceCatalog.facts(tapCount: a, settings: settings, tolerance: .standard, recentTargets: recent)
+                    let fb = PerfChoiceCatalog.facts(tapCount: b, settings: settings, tolerance: .standard, recentTargets: recent)
+                    expectEqual(fa.chance, fb.chance, accuracy: 1e-12)
+                    expectEqual(fa.correctChoice, fb.correctChoice)
+                }
+                expectEqual(ba.stage, bb.stage)
+                expectEqual(ba.selectedCount, bb.selectedCount)
+                if ba.stage == .counted {
+                    ba.startTracing(tolerance: .standard)
+                    bb.startTracing(tolerance: .standard)
+                    // Same numeral roads, lanes, corners and rules (only the kind label differs).
+                    expectEqual(ba.trace?.question.shapes, bb.trace?.question.shapes)
+                    expectEqual(ba.trace?.question.laneWidth, bb.trace?.question.laneWidth)
+                    expectEqual(ba.trace?.tolerance, bb.trace?.tolerance)
+                    expectEqual(ba.trace?.directionHint, bb.trace?.directionHint)
+                    expectEqual(ba.stage, bb.stage)
+                    if i % 20 == 0, var ta = ba.trace, var tb = bb.trace {
+                        var ca = clock, cb = clock
+                        expectEqual(drive(&ta, clock: &ca, offset: 9), drive(&tb, clock: &cb, offset: 9))
+                        expectEqual(ta.isComplete, tb.isComplete)
+                        expectEqual(ta.offPathCount, tb.offPathCount)
+                        ba.updateTrace(ta, now: ca)
+                        bb.updateTrace(tb, now: cb)
+                        expectEqual(ba.stage, bb.stage)
+                    }
+                }
+            }
+            // Practice-only and mastery rules follow the game, not the language.
+            let dealt = TapCountGenerator.reference(kind: english)
+            expectEqual(dealt.itemID, TapCountGenerator.reference(kind: base).itemID)
+            expectEqual(PerfChoiceCatalog.chance(for: english), PerfChoiceCatalog.chance(for: base), accuracy: 1e-12)
+        }
+    }
+
+    func testEnglishVersionsShareTheCodeNotAFork() throws {
+        // The view and the model take every word from TapCountLines; no direct copy or Chinese literals.
+        let view = try source("Sources/VisaGames/TapCountBoardView.swift")
+        expectFalse(view.contains("TapCountCopy."), "TapCountBoardView must use TapCountLines")
+        expectFalse(view.contains(".traditionalChinese"), "TapCountBoardView must use mainText / subText")
+        for line in view.components(separatedBy: "\n") {
+            let code = line.components(separatedBy: "//").first ?? ""
+            let quoted = code.components(separatedBy: "\"").enumerated().filter { $0.offset % 2 == 1 }.map(\.element)
+            for literal in quoted { expectFalse(hasChinese(literal), "Chinese literal in TapCountBoardView: \(line)") }
+        }
+        let model = try source("Sources/VisaGames/AppDelegate.swift")
+        guard let start = model.range(of: "private var tapCountLines: TapCountLines"),
+              let idle = model.range(of: "private func tapCountIdleCheck"),
+              let end = model.range(of: "\n    }\n", range: idle.upperBound..<model.endIndex) else {
+            expectTrue(false, "tap-count model section not found"); return
+        }
+        let section = String(model[start.lowerBound..<end.upperBound])
+        expectFalse(section.contains("TapCountCopy."), "tap-count speech must use tapCountLines")
+        expectFalse(section.contains("ShapeTraceCopy."), "tap-count trace hints must use tapCountLines")
+        // One game, two languages: rules key off the base game; no separate English board or view.
+        let catalog = try source("Sources/VisaCore/TapCountCatalog.swift")
+        for kind in ["tapCountAll", "tapCountTrace", "tapCountPick"] {
+            expectFalse(catalog.contains("kind == .\(kind)"), "catalog rules must use tapCountBase (\(kind))")
+        }
+        expectTrue(catalog.contains("(kind.tapCountBase ?? kind).rawValue"), "deals are seeded by the game")
+        let sources = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("Sources/VisaGames").path)
+        expectFalse(sources.contains { $0.contains("English") && $0.contains("TapCount") }, "no forked English view")
+        let speech = try source("Sources/VisaGames/SystemSpeechPrompt.swift")
+        expectTrue(speech.contains("private func speakEnglish"))
+        expectTrue(speech.contains("no English voice"), "a missing English voice is skipped silently")
+        let ticket = try source("Sources/VisaGames/LineMatchBoardView.swift")
+        expectTrue(ticket.contains("CanvasText(visaWord,"))
     }
 }

@@ -23,7 +23,7 @@ public enum PerfChoiceCatalog {
             return ActivityCatalog.lineMatchQuestion().itemID
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
             return ShapeTraceGenerator.reference(kind: kind).itemID
-        case .tapCountAll, .tapCountTrace, .tapCountPick:
+        case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             return TapCountGenerator.reference(kind: kind).itemID
         }
     }
@@ -45,10 +45,10 @@ public enum PerfChoiceCatalog {
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
             // Practice only: nothing to guess, never mastery evidence (design D10).
             return 1.0
-        case .tapCountAll, .tapCountTrace:
+        case .tapCountAll, .tapCountTrace, .tapCountAllEnglish, .tapCountTraceEnglish:
             // Practice only: every vehicle is tapped, nothing to guess (number-quantity D13).
             return 1.0
-        case .tapCountPick:
+        case .tapCountPick, .tapCountPickEnglish:
             // Picking 1…N at random hits exactly T with chance 1/N; dealt rounds carry their own N.
             return 1.0 / Double(TapCountGenerator.reference(kind: .tapCountPick).count)
         }
@@ -81,7 +81,7 @@ public enum PerfChoiceCatalog {
             return ActivityCatalog.lineMatchQuestion().rightKeys
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
             return ShapeTraceGenerator.reference(kind: kind).shapes.map(\.slot)
-        case .tapCountAll, .tapCountTrace, .tapCountPick:
+        case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             return TapCountGenerator.reference(kind: kind).occupiedBays.map { "bay-\($0)" }
         }
     }
@@ -103,7 +103,7 @@ public enum PerfChoiceCatalog {
             return ActivityCatalog.lineMatchQuestion().pairs.map(\.key)
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:
             return ShapeTraceGenerator.reference(kind: kind).shapes.map(\.slot)
-        case .tapCountAll, .tapCountTrace, .tapCountPick:
+        case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             return TapCountGenerator.reference(kind: kind).occupiedBays.map { "bay-\($0)" }
         }
     }
@@ -125,7 +125,7 @@ public enum PerfChoiceCatalog {
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge: return nil
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree: return nil
         // 揀啱數 is judged at OK (`submit`, from the dealt facts) — no single right bay.
-        case .tapCountAll, .tapCountTrace, .tapCountPick: return nil
+        case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return nil
         }
     }
 
@@ -152,7 +152,7 @@ public enum PerfChoiceCatalog {
             return bay.vehicleAssetID ?? "empty"
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge: return nil
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree: return nil
-        case .tapCountAll, .tapCountTrace, .tapCountPick: return nil
+        case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return nil
         }
     }
 

@@ -1,5 +1,27 @@
 # Progress
 
+## 2026-10-18 — v0.29.0 / 64 — Tap & Count in English (three English twins)
+
+- Carter asked for fully English versions of the three 一架一架數 games.
+- Three new cards: `tapCountAllEnglish`, `tapCountTraceEnglish` and `tapCountPickEnglish`. Each is an independent card with its own stars and its own 試玩. All three are off by default, and their stars stay locked until that card has been playtested.
+- Parent cards are bilingual: 一架一架數（英文）· 點一點 / Tap & Count in English · Tap each one (and 數完畫 / Count & draw, 揀啱數 / Just right). They reuse the 一架一架數 icons and share the 數字設定 panel.
+- One game in two languages, not a fork:
+  - `ActivityKind.tapCountBase` maps each English card to its Cantonese card. Generation, judging, level, layout, tap targets, penalty, demo, trace, mastery and practice-only rules all use the base card.
+  - The same seed deals the same round in both languages.
+  - `TapCountLines(language)` is the only source of words for `TapCountBoardView` and the model's tap-count speech. Cantonese returns `TapCountCopy` unchanged. English returns `TapCountEnglishCopy`.
+  - Any later guidance change to the game is therefore shared by both languages.
+- Everything the child sees or hears on an English card is English:
+  - prompts, per-tap counting, totals ("Four trams!"), the ★★★ recount (digits on screen, words in the voice), "We need eight!", tray, chips, legends, buttons (Clear / OK · Done);
+  - the Think Pause card, the visa ticket ("min" / "Visa"), the ding / beep marks, trace hints and the hint line.
+  - Copy by Claude Code Opus 5.5 (`visa-games-design/number-quantity/english/english-copy.md`).
+- Voice: `SpokenPrompt.language = .english` is spoken by the en-GB system voice only. A recorded clip `Voice/en.tapCount.<key>.m4a` wins when bundled. With no English voice nothing is said; nothing crashes or waits, and the screen line still shows.
+- Not changed: the shared stamp / watch / out-of-fuel screens after or around a round still use the app's usual bilingual flow.
+- Tests:
+  - `testEnglishCardsAreDefaultOffIndependentAndNeedAPlaytest`;
+  - `testEnglishChildFacingWordsHaveNoChineseAtAll` (every line for 1–10 × every scene; no CJK ideographs or full-width punctuation; English-only `en.` prompts);
+  - `testEnglishCardsPlayExactlyTheSameGame` (1,200 deals: same rounds, tap targets, outcomes, misses, chance, trace roads and trace results);
+  - `testEnglishVersionsShareTheCodeNotAFork` (source guards: no `TapCountCopy` or Chinese literals in the view, tap-count speech only via `tapCountLines`, base-keyed rules, no forked view).
+
 ## 2026-10-18 — v0.28.2 / 63 — 喎 spoken low (UAT)
 
 - UAT (Carter, v0.28.1): in 「要八架喎！」, Sinji said 喎 like 蛙 / 窩 (wo1, high) instead of the intended low particle (like 禍).

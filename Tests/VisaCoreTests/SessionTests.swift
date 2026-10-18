@@ -558,6 +558,10 @@ struct TestRunner {
         tapCount.testOnlyPickIsMasteryEvidence()
         tapCount.testCopyIsHongKongTraditionalAndASCIIEnglish()
         try tapCount.testAppWiringSourceGuards()
+        tapCount.testEnglishCardsAreDefaultOffIndependentAndNeedAPlaytest()
+        tapCount.testEnglishChildFacingWordsHaveNoChineseAtAll()
+        tapCount.testEnglishCardsPlayExactlyTheSameGame()
+        try tapCount.testEnglishVersionsShareTheCodeNotAFork()
 
         let kiosk = KioskPresentationTests()
         try kiosk.testPresentationOptionsSetOnlyAtLaunchAndTerminate()
@@ -579,6 +583,6 @@ struct TestRunner {
         try finder.testZoomCountdownMarksAndCardInfo()
 
 
-        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match + 12 guided-line-match + 20 shape-trace + 21 tap-count + 12 parent-youtube checks")
+        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match + 12 guided-line-match + 20 shape-trace + 25 tap-count + 12 parent-youtube checks")
     }
 }
