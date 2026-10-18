@@ -287,6 +287,66 @@ final class TapCountTests {
         expectNil(q.bay(at: LineMatchPoint(x: 640, y: 470)))
     }
 
+    // MARK: Tap targets vs drawing (v0.28.1)
+
+    /// UAT v0.28.0: in the 2-row layouts every tap landed one row below the drawn vehicle. The view
+    /// now lays one tap target per vehicle on `TapCountVehicleLayout.hitRect`, in the same stage
+    /// units the drawing uses. For every star, scene and vehicle count 1–10 (row and two-row
+    /// layouts), each drawn vehicle must sit on its own target and on no other.
+    func testHitTargetsMatchTheDrawnVehiclesForEveryCount() {
+        var seen = Set<String>()
+        var minCoverage = 1.0
+        var worst = ""
+        for kind in kinds {
+            for i in 0..<6000 {
+                let q = TapCountGenerator.make(seed: "hit\(i)", kind: kind)
+                let key = "\(kind.rawValue)/\(q.scene.rawValue)/\(q.count)"
+                guard seen.insert(key).inserted else { continue }
+                let targets = TapCountVehicleLayout.hitTargets(q)
+                expectEqual(targets.map(\.bay), q.occupiedBays, "one target per vehicle \(key)")
+                for (a, ta) in targets.enumerated() {
+                    for tb in targets[(a + 1)...] {
+                        expectFalse(ta.rect.intersects(tb.rect), "targets overlap \(key)")
+                    }
+                }
+                for v in q.vehicles {
+                    let drawn = TapCountVehicleLayout.drawnFrame(v, in: q)
+                    let hit = TapCountVehicleLayout.hitRect(bay: v.bay, in: q)
+                    let centre = LineMatchPoint(x: drawn.midX, y: drawn.midY)
+                    expectEqual(TapCountVehicleLayout.bay(atStage: centre, in: q), v.bay,
+                                "drawn centre of bay \(v.bay) hits its own target \(key)")
+                    // The middle of the vehicle body (the lower two thirds of the art box, where the
+                    // child aims) is inside its target: tapping the top or bottom of a vehicle works.
+                    for fy in [0.4, 0.6, 0.8] {
+                        for fx in [0.2, 0.5, 0.8] {
+                            let p = LineMatchPoint(x: drawn.x + drawn.width * fx, y: drawn.y + drawn.height * fy)
+                            expectEqual(TapCountVehicleLayout.bay(atStage: p, in: q), v.bay,
+                                        "body point (\(fx), \(fy)) of bay \(v.bay) \(key)")
+                        }
+                    }
+                    // The pre-fix bug: a point one workspace offset (118u) below the vehicle is not it.
+                    let shifted = LineMatchPoint(x: centre.x, y: centre.y + 118)
+                    expectTrue(TapCountVehicleLayout.bay(atStage: shifted, in: q) != v.bay, "118u below is not the vehicle \(key)")
+                    let ix = max(0, min(drawn.maxX, hit.maxX) - max(drawn.x, hit.x))
+                    let iy = max(0, min(drawn.maxY, hit.maxY) - max(drawn.y, hit.y))
+                    let coverage = ix * iy / max(1, drawn.width * drawn.height)
+                    if coverage < minCoverage { minCoverage = coverage; worst = "\(key) bay \(v.bay) \(v.model)" }
+                }
+            }
+        }
+        // Every star × scene × count the generator can deal: ★/★★ 5 scenes × 1…10; ★★★ 5 × 3…10.
+        for scene in TapCountScene.allCases {
+            for n in 1...10 {
+                expectTrue(seen.contains("tapCountAll/\(scene.rawValue)/\(n)"), "★ \(scene) \(n) covered")
+                expectTrue(seen.contains("tapCountTrace/\(scene.rawValue)/\(n)"), "★★ \(scene) \(n) covered")
+            }
+            for n in 3...10 {
+                expectTrue(seen.contains("tapCountPick/\(scene.rawValue)/\(n)"), "★★★ \(scene) \(n) covered")
+            }
+        }
+        expectTrue(minCoverage >= 0.75, "drawn art inside its target ≥ 75% (worst \(worst): \(minCoverage))")
+    }
+
     // MARK: Reducer
 
     private func pickQuestion(target: Int, cars: Int) -> TapCountQuestion {
@@ -543,6 +603,7 @@ final class TapCountTests {
     // MARK: App wiring
 
     func testAppWiringSourceGuards() throws {
+        let model = try source("Sources/VisaGames/AppDelegate.swift")
         let host = try source("Sources/VisaGames/CanvasActivityHost.swift")
         expectTrue(host.contains("case .tapCountAll, .tapCountTrace, .tapCountPick:"))
         let view = try source("Sources/VisaGames/TapCountBoardView.swift")
@@ -551,9 +612,17 @@ final class TapCountTests {
         expectFalse(view.contains("presentationOptions"))
         expectFalse(view.contains("styleMask"))
         expectTrue(view.contains("ThinkPauseOverlay"))
+        // v0.28.1: taps go through one target per vehicle on the shared stage rect, never through a
+        // hand-converted point from a workspace overlay (the v0.28.0 one-row shift).
+        expectTrue(view.contains("TapCountVehicleLayout.hitTargets(question)"))
+        expectTrue(view.contains(".canvasPlaced(x: CGFloat(r.x), y: CGFloat(r.y))"))
+        expectTrue(view.contains("view.onTap(bay)"))
+        expectFalse(view.contains("bay(at:"), "no coordinate hit test in the view")
+        expectTrue(view.contains("TapCountVehicleLayout.scale(model, layout: layout)"), "drawing shares the tap-target scale")
+        expectTrue(view.contains("y: point.y / scale + Self.workspaceTop"), "pen points include the workspace top")
+        expectFalse(model.contains("question.bay(at:"), "the model takes the tapped bay, not a point")
         let speech = try source("Sources/VisaGames/SystemSpeechPrompt.swift")
         expectTrue(speech.contains("func speakQueued"))
-        let model = try source("Sources/VisaGames/AppDelegate.swift")
         expectTrue(model.contains("tapCountSettingsStore.save"))
         expectTrue(model.contains("TapCountGenerator.make("))
         let checklist = try source("docs/phase-0-kiosk-checklist.md")

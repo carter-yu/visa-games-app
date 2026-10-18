@@ -28,7 +28,8 @@ struct TapCountBoardView: View {
     /// Model clock (seconds since the reference date).
     let now: Double
     let onSpeak: () -> Void
-    let onTap: (Double, Double) -> Void
+    /// A tap on the vehicle in this bay (each vehicle has its own tap target; see TapCountVehicleLayout).
+    let onTap: (Int) -> Void
     let onSubmit: () -> Void
     let onErase: () -> Void
     let onTraceCommit: (ShapeTraceBoard) -> Void
@@ -71,31 +72,43 @@ private struct TapCountStageContent: View {
         return model
     }
 
+    /// The workspace overlays (pen) sit at stage y = 118, so their gesture locations start there.
+    private static let workspaceTop: CGFloat = 118
+
+    /// A location in a workspace overlay (origin at stage y = 118) → stage units.
     private func stagePoint(_ point: CGPoint) -> CGPoint {
         let scale = max(metrics.scale, 0.0001)
-        return CGPoint(x: point.x / scale, y: point.y / scale)
+        return CGPoint(x: point.x / scale, y: point.y / scale + Self.workspaceTop)
     }
 
     private func lm(_ point: CGPoint) -> LineMatchPoint { LineMatchPoint(x: Double(point.x), y: Double(point.y)) }
 
     // MARK: Taps (count / pick)
 
-    private var tapGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onEnded { value in
-                guard !view.locked, board.stage == .tapping else { return }
-                let start = stagePoint(value.startLocation)
-                let end = stagePoint(value.location)
-                // A tap, not a swipe.
-                guard hypot(end.x - start.x, end.y - start.y) <= 40 else { return }
-                if let bay = question.bay(at: lm(start)) {
-                    withAnimation(.spring(response: 0.18, dampingFraction: 0.45)) { bounceBay = bay }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
-                        withAnimation(.easeOut(duration: 0.15)) { if bounceBay == bay { bounceBay = nil } }
+    /// One tap target per vehicle, laid on the same stage rect the drawing uses (v0.28.1). The
+    /// handler is attached to the target itself, so there is no coordinate maths to get wrong.
+    private func bayHitTarget(_ bay: Int, rect r: LineMatchRect) -> some View {
+        Color.clear
+            .frame(width: metrics.u(CGFloat(r.width)), height: metrics.u(CGFloat(r.height)))
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onEnded { value in
+                        guard !view.locked, board.stage == .tapping else { return }
+                        // A tap, not a swipe (40u of travel at most).
+                        let travel = hypot(value.translation.width, value.translation.height) / max(metrics.scale, 0.0001)
+                        guard travel <= 40 else { return }
+                        withAnimation(.spring(response: 0.18, dampingFraction: 0.45)) { bounceBay = bay }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                            withAnimation(.easeOut(duration: 0.15)) { if bounceBay == bay { bounceBay = nil } }
+                        }
+                        view.onTap(bay)
                     }
-                }
-                view.onTap(Double(start.x), Double(start.y))
-            }
+            )
+            .canvasPlaced(x: CGFloat(r.x), y: CGFloat(r.y))
+            .accessibilityElement()
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel("\(question.prompt.traditionalChinese) \(bay + 1)")
     }
 
     // MARK: Pen (numeral trace; the ShapeTraceStageContent pattern)
@@ -176,13 +189,10 @@ private struct TapCountStageContent: View {
         ZStack(alignment: .topLeading) {
             sceneLayer
             if board.stage == .tapping {
-                Color.clear
-                    .frame(width: metrics.u(1280), height: metrics.u(422))
-                    .contentShape(Rectangle())
-                    .gesture(tapGesture)
-                    .allowsHitTesting(!view.locked)
-                    .canvasPlaced(x: 0, y: 118)
-                    .accessibilityLabel(question.prompt.traditionalChinese)
+                ForEach(TapCountVehicleLayout.hitTargets(question), id: \.bay) { target in
+                    bayHitTarget(target.bay, rect: target.rect)
+                        .allowsHitTesting(!view.locked)
+                }
             }
             if board.stage == .tracing {
                 Color.clear
@@ -190,7 +200,7 @@ private struct TapCountStageContent: View {
                     .contentShape(Rectangle())
                     .gesture(penGesture)
                     .allowsHitTesting(!view.locked)
-                    .canvasPlaced(x: 0, y: 118)
+                    .canvasPlaced(x: 0, y: Self.workspaceTop)
                     .accessibilityLabel(TapCountCopy.tracePrompt(board.target).traditionalChinese)
             }
             bubbles
@@ -867,20 +877,7 @@ enum TapCountDrawing {
 
     // MARK: Art per model
 
-    static func art(_ model: TapCountModel) -> CanvasArtwork {
-        switch model {
-        case .tram: return TapCountArt.tram
-        case .fireEngine: return TapCountArt.fireEngine
-        case .digger: return TapCountArt.digger
-        case .dumper: return TapCountArt.dumper
-        case .mixer: return TapCountArt.mixer
-        case .dozer: return TapCountArt.dozer
-        case .roller: return TapCountArt.roller
-        case .craneTruck: return TapCountArt.craneTruck
-        case .plane: return TapCountArt.plane
-        case .bus: return TapCountArt.bus
-        }
-    }
+    static func art(_ model: TapCountModel) -> CanvasArtwork { TapCountVehicleLayout.art(model) }
 
     /// The lit layer, and where its origin sits from the vehicle origin in vehicle units
     /// (nil = drawn on the vehicle origin at the vehicle scale). Beacons sit on each roof cap (mockup 05).
@@ -899,13 +896,9 @@ enum TapCountDrawing {
         }
     }
 
-    /// The mockup scales (row 0.92; cells 0.7), shrunk only when a wider model would leave its bay.
+    /// The mockup scales (row 0.92; cells 0.7); shared with the tap targets.
     static func scale(_ model: TapCountModel, layout: TapCountLayout) -> Double {
-        let width = max(1, art(model).width)
-        switch layout {
-        case .row: return min(0.92, 226 / width)
-        case .tenFrame, .yard: return min(0.7, 200 / width)
-        }
+        TapCountVehicleLayout.scale(model, layout: layout)
     }
 
     /// The strip (mockups 03 / 08: 0.42–0.44), fitted to the spacing.

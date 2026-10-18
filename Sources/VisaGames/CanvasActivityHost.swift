@@ -400,7 +400,7 @@ struct CanvasActivityHost: View {
                 notice: model.tapCountNotice,
                 now: model.now.timeIntervalSinceReferenceDate,
                 onSpeak: { speakPrompt() },
-                onTap: { x, y in model.tapCountTap(x: x, y: y) },
+                onTap: { bay in model.tapCountTap(bay: bay) },
                 onSubmit: { model.tapCountSubmit() },
                 onErase: { model.tapCountErase() },
                 onTraceCommit: { next in model.tapCountTraceCommit(next) },

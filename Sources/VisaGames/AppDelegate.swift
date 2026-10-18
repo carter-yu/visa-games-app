@@ -3904,12 +3904,12 @@ extension AppModel {
 
     // MARK: Taps
 
-    /// One tap at stage point (x, y). ★ / ★★: count (「一、二、三」, the last one reveals the
-    /// numeral). ★★★: pick / unpick. Never a miss.
-    func tapCountTap(x: Double, y: Double) {
+    /// One tap on the vehicle in `bay` (the view's per-vehicle tap target). ★ / ★★: count
+    /// (「一、二、三」, the last one reveals the numeral). ★★★: pick / unpick. Never a miss.
+    func tapCountTap(bay tappedBay: Int) {
         let clock = Date().timeIntervalSinceReferenceDate
-        guard let current = currentTapCountBoard else { return }
-        let bay = current.question.bay(at: LineMatchPoint(x: x, y: y))
+        guard currentTapCountBoard != nil else { return }
+        let bay: Int? = tappedBay
         guard let outcome = changeTapCountBoard({ $0.tap(bay: bay, now: clock) }) else { return }
         guard let board = currentTapCountBoard else { return }
         let speakCount = tapCountSettings.countVoice
