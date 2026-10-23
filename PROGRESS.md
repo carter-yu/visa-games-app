@@ -1,5 +1,12 @@
 # Progress
 
+## 2026-10-24 — Letter-tap L1 pure deal core (review branch)
+
+- Branch `feat/letter-tap-L1-scheduler-board-bank` starts from the L0 tip `58fc854`. It adds path presets, resilient settings/progress/deck stores, scheduled week/retry/review targets, guarded 2×5 boards, curated word deals, and a pure deal composer. No child or parent UI, activity registration, or timer/reward policy was added. The app version remains v0.30.0 because this core slice is not family-visible.
+- `Resources/LetterTap/starter-bank.json` is copied from the design repository. Its 26 entries contain 10 full letters and 16 anchor-only entries. Static JSON checks found 101 words and unique word, image, and voice IDs; full entries have at least two core words. Anchor-only entries cannot make a two-word deal and the generator returns no deal for them.
+- Four offline VisaCoreChecks methods were added for settings/progress, 1,000-seed scheduler and board properties, word decks, and JSON content. `sh scripts/test.sh` stopped at `swift: not found` on this Linux workshop. No L1 Swift build, Mac mini, Wacom, or TV test result is claimed.
+- Next: L2 tapLetterAll ★ UI (cards, flip, Think Pause tray, all-found; a–e word art; IPA speech).
+
 ## 2026-10-23 — Letter-tap L0 Latin glyph catalog (review branch)
 
 - Branch `feat/letter-tap-L0-latin-glyphs` starts from `origin/main` `5a4e4cb`. Catalog commit `abab709` is on draft PR #29, open against main and unmerged. Main did not yet contain the stroke-order D11 types, so this branch includes only the generic glyph adapter needed for the catalog. The stroke-order player remains on its separate unmerged branch.

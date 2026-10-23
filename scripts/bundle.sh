@@ -7,6 +7,8 @@ mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources/Vehicles" "$bundle
   "$bundle/Contents/Resources/Fonts"
 cp .build/release/VisaGames "$bundle/Contents/MacOS/VisaGames"
 cp Resources/Info.plist "$bundle/Contents/Info.plist"
+mkdir -p "$bundle/Contents/Resources/LetterTap"
+cp Resources/LetterTap/starter-bank.json "$bundle/Contents/Resources/LetterTap/starter-bank.json"
 # Stampy app icon (CFBundleIconFile = AppIcon).
 if [ -f Resources/AppIcon.icns ]; then
   cp Resources/AppIcon.icns "$bundle/Contents/Resources/AppIcon.icns"
