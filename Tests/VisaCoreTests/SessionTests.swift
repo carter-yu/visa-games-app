@@ -537,6 +537,11 @@ struct TestRunner {
         try shapeTrace.testAppWiringSourceGuards()
 
         let tapCount = TapCountTests()
+        let latin = LatinGlyphTests()
+        latin.testCatalogPathsAndStarts()
+        latin.testTurnsAlternatesAndHouseLines()
+        latin.testMagicCAndStickStartsAndFixture()
+        latin.testPathsCompleteAtExistingTolerances()
         tapCount.testNumeralStrokeDataMatchesTheStrokeOrderSheet()
         tapCount.testNumeralCornersAndCuspsSitWhereTheSheetSays()
         tapCount.testEveryNumeralCompletesAtEveryToleranceAndNeverAtPenDown()
