@@ -2,10 +2,10 @@
 
 ## 2026-10-23 — Letter-tap L0 Latin glyph catalog (review branch)
 
-- Branch `feat/letter-tap-L0-latin-glyphs` starts from `origin/main` `5a4e4cb`. Main did not yet contain the stroke-order D11 types, so this branch includes only the generic glyph adapter needed for the catalog. The stroke-order player remains on its separate unmerged branch.
+- Branch `feat/letter-tap-L0-latin-glyphs` starts from `origin/main` `5a4e4cb`. Catalog commit `abab709` is on draft PR #29, open against main and unmerged. Main did not yet contain the stroke-order D11 types, so this branch includes only the generic glyph adapter needed for the catalog. The stroke-order player remains on its separate unmerged branch.
 - `LatinGlyphs` contains LWT centre-line paths for a, b, c, d, e, g, k, o, and u, with path data from letter-tap design section 8.2. The `latin:a` path matches stroke-order mockup `03-letter-a.svg` path `la`. Explicitly authored ball-stick paths for a, b, and d are stored as alternates. No UI or activity kind was added.
 - Four focused VisaCoreChecks methods cover stroke counts, starts, turns, house bounds, alternates, the a fixture, and tracing at the existing narrow, standard, and wide tolerances.
-- `sh scripts/test.sh` stopped with `swift: not found` on this Linux workshop. No local Swift build or Mac mini result is claimed. The app version stays at v0.30.0 because this catalog has no family-visible surface.
+- Static comparison confirmed all ten default path strings and the four explicit alternate path strings against design section 8.2; `latin:a` matches stroke-order mockup path `la`. `git show --check` was clean. `sh scripts/test.sh` stopped with `swift: not found` on this Linux workshop. No local Swift build or Mac mini result is claimed. The app version stays at v0.30.0 because this catalog has no family-visible surface.
 - Next: L1 `LetterScheduler`, `LetterBoardBuilder`, and `LetterWordBank` with pure tests.
 
 ## 2026-10-19 — v0.30.0 / 65 — 描數字提示: tracing guidance for 1–10 (Cantonese and English)
