@@ -2,6 +2,7 @@
 
 ## 2026-10-25 — v0.33.0 / 68 — L3 Find & write source (draft review)
 
+- Mac mini `VisaCoreChecks` failed on stale catalog/kind count assertions (24→25); the test-only hotfix was pushed to draft PR #33. Mac mini retest, install, and UAT remain pending.
 - Branch `feat/letter-tap-L3-tapLetterWrite-ui` is based on main `e936b57`. It adds a separate default-off, playtest-gated ★★ Find & write card. The child finds and flips both target cards, then traces the same lowercase letter on a four-line board before the existing stamp and visa handoff.
 - Writing reuses the monotonic shape-trace model and LWT letter paths. Pen events do not call `WrongAnswerPolicy` or deduct visa minutes. English writing prompts, a–e mnemonics, a writing-progress store, and the parent Hong Kong Traditional Chinese / English title, help, and suggested ★★ badge are included. The parent ball-stick toggle is not wired in this slice.
 - `Resources/Info.plist` and the parent version label are 0.33.0 / build 68; the version test asserts both fields. ADR 0019 records the boundary. The existing macOS escape-path inventory remains in `docs/phase-0-kiosk-checklist.md`.
