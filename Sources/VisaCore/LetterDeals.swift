@@ -144,7 +144,7 @@ public enum LetterScheduler {
                 if lhs.value.lastSeen != rhs.value.lastSeen { return (lhs.value.lastSeen ?? .distantPast) < (rhs.value.lastSeen ?? .distantPast) }
                 return (settings.path.order.firstIndex(of: lhs.key) ?? 99) < (settings.path.order.firstIndex(of: rhs.key) ?? 99)
             }
-            if let letter = ordered.first(where: { $0.key != progress.lastTarget })?.key {
+            if let letter = (ordered.first(where: { $0.key != progress.lastTarget }) ?? ordered.first)?.key {
                 return LetterChoice(target: letter, lane: .review)
             }
         }

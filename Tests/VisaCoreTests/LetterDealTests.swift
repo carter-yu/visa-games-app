@@ -66,8 +66,14 @@ final class LetterDealTests {
         var old = LetterProgress()
         old.record("a", clean: true, round: 1, at: Date(timeIntervalSince1970: 0))
         let nextWeek = TapLetterSettings(thisWeek: Array("fghij").map(String.init))
-        expectEqual(LetterScheduler.next(seed: "x", n: 4, settings: nextWeek, progress: old,
-                                         now: Date(timeIntervalSince1970: 9 * 86_400)).lane, .review)
+        let reviewTime = Date(timeIntervalSince1970: 9 * 86_400)
+        let onlyOld = LetterScheduler.next(seed: "x", n: 4, settings: nextWeek, progress: old, now: reviewTime)
+        expectEqual(onlyOld.lane, .review)
+        expectEqual(onlyOld.target, "a")
+        old.record("b", clean: true, round: 2, at: Date(timeIntervalSince1970: 0))
+        let otherOld = LetterScheduler.next(seed: "x", n: 4, settings: nextWeek, progress: old, now: reviewTime)
+        expectEqual(otherOld.lane, .review)
+        expectEqual(otherOld.target, "a")
     }
 
     func testWordBankAndDeck() throws {

@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-10-24 — Letter-tap L1 review fallback hotfix (draft PR #30)
+
+- The Mac mini L1 first run of `sh scripts/test.sh` failed (exit 133) at `Tests/VisaCoreTests/LetterDealTests.swift:69`: expected review, got week.
+- This commit fixes the review slot fallback when the only due old letter equals `lastTarget`. A different due old letter remains preferred. The tests cover both cases. No scheduler policy, board, word bank, UI, or version change was made beyond this fallback.
+- On this Linux workshop, `sh scripts/test.sh` stopped with exit 127 (`swift: not found`). Mac mini retest of this fix remains pending.
+
 ## 2026-10-24 — Letter-tap L1 pure deal core (review branch)
 
 - Branch `feat/letter-tap-L1-scheduler-board-bank` starts from the L0 tip `58fc854`. It adds path presets, resilient settings/progress/deck stores, scheduled week/retry/review targets, guarded 2×5 boards, curated word deals, and a pure deal composer. No child or parent UI, activity registration, or timer/reward policy was added. The app version remains v0.30.0 because this core slice is not family-visible.
