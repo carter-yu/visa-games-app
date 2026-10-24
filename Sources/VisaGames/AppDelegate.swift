@@ -3946,7 +3946,7 @@ extension AppModel {
         guard let board = currentTapLetterBoard, !board.isComplete else { return }
         guard !tapLetterPenaltyPending,
               (tapLetterUsesPlaytest ? !playtestChoicesLocked : (taskRoundOpen && !choicesLocked)) else { return }
-        tapLetterSpeak("prompt", TapLetterCopy.prompt(board.deal.target), queued: false)
+        tapLetterSpeak("prompt", TapLetterCopy.prompt(board.deal.target))
     }
 
     func tapLetterTap(card: Int) {
