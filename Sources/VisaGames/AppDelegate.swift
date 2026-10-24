@@ -182,6 +182,11 @@ final class AppModel: ObservableObject {
     private var shapeTraceHintSpoken: Set<String> = []
     /// v0.28.0 一架一架數 child board (點一點 / 數完畫 / 揀啱數). Nil on every other kind.
     @Published private(set) var tapCountBoard: TapCountBoard?
+    @Published private(set) var tapLetterWriteRound: TapLetterWriteRound?
+    @Published private(set) var tapLetterWriteGuide = "none"
+    private var letterWriteProgress = LetterWriteProgressStore().load()
+    private var tapLetterCuspSpoken = false
+    private var tapLetterGlanceReason: StrokeOrderProgress.GlanceReason?
     @Published private(set) var tapLetterBoard: TapLetterBoard?
     @Published private(set) var tapLetterBubble: String?
     private var tapLetterBubbleGeneration = 0
@@ -628,7 +633,7 @@ final class AppModel: ObservableObject {
     }
 
     func guideSpeakStamped() {
-        if activeActivityKind == .tapLetterAll { tapLetterSpeak("stamp", "Stamped!") }
+        if activeActivityKind?.isTapLetterFamily == true { tapLetterSpeak("stamp", "Stamped!") }
         else { guideVoice.speak(.stamped) }
     }
     func guideSpeakEmptyAllowlist() { guideVoice.speak(.emptyAllowlist) }
@@ -875,7 +880,9 @@ final class AppModel: ObservableObject {
         shapeTraceNotice = nil
         tapCountBoard = kind.isTapCountFamily ? makeTapCountBoard(
             seed: seed, kind: kind, avoidingItem: lastDealtItem[kind]) : nil
-        tapLetterBoard = kind == .tapLetterAll ? makeTapLetterBoard(seed: seed) : nil
+        tapLetterBoard = kind.isTapLetterFamily ? makeTapLetterBoard(seed: seed) : nil
+        tapLetterWriteRound = kind == .tapLetterWrite ? tapLetterBoard.map { TapLetterWriteRound(deal: $0.deal) } : nil
+        tapLetterCuspSpoken = false
         tapLetterBubble = nil
         tapLetterCelebrating = false
         tapLetterPlaqueNudge = false
@@ -931,6 +938,7 @@ final class AppModel: ObservableObject {
         sequenceTappedAssetIDs = []
         choiceDealSeed = ""
         tapLetterBoard = nil
+        tapLetterWriteRound = nil
         tapLetterBubble = nil
     }
 
@@ -975,7 +983,7 @@ final class AppModel: ObservableObject {
             let question = tapCount?.question ?? TapCountGenerator.reference(kind: kind)
             return PerfChoiceCatalog.facts(tapCount: question, settings: tapCountSettings,
                                            tolerance: tapCountTolerance, recentTargets: tapCountRecentTargets)
-        case .tapLetterAll:
+        case .tapLetterAll, .tapLetterWrite:
             return tapLetterFacts(currentTapLetterBoard)
         default: return PerfChoiceCatalog.facts(kind: kind, seed: seed)
         }
@@ -1027,7 +1035,7 @@ final class AppModel: ObservableObject {
         case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             speakTapCountPrompt()
             return
-        case .tapLetterAll:
+        case .tapLetterAll, .tapLetterWrite:
             speakTapLetterPrompt()
             return
         }
@@ -1277,7 +1285,7 @@ final class AppModel: ObservableObject {
         awaitingDeparture = true
         showTimesUp = false
         triggerSuccessFeedback()
-        if activeActivityKind != .tapLetterAll { guideSpeakStamped() }
+        if activeActivityKind?.isTapLetterFamily != true { guideSpeakStamped() }
         VisaGamesLog.append(
             "applyEntrySuccess — 入口成功 assisted=\(assisted) earnedMin=\(earnedMinutes) entryCompleted=\(isEntryActivityCompleted) viewing=\(remainingViewingBudget(at: Date())) mode=\(session.mode) stampGate=true"
         )
@@ -1374,7 +1382,7 @@ final class AppModel: ObservableObject {
             changed?()
             return
         }
-        if activeActivityKind == .tapLetterAll {
+        if activeActivityKind?.isTapLetterFamily == true {
             tapLetterAfterPause()
             changed?()
             return
@@ -1390,14 +1398,14 @@ final class AppModel: ObservableObject {
     }
 
     private func returnToDepotOutOfFuel() {
-        if activeActivityKind == .tapLetterAll, let board = tapLetterBoard, !board.isComplete {
+        if activeActivityKind?.isTapLetterFamily == true, let board = tapLetterBoard, !board.isComplete {
             var fields = tapLetterResultFields(board)
             let boxes = tapLetterSaveRound(board)
             fields["box_before"] = .string(boxes.before)
             fields["box_after"] = .string(boxes.after)
             perf.roundResultExtra(fields)
         }
-        if activeActivityKind == .tapLetterAll {
+        if activeActivityKind?.isTapLetterFamily == true {
             guideVoice.speak(SpokenPrompt.englishOnly(key: "en.tapLetter.outOfFuel",
                                                       WrongAnswerCopy.returnDepotEnglish))
         } else { guideVoice.speak(.outOfFuelDepot) }
@@ -2842,7 +2850,9 @@ final class AppModel: ObservableObject {
         shapeTraceNotice = nil
         playtestTapCountBoard = kind.isTapCountFamily
             ? makeTapCountBoard(seed: playtestChoiceDealSeed, kind: kind, avoidingItem: nil) : nil
-        playtestTapLetterBoard = kind == .tapLetterAll ? makeTapLetterBoard(seed: playtestChoiceDealSeed) : nil
+        playtestTapLetterBoard = kind.isTapLetterFamily ? makeTapLetterBoard(seed: playtestChoiceDealSeed) : nil
+        tapLetterWriteRound = kind == .tapLetterWrite ? playtestTapLetterBoard.map { TapLetterWriteRound(deal: $0.deal) } : nil
+        tapLetterCuspSpoken = false
         tapLetterBubble = nil
         tapLetterCelebrating = false
         tapLetterPlaqueNudge = false
@@ -2914,7 +2924,7 @@ final class AppModel: ObservableObject {
         case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             speakTapCountPrompt()
             return
-        case .tapLetterAll:
+        case .tapLetterAll, .tapLetterWrite:
             speakTapLetterPrompt()
             return
         }
@@ -3130,7 +3140,7 @@ final class AppModel: ObservableObject {
             tapCountAfterThinkPause(playtest: true)
             return
         }
-        if playtestKind == .tapLetterAll {
+        if playtestKind?.isTapLetterFamily == true {
             tapLetterAfterPause()
             return
         }
@@ -3168,6 +3178,7 @@ final class AppModel: ObservableObject {
         shapeTraceNotice = nil
         playtestTapCountBoard = nil
         playtestTapLetterBoard = nil
+        tapLetterWriteRound = nil
         tapCountNotice = nil
         clearPlaytestThinkPause()
         VisaGamesLog.append("playtest discard — 試玩收起 reason=\(reason)")
@@ -3536,7 +3547,7 @@ struct ShellView: View {
                 dockLeadingX: CGFloat(BayDock.chosen(seed: model.departureDockSeed).leadingX),
                 onGo: { model.confirmDeparture() },
                 onSpeak: { model.guideSpeakStamped() },
-                englishOnly: model.activeActivityKind == .tapLetterAll
+                englishOnly: model.activeActivityKind?.isTapLetterFamily == true
             )
             .ignoresSafeArea()
         case .emptyAllowlist:
@@ -3875,7 +3886,7 @@ struct ShellView: View {
                     onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .twoPictureChoose, .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .traceLines, .traceShapesArrows, .traceShapesFree,
-                 .traceShapesDotted, .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .none:
+                 .traceShapesDotted, .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite, .none:
                 // Legacy shell is setup / parent only; 連一連 is canvas-only (CanvasActivityHost).
                 EntryActivityView(
                     question: model.currentTwoPictureQuestion,
@@ -3900,7 +3911,8 @@ struct ShellView: View {
 // MARK: - Letters ABC / Find & flip
 
 extension AppModel {
-    private var tapLetterUsesPlaytest: Bool { isParentPlaytest && playtestKind == .tapLetterAll }
+    private var tapLetterUsesPlaytest: Bool { isParentPlaytest && playtestKind?.isTapLetterFamily == true }
+    private var currentTapLetterKind: ActivityKind? { tapLetterUsesPlaytest ? playtestKind : activeActivityKind }
 
     var currentTapLetterBoard: TapLetterBoard? {
         tapLetterUsesPlaytest ? playtestTapLetterBoard : tapLetterBoard
@@ -3916,19 +3928,29 @@ extension AppModel {
     }
 
     private func tapLetterFacts(_ board: TapLetterBoard?) -> PerfDealFacts {
-        guard let board else { return PerfChoiceCatalog.facts(kind: .tapLetterAll, seed: "reference") }
+        guard let board else { return PerfChoiceCatalog.facts(kind: currentTapLetterKind ?? .tapLetterAll, seed: "reference") }
         let deal = board.deal
         let rows = deal.board.rows.map { $0.joined() }
-        let item = "tapLetter.all.\(deal.target).\(deal.board.letters.joined()).\(rows.joined(separator: "-"))"
-        return PerfDealFacts(item: item, gen: "letters_v1", level: .l1, chance: 1.0 / 45,
-                             slots: (0..<10).map { "card-\($0)" }, correctChoice: nil,
-                             tagsByChoice: [:], assetByChoice: [:], extraDealtFields: [
+        let item = "tapLetter.\(currentTapLetterKind == .tapLetterWrite ? "write" : "all").\(deal.target).\(deal.board.letters.joined()).\(rows.joined(separator: "-"))"
+        var extras: [String: PerfValue] = [
             "target": .string(deal.target), "board_set": .string(deal.board.letters.joined()),
             "rows": .strings(rows), "targets": .int(2), "path": .string(tapLetterSettings.path.rawValue),
             "this_week": .strings(tapLetterSettings.validWeek), "lane": .string(deal.lane.rawValue),
             "guard": .string(tapLetterSettings.mirrorGuard ? "on" : "off"),
             "glyph_scale": .double(deal.glyphScale), "match_mode": .string("test")
-        ])
+        ]
+        if currentTapLetterKind == .tapLetterWrite {
+            extras["letter_glyph"] = .string("latin:\(deal.target)")
+            extras["formation"] = .string("lwt")
+            extras["strokes"] = .int(LatinGlyphs.strokes(deal.target.first ?? "a").count)
+            extras["trace_scaffold"] = .string("dots")
+            extras["tolerance"] = .string("standard")
+            extras["guidance"] = .string("standard")
+        }
+        return PerfDealFacts(item: item, gen: "letters_v1", level: currentTapLetterKind == .tapLetterWrite ? .l2 : .l1, chance: 1.0 / 45,
+                             slots: (0..<10).map { "card-\($0)" }, correctChoice: nil,
+                             tagsByChoice: [:], assetByChoice: [:], extraDealtFields: extras
+        )
     }
 
     private func tapLetterSpeak(_ key: String, _ line: String, queued: Bool = true) {
@@ -3947,8 +3969,12 @@ extension AppModel {
     }
 
     func speakTapLetterPrompt() {
-        guard let board = currentTapLetterBoard, !board.isComplete else { return }
-        guard !tapLetterPenaltyPending,
+        guard let board = currentTapLetterBoard else { return }
+        if currentTapLetterKind == .tapLetterWrite, tapLetterWriteRound?.phase == .writing {
+            tapLetterSpeak("write.reprompt", TapLetterCopy.writeReprompt(board.deal.target))
+            return
+        }
+        guard !board.isComplete, !tapLetterPenaltyPending,
               (tapLetterUsesPlaytest ? !playtestChoicesLocked : (taskRoundOpen && !choicesLocked)) else { return }
         tapLetterSpeak("prompt", TapLetterCopy.prompt(board.deal.target))
     }
@@ -3957,11 +3983,15 @@ extension AppModel {
         let playtest = tapLetterUsesPlaytest
         guard let current = currentTapLetterBoard, !current.isComplete, !tapLetterPenaltyPending,
               (playtest ? !playtestChoicesLocked : (session.mode == .lock && taskRoundOpen &&
-                activeActivityKind == .tapLetterAll && !choicesLocked && !activityJustCompleted)) else { return }
+                activeActivityKind?.isTapLetterFamily == true && !choicesLocked && !activityJustCompleted)) else { return }
         let clock = Date().timeIntervalSinceReferenceDate
         var board = current
         let outcome = board.tap(card, at: clock)
         if playtest { playtestTapLetterBoard = board } else { tapLetterBoard = board }
+        if outcome == .allFound, var write = tapLetterWriteRound {
+            write.acceptFoundBoard(board)
+            tapLetterWriteRound = write
+        }
         guard outcome != .ignored && outcome != .doubleTapIgnored else { return }
         tapLetterLastActionAt = clock
         tapLetterIdleSpoken = false
@@ -3994,8 +4024,14 @@ extension AppModel {
                                                       board.deal.words[1].word)
                     self.tapLetterShowBubble(line, seconds: 4)
                     self.tapLetterSpeak("allFound", line)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.6) { [weak self] in
-                        self?.finishTapLetterRound(token: token, playtest: playtest)
+                    if self.currentTapLetterKind == .tapLetterWrite {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                            self?.beginTapLetterWriting(token: token)
+                        }
+                    } else {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.6) { [weak self] in
+                            self?.finishTapLetterRound(token: token, playtest: playtest)
+                        }
                     }
                 }
             }
@@ -4020,6 +4056,88 @@ extension AppModel {
         }
     }
 
+    private func beginTapLetterWriting(token: String) {
+        guard currentTapLetterKind == .tapLetterWrite, let board = currentTapLetterBoard,
+              board.isComplete, var write = tapLetterWriteRound,
+              (tapLetterUsesPlaytest ? playtestChoiceDealSeed : choiceDealSeed) == token else { return }
+        let letter = board.deal.target
+        let learned = letterWriteProgress.isLearned(letter)
+        let clock = Date().timeIntervalSinceReferenceDate
+        let key = "latin:\(letter)"
+        let reason = learned ? strokeOrderProgress.dueGlance(key, today: StrokeOrderProgress.day(clock: clock)) : nil
+        tapLetterGlanceReason = reason
+        tapLetterWriteGuide = learned ? (reason == nil ? "none" : "glance") : "car"
+        tapLetterCuspSpoken = false
+        write.beginWriting(demo: tapLetterWriteGuide != "none")
+        tapLetterWriteRound = write
+        tapLetterCelebrating = false
+        tapLetterSpeak("write.prompt.\(letter)", TapLetterCopy.writePrompt(letter))
+        if tapLetterWriteGuide == "car" {
+            TapLetterCopy.mnemonic(letter).enumerated().forEach { index, line in
+                tapLetterSpeak("rhyme.\(letter).\(index)", line)
+            }
+        }
+        let duration = tapLetterWriteGuide == "glance"
+            ? (StrokeGlyph.latin(letter.first ?? "a").map { StrokeOrderTimeline(glyph: $0, dosage: .glance).duration } ?? 1.3)
+            : 4.5
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
+            guard let self, (self.tapLetterUsesPlaytest ? self.playtestChoiceDealSeed : self.choiceDealSeed) == token,
+                  var current = self.tapLetterWriteRound, current.phase == .writing, current.demoActive else { return }
+            current.finishDemo()
+            self.tapLetterWriteRound = current
+            if self.tapLetterWriteGuide == "car" { self.tapLetterSpeak("yourTurn", "Your turn!") }
+        }
+    }
+
+    /// The first touch during a demo or glance only dismisses it.
+    func tapLetterWritePenDown(_ point: LineMatchPoint) -> Bool {
+        guard currentTapLetterKind == .tapLetterWrite, var round = tapLetterWriteRound,
+              round.phase == .writing else { return false }
+        if round.endDemoNoPaint() {
+            tapLetterWriteRound = round
+            return false
+        }
+        var trace = round.trace
+        _ = trace.penDown(at: point, now: Date().timeIntervalSinceReferenceDate)
+        round.acceptTrace(trace)
+        tapLetterWriteRound = round
+        return true
+    }
+
+    func tapLetterWritePenMove(_ point: LineMatchPoint) {
+        guard var round = tapLetterWriteRound, round.phase == .writing, !round.demoActive else { return }
+        var trace = round.trace
+        _ = trace.penMove(to: point, now: Date().timeIntervalSinceReferenceDate)
+        if trace.isAtCorner, trace.currentPath?.cusps.contains(where: { abs($0 - trace.progress) < 0.5 }) == true,
+           !tapLetterCuspSpoken {
+            tapLetterCuspSpoken = true
+            let cue = round.board.deal.target == "b" ? TapLetterCopy.cueBackUp : TapLetterCopy.cueDownAgain
+            tapLetterSpeak("write.cue", cue)
+            tapLetterShowBubble(cue, seconds: 2)
+        }
+        round.acceptTrace(trace)
+        tapLetterWriteRound = round
+        if round.canStamp {
+            let letter = round.board.deal.target
+            let line = TapLetterCopy.writeDone(letter)
+            tapLetterShowBubble(line, seconds: 2)
+            tapLetterSpeak("write.done.\(letter)", line)
+            let token = tapLetterUsesPlaytest ? playtestChoiceDealSeed : choiceDealSeed
+            let playtest = tapLetterUsesPlaytest
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+                self?.finishTapLetterRound(token: token, playtest: playtest)
+            }
+        }
+    }
+
+    func tapLetterWritePenUp() {
+        guard var round = tapLetterWriteRound, round.phase == .writing else { return }
+        var trace = round.trace
+        trace.penUp()
+        round.acceptTrace(trace)
+        tapLetterWriteRound = round
+    }
+
     private func tapLetterAfterPause() {
         guard var board = currentTapLetterBoard else { return }
         let playtest = tapLetterUsesPlaytest
@@ -4042,7 +4160,7 @@ extension AppModel {
     private func tapLetterIdleCheck(now clock: Double) {
         guard let board = currentTapLetterBoard, !board.isComplete, !tapLetterIdleSpoken,
               clock - tapLetterLastActionAt >= 10,
-              (tapLetterUsesPlaytest ? !playtestChoicesLocked : (activeActivityKind == .tapLetterAll &&
+              (tapLetterUsesPlaytest ? !playtestChoicesLocked : (activeActivityKind?.isTapLetterFamily == true &&
                 taskRoundOpen && !choicesLocked)) else { return }
         tapLetterIdleSpoken = true
         tapLetterPlaqueNudge = true
@@ -4053,6 +4171,7 @@ extension AppModel {
     }
 
     private func finishTapLetterRound(token: String, playtest: Bool) {
+        if currentTapLetterKind == .tapLetterWrite, tapLetterWriteRound?.canStamp != true { return }
         guard let board = currentTapLetterBoard, board.isComplete,
               (playtest ? playtestChoiceDealSeed : choiceDealSeed) == token else { return }
         var fields = tapLetterResultFields(board)
@@ -4062,13 +4181,29 @@ extension AppModel {
             perf.playtestSolved(earnedMinutes: playtestPendingMinutes, assisted: board.assisted)
             playtestCompleted = true
             playtestLastCorrectID = "tap_letter"
-            if parentPlaytestLog.playtestedOn(.tapLetterAll) == nil {
-                parentPlaytestLog = parentPlaytestLog.recording(.tapLetterAll, on: Date())
+            if let kind = currentTapLetterKind, parentPlaytestLog.playtestedOn(kind) == nil {
+                parentPlaytestLog = parentPlaytestLog.recording(kind, on: Date())
                 parentPlaytestLogStore.save(parentPlaytestLog)
             }
             return
         }
         guard taskRoundOpen, !activityJustCompleted else { return }
+        if currentTapLetterKind == .tapLetterWrite, let write = tapLetterWriteRound {
+            let trace = write.trace
+            fields["lifts"] = .int(trace.lifts)
+            fields["off_path"] = .int(trace.offPathCount)
+            fields["cusp_overshoot"] = .int(trace.cornerOvershoots)
+            fields["reverse"] = .int(trace.reverseDirections)
+            fields["guide_demo"] = .string(tapLetterWriteGuide)
+            let clean = trace.wrongStarts == 0 && trace.reverseDirections == 0 && trace.offPathCount == 0
+            letterWriteProgress.record(board.deal.target, clean: clean)
+            LetterWriteProgressStore().save(letterWriteProgress)
+            var strokes = strokeOrderProgress
+            let key = "latin:\(board.deal.target)"
+            if let reason = tapLetterGlanceReason { strokes.consume(key, reason: reason) }
+            strokes.noteTraced(key, today: StrokeOrderProgress.day(clock: Date().timeIntervalSinceReferenceDate))
+            saveStrokeOrderProgress(strokes)
+        }
         let boxes = tapLetterSaveRound(board)
         fields["box_before"] = .string(boxes.before)
         fields["box_after"] = .string(boxes.after)

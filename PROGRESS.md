@@ -1,5 +1,13 @@
 # Progress
 
+## 2026-10-25 — v0.33.0 / 68 — L3 Find & write source (draft review)
+
+- Branch `feat/letter-tap-L3-tapLetterWrite-ui` is based on main `e936b57`. It adds a separate default-off, playtest-gated ★★ Find & write card. The child finds and flips both target cards, then traces the same lowercase letter on a four-line board before the existing stamp and visa handoff.
+- Writing reuses the monotonic shape-trace model and LWT letter paths. Pen events do not call `WrongAnswerPolicy` or deduct visa minutes. English writing prompts, a–e mnemonics, a writing-progress store, and the parent Hong Kong Traditional Chinese / English title, help, and suggested ★★ badge are included. The parent ball-stick toggle is not wired in this slice.
+- `Resources/Info.plist` and the parent version label are 0.33.0 / build 68; the version test asserts both fields. ADR 0019 records the boundary. The existing macOS escape-path inventory remains in `docs/phase-0-kiosk-checklist.md`.
+- `git diff --check` passed. `sh scripts/test.sh` and `sh scripts/bundle.sh` each exited 127 (`swift: not found`) on this Linux workspace; no Swift compile or test pass is claimed.
+- Mac mini Swift build and tests, Wacom input, TV display, household UAT, and N1–N9 verification have not been run for this slice.
+
 ## 2026-10-24 — StrokeGlyph integration compile fix (draft PR #32)
 
 - On `integration/letter-tap-L2-stroke-order`, removed the duplicate `StrokeScript`, `StrokeGlyph`, and digit adapter from `LatinGlyphs.swift`. `StrokeOrder.swift` owns the canonical type and unchanged digit factory; its initializer now provides default LWT order and empty alternates. The Latin factory remains in a `StrokeGlyph` extension with the same authored paths and alternates. Equality now compares all stored glyph metadata.

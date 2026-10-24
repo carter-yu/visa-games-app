@@ -41,6 +41,7 @@ struct LatinLetterGlyph: View {
 
 struct TapLetterBoardView: View {
     let board: TapLetterBoard
+    let isWrite: Bool
     let pendingMinutes: Int
     let fuelBefore: Int
     let thinkPauseRemaining: Int
@@ -52,7 +53,7 @@ struct TapLetterBoardView: View {
 
     var body: some View {
         CanvasStage { LineMatchBackdrop() } content: {
-            TapLetterStageContent(board: board, pendingMinutes: pendingMinutes, fuelBefore: fuelBefore,
+            TapLetterStageContent(board: board, isWrite: isWrite, pendingMinutes: pendingMinutes, fuelBefore: fuelBefore,
                                   thinkPauseRemaining: thinkPauseRemaining, bubble: bubble,
                                   celebrating: celebrating, plaqueNudge: plaqueNudge,
                                   onTap: onTap, onReprompt: onReprompt)
@@ -62,6 +63,7 @@ struct TapLetterBoardView: View {
 
 private struct TapLetterStageContent: View {
     let board: TapLetterBoard
+    let isWrite: Bool
     let pendingMinutes: Int
     let fuelBefore: Int
     let thinkPauseRemaining: Int
@@ -133,7 +135,7 @@ private struct TapLetterStageContent: View {
             Spacer()
             VStack {
                 CanvasText("ABC", size: 23, weight: 900)
-                CanvasText("Find & flip", size: 14, weight: 800)
+                CanvasText(isWrite ? "Find & write" : "Find & flip", size: 14, weight: 800)
             }
             .padding(metrics.u(9))
             .background(RoundedRectangle(cornerRadius: metrics.u(14)).fill(Color(hex: DesignTokens.Palette.sunny)))

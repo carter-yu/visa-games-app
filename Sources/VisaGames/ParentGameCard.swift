@@ -50,8 +50,8 @@ struct ParentGameCard: View {
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.inkSoft)
             }
-            if kind == .tapLetterAll {
-                Text("建議 ★ / Suggested ★")
+            if kind.isTapLetterFamily {
+                Text(kind == .tapLetterWrite ? "建議 ★★ / Suggested ★★" : "建議 ★ / Suggested ★")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.inkSoft)
             }
@@ -195,7 +195,7 @@ private struct ParentGameArtWell: View {
             HalfVehicleClip(assetID: asset, side: .left, mood: .happy)
         } else if kind == .shadowMatch, let asset = kind.parentHeroAssetIDs.first {
             ActivityAssetView(assetID: asset, mood: .calm, asShadow: true)
-        } else if kind == .tapLetterAll {
+        } else if kind.isTapLetterFamily {
             HStack(spacing: 8) {
                 LatinLetterGlyph(letter: "d", ink: .ink, lineWidth: 20)
                     .frame(width: 42, height: 80)
