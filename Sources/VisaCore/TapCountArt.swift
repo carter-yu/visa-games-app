@@ -29,7 +29,7 @@ public enum TapCountArt {
 
     /// Every artwork. Names are `tapCount.<name>`.
     public static let all: [CanvasArtwork] = [
-        tram, fireEngine, digger, mixer, dumper, dozer, roller, craneTruck, plane, bus, miniCar, lampOn, fireEngineLit, beaconOn, planeLit, busLit, glow, bayGlow, spark, sparkle, ding, honk, note, speaker, star, go, end, paintCar, tickSmall, chevron, goSmall, endSmall, ringSmall, stopSmall, eraserButton, okButton, tile, iconAll, iconTrace, iconPick, guideGhostCar, guideChev, guideAhead, guideStop, guideEye, guidePop, row_tramDepot, row_fireStation, row_site, row_airport, row_busTerminus, yard_tramDepot, yard_fireStation, yard_site, yard_airport, yard_busTerminus, strip_tramDepot, strip_fireStation, strip_site, strip_airport, strip_busTerminus, baypost_tramDepot, baypost_fireStation, baypost_site, baypost_airport, baypost_busTerminus, empty_tramDepot, empty_fireStation, empty_site, empty_airport, empty_busTerminus
+        tram, fireEngine, digger, mixer, dumper, dozer, roller, craneTruck, plane, bus, miniCar, lampOn, fireEngineLit, beaconOn, planeLit, busLit, glow, bayGlow, spark, sparkle, ding, honk, note, speaker, star, go, end, paintCar, tickSmall, chevron, goSmall, endSmall, ringSmall, stopSmall, eraserButton, okButton, tile, iconAll, iconTrace, iconPick, guideGhostCar, guideChev, guideAhead, guideStop, guideEye, guidePop, guideHopHead, guidePen, guideStartDot, row_tramDepot, row_fireStation, row_site, row_airport, row_busTerminus, yard_tramDepot, yard_fireStation, yard_site, yard_airport, yard_busTerminus, strip_tramDepot, strip_fireStation, strip_site, strip_airport, strip_busTerminus, baypost_tramDepot, baypost_fireStation, baypost_site, baypost_airport, baypost_busTerminus, empty_tramDepot, empty_fireStation, empty_site, empty_airport, empty_busTerminus
     ]
 
     /// Artwork by short name (`tram`, `row_site`, `empty_airport` …).
@@ -105,6 +105,9 @@ public enum TapCountArt {
         "tapCount.guideStop": LineMatchPoint(x: 35, y: 35),
         "tapCount.guideEye": LineMatchPoint(x: 20, y: 17),
         "tapCount.guidePop": LineMatchPoint(x: 45, y: 45),
+        "tapCount.guideHopHead": LineMatchPoint(x: 17, y: 12),
+        "tapCount.guidePen": LineMatchPoint(x: 21, y: 137),
+        "tapCount.guideStartDot": LineMatchPoint(x: 12, y: 12),
         "tapCount.row_tramDepot": LineMatchPoint(x: 0, y: 0),
         "tapCount.row_fireStation": LineMatchPoint(x: 0, y: 0),
         "tapCount.row_site": LineMatchPoint(x: 0, y: 0),
@@ -617,6 +620,31 @@ public enum TapCountArt {
 
     public static let guidePop = CanvasArtwork(name: "tapCount.guidePop", width: 90, height: 90, elements: [
         CanvasArtElement(geometry: .path(LineMatchArtData.path("M45 11 L45 3 M69 21 L75 15 M79 45 L87 45 M69 69 L75 75 M45 79 L45 87 M21 69 L15 75 M11 45 L3 45 M21 21 L15 15")), style: LineMatchArtData.style(0x000000, 0xF5B82E, 4, cap: .round))
+    ])
+
+    public static let guideHopHead = CanvasArtwork(name: "tapCount.guideHopHead", width: 21, height: 24, elements: [
+        CanvasArtElement(geometry: .path(LineMatchArtData.path("M4 4 L17 12 L4 20")), style: LineMatchArtData.style(nil, 0x2B2630, 5, cap: .round, join: .round))
+    ])
+
+    public static let guidePen = CanvasArtwork(name: "tapCount.guidePen", width: 47, height: 142, elements: [
+        CanvasArtElement(geometry: .path(LineMatchArtData.path("M21 139 L13 120 L29 120 Z")), style: LineMatchArtData.style(0xC0FFEE, 0x2B2630, 4, cap: .round, join: .round)),
+        CanvasArtElement(geometry: .path(LineMatchArtData.path("M13 120 L6 101 L36 101 L29 120 Z")), style: LineMatchArtData.style(0xFFF9EC, 0x2B2630, 4.5, cap: .round, join: .round)),
+        CanvasArtElement(geometry: .rect(x: 4, y: 19, width: 34, height: 84, radius: 10), style: LineMatchArtData.style(0xFFF9EC, 0x2B2630, 5, cap: .round, join: .round)),
+        CanvasArtElement(geometry: .rect(x: 4, y: 85, width: 34, height: 13, radius: 0), style: LineMatchArtData.style(0xC0FFEE, 0x2B2630, 4, cap: .round, join: .round)),
+        CanvasArtElement(geometry: .path(LineMatchArtData.path("M4 39 L4 15 Q4 4 15 4 L27 4 Q38 4 38 15 L38 39 Z")), style: LineMatchArtData.style(0xC0FFEE, 0x2B2630, 5, cap: .round, join: .round)),
+        CanvasArtElement(geometry: .path(LineMatchArtData.path("M38 11 L44 11 L44 37")), style: LineMatchArtData.style(nil, 0x2B2630, 4, cap: .round, join: .round)),
+        CanvasArtElement(geometry: .circle(cx: 14.5, cy: 58, r: 3.8), style: LineMatchArtData.style(0x2B2630, nil, 0)),
+        CanvasArtElement(geometry: .circle(cx: 27.5, cy: 58, r: 3.8), style: LineMatchArtData.style(0x2B2630, nil, 0)),
+        CanvasArtElement(geometry: .circle(cx: 15.7, cy: 56.7, r: 1.3), style: LineMatchArtData.style(0xFFFFFF, nil, 0)),
+        CanvasArtElement(geometry: .circle(cx: 28.7, cy: 56.7, r: 1.3), style: LineMatchArtData.style(0xFFFFFF, nil, 0)),
+        CanvasArtElement(geometry: .path(LineMatchArtData.path("M16 68 Q21.5 73 27 68")), style: LineMatchArtData.style(nil, 0x2B2630, 3, cap: .round, join: .round)),
+        CanvasArtElement(geometry: .ellipse(cx: 9.5, cy: 66, rx: 3.4, ry: 2.3), style: LineMatchArtData.style(0xF9B4C2, nil, 0)),
+        CanvasArtElement(geometry: .ellipse(cx: 32.5, cy: 66, rx: 3.4, ry: 2.3), style: LineMatchArtData.style(0xF9B4C2, nil, 0))
+    ])
+
+    public static let guideStartDot = CanvasArtwork(name: "tapCount.guideStartDot", width: 24, height: 24, elements: [
+        CanvasArtElement(geometry: .circle(cx: 12, cy: 12, r: 9), style: LineMatchArtData.style(0xFFFFFF, 0x2B2630, 3)),
+        CanvasArtElement(geometry: .circle(cx: 12, cy: 12, r: 4.5), style: LineMatchArtData.style(0xC0FFEE, nil, 0))
     ])
 
     public static let row_tramDepot = CanvasArtwork(name: "tapCount.row_tramDepot", width: 1280, height: 720, elements: [

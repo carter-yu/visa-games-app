@@ -363,10 +363,13 @@ public struct TapCountSettings: Equatable, Sendable {
     public var tolerance: LineMatchTolerance?
     /// v0.30.0 描數字提示: 多啲 / 標準 / 少啲 (both card languages).
     public var guidance: TapCountGuidanceLevel
+    /// v0.31.0 筆順動畫 for digits: 教 / 提 / 熄 (default 提; stroke-order design D4).
+    public var strokeOrder: StrokeOrderSetting
 
     public init(range: TapCountRange = .upTo10, countVoice: Bool = true, english: Bool = true,
                 badgeStyle: TapCountBadgeStyle = .numbers, traceScaffold: TapCountTraceScaffold = .dots,
-                tolerance: LineMatchTolerance? = nil, guidance: TapCountGuidanceLevel = .standard) {
+                tolerance: LineMatchTolerance? = nil, guidance: TapCountGuidanceLevel = .standard,
+                strokeOrder: StrokeOrderSetting = .remind) {
         self.range = range
         self.countVoice = countVoice
         self.english = english
@@ -374,6 +377,7 @@ public struct TapCountSettings: Equatable, Sendable {
         self.traceScaffold = traceScaffold
         self.tolerance = tolerance
         self.guidance = guidance
+        self.strokeOrder = strokeOrder
     }
 
     public static let defaults = TapCountSettings()
@@ -414,6 +418,8 @@ public struct TapCountSettingsStore {
         var tolerance: String?
         /// Missing in v0.28–v0.29 data → 標準.
         var guidance: String?
+        /// Missing before v0.31.0 → 提.
+        var strokeOrder: String?
 
         init(settings: TapCountSettings) {
             range = settings.range.rawValue
@@ -423,6 +429,7 @@ public struct TapCountSettingsStore {
             traceScaffold = settings.traceScaffold.rawValue
             tolerance = settings.tolerance?.rawValue
             guidance = settings.guidance.rawValue
+            strokeOrder = settings.strokeOrder.rawValue
         }
 
         var settings: TapCountSettings {
@@ -430,7 +437,8 @@ public struct TapCountSettingsStore {
                              badgeStyle: TapCountBadgeStyle(rawValue: badgeStyle) ?? .numbers,
                              traceScaffold: TapCountTraceScaffold(rawValue: traceScaffold) ?? .dots,
                              tolerance: tolerance.flatMap(LineMatchTolerance.init(rawValue:)),
-                             guidance: guidance.flatMap(TapCountGuidanceLevel.init(rawValue:)) ?? .standard)
+                             guidance: guidance.flatMap(TapCountGuidanceLevel.init(rawValue:)) ?? .standard,
+                             strokeOrder: strokeOrder.flatMap(StrokeOrderSetting.init(rawValue:)) ?? .remind)
         }
     }
 }

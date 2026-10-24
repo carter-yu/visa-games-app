@@ -251,7 +251,7 @@ final class PerformanceRecordTests {
     func testEveryWrongOptionHasConfusionTagsAndTheRightOneHasNone() {
         // Multi-step kinds have no single right choice (line match tags come per 完成).
         for kind in ActivityKind.allCases where kind != .sequenceShortToLong && !kind.isLineMatchFamily
-            && !kind.isShapeTraceFamily && !kind.isTapCountFamily {
+            && !kind.isShapeTraceFamily && !kind.isTapCountFamily && !kind.isTapLetterFamily {
             guard let correct = PerfChoiceCatalog.correctChoice(for: kind) else {
                 preconditionFailure("no correct choice for \(kind)")
             }
@@ -264,6 +264,7 @@ final class PerformanceRecordTests {
         }
         expectEqual(PerfChoiceCatalog.asset(kind: .countVehicles, choice: "count-2"), nil)
         expectEqual(PerfChoiceCatalog.correctChoice(for: .sequenceShortToLong), nil)
+        expectEqual(PerfChoiceCatalog.correctChoice(for: .tapLetterAll), nil)
     }
 
     func testActorRuleCountableAndParentExclusion() {
@@ -534,8 +535,8 @@ final class PerformanceRecordTests {
         }
         let version = plistValue("CFBundleShortVersionString") ?? "?"
         expectTrue(view.contains("static let versionLabel = \"Visa Games v\(version)\""))
-        expectEqual(version, "0.30.0")
-        expectEqual(plistValue("CFBundleVersion"), "65")
+        expectEqual(version, "0.32.0")
+        expectEqual(plistValue("CFBundleVersion"), "67")
         guard let start = view.range(of: "private func advancedSection("),
               let end = view.range(of: "private var advancedContent", range: start.upperBound..<view.endIndex) else {
             expectTrue(false)

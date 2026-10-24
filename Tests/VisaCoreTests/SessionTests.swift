@@ -537,6 +537,21 @@ struct TestRunner {
         try shapeTrace.testAppWiringSourceGuards()
 
         let tapCount = TapCountTests()
+        let latin = LatinGlyphTests()
+        latin.testCatalogPathsAndStarts()
+        latin.testGlyphEqualityIncludesLatinMetadata()
+        latin.testTurnsAlternatesAndHouseLines()
+        latin.testMagicCAndStickStartsAndFixture()
+        latin.testPathsCompleteAtExistingTolerances()
+
+        let letterDeal = LetterDealTests()
+        letterDeal.testPathSettingsAndProgress()
+        letterDeal.testSchedulerAndBoardAcrossSeeds()
+        try letterDeal.testWordBankAndDeck()
+        try letterDeal.testBankSchemaAndContent()
+        let tapLetter = TapLetterBoardTests()
+        try tapLetter.testTwoTargetsAndPerCardPenalty()
+        tapLetter.testCopyAndRegistration()
         tapCount.testNumeralStrokeDataMatchesTheStrokeOrderSheet()
         tapCount.testNumeralCornersAndCuspsSitWhereTheSheetSays()
         tapCount.testEveryNumeralCompletesAtEveryToleranceAndNeverAtPenDown()
@@ -573,6 +588,15 @@ struct TestRunner {
         guide.testHeadlightsShowOnlyTheNextThreeDotsAheadOfTheCar()
         try guide.testGuidanceWiringSourceGuards()
 
+        let strokes = StrokeOrderTests()
+        strokes.testTimelineTotalsMatchTheDesignTable()
+        strokes.testReduceMotionNeverGlides()
+        strokes.testGlyphAdapterIsTheTracedNumeral()
+        try strokes.testDosageTruthTableAndSettings()
+        strokes.testStarPlateTapFinishesAndReplays()
+        strokes.testGlanceNeverPlaysWithTheCarAndATouchEndsIt()
+        try strokes.testStrokeOrderSourceGuards()
+
         let kiosk = KioskPresentationTests()
         try kiosk.testPresentationOptionsSetOnlyAtLaunchAndTerminate()
         try kiosk.testWindowChromeIsConstantAfterLaunch()
@@ -593,6 +617,6 @@ struct TestRunner {
         try finder.testZoomCountdownMarksAndCardInfo()
 
 
-        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match + 12 guided-line-match + 20 shape-trace + 25 tap-count + 8 tap-count-guide + 12 parent-youtube checks")
+        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match + 12 guided-line-match + 20 shape-trace + 25 tap-count + 8 tap-count-guide + 7 stroke-order + 5 latin-glyph + 4 letter-deal + 2 tap-letter-board + 12 parent-youtube checks")
     }
 }

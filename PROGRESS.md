@@ -1,5 +1,78 @@
 # Progress
 
+## 2026-10-24 — StrokeGlyph integration compile fix (draft PR #32)
+
+- On `integration/letter-tap-L2-stroke-order`, removed the duplicate `StrokeScript`, `StrokeGlyph`, and digit adapter from `LatinGlyphs.swift`. `StrokeOrder.swift` owns the canonical type and unchanged digit factory; its initializer now provides default LWT order and empty alternates. The Latin factory remains in a `StrokeGlyph` extension with the same authored paths and alternates. Equality now compares all stored glyph metadata.
+- Added one Latin glyph equality check and registered it in `VisaCoreChecks` (5 Latin checks). The four existing Latin checks and seven stroke-order checks are unchanged. No test asserted the removed L0 digit adapter's turns; the stroke-order digit factory remains the source of digit turns.
+- Audited top-level declarations in all `Sources/` and `Tests/` Swift files; no duplicate source type or function declaration remains. The only repeated test helper name is file-private in separate files, and the shared test assertions have distinct overload signatures.
+- `git diff --check` passed. `sh scripts/test.sh` and `swift build -c release --product VisaGames` each exited 127 because `swift` is unavailable on this Linux workspace. Mac mini compile and test verification remain pending. No version or product behavior changed.
+
+## 2026-10-24 — v0.32.0 / 67 — Letter-tap L0–L2 and stroke-order integration (draft UAT)
+
+- Carter approved the integration at 13:13 HKT. Branch `integration/letter-tap-L2-stroke-order` combines letter-tap L0–L2 (`b19be1d`, draft PRs #29–#31) with stroke-order v0.31.0 (`7aef40e`, draft PR #28). It is a source integration for one UAT build; Mac mini build, tests, and Carter UAT are pending.
+- Resolved the five merge conflicts by retaining both branch histories, all letter and stroke-order runner calls, the multi-target performance assertions, and the parent stroke-order settings beside the L2 game card. The merged app version and matching assertions are 0.32.0 / build 67. No product behavior was changed beyond combining the two branches.
+- `git diff --check`, shell syntax checks, and plist parsing passed on this Linux workspace. `sh scripts/test.sh` and `sh scripts/bundle.sh` both exited 127 (`swift: not found`); no Swift compile or test pass is claimed here. The existing macOS escape-path inventory remains in `docs/phase-0-kiosk-checklist.md`; target-device verification remains pending.
+
+## 2026-10-24 — Find & flip release compile routing fix (draft PR #31)
+
+- Added `tapLetterAll` to the canvas-only cases in the legacy entry-gate switch so the `ActivityKind?` switch is exhaustive. The active child and parent playtest paths still use `CanvasActivityHost`.
+- Audited the `ActivityKind` switches in `Sources/VisaGames` and the L2 `VisaGames` source diff from `1acfe45`. No other missing case or obvious source signature mismatch was found. No product behavior, tests, or version changed.
+- `git diff --check` and shell syntax checks passed. `sh scripts/test.sh`, `swift build -c release --product VisaGames`, and `sh scripts/bundle.sh` each exited 127 because `swift` is not installed on this Linux workspace. Mac mini release build verification remains pending.
+
+## 2026-10-24 — Find & flip multi-target catalog check (draft PR #31)
+
+- Excluded `tapLetterAll` from the single-correct-choice confusion-tag assertion, matching the existing tap-count family exclusion. Added an explicit check that its catalog has no single correct choice. No VisaCore product code or version changed.
+- Audited the VisaCore activity-kind loops and tap-count/multi-step branches. The letter card is already registered as generated and default-off, its fixed catalog has ten card slots and a 1/45 chance, and its parent hint is bilingual while its child board copy is English-only. No further change was needed.
+- `git diff --check` and `sh -n scripts/test.sh scripts/bundle.sh` passed. `sh scripts/test.sh` and `sh scripts/bundle.sh` exited 127 (`swift: not found`) on this Linux workspace. Mac mini verification remains pending.
+
+## 2026-10-24 — L2 parent copy hotfix (draft PR #31)
+
+- Made the `tapLetterAll` catalog hint and suggested-star badge bilingual in Hong Kong Traditional Chinese and English. The existing catalog hint test was not changed; child-facing English copy, behavior, and v0.32.0 / 67 are unchanged.
+- Reviewed the L2 diff for parent-facing copy. The card title, short label, and help are already displayed with their English counterparts; the version footer uses the locked product name. Child board copy remains English as specified by Appendix A.
+- `git diff --check` passed. `sh scripts/test.sh` stopped with exit 127 (`swift: not found`) on this Linux workspace, so Mac mini verification remains pending.
+
+## 2026-10-24 — v0.32.0 / 67 — Letter-tap L2 Find & flip source (draft review)
+
+- Branch `feat/letter-tap-L2-tapLetterAll-ui` is stacked on L1 `1acfe45` (draft PR #30). L2 draft PR #31 is open against main and unmerged; PRs #29 and #30 remain open. Visa監 reported Mac mini L1 `VisaCoreChecks` PASS at `1acfe45`; this is L1 evidence only. The installed `/Applications` app was not changed by this slice.
+- Version changed from 0.31.0 / 66 to 0.32.0 / 67 so the L2 build has a distinct identity from the separately installed stroke-order PR #28 build. No L2 behavior changed.
+- On this Linux workshop, `sh scripts/test.sh` and `sh scripts/bundle.sh` both stopped with exit 127 (`swift: not found`). No new Mac mini build or test result is claimed.
+- Added the default-off, playtest-gated `tapLetterAll` ★ parent card with the locked Hong Kong Traditional Chinese and English titles/help. The child board uses the L1 ten-card/two-target deal, house glyphs, an English-only prompt, word flips and a–e pictograms, a two-slot tray, per-card wrong marks, an in-tray Think Pause, a two-miss assisted ring, a stroke-colour completion cue, and the existing stamp/visa handoff. No ★★ writing board or parent letter settings were added.
+- Child round completion and zero-fuel exit update letter progress, word decks, and a persisted completed-round index best effort. Parent playtest does not advance these stores or grant visa time. Missing art uses a safe placeholder; no English voice leaves the screen bubble visible and does not use a Chinese voice.
+- The existing performance recorder receives generated deal fields, judged card attempts, and round result fields including first try, misses, assistance, duration, words, scan order, and letter box before/after. It cannot emit the exact retap/double-tap tags without treating an unscored touch as another judged answer; those tags are deferred. Its generic `fast` field is used instead of a separate `fast_tap` field.
+- Added two focused `VisaCoreChecks` methods for per-card tap state, copy, registration and round-index persistence; updated catalog counts and the PASS banner. ADR 0018 records the English letter card and residual OS boundary. `sh scripts/test.sh` and `sh scripts/bundle.sh` both stopped with exit 127 (`swift: not found`) on this Linux workshop. No L2 Mac mini, Wacom, TV, or N1–N9 result is claimed.
+- Next: Visa監 Mac mini sh scripts/test.sh + install/UAT of L2 tip; then L3 tapLetterWrite after Carter OK.
+
+## 2026-10-24 — Letter-tap L1 review fallback hotfix (draft PR #30)
+
+- The Mac mini L1 first run of `sh scripts/test.sh` failed (exit 133) at `Tests/VisaCoreTests/LetterDealTests.swift:69`: expected review, got week.
+- This commit fixes the review slot fallback when the only due old letter equals `lastTarget`. A different due old letter remains preferred. The tests cover both cases. No scheduler policy, board, word bank, UI, or version change was made beyond this fallback.
+- On this Linux workshop, `sh scripts/test.sh` stopped with exit 127 (`swift: not found`). Mac mini retest of this fix remains pending.
+
+## 2026-10-24 — Letter-tap L1 pure deal core (review branch)
+
+- Branch `feat/letter-tap-L1-scheduler-board-bank` starts from the L0 tip `58fc854`. It adds path presets, resilient settings/progress/deck stores, scheduled week/retry/review targets, guarded 2×5 boards, curated word deals, and a pure deal composer. No child or parent UI, activity registration, or timer/reward policy was added. The app version remains v0.30.0 because this core slice is not family-visible.
+- `Resources/LetterTap/starter-bank.json` is copied from the design repository. Its 26 entries contain 10 full letters and 16 anchor-only entries. Static JSON checks found 101 words and unique word, image, and voice IDs; full entries have at least two core words. Anchor-only entries cannot make a two-word deal and the generator returns no deal for them.
+- Four offline VisaCoreChecks methods were added for settings/progress, 1,000-seed scheduler and board properties, word decks, and JSON content. `sh scripts/test.sh` stopped at `swift: not found` on this Linux workshop. No L1 Swift build, Mac mini, Wacom, or TV test result is claimed.
+- Next: L2 tapLetterAll ★ UI (cards, flip, Think Pause tray, all-found; a–e word art; IPA speech).
+
+## 2026-10-23 — Letter-tap L0 Latin glyph catalog (review branch)
+
+- Branch `feat/letter-tap-L0-latin-glyphs` starts from `origin/main` `5a4e4cb`. Catalog commit `abab709` is on draft PR #29, open against main and unmerged. Main did not yet contain the stroke-order D11 types, so this branch includes only the generic glyph adapter needed for the catalog. The stroke-order player remains on its separate unmerged branch.
+- `LatinGlyphs` contains LWT centre-line paths for a, b, c, d, e, g, k, o, and u, with path data from letter-tap design section 8.2. The `latin:a` path matches stroke-order mockup `03-letter-a.svg` path `la`. Explicitly authored ball-stick paths for a, b, and d are stored as alternates. No UI or activity kind was added.
+- Four focused VisaCoreChecks methods cover stroke counts, starts, turns, house bounds, alternates, the a fixture, and tracing at the existing narrow, standard, and wide tolerances.
+- Static comparison confirmed all ten default path strings and the four explicit alternate path strings against design section 8.2; `latin:a` matches stroke-order mockup path `la`. `git show --check` was clean. `sh scripts/test.sh` stopped with `swift: not found` on this Linux workshop. No local Swift build or Mac mini result is claimed. The app version stays at v0.30.0 because this catalog has no family-visible surface.
+- Next: L1 `LetterScheduler`, `LetterBoardBuilder`, and `LetterWordBank` with pure tests.
+## 2026-10-19 — v0.31.0 / 66 — 筆順動畫: stroke-order animation for 1–10 (Cantonese and English)
+
+- Carter approved every Opus default in `visa-games-design/stroke-order` (design.md D1–D15, mockups 01–04). Built for digits only (S0–S2); letters and Chinese characters are still design-only. See ADR 0018.
+- ★ 點一點: when the numeral lights up, a silent smiley pen writes it once on the plate (提; 一閃 once 識咗; 教 if the parent picks it). Tapping the plate while it writes finishes it at once; tapping afterwards replays it (at most 2 times). The round waits for the pen plus 0.8 s, never less than 2.4 s. Never a miss.
+- ★★ 數完畫 / ★★★: the v0.30 demo car still plays while a numeral is being learned. Once it is 識咗 at 標準, a silent pen glance replaces it, 3 times, then nothing. One refresh glance comes after 7+ days without that numeral. The car and the pen never play together. The first touch ends the glance, paints nothing and is not a miss. A glance is not help. A stall refills the 3 glances. Playtests never use them up.
+- Parent: 數字設定 → 筆順動畫 教 / 提 / 熄 (digits default to 提; copy from design D4). v0.30 settings load as 提.
+- Reduce Motion: no gliding; each chunk fades in over 0.2 s. The ink on the trace board fades over 1.5 s.
+- Code: `VisaCore/StrokeOrder.swift` (glyph model, D7 timeline, progress store, ★ reveal) and `VisaGames/StrokeOrderDrawing.swift`. The pen and start-dot art come from mockup 01 via `docs/art-tap-count-source.svg` → `TapCountArt`.
+- Logs: `stroke_reveal`, `stroke_replays`, `stroke_skips`, `stroke_glance`; `guide_demo` = `glance` / `glance_skipped`.
+- Tests: new `StrokeOrderTests` (7 checks).
+
 ## 2026-10-19 — v0.30.0 / 65 — 描數字提示: tracing guidance for 1–10 (Cantonese and English)
 
 - Carter approved the guidance Opus recommended (`visa-games-design/number-quantity/guidance`, mockups 01–03, options.md). It covers numerals 1–10 in ★★ 數完畫 and ★★★ 揀啱數, on the Cantonese and the English cards alike, through the shared `TapCountLines` and guidance code.

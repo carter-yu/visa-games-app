@@ -33,6 +33,9 @@ struct TapCountGuideMotionState {
     let reduceMotion: Bool
     let board: LineMatchRect
     let stopWord: String
+    /// v0.31.0 筆順動畫: the pen's silent glance (識咗 at 標準); nil = the car demo or nothing.
+    var glance: StrokeOrderTimeline? = nil
+    var glanceColour: UInt32 = 0xFFC93C
 }
 
 /// Guides and demo timelines per numeral (the spec is a constant, so they never change).
@@ -135,8 +138,27 @@ extension TapCountDrawing {
         let k = m.numeral.scale
         let trace = m.trace
         let timing = TapCountGuideData.timing
+        // 筆順 glance: the smiley pen writes the numeral once over the road; the ink fades in 1.5 s.
+        if let glance = m.glance, m.run.isGlance {
+            let place = StrokeOrderDrawing.Placement(offset: m.numeral.offset, scale: k)
+            if let t = m.run.glanceTime(now: now) {
+                if t >= 0 {
+                    StrokeOrderDrawing.ink(glance, at: t, reduceMotion: m.reduceMotion, place: place,
+                                           colour: Color(hex: m.glanceColour), outline: 34, core: 22, opacity: 0.9, in: &g)
+                    StrokeOrderDrawing.pen(glance, at: t, reduceMotion: m.reduceMotion, place: place,
+                                           nibColour: m.glanceColour, penScale: 0.85, in: &g)
+                }
+                paintCar(m, now: now, in: &g)
+                return
+            }
+            if let dt = m.run.glanceEndedFor(now: now), dt < StrokeOrderPacing.inkFadeSeconds {
+                StrokeOrderDrawing.ink(glance, at: nil, reduceMotion: m.reduceMotion, place: place,
+                                       colour: Color(hex: m.glanceColour), outline: 34, core: 22,
+                                       opacity: 0.9 * (1 - dt / StrokeOrderPacing.inkFadeSeconds), in: &g)
+            }
+        }
         // The demo: route (fading behind the car), a blinking sign at each cue stop, the ghost car.
-        if let timeline = m.timeline, let t = m.run.demoTime(now: now), t >= 0 {
+        if !m.run.isGlance, let timeline = m.timeline, let t = m.run.demoTime(now: now), t >= 0 {
             demoRoute(timeline, at: t, reduceMotion: m.reduceMotion, scale: k, in: &g)
             if let index = timeline.pausedCue(at: t), let cue = m.numeral.cues.first(where: { $0.index == index }) {
                 let blink = m.reduceMotion ? 1 : 0.55 + 0.45 * sin(now * 14)

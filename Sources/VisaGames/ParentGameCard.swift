@@ -50,6 +50,11 @@ struct ParentGameCard: View {
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.inkSoft)
             }
+            if kind == .tapLetterAll {
+                Text("建議 ★ / Suggested ★")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.inkSoft)
+            }
 
             HStack(spacing: 6) {
                 ForEach(ChildDifficulty.allCases, id: \.rawValue) { star in
@@ -190,6 +195,13 @@ private struct ParentGameArtWell: View {
             HalfVehicleClip(assetID: asset, side: .left, mood: .happy)
         } else if kind == .shadowMatch, let asset = kind.parentHeroAssetIDs.first {
             ActivityAssetView(assetID: asset, mood: .calm, asShadow: true)
+        } else if kind == .tapLetterAll {
+            HStack(spacing: 8) {
+                LatinLetterGlyph(letter: "d", ink: .ink, lineWidth: 20)
+                    .frame(width: 42, height: 80)
+                Image(systemName: "arrow.right")
+                Image(systemName: "pawprint.fill").font(.system(size: 36))
+            }
         } else if kind.isTapCountFamily {
             // 一架一架數: the mockup 09 tile (lit cars with badges / a half-painted 3 / picks + OK).
             TapCountIconView(kind: kind)

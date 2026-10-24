@@ -1,0 +1,363 @@
+{
+  "schema": "visagames.tapLetter.wordBank.v1",
+  "version": 1,
+  "updated": "2026-10-22",
+  "author": "Opus 5.5 (design only; see ../design.md §7)",
+  "notes": [
+    "Lowercase only in v1. Child-facing letters and word labels are drawn with the house centerline glyphs (latin:<x>), never with a font.",
+    "gloss_zh is HK Traditional Chinese for the parent pages only. The child never sees it.",
+    "status: full = curated and ready for art; anchor_only = only the anchor is approved, candidates are a draft for Carter to review.",
+    "tier: core = clean onset (consonant + vowel, or a short vowel) and very familiar to a 4-year-old; extra = consonant blend, longer or less familiar. Extra words join a letter's deck only when the letter reaches box 2 (熟緊).",
+    "highlight = [start, length] of the letters drawn in teal on the flipped card (the target letter). For x the target sits at the end (box) or middle (taxi).",
+    "article = the article used before the letter name in speech: 'Here's an a!' / 'Here's a d!'.",
+    "name.ipa is sent to the TTS with AVSpeechSynthesisIPANotationAttribute, so a lone 'a' is never read as the article 'uh'. z is 'zed' (British).",
+    "sound.* is reserved for human recordings of pure sounds (/d/ not 'duh'); the 'Letter sounds' setting stays off until the clips exist."
+  ],
+
+  "rules": {
+    "zh": [
+      "開頭字母 = 開頭音，而且係嗰個字母最常見嘅音（c 用 cat 唔用 circle、chair；g 用 goat 唔用 giraffe；s 唔用 ship；t 唔用 thumb；k 唔用 knife；母音用短音：apple、egg、igloo、octopus、umbrella）。",
+      "x 例外：用「x 喺尾」嘅字（box、fox），翻牌字標住 x 嗰個位。",
+      "4 歲識、畫得出、一眼認得嘅實物名詞。",
+      "英式英文、香港用法（lorry、tap 係水喉）。",
+      "冇品牌（唔用 jeep、Lego）。",
+      "唔嚇人、唔危險（唔用 shark、snake、spider、knife、axe）；動物畫友善樣。",
+      "一張圖一個叫法（唔用 bat：蝙蝠定球棒）。",
+      "子音群（tr、dr、pl、st、sn…）放 extra。",
+      "有車就放（佢鍾意），但唔搶晒每個字母。",
+      "車身、圖入面冇字、冇數字、冇 logo。",
+      "gloss_zh 用香港繁體，冇簡體字。"
+    ],
+    "en": [
+      "Initial letter = initial sound, and it is the letter's most common sound (cat not circle/chair; goat not giraffe; no sh, ch, th, kn starts; short vowels for a e i o u).",
+      "x is the exception: x words have x at the end or middle (box, fox, taxi), highlighted where it is.",
+      "Concrete, picturable nouns a 4-year-old knows.",
+      "British English, Hong Kong usage.",
+      "No brand names.",
+      "Nothing scary or dangerous; animals drawn friendly.",
+      "One picture, one name (avoid bat).",
+      "Consonant blends go to extra.",
+      "Vehicles are welcome but must not take over every letter.",
+      "No text, numbers or logos inside pictures.",
+      "gloss_zh is HK Traditional Chinese only."
+    ]
+  },
+
+  "paths": {
+    "abc": {
+      "label_zh": "ABC 順序",
+      "label_en": "ABC order",
+      "default": true,
+      "groups": [["a", "b", "c", "d", "e"], ["f", "g", "h", "i", "j"], ["k", "l", "m", "n", "o"], ["p", "q", "r", "s", "t"], ["u", "v", "w", "x", "y", "z"]]
+    },
+    "jolly": {
+      "label_zh": "Jolly Phonics",
+      "label_en": "Jolly Phonics (single letters only)",
+      "default": false,
+      "groups": [["s", "a", "t", "i", "p", "n"], ["c", "k", "e", "h", "r", "m", "d"], ["g", "o", "u", "l", "f", "b"], ["j", "z", "w", "v", "y", "x", "q"]]
+    },
+    "lettersAndSounds": {
+      "label_zh": "Letters and Sounds",
+      "label_en": "Letters and Sounds (Phase 2-3 single letters)",
+      "default": false,
+      "groups": [["s", "a", "t", "p"], ["i", "n", "m", "d"], ["g", "o", "c", "k"], ["e", "u", "r"], ["h", "b", "f", "l"], ["j", "v", "w", "x"], ["y", "z", "q"]]
+    },
+    "custom": {
+      "label_zh": "自訂",
+      "label_en": "Custom (parent taps 1-7 letters)",
+      "default": false,
+      "groups": []
+    }
+  },
+
+  "confusables": {
+    "mirror_lr": [["b", "d"], ["p", "q"]],
+    "mirror_ud": [["b", "p"], ["d", "q"]],
+    "rotate_180": [["b", "q"], ["d", "p"], ["n", "u"], ["m", "w"]],
+    "guard_partners": {
+      "b": ["d", "p", "q"], "d": ["b", "p", "q"], "p": ["q", "b", "d"], "q": ["p", "b", "d"],
+      "n": ["u"], "u": ["n"], "m": ["w"], "w": ["m"]
+    },
+    "shape_groups": {
+      "c_family": ["c", "o", "e", "a", "d", "g", "q"],
+      "arch": ["n", "m", "h", "r", "u"],
+      "stick": ["i", "l", "j", "t", "f", "k"],
+      "slant": ["v", "w", "x", "y", "z", "k"]
+    },
+    "tags": {
+      "open_closed": [["c", "o"], ["c", "e"]],
+      "stick_length": [["a", "d"]],
+      "has_stick": [["c", "a"], ["c", "d"], ["c", "b"]]
+    }
+  },
+
+  "letters": {
+    "a": {
+      "glyph": "latin:a",
+      "status": "full",
+      "name": { "say": "ay", "ipa": "eɪ", "voice_key": "letter.a.name" },
+      "sound": { "ipa": "æ", "voice_key": "letter.a.sound", "status": "needs_recording" },
+      "article": "an",
+      "anchor": "apple",
+      "confusables": ["d", "o", "q", "g", "e", "c"],
+      "strokes": { "lwt": 1, "ballstick": 2 },
+      "hint_en": "a is round like a c, with a short stick.",
+      "rhyme_en": ["Round like a c...", "Up, stop!", "And down!"],
+      "words": [
+        { "id": "a.apple", "word": "apple", "tier": "core", "anchor": true, "image_id": "word.apple", "voice_key": "word.apple", "gloss_zh": "蘋果", "highlight": [0, 1], "syllables": 2, "theme": "food", "vehicle": false },
+        { "id": "a.ant", "word": "ant", "tier": "core", "image_id": "word.ant", "voice_key": "word.ant", "gloss_zh": "螞蟻", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false, "note": "Draw one big friendly ant, not a swarm." },
+        { "id": "a.arrow", "word": "arrow", "tier": "core", "image_id": "word.arrow", "voice_key": "word.arrow", "gloss_zh": "箭嘴", "highlight": [0, 1], "syllables": 2, "theme": "thing", "vehicle": false, "note": "A fat direction arrow like the app's green start arrow, not a bow and arrow." },
+        { "id": "a.ambulance", "word": "ambulance", "tier": "core", "image_id": "word.ambulance", "voice_key": "word.ambulance", "gloss_zh": "救護車", "highlight": [0, 1], "syllables": 3, "theme": "vehicle", "vehicle": true, "note": "Very familiar to vehicle lovers. No patient, no lettering on the body." },
+        { "id": "a.anchor", "word": "anchor", "tier": "extra", "image_id": "word.anchor", "voice_key": "word.anchor", "gloss_zh": "船錨", "highlight": [0, 1], "syllables": 2, "theme": "thing", "vehicle": false },
+        { "id": "a.astronaut", "word": "astronaut", "tier": "extra", "image_id": "word.astronaut", "voice_key": "word.astronaut", "gloss_zh": "太空人", "highlight": [0, 1], "syllables": 3, "theme": "people", "vehicle": false },
+        { "id": "a.avocado", "word": "avocado", "tier": "extra", "image_id": "word.avocado", "voice_key": "word.avocado", "gloss_zh": "牛油果", "highlight": [0, 1], "syllables": 4, "theme": "food", "vehicle": false },
+        { "id": "a.ankle", "word": "ankle", "tier": "extra", "image_id": "word.ankle", "voice_key": "word.ankle", "gloss_zh": "腳眼", "highlight": [0, 1], "syllables": 2, "theme": "body", "vehicle": false }
+      ]
+    },
+
+    "b": {
+      "glyph": "latin:b",
+      "status": "full",
+      "name": { "say": "bee", "ipa": "biː", "voice_key": "letter.b.name" },
+      "sound": { "ipa": "b", "voice_key": "letter.b.sound", "status": "needs_recording" },
+      "article": "a",
+      "anchor": "ball",
+      "confusables": ["d", "p", "q", "h", "c"],
+      "strokes": { "lwt": 1, "ballstick": 2 },
+      "hint_en": "b has a tall stick first, then a round tummy.",
+      "rhyme_en": ["Down from the top...", "Back up, stop!", "Round the tummy!"],
+      "words": [
+        { "id": "b.ball", "word": "ball", "tier": "core", "anchor": true, "image_id": "word.ball", "voice_key": "word.ball", "gloss_zh": "波", "highlight": [0, 1], "syllables": 1, "theme": "toy", "vehicle": false },
+        { "id": "b.bus", "word": "bus", "tier": "core", "image_id": "word.bus", "voice_key": "word.bus", "gloss_zh": "巴士", "highlight": [0, 1], "syllables": 1, "theme": "vehicle", "vehicle": true, "note": "Original double-decker from number-quantity; no route number." },
+        { "id": "b.bed", "word": "bed", "tier": "core", "image_id": "word.bed", "voice_key": "word.bed", "gloss_zh": "床", "highlight": [0, 1], "syllables": 1, "theme": "home", "vehicle": false },
+        { "id": "b.bee", "word": "bee", "tier": "core", "image_id": "word.bee", "voice_key": "word.bee", "gloss_zh": "蜜蜂", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false, "note": "Round, smiling; no sting shown." },
+        { "id": "b.boat", "word": "boat", "tier": "core", "image_id": "word.boat", "voice_key": "word.boat", "gloss_zh": "船", "highlight": [0, 1], "syllables": 1, "theme": "vehicle", "vehicle": true },
+        { "id": "b.book", "word": "book", "tier": "core", "image_id": "word.book", "voice_key": "word.book", "gloss_zh": "書", "highlight": [0, 1], "syllables": 1, "theme": "thing", "vehicle": false, "note": "No readable text on the cover." },
+        { "id": "b.bear", "word": "bear", "tier": "core", "image_id": "word.bear", "voice_key": "word.bear", "gloss_zh": "熊", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false, "note": "Friendly, sitting, mouth closed; distinct from the t teddy." },
+        { "id": "b.bike", "word": "bike", "tier": "core", "image_id": "word.bike", "voice_key": "word.bike", "gloss_zh": "單車", "highlight": [0, 1], "syllables": 1, "theme": "vehicle", "vehicle": true },
+        { "id": "b.balloon", "word": "balloon", "tier": "core", "image_id": "word.balloon", "voice_key": "word.balloon", "gloss_zh": "氣球", "highlight": [0, 1], "syllables": 2, "theme": "toy", "vehicle": false },
+        { "id": "b.bird", "word": "bird", "tier": "core", "image_id": "word.bird", "voice_key": "word.bird", "gloss_zh": "雀仔", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false, "note": "A small songbird; must not look like the d duck." },
+        { "id": "b.banana", "word": "banana", "tier": "core", "image_id": "word.banana", "voice_key": "word.banana", "gloss_zh": "香蕉", "highlight": [0, 1], "syllables": 3, "theme": "food", "vehicle": false },
+        { "id": "b.butterfly", "word": "butterfly", "tier": "extra", "image_id": "word.butterfly", "voice_key": "word.butterfly", "gloss_zh": "蝴蝶", "highlight": [0, 1], "syllables": 3, "theme": "animal", "vehicle": false }
+      ]
+    },
+
+    "c": {
+      "glyph": "latin:c",
+      "status": "full",
+      "name": { "say": "see", "ipa": "siː", "voice_key": "letter.c.name" },
+      "sound": { "ipa": "k", "voice_key": "letter.c.sound", "status": "needs_recording" },
+      "article": "a",
+      "anchor": "cat",
+      "confusables": ["e", "o", "a", "b", "d"],
+      "strokes": { "lwt": 1, "ballstick": 1 },
+      "hint_en": "c is just a curve. No stick!",
+      "rhyme_en": ["Round like a c!"],
+      "words": [
+        { "id": "c.cat", "word": "cat", "tier": "core", "anchor": true, "image_id": "word.cat", "voice_key": "word.cat", "gloss_zh": "貓", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false },
+        { "id": "c.car", "word": "car", "tier": "core", "image_id": "word.car", "voice_key": "word.car", "gloss_zh": "私家車", "highlight": [0, 1], "syllables": 1, "theme": "vehicle", "vehicle": true, "note": "No number plate text." },
+        { "id": "c.cake", "word": "cake", "tier": "core", "image_id": "word.cake", "voice_key": "word.cake", "gloss_zh": "蛋糕", "highlight": [0, 1], "syllables": 1, "theme": "food", "vehicle": false, "note": "No lit candles (no fire)." },
+        { "id": "c.cup", "word": "cup", "tier": "core", "image_id": "word.cup", "voice_key": "word.cup", "gloss_zh": "杯", "highlight": [0, 1], "syllables": 1, "theme": "home", "vehicle": false },
+        { "id": "c.cow", "word": "cow", "tier": "core", "image_id": "word.cow", "voice_key": "word.cow", "gloss_zh": "乳牛", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false },
+        { "id": "c.cap", "word": "cap", "tier": "core", "image_id": "word.cap", "voice_key": "word.cap", "gloss_zh": "鴨舌帽", "highlight": [0, 1], "syllables": 1, "theme": "clothes", "vehicle": false, "note": "Peaked cap; must look different from the h hat." },
+        { "id": "c.corn", "word": "corn", "tier": "core", "image_id": "word.corn", "voice_key": "word.corn", "gloss_zh": "粟米", "highlight": [0, 1], "syllables": 1, "theme": "food", "vehicle": false },
+        { "id": "c.carrot", "word": "carrot", "tier": "core", "image_id": "word.carrot", "voice_key": "word.carrot", "gloss_zh": "紅蘿蔔", "highlight": [0, 1], "syllables": 2, "theme": "food", "vehicle": false },
+        { "id": "c.castle", "word": "castle", "tier": "core", "image_id": "word.castle", "voice_key": "word.castle", "gloss_zh": "城堡", "highlight": [0, 1], "syllables": 2, "theme": "place", "vehicle": false, "note": "Same castle family as shape-trace; no flag text." },
+        { "id": "c.camel", "word": "camel", "tier": "extra", "image_id": "word.camel", "voice_key": "word.camel", "gloss_zh": "駱駝", "highlight": [0, 1], "syllables": 2, "theme": "animal", "vehicle": false },
+        { "id": "c.caterpillar", "word": "caterpillar", "tier": "extra", "image_id": "word.caterpillar", "voice_key": "word.caterpillar", "gloss_zh": "毛蟲", "highlight": [0, 1], "syllables": 4, "theme": "animal", "vehicle": false },
+        { "id": "c.crab", "word": "crab", "tier": "extra", "image_id": "word.crab", "voice_key": "word.crab", "gloss_zh": "蟹", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false, "note": "Blend cr. Friendly, claws open wide like a wave." }
+      ]
+    },
+
+    "d": {
+      "glyph": "latin:d",
+      "status": "full",
+      "name": { "say": "dee", "ipa": "diː", "voice_key": "letter.d.name" },
+      "sound": { "ipa": "d", "voice_key": "letter.d.sound", "status": "needs_recording" },
+      "article": "a",
+      "anchor": "dog",
+      "confusables": ["b", "q", "p", "a", "c", "o"],
+      "strokes": { "lwt": 1, "ballstick": 2 },
+      "hint_en": "d has a round tummy first, then a tall stick.",
+      "rhyme_en": ["Round like a c...", "Up high to the top, stop!", "And straight down!"],
+      "words": [
+        { "id": "d.dog", "word": "dog", "tier": "core", "anchor": true, "image_id": "word.dog", "voice_key": "word.dog", "gloss_zh": "狗", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false, "note": "Mockups 02-07." },
+        { "id": "d.duck", "word": "duck", "tier": "core", "image_id": "word.duck", "voice_key": "word.duck", "gloss_zh": "鴨仔", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false, "note": "Mockups 03, 05-07." },
+        { "id": "d.door", "word": "door", "tier": "core", "image_id": "word.door", "voice_key": "word.door", "gloss_zh": "門", "highlight": [0, 1], "syllables": 1, "theme": "home", "vehicle": false },
+        { "id": "d.digger", "word": "digger", "tier": "core", "image_id": "word.digger", "voice_key": "word.digger", "gloss_zh": "挖泥車", "highlight": [0, 1], "syllables": 2, "theme": "vehicle", "vehicle": true, "note": "Reuse the number-quantity digger art." },
+        { "id": "d.doll", "word": "doll", "tier": "core", "image_id": "word.doll", "voice_key": "word.doll", "gloss_zh": "公仔", "highlight": [0, 1], "syllables": 1, "theme": "toy", "vehicle": false },
+        { "id": "d.dinosaur", "word": "dinosaur", "tier": "core", "image_id": "word.dinosaur", "voice_key": "word.dinosaur", "gloss_zh": "恐龍", "highlight": [0, 1], "syllables": 3, "theme": "animal", "vehicle": false, "note": "Long-neck plant eater, smiling. Never a T. rex with teeth." },
+        { "id": "d.dolphin", "word": "dolphin", "tier": "core", "image_id": "word.dolphin", "voice_key": "word.dolphin", "gloss_zh": "海豚", "highlight": [0, 1], "syllables": 2, "theme": "animal", "vehicle": false },
+        { "id": "d.dumptruck", "word": "dump truck", "tier": "core", "image_id": "word.dumptruck", "voice_key": "word.dumptruck", "gloss_zh": "泥頭車", "highlight": [0, 1], "syllables": 2, "theme": "vehicle", "vehicle": true, "note": "Reuse the number-quantity dumper art. Two words; only the first d is teal." },
+        { "id": "d.deer", "word": "deer", "tier": "core", "image_id": "word.deer", "voice_key": "word.deer", "gloss_zh": "鹿", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false },
+        { "id": "d.donkey", "word": "donkey", "tier": "extra", "image_id": "word.donkey", "voice_key": "word.donkey", "gloss_zh": "驢仔", "highlight": [0, 1], "syllables": 2, "theme": "animal", "vehicle": false },
+        { "id": "d.dice", "word": "dice", "tier": "extra", "image_id": "word.dice", "voice_key": "word.dice", "gloss_zh": "骰仔", "highlight": [0, 1], "syllables": 1, "theme": "toy", "vehicle": false, "note": "Dots, not digits." },
+        { "id": "d.drum", "word": "drum", "tier": "extra", "image_id": "word.drum", "voice_key": "word.drum", "gloss_zh": "鼓", "highlight": [0, 1], "syllables": 1, "theme": "toy", "vehicle": false, "note": "Blend dr (sounds like 'jr')." }
+      ]
+    },
+
+    "e": {
+      "glyph": "latin:e",
+      "status": "full",
+      "name": { "say": "ee", "ipa": "iː", "voice_key": "letter.e.name" },
+      "sound": { "ipa": "ɛ", "voice_key": "letter.e.sound", "status": "needs_recording" },
+      "article": "an",
+      "anchor": "egg",
+      "confusables": ["c", "o", "a"],
+      "strokes": { "lwt": 1, "ballstick": 1 },
+      "hint_en": "e has a line across the middle.",
+      "rhyme_en": ["Across the middle...", "Then round like a c!"],
+      "words": [
+        { "id": "e.egg", "word": "egg", "tier": "core", "anchor": true, "image_id": "word.egg", "voice_key": "word.egg", "gloss_zh": "雞蛋", "highlight": [0, 1], "syllables": 1, "theme": "food", "vehicle": false },
+        { "id": "e.elephant", "word": "elephant", "tier": "core", "image_id": "word.elephant", "voice_key": "word.elephant", "gloss_zh": "大笨象", "highlight": [0, 1], "syllables": 3, "theme": "animal", "vehicle": false },
+        { "id": "e.elbow", "word": "elbow", "tier": "core", "image_id": "word.elbow", "voice_key": "word.elbow", "gloss_zh": "手踭", "highlight": [0, 1], "syllables": 2, "theme": "body", "vehicle": false, "note": "A bent arm with the elbow ringed." },
+        { "id": "e.engine", "word": "engine", "tier": "core", "image_id": "word.engine", "voice_key": "word.engine", "gloss_zh": "火車頭", "highlight": [0, 1], "syllables": 2, "theme": "vehicle", "vehicle": true, "note": "A train engine, not a motor part." },
+        { "id": "e.envelope", "word": "envelope", "tier": "extra", "image_id": "word.envelope", "voice_key": "word.envelope", "gloss_zh": "信封", "highlight": [0, 1], "syllables": 3, "theme": "thing", "vehicle": false },
+        { "id": "e.excavator", "word": "excavator", "tier": "extra", "image_id": "word.excavator", "voice_key": "word.excavator", "gloss_zh": "挖掘機", "highlight": [0, 1], "syllables": 4, "theme": "vehicle", "vehicle": true, "note": "Big tracked excavator; different art from the d digger." },
+        { "id": "e.escalator", "word": "escalator", "tier": "extra", "image_id": "word.escalator", "voice_key": "word.escalator", "gloss_zh": "扶手電梯", "highlight": [0, 1], "syllables": 4, "theme": "place", "vehicle": false, "note": "Hong Kong children ride them every day (MTR)." },
+        { "id": "e.elf", "word": "elf", "tier": "extra", "image_id": "word.elf", "voice_key": "word.elf", "gloss_zh": "小精靈", "highlight": [0, 1], "syllables": 1, "theme": "people", "vehicle": false }
+      ]
+    },
+
+    "s": {
+      "glyph": "latin:s",
+      "status": "full",
+      "name": { "say": "ess", "ipa": "ɛs", "voice_key": "letter.s.name" },
+      "sound": { "ipa": "s", "voice_key": "letter.s.sound", "status": "needs_recording" },
+      "article": "an",
+      "anchor": "sun",
+      "confusables": ["z", "c"],
+      "strokes": { "lwt": 1, "ballstick": 1 },
+      "hint_en": "s curves one way, then the other.",
+      "rhyme_en": ["Round like a c...", "Slide across...", "Round the other way!"],
+      "words": [
+        { "id": "s.sun", "word": "sun", "tier": "core", "anchor": true, "image_id": "word.sun", "voice_key": "word.sun", "gloss_zh": "太陽", "highlight": [0, 1], "syllables": 1, "theme": "nature", "vehicle": false },
+        { "id": "s.sock", "word": "sock", "tier": "core", "image_id": "word.sock", "voice_key": "word.sock", "gloss_zh": "襪", "highlight": [0, 1], "syllables": 1, "theme": "clothes", "vehicle": false },
+        { "id": "s.sofa", "word": "sofa", "tier": "core", "image_id": "word.sofa", "voice_key": "word.sofa", "gloss_zh": "梳化", "highlight": [0, 1], "syllables": 2, "theme": "home", "vehicle": false },
+        { "id": "s.seal", "word": "seal", "tier": "core", "image_id": "word.seal", "voice_key": "word.seal", "gloss_zh": "海豹", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false, "note": "The animal, not a stamp." },
+        { "id": "s.sandwich", "word": "sandwich", "tier": "core", "image_id": "word.sandwich", "voice_key": "word.sandwich", "gloss_zh": "三文治", "highlight": [0, 1], "syllables": 2, "theme": "food", "vehicle": false },
+        { "id": "s.soap", "word": "soap", "tier": "core", "image_id": "word.soap", "voice_key": "word.soap", "gloss_zh": "番梘", "highlight": [0, 1], "syllables": 1, "theme": "home", "vehicle": false },
+        { "id": "s.sausage", "word": "sausage", "tier": "core", "image_id": "word.sausage", "voice_key": "word.sausage", "gloss_zh": "香腸", "highlight": [0, 1], "syllables": 2, "theme": "food", "vehicle": false },
+        { "id": "s.sailboat", "word": "sailboat", "tier": "core", "image_id": "word.sailboat", "voice_key": "word.sailboat", "gloss_zh": "帆船", "highlight": [0, 1], "syllables": 2, "theme": "vehicle", "vehicle": true },
+        { "id": "s.seesaw", "word": "seesaw", "tier": "extra", "image_id": "word.seesaw", "voice_key": "word.seesaw", "gloss_zh": "蹺蹺板", "highlight": [0, 1], "syllables": 2, "theme": "toy", "vehicle": false },
+        { "id": "s.submarine", "word": "submarine", "tier": "extra", "image_id": "word.submarine", "voice_key": "word.submarine", "gloss_zh": "潛水艇", "highlight": [0, 1], "syllables": 3, "theme": "vehicle", "vehicle": true },
+        { "id": "s.scooter", "word": "scooter", "tier": "extra", "image_id": "word.scooter", "voice_key": "word.scooter", "gloss_zh": "滑板車", "highlight": [0, 1], "syllables": 2, "theme": "vehicle", "vehicle": true, "note": "Blend sc. Kick scooter, the kind children ride." },
+        { "id": "s.snail", "word": "snail", "tier": "extra", "image_id": "word.snail", "voice_key": "word.snail", "gloss_zh": "蝸牛", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false, "note": "Blend sn." }
+      ]
+    },
+
+    "t": {
+      "glyph": "latin:t",
+      "status": "full",
+      "name": { "say": "tee", "ipa": "tiː", "voice_key": "letter.t.name" },
+      "sound": { "ipa": "t", "voice_key": "letter.t.sound", "status": "needs_recording" },
+      "article": "a",
+      "anchor": "taxi",
+      "confusables": ["f", "l", "i", "j"],
+      "strokes": { "lwt": 2, "ballstick": 2 },
+      "hint_en": "t is a stick with a cross.",
+      "rhyme_en": ["Straight down!", "Cross it!"],
+      "words": [
+        { "id": "t.taxi", "word": "taxi", "tier": "core", "anchor": true, "image_id": "word.taxi", "voice_key": "word.taxi", "gloss_zh": "的士", "highlight": [0, 1], "syllables": 2, "theme": "vehicle", "vehicle": true, "note": "Hong Kong red taxi; no roof sign text, no plate." },
+        { "id": "t.teddy", "word": "teddy", "tier": "core", "image_id": "word.teddy", "voice_key": "word.teddy", "gloss_zh": "啤啤熊", "highlight": [0, 1], "syllables": 2, "theme": "toy", "vehicle": false },
+        { "id": "t.tent", "word": "tent", "tier": "core", "image_id": "word.tent", "voice_key": "word.tent", "gloss_zh": "帳篷", "highlight": [0, 1], "syllables": 1, "theme": "place", "vehicle": false },
+        { "id": "t.tomato", "word": "tomato", "tier": "core", "image_id": "word.tomato", "voice_key": "word.tomato", "gloss_zh": "番茄", "highlight": [0, 1], "syllables": 3, "theme": "food", "vehicle": false },
+        { "id": "t.table", "word": "table", "tier": "core", "image_id": "word.table", "voice_key": "word.table", "gloss_zh": "枱", "highlight": [0, 1], "syllables": 2, "theme": "home", "vehicle": false },
+        { "id": "t.tap", "word": "tap", "tier": "core", "image_id": "word.tap", "voice_key": "word.tap", "gloss_zh": "水喉", "highlight": [0, 1], "syllables": 1, "theme": "home", "vehicle": false, "note": "A water tap (British), with a drop." },
+        { "id": "t.toes", "word": "toes", "tier": "core", "image_id": "word.toes", "voice_key": "word.toes", "gloss_zh": "腳趾", "highlight": [0, 1], "syllables": 1, "theme": "body", "vehicle": false },
+        { "id": "t.turtle", "word": "turtle", "tier": "core", "image_id": "word.turtle", "voice_key": "word.turtle", "gloss_zh": "烏龜", "highlight": [0, 1], "syllables": 2, "theme": "animal", "vehicle": false },
+        { "id": "t.towtruck", "word": "tow truck", "tier": "core", "image_id": "word.towtruck", "voice_key": "word.towtruck", "gloss_zh": "拖車", "highlight": [0, 1], "syllables": 2, "theme": "vehicle", "vehicle": true },
+        { "id": "t.tram", "word": "tram", "tier": "extra", "image_id": "word.tram", "voice_key": "word.tram", "gloss_zh": "電車（叮叮）", "highlight": [0, 1], "syllables": 1, "theme": "vehicle", "vehicle": true, "note": "Blend tr. Reuse the number-quantity tram art; no route number." },
+        { "id": "t.train", "word": "train", "tier": "extra", "image_id": "word.train", "voice_key": "word.train", "gloss_zh": "火車", "highlight": [0, 1], "syllables": 1, "theme": "vehicle", "vehicle": true, "note": "Blend tr." },
+        { "id": "t.tiger", "word": "tiger", "tier": "extra", "image_id": "word.tiger", "voice_key": "word.tiger", "gloss_zh": "老虎", "highlight": [0, 1], "syllables": 2, "theme": "animal", "vehicle": false, "note": "Friendly cub face, mouth closed." }
+      ]
+    },
+
+    "i": {
+      "glyph": "latin:i",
+      "status": "full",
+      "name": { "say": "eye", "ipa": "aɪ", "voice_key": "letter.i.name" },
+      "sound": { "ipa": "ɪ", "voice_key": "letter.i.sound", "status": "needs_recording" },
+      "article": "an",
+      "anchor": "igloo",
+      "confusables": ["l", "j", "t"],
+      "strokes": { "lwt": 2, "ballstick": 2 },
+      "hint_en": "i is a little stick with a dot.",
+      "rhyme_en": ["Straight down!", "Now the dot!"],
+      "words": [
+        { "id": "i.igloo", "word": "igloo", "tier": "core", "anchor": true, "image_id": "word.igloo", "voice_key": "word.igloo", "gloss_zh": "冰屋", "highlight": [0, 1], "syllables": 2, "theme": "place", "vehicle": false },
+        { "id": "i.insect", "word": "insect", "tier": "core", "image_id": "word.insect", "voice_key": "word.insect", "gloss_zh": "昆蟲", "highlight": [0, 1], "syllables": 2, "theme": "animal", "vehicle": false, "note": "A friendly beetle with six legs." },
+        { "id": "i.ink", "word": "ink", "tier": "extra", "image_id": "word.ink", "voice_key": "word.ink", "gloss_zh": "墨水", "highlight": [0, 1], "syllables": 1, "theme": "thing", "vehicle": false },
+        { "id": "i.iguana", "word": "iguana", "tier": "extra", "image_id": "word.iguana", "voice_key": "word.iguana", "gloss_zh": "鬣蜥", "highlight": [0, 1], "syllables": 3, "theme": "animal", "vehicle": false },
+        { "id": "i.inchworm", "word": "inchworm", "tier": "extra", "image_id": "word.inchworm", "voice_key": "word.inchworm", "gloss_zh": "尺蠖", "highlight": [0, 1], "syllables": 2, "theme": "animal", "vehicle": false }
+      ]
+    },
+
+    "p": {
+      "glyph": "latin:p",
+      "status": "full",
+      "name": { "say": "pee", "ipa": "piː", "voice_key": "letter.p.name" },
+      "sound": { "ipa": "p", "voice_key": "letter.p.sound", "status": "needs_recording" },
+      "article": "a",
+      "anchor": "pig",
+      "confusables": ["q", "b", "d", "g"],
+      "strokes": { "lwt": 1, "ballstick": 2 },
+      "hint_en": "p dives down, then has a round tummy.",
+      "rhyme_en": ["Dive down to the bottom...", "Back up, stop!", "Round the tummy!"],
+      "words": [
+        { "id": "p.pig", "word": "pig", "tier": "core", "anchor": true, "image_id": "word.pig", "voice_key": "word.pig", "gloss_zh": "豬", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false },
+        { "id": "p.panda", "word": "panda", "tier": "core", "image_id": "word.panda", "voice_key": "word.panda", "gloss_zh": "熊貓", "highlight": [0, 1], "syllables": 2, "theme": "animal", "vehicle": false },
+        { "id": "p.penguin", "word": "penguin", "tier": "core", "image_id": "word.penguin", "voice_key": "word.penguin", "gloss_zh": "企鵝", "highlight": [0, 1], "syllables": 2, "theme": "animal", "vehicle": false },
+        { "id": "p.pencil", "word": "pencil", "tier": "core", "image_id": "word.pencil", "voice_key": "word.pencil", "gloss_zh": "鉛筆", "highlight": [0, 1], "syllables": 2, "theme": "thing", "vehicle": false },
+        { "id": "p.pizza", "word": "pizza", "tier": "core", "image_id": "word.pizza", "voice_key": "word.pizza", "gloss_zh": "薄餅", "highlight": [0, 1], "syllables": 2, "theme": "food", "vehicle": false },
+        { "id": "p.pear", "word": "pear", "tier": "core", "image_id": "word.pear", "voice_key": "word.pear", "gloss_zh": "啤梨", "highlight": [0, 1], "syllables": 1, "theme": "food", "vehicle": false },
+        { "id": "p.puppy", "word": "puppy", "tier": "core", "image_id": "word.puppy", "voice_key": "word.puppy", "gloss_zh": "狗仔", "highlight": [0, 1], "syllables": 2, "theme": "animal", "vehicle": false, "note": "Must look different from the d dog (smaller, sleepy, different colour)." },
+        { "id": "p.pumpkin", "word": "pumpkin", "tier": "core", "image_id": "word.pumpkin", "voice_key": "word.pumpkin", "gloss_zh": "南瓜", "highlight": [0, 1], "syllables": 2, "theme": "food", "vehicle": false, "note": "A plain pumpkin, not a carved lantern face." },
+        { "id": "p.policecar", "word": "police car", "tier": "core", "image_id": "word.policecar", "voice_key": "word.policecar", "gloss_zh": "警車", "highlight": [0, 1], "syllables": 3, "theme": "vehicle", "vehicle": true, "note": "No lettering, no people inside." },
+        { "id": "p.potato", "word": "potato", "tier": "core", "image_id": "word.potato", "voice_key": "word.potato", "gloss_zh": "薯仔", "highlight": [0, 1], "syllables": 3, "theme": "food", "vehicle": false },
+        { "id": "p.parrot", "word": "parrot", "tier": "extra", "image_id": "word.parrot", "voice_key": "word.parrot", "gloss_zh": "鸚鵡", "highlight": [0, 1], "syllables": 2, "theme": "animal", "vehicle": false },
+        { "id": "p.plane", "word": "plane", "tier": "extra", "image_id": "word.plane", "voice_key": "word.plane", "gloss_zh": "飛機", "highlight": [0, 1], "syllables": 1, "theme": "vehicle", "vehicle": true, "note": "Blend pl. Reuse the number-quantity airport plane." }
+      ]
+    },
+
+    "n": {
+      "glyph": "latin:n",
+      "status": "full",
+      "name": { "say": "en", "ipa": "ɛn", "voice_key": "letter.n.name" },
+      "sound": { "ipa": "n", "voice_key": "letter.n.sound", "status": "needs_recording" },
+      "article": "an",
+      "anchor": "nest",
+      "confusables": ["u", "h", "m", "r"],
+      "strokes": { "lwt": 1, "ballstick": 2 },
+      "hint_en": "n goes down, then over a hill.",
+      "rhyme_en": ["Down...", "Back up, stop!", "Over the hill and down!"],
+      "words": [
+        { "id": "n.nest", "word": "nest", "tier": "core", "anchor": true, "image_id": "word.nest", "voice_key": "word.nest", "gloss_zh": "鳥巢", "highlight": [0, 1], "syllables": 1, "theme": "nature", "vehicle": false, "note": "With eggs. Gloss avoids the other common Chinese word, which is also a brand name." },
+        { "id": "n.net", "word": "net", "tier": "core", "image_id": "word.net", "voice_key": "word.net", "gloss_zh": "網", "highlight": [0, 1], "syllables": 1, "theme": "thing", "vehicle": false, "note": "A child's butterfly net." },
+        { "id": "n.nose", "word": "nose", "tier": "core", "image_id": "word.nose", "voice_key": "word.nose", "gloss_zh": "鼻哥", "highlight": [0, 1], "syllables": 1, "theme": "body", "vehicle": false },
+        { "id": "n.nut", "word": "nut", "tier": "core", "image_id": "word.nut", "voice_key": "word.nut", "gloss_zh": "果仁", "highlight": [0, 1], "syllables": 1, "theme": "food", "vehicle": false, "note": "An acorn-style nut. If the family avoids nuts, the parent can hide it." },
+        { "id": "n.noodles", "word": "noodles", "tier": "core", "image_id": "word.noodles", "voice_key": "word.noodles", "gloss_zh": "麵", "highlight": [0, 1], "syllables": 2, "theme": "food", "vehicle": false },
+        { "id": "n.necklace", "word": "necklace", "tier": "core", "image_id": "word.necklace", "voice_key": "word.necklace", "gloss_zh": "頸鏈", "highlight": [0, 1], "syllables": 2, "theme": "clothes", "vehicle": false },
+        { "id": "n.nurse", "word": "nurse", "tier": "extra", "image_id": "word.nurse", "voice_key": "word.nurse", "gloss_zh": "護士", "highlight": [0, 1], "syllables": 1, "theme": "people", "vehicle": false, "note": "Drawn gender-neutral; no needle." },
+        { "id": "n.newspaper", "word": "newspaper", "tier": "extra", "image_id": "word.newspaper", "voice_key": "word.newspaper", "gloss_zh": "報紙", "highlight": [0, 1], "syllables": 3, "theme": "thing", "vehicle": false, "note": "Squiggle lines only, no readable text." }
+      ]
+    },
+
+    "f": { "glyph": "latin:f", "status": "anchor_only", "name": { "say": "ef", "ipa": "ɛf", "voice_key": "letter.f.name" }, "sound": { "ipa": "f", "voice_key": "letter.f.sound", "status": "needs_recording" }, "article": "an", "anchor": "fish", "anchor_gloss_zh": "魚", "confusables": ["t", "l"], "candidates": ["fish", "fan", "fork", "feather", "fox", "fire engine", "finger"] },
+    "g": { "glyph": "latin:g", "status": "anchor_only", "name": { "say": "jee", "ipa": "dʒiː", "voice_key": "letter.g.name" }, "sound": { "ipa": "ɡ", "voice_key": "letter.g.sound", "status": "needs_recording" }, "article": "a", "anchor": "goat", "anchor_gloss_zh": "山羊", "confusables": ["q", "y", "a", "j"], "candidates": ["goat", "gate", "guitar", "goose", "garage"], "note": "Hard g only: no giraffe, gem or ginger." },
+    "h": { "glyph": "latin:h", "status": "anchor_only", "name": { "say": "aitch", "ipa": "eɪtʃ", "voice_key": "letter.h.name" }, "sound": { "ipa": "h", "voice_key": "letter.h.sound", "status": "needs_recording" }, "article": "an", "anchor": "hat", "anchor_gloss_zh": "帽", "confusables": ["n", "b", "k"], "candidates": ["hat", "helicopter", "horse", "house", "hippo", "hand", "hen"] },
+    "j": { "glyph": "latin:j", "status": "anchor_only", "name": { "say": "jay", "ipa": "dʒeɪ", "voice_key": "letter.j.name" }, "sound": { "ipa": "dʒ", "voice_key": "letter.j.sound", "status": "needs_recording" }, "article": "a", "anchor": "jelly", "anchor_gloss_zh": "啫喱", "confusables": ["i", "g", "y"], "candidates": ["jelly", "jam", "jet", "jacket", "juice", "jigsaw"], "note": "No jeep (trade mark)." },
+    "k": { "glyph": "latin:k", "status": "anchor_only", "name": { "say": "kay", "ipa": "keɪ", "voice_key": "letter.k.name" }, "sound": { "ipa": "k", "voice_key": "letter.k.sound", "status": "needs_recording" }, "article": "a", "anchor": "kite", "anchor_gloss_zh": "風箏", "confusables": ["h", "x"], "candidates": ["kite", "key", "kangaroo", "koala", "kayak", "kettle"], "note": "No knife or knee (silent k)." },
+    "l": { "glyph": "latin:l", "status": "anchor_only", "name": { "say": "el", "ipa": "ɛl", "voice_key": "letter.l.name" }, "sound": { "ipa": "l", "voice_key": "letter.l.sound", "status": "needs_recording" }, "article": "an", "anchor": "lion", "anchor_gloss_zh": "獅子", "confusables": ["i", "t"], "candidates": ["lion", "lorry", "leaf", "lemon", "ladybird", "lollipop", "lamp"] },
+    "m": { "glyph": "latin:m", "status": "anchor_only", "name": { "say": "em", "ipa": "ɛm", "voice_key": "letter.m.name" }, "sound": { "ipa": "m", "voice_key": "letter.m.sound", "status": "needs_recording" }, "article": "an", "anchor": "moon", "anchor_gloss_zh": "月亮", "confusables": ["n", "w"], "candidates": ["moon", "monkey", "minibus", "motorbike", "mango", "milk", "mouse"] },
+    "o": { "glyph": "latin:o", "status": "anchor_only", "name": { "say": "oh", "ipa": "əʊ", "voice_key": "letter.o.name" }, "sound": { "ipa": "ɒ", "voice_key": "letter.o.sound", "status": "needs_recording" }, "article": "an", "anchor": "octopus", "anchor_gloss_zh": "八爪魚", "confusables": ["c", "a", "e"], "candidates": ["octopus", "orange", "ostrich", "otter", "ox"] },
+    "q": { "glyph": "latin:q", "status": "anchor_only", "name": { "say": "cue", "ipa": "kjuː", "voice_key": "letter.q.name" }, "sound": { "ipa": "kw", "voice_key": "letter.q.sound", "status": "needs_recording" }, "article": "a", "anchor": "queen", "anchor_gloss_zh": "女王", "confusables": ["p", "g", "d"], "candidates": ["queen", "quilt", "quad bike"] },
+    "r": { "glyph": "latin:r", "status": "anchor_only", "name": { "say": "ar", "ipa": "ɑː", "voice_key": "letter.r.name" }, "sound": { "ipa": "r", "voice_key": "letter.r.sound", "status": "needs_recording" }, "article": "an", "anchor": "rabbit", "anchor_gloss_zh": "兔仔", "confusables": ["n"], "candidates": ["rabbit", "rocket", "robot", "rainbow", "ring", "roller"] },
+    "u": { "glyph": "latin:u", "status": "anchor_only", "name": { "say": "you", "ipa": "juː", "voice_key": "letter.u.name" }, "sound": { "ipa": "ʌ", "voice_key": "letter.u.sound", "status": "needs_recording" }, "article": "a", "anchor": "umbrella", "anchor_gloss_zh": "雨遮", "confusables": ["n", "v"], "candidates": ["umbrella", "up", "under"], "note": "Few short-u nouns. 'up' and 'under' need a scene card (arrow up, cat under a table); review with Carter." },
+    "v": { "glyph": "latin:v", "status": "anchor_only", "name": { "say": "vee", "ipa": "viː", "voice_key": "letter.v.name" }, "sound": { "ipa": "v", "voice_key": "letter.v.sound", "status": "needs_recording" }, "article": "a", "anchor": "van", "anchor_gloss_zh": "客貨車", "confusables": ["u", "w", "y"], "candidates": ["van", "violin", "vase", "vest"] },
+    "w": { "glyph": "latin:w", "status": "anchor_only", "name": { "say": "double-you", "ipa": "ˈdʌbəl.juː", "voice_key": "letter.w.name" }, "sound": { "ipa": "w", "voice_key": "letter.w.sound", "status": "needs_recording" }, "article": "a", "anchor": "window", "anchor_gloss_zh": "窗", "confusables": ["m", "v"], "candidates": ["window", "watch", "worm", "watermelon", "wagon"] },
+    "x": { "glyph": "latin:x", "status": "anchor_only", "name": { "say": "ex", "ipa": "ɛks", "voice_key": "letter.x.name" }, "sound": { "ipa": "ks", "voice_key": "letter.x.sound", "status": "needs_recording" }, "article": "an", "anchor": "box", "anchor_gloss_zh": "盒", "anchor_highlight": [2, 1], "confusables": ["k"], "candidates": ["box", "fox", "ox", "taxi"], "note": "x at the end (box, fox, ox) or middle (taxi). Never x-ray or xylophone (wrong sound)." },
+    "y": { "glyph": "latin:y", "status": "anchor_only", "name": { "say": "why", "ipa": "waɪ", "voice_key": "letter.y.name" }, "sound": { "ipa": "j", "voice_key": "letter.y.sound", "status": "needs_recording" }, "article": "a", "anchor": "yo-yo", "anchor_gloss_zh": "搖搖", "confusables": ["v", "g", "j"], "candidates": ["yo-yo", "yogurt", "yacht", "yak", "yolk"] },
+    "z": { "glyph": "latin:z", "status": "anchor_only", "name": { "say": "zed", "ipa": "zɛd", "voice_key": "letter.z.name" }, "sound": { "ipa": "z", "voice_key": "letter.z.sound", "status": "needs_recording" }, "article": "a", "anchor": "zebra", "anchor_gloss_zh": "斑馬", "confusables": ["s"], "candidates": ["zebra", "zip", "zoo"] }
+  }
+}
