@@ -1,5 +1,12 @@
 # Progress
 
+## 2026-10-24 — StrokeGlyph integration compile fix (draft PR #32)
+
+- On `integration/letter-tap-L2-stroke-order`, removed the duplicate `StrokeScript`, `StrokeGlyph`, and digit adapter from `LatinGlyphs.swift`. `StrokeOrder.swift` owns the canonical type and unchanged digit factory; its initializer now provides default LWT order and empty alternates. The Latin factory remains in a `StrokeGlyph` extension with the same authored paths and alternates. Equality now compares all stored glyph metadata.
+- Added one Latin glyph equality check and registered it in `VisaCoreChecks` (5 Latin checks). The four existing Latin checks and seven stroke-order checks are unchanged. No test asserted the removed L0 digit adapter's turns; the stroke-order digit factory remains the source of digit turns.
+- Audited top-level declarations in all `Sources/` and `Tests/` Swift files; no duplicate source type or function declaration remains. The only repeated test helper name is file-private in separate files, and the shared test assertions have distinct overload signatures.
+- `git diff --check` passed. `sh scripts/test.sh` and `swift build -c release --product VisaGames` each exited 127 because `swift` is unavailable on this Linux workspace. Mac mini compile and test verification remain pending. No version or product behavior changed.
+
 ## 2026-10-24 — v0.32.0 / 67 — Letter-tap L0–L2 and stroke-order integration (draft UAT)
 
 - Carter approved the integration at 13:13 HKT. Branch `integration/letter-tap-L2-stroke-order` combines letter-tap L0–L2 (`b19be1d`, draft PRs #29–#31) with stroke-order v0.31.0 (`7aef40e`, draft PR #28). It is a source integration for one UAT build; Mac mini build, tests, and Carter UAT are pending.

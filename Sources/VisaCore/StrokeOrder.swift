@@ -96,9 +96,25 @@ public struct StrokeGlyph: Equatable, Sendable {
     public let box: (width: Double, height: Double)
     /// Key shared with the v0.30 識咗 progress (digits: "1"–"10").
     public let progressKey: String
+    public let orderStandard: String
+    public let alternates: [String: [Stroke]]
+
+    public init(id: String, script: StrokeScript, strokes: [Stroke], box: (width: Double, height: Double),
+                progressKey: String, orderStandard: String = "LWT", alternates: [String: [Stroke]] = [:]) {
+        self.id = id
+        self.script = script
+        self.strokes = strokes
+        self.box = box
+        self.progressKey = progressKey
+        self.orderStandard = orderStandard
+        self.alternates = alternates
+    }
 
     public static func == (a: StrokeGlyph, b: StrokeGlyph) -> Bool {
-        a.id == b.id && a.strokes == b.strokes && a.box.width == b.box.width && a.box.height == b.box.height
+        a.id == b.id && a.script == b.script && a.strokes == b.strokes
+            && a.box.width == b.box.width && a.box.height == b.box.height
+            && a.progressKey == b.progressKey && a.orderStandard == b.orderStandard
+            && a.alternates == b.alternates
     }
 
     /// Digits 1–10 from `NumeralGlyphs` (no second copy of the paths). Nil outside 1–10.

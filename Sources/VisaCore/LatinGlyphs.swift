@@ -57,56 +57,29 @@ public enum LatinGlyphs {
     }
 }
 
-// The D11 glyph subset is kept independent of the unmerged stroke-order player.
-public enum StrokeScript: String, Codable, Sendable { case digit, latin, hanzi }
-
-public struct StrokeGlyph: Equatable, Sendable {
-    public struct Stroke: Equatable, Sendable {
-        public let path: TracePath
-        public let turns: [Double]
-        public let kind: String?
-    }
-
-    public let id: String
-    public let script: StrokeScript
-    public let strokes: [Stroke]
-    public let box: (width: Double, height: Double)
-    public let progressKey: String
-    public let orderStandard: String
-    public let alternates: [String: [Stroke]]
-
-    public static func == (lhs: StrokeGlyph, rhs: StrokeGlyph) -> Bool {
-        lhs.id == rhs.id && lhs.script == rhs.script && lhs.strokes == rhs.strokes
-            && lhs.box.width == rhs.box.width && lhs.box.height == rhs.box.height
-            && lhs.progressKey == rhs.progressKey && lhs.orderStandard == rhs.orderStandard
-            && lhs.alternates == rhs.alternates
-    }
-
+extension StrokeGlyph {
     private static func adapt(_ paths: [TracePath]) -> [Stroke] {
         paths.map { path in
-            Stroke(path: path, turns: (path.corners + path.cusps)
-                .filter { $0 > 0.5 && $0 < path.length - 0.5 }.sorted(), kind: nil)
+            let candidates = path.corners + path.cusps
+            let turns = candidates.filter { $0 > 0.5 && $0 < path.length - 0.5 }.sorted()
+            return Stroke(path: path, turns: turns, kind: nil)
         }
-    }
-
-    /// Same digit adapter as the stroke-order branch; path data stays in NumeralGlyphs.
-    public static func digit(_ n: Int) -> StrokeGlyph? {
-        guard (1...10).contains(n) else { return nil }
-        let paths = NumeralGlyphs.paths(n, offset: LineMatchPoint(x: 0, y: 0), scale: 1)
-        return StrokeGlyph(id: "digit:\(n)", script: .digit, strokes: adapt(paths), box: NumeralGlyphs.box(n),
-                           progressKey: "\(n)", orderStandard: "LWT", alternates: [:])
     }
 
     public static func latin(_ letter: Character) -> StrokeGlyph? {
         guard LatinGlyphs.supported.contains(letter) else { return nil }
         let origin = LineMatchPoint(x: 0, y: 0)
-        let alternate = LatinGlyphs.ballStickStrokes(letter).map {
+        let alternatePaths = LatinGlyphs.ballStickStrokes(letter).map {
             TracePath(svg: $0.svg, corners: $0.corners, cusps: $0.cusps, closed: $0.closed)
         }
-        let key = "latin:\(letter).ballstick"
+        let strokes = adapt(LatinGlyphs.paths(letter, offset: origin, scale: 1))
+        var alternates: [String: [Stroke]] = [:]
+        if !alternatePaths.isEmpty {
+            alternates["latin:\(letter).ballstick"] = adapt(alternatePaths)
+        }
         return StrokeGlyph(id: "latin:\(letter)", script: .latin,
-                           strokes: adapt(LatinGlyphs.paths(letter, offset: origin, scale: 1)),
+                           strokes: strokes,
                            box: LatinGlyphs.boxSize, progressKey: String(letter), orderStandard: "LWT",
-                           alternates: alternate.isEmpty ? [:] : [key: adapt(alternate)])
+                           alternates: alternates)
     }
 }

@@ -31,6 +31,25 @@ final class LatinGlyphTests {
         expectNil(StrokeGlyph.latin("A"))
     }
 
+    func testGlyphEqualityIncludesLatinMetadata() {
+        let latin = StrokeGlyph.latin("a")!
+        let same = StrokeGlyph.latin("a")!
+        expectEqual(latin, same)
+        let differentOrder = StrokeGlyph(id: latin.id, script: latin.script, strokes: latin.strokes,
+                                         box: latin.box, progressKey: latin.progressKey,
+                                         orderStandard: "ballstick", alternates: latin.alternates)
+        expectFalse(latin == differentOrder)
+        let noAlternates = StrokeGlyph(id: latin.id, script: latin.script, strokes: latin.strokes,
+                                       box: latin.box, progressKey: latin.progressKey)
+        expectFalse(latin == noAlternates)
+        let differentKey = StrokeGlyph(id: latin.id, script: latin.script, strokes: latin.strokes,
+                                       box: latin.box, progressKey: "other", alternates: latin.alternates)
+        expectFalse(latin == differentKey)
+        let differentScript = StrokeGlyph(id: latin.id, script: .digit, strokes: latin.strokes,
+                                          box: latin.box, progressKey: latin.progressKey, alternates: latin.alternates)
+        expectFalse(latin == differentScript)
+    }
+
     func testTurnsAlternatesAndHouseLines() {
         let cusps: [Character: (Double, Double)] = ["a": (148, 130), "b": (44, 270),
                                                    "d": (148, 30), "g": (148, 130), "u": (148, 130)]
