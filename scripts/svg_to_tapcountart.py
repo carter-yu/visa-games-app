@@ -49,7 +49,7 @@ CENTRED = [
     ("iconAll", "icon-all"), ("iconTrace", "icon-trace"), ("iconPick", "icon-pick"),
     # v0.30.0 numeral-formation guidance (guidance mockups 01–03)
     ("guideGhostCar", "guide-ghost-car"), ("guideChev", "guide-chev"), ("guideAhead", "guide-ahead"),
-    ("guideStop", "guide-stop"), ("guideEye", "guide-eye"), ("guidePop", "guide-pop"),
+    ("guideStop", "guide-stop"), ("guideEye", "guide-eye"), ("guidePop", "guide-pop"), ("guideHopHead", "guide-hop-head"), ("guidePen", "guide-pen"), ("guideStartDot", "guide-start-dot"),
 ]
 SCENES = ["tramDepot", "fireStation", "site", "airport", "busTerminus"]
 # Stage backdrops from the Opus scene kit (1280 × 720, origin top-left) and its bottom-centred symbols.

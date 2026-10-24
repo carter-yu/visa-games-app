@@ -15,6 +15,8 @@ struct ParentTapCountSettingsView: View {
     /// v0.30.0 描數字提示 (多啲 / 標準 / 少啲) and the numerals the child has 識咗 (2 clean traces in a row).
     var learnedNumerals: [Int] = []
     var onGuidance: (TapCountGuidanceLevel) -> Void = { _ in }
+    /// v0.31.0 筆順動畫 (教 / 提 / 熄) for digits.
+    var onStrokeOrder: (StrokeOrderSetting) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -55,6 +57,7 @@ struct ParentTapCountSettingsView: View {
                 }
             }
             guidanceRow
+            strokeOrderRow
             VStack(alignment: .leading, spacing: 8) {
                 choiceRow(title: TapCountCopy.toleranceTitle, english: TapCountCopy.toleranceEnglish) {
                     choiceButton(title: TapCountCopy.toleranceFollow, subtitle: "",
@@ -92,6 +95,21 @@ struct ParentTapCountSettingsView: View {
             let learned = learnedNumerals.sorted().map(String.init).joined(separator: "、")
             ParentLabel(learned.isEmpty ? parent.learnedNote : "\(parent.learnedNote) \(learned)",
                         size: 12, weight: 600, color: .inkSoft)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// 筆順動畫 (stroke-order design D4; copy by Opus in design.md). Digits only for now.
+    private var strokeOrderRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ParentLabel(StrokeOrderCopy.title, size: 15, weight: 800)
+            HStack(spacing: 10) {
+                ForEach(StrokeOrderSetting.allCases, id: \.self) { setting in
+                    choiceButton(title: StrokeOrderCopy.short(setting), subtitle: "",
+                                 selected: settings.strokeOrder == setting) { onStrokeOrder(setting) }
+                }
+            }
+            ParentLabel(StrokeOrderCopy.detail(settings.strokeOrder), size: 12, weight: 600, color: .inkSoft)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

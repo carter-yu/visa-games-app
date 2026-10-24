@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-10-24 — v0.32.0 / 67 — Letter-tap L0–L2 and stroke-order integration (draft UAT)
+
+- Carter approved the integration at 13:13 HKT. Branch `integration/letter-tap-L2-stroke-order` combines letter-tap L0–L2 (`b19be1d`, draft PRs #29–#31) with stroke-order v0.31.0 (`7aef40e`, draft PR #28). It is a source integration for one UAT build; Mac mini build, tests, and Carter UAT are pending.
+- Resolved the five merge conflicts by retaining both branch histories, all letter and stroke-order runner calls, the multi-target performance assertions, and the parent stroke-order settings beside the L2 game card. The merged app version and matching assertions are 0.32.0 / build 67. No product behavior was changed beyond combining the two branches.
+- `git diff --check`, shell syntax checks, and plist parsing passed on this Linux workspace. `sh scripts/test.sh` and `sh scripts/bundle.sh` both exited 127 (`swift: not found`); no Swift compile or test pass is claimed here. The existing macOS escape-path inventory remains in `docs/phase-0-kiosk-checklist.md`; target-device verification remains pending.
+
 ## 2026-10-24 — Find & flip release compile routing fix (draft PR #31)
 
 - Added `tapLetterAll` to the canvas-only cases in the legacy entry-gate switch so the `ActivityKind?` switch is exhaustive. The active child and parent playtest paths still use `CanvasActivityHost`.
@@ -49,6 +55,16 @@
 - Four focused VisaCoreChecks methods cover stroke counts, starts, turns, house bounds, alternates, the a fixture, and tracing at the existing narrow, standard, and wide tolerances.
 - Static comparison confirmed all ten default path strings and the four explicit alternate path strings against design section 8.2; `latin:a` matches stroke-order mockup path `la`. `git show --check` was clean. `sh scripts/test.sh` stopped with `swift: not found` on this Linux workshop. No local Swift build or Mac mini result is claimed. The app version stays at v0.30.0 because this catalog has no family-visible surface.
 - Next: L1 `LetterScheduler`, `LetterBoardBuilder`, and `LetterWordBank` with pure tests.
+## 2026-10-19 — v0.31.0 / 66 — 筆順動畫: stroke-order animation for 1–10 (Cantonese and English)
+
+- Carter approved every Opus default in `visa-games-design/stroke-order` (design.md D1–D15, mockups 01–04). Built for digits only (S0–S2); letters and Chinese characters are still design-only. See ADR 0018.
+- ★ 點一點: when the numeral lights up, a silent smiley pen writes it once on the plate (提; 一閃 once 識咗; 教 if the parent picks it). Tapping the plate while it writes finishes it at once; tapping afterwards replays it (at most 2 times). The round waits for the pen plus 0.8 s, never less than 2.4 s. Never a miss.
+- ★★ 數完畫 / ★★★: the v0.30 demo car still plays while a numeral is being learned. Once it is 識咗 at 標準, a silent pen glance replaces it, 3 times, then nothing. One refresh glance comes after 7+ days without that numeral. The car and the pen never play together. The first touch ends the glance, paints nothing and is not a miss. A glance is not help. A stall refills the 3 glances. Playtests never use them up.
+- Parent: 數字設定 → 筆順動畫 教 / 提 / 熄 (digits default to 提; copy from design D4). v0.30 settings load as 提.
+- Reduce Motion: no gliding; each chunk fades in over 0.2 s. The ink on the trace board fades over 1.5 s.
+- Code: `VisaCore/StrokeOrder.swift` (glyph model, D7 timeline, progress store, ★ reveal) and `VisaGames/StrokeOrderDrawing.swift`. The pen and start-dot art come from mockup 01 via `docs/art-tap-count-source.svg` → `TapCountArt`.
+- Logs: `stroke_reveal`, `stroke_replays`, `stroke_skips`, `stroke_glance`; `guide_demo` = `glance` / `glance_skipped`.
+- Tests: new `StrokeOrderTests` (7 checks).
 
 ## 2026-10-19 — v0.30.0 / 65 — 描數字提示: tracing guidance for 1–10 (Cantonese and English)
 

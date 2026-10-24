@@ -201,7 +201,8 @@ struct ParentSettingsView: View {
                     onScaffold: { model.setTapCountTraceScaffold($0) },
                     onTolerance: { model.setTapCountTolerance($0) },
                     learnedNumerals: model.tapCountGuideProgress.learnedNumerals(language: .cantonese),
-                    onGuidance: { model.setTapCountGuidance($0) }
+                    onGuidance: { model.setTapCountGuidance($0) },
+                    onStrokeOrder: { model.setTapCountStrokeOrder($0) }
                 )
                 unbuiltRow
             }

@@ -107,6 +107,8 @@ public struct TapCountBoard: Sendable, Equatable {
     public private(set) var trace: ShapeTraceBoard?
     /// v0.30.0 numeral-formation guidance for this trace (nil = none; the shape-trace engine is unchanged).
     public private(set) var guide: TapCountGuideRun?
+    /// v0.31.0 筆順動畫 (★): the pen writes the lit numeral; nil = the plain v0.30 reveal.
+    public private(set) var strokeReveal: StrokeOrderReveal?
     public private(set) var finishedAt: Double?
     public private(set) var startedAt: Double?
 
@@ -277,15 +279,30 @@ public struct TapCountBoard: Sendable, Equatable {
 
     /// ★★ / ★★★: the counted set parks in the strip and the numeral becomes the trace board.
     public mutating func startTracing(tolerance: LineMatchTolerance, colorIndex: Int = 0, guidance: TapCountGuidePlan? = nil,
-                                      now: Double = 0, demoLead: Double = 0) {
+                                      now: Double = 0, demoLead: Double = 0, glanceDuration: Double = 0) {
         guard stage == .counted, question.tracesNumeral else { return }
         let q = NumeralGlyphs.traceQuestion(target, itemID: question.itemID, kind: question.kind, colorIndex: colorIndex)
         trace = ShapeTraceBoard(question: q, tolerance: tolerance, directionHint: true)
         if let guidance, let numeral = NumeralGuide(target) {
             guide = TapCountGuideRun(plan: guidance, demoDuration: TapCountDemoTimeline(guide: numeral).duration,
-                                     now: now, demoLead: demoLead)
+                                     now: now, demoLead: demoLead, glanceDuration: guidance.demo ? 0 : glanceDuration)
         }
         stage = .tracing
+    }
+
+    // MARK: 筆順動畫 ★ (v0.31.0; never touches fuel, misses or the count)
+
+    /// ★: the pen starts writing the lit numeral at `startAt`.
+    public mutating func startStrokeReveal(dosage: StrokeOrderDosage, duration: Double, startAt: Double) {
+        guard stage == .counted, !question.tracesNumeral, !isPick, duration > 0 else { return }
+        strokeReveal = StrokeOrderReveal(dosage: dosage, duration: duration, startAt: startAt)
+    }
+
+    /// ★: a tap on the numeral plate. Writing → finish now; written → replay (at most 2).
+    public mutating func tapStrokeReveal(now: Double) -> StrokeOrderReveal.TapResult {
+        guard stage == .counted, strokeReveal != nil else { return .ignored }
+        lastActivityAt = now
+        return strokeReveal?.tap(now: now) ?? .ignored
     }
 
     // MARK: Guidance (v0.30.0; never touches the trace, fuel or misses)
@@ -390,6 +407,11 @@ public struct TapCountBoard: Sendable, Equatable {
             fields["pre_submit_changes"] = .int(preSubmitChanges)
             fields["assisted"] = .int(assisted ? 1 : 0)
         }
+        if let reveal = strokeReveal {
+            fields["stroke_reveal"] = .string(reveal.dosage.rawValue)
+            fields["stroke_replays"] = .int(reveal.replays)
+            fields["stroke_skips"] = .int(reveal.skips)
+        }
         if let trace {
             let t = trace.resultFields
             for key in ["off_path_count", "lifts", "wrong_start", "reverse_direction", "corner_overshoot", "corner_cut",
@@ -407,6 +429,7 @@ public struct TapCountBoard: Sendable, Equatable {
                 fields["guide_helps"] = .int(guide.helpKeys.count)
                 fields["guide_clean"] = .int(guide.clean ? 1 : 0)
             }
+            if let guide, guide.glancesPlayed > 0 { fields["stroke_glance"] = .int(guide.glancesPlayed) }
             fields["per_stroke"] = .strings(trace.perShapeRows.map { $0.replacingOccurrences(of: "numeral:", with: "numeral:\(target):") })
         }
         return fields

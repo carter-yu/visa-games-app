@@ -315,6 +315,21 @@
   <g id="guide-eye"><path d="M-17 0 Q0 -14 17 0 Q0 14 -17 0 Z" fill="#FFFFFF" stroke="#2B2630" stroke-width="3.5" stroke-linejoin="round"/><circle r="6" fill="#2B2630"/><circle cx="-2" cy="-2" r="2" fill="#FFFFFF"/></g>
   <g id="guide-pop" stroke="#F5B82E" stroke-width="4" stroke-linecap="round"><path d="M0 -34 V-42 M24 -24 L30 -30 M34 0 H42 M24 24 L30 30 M0 34 V42 M-24 24 L-30 30 M-34 0 H-42 M-24 -24 L-30 -30"/></g>
   <g id="guide-hop-head"><path d="M-13 -8 L0 0 L-13 8" fill="none" stroke="#2B2630" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <!-- v0.31.0 stroke-order pen + start-dot (from visa-games-design/stroke-order/mockups/01) -->
+  <g id="guide-pen" stroke="#2B2630" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 2 L-8 -17 H8 Z" fill="currentColor" stroke-width="4"/>
+    <path d="M-8 -17 L-15 -36 H15 L8 -17 Z" fill="#FFF9EC" stroke-width="4.5"/>
+    <rect x="-17" y="-118" width="34" height="84" rx="10" fill="#FFF9EC" stroke-width="5"/>
+    <rect x="-17" y="-52" width="34" height="13" fill="currentColor" stroke-width="4"/>
+    <path d="M-17 -98 V-122 Q-17 -133 -6 -133 H6 Q17 -133 17 -122 V-98 Z" fill="currentColor" stroke-width="5"/>
+    <path d="M17 -126 H23 V-100" fill="none" stroke-width="4"/>
+    <circle cx="-6.5" cy="-79" r="3.8" fill="#2B2630" stroke="none"/><circle cx="6.5" cy="-79" r="3.8" fill="#2B2630" stroke="none"/>
+    <circle cx="-5.3" cy="-80.3" r="1.3" fill="#FFFFFF" stroke="none"/><circle cx="7.7" cy="-80.3" r="1.3" fill="#FFFFFF" stroke="none"/>
+    <path d="M-5 -69 Q0.5 -64 6 -69" fill="none" stroke-width="3"/>
+    <ellipse cx="-11.5" cy="-71" rx="3.4" ry="2.3" fill="#F9B4C2" stroke="none"/><ellipse cx="11.5" cy="-71" rx="3.4" ry="2.3" fill="#F9B4C2" stroke="none"/>
+  </g>
+  <g id="guide-start-dot"><circle r="9" fill="#FFFFFF" stroke="#2B2630" stroke-width="3"/><circle r="4.5" fill="currentColor"/></g>
+
 </defs>
   <!-- scene kit: visa-games-design/number-quantity/scene-kit/scene-kit.svg (Opus) -->
 
