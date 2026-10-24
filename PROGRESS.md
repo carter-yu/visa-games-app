@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-10-24 — Find & flip multi-target catalog check (draft PR #31)
+
+- Excluded `tapLetterAll` from the single-correct-choice confusion-tag assertion, matching the existing tap-count family exclusion. Added an explicit check that its catalog has no single correct choice. No VisaCore product code or version changed.
+- Audited the VisaCore activity-kind loops and tap-count/multi-step branches. The letter card is already registered as generated and default-off, its fixed catalog has ten card slots and a 1/45 chance, and its parent hint is bilingual while its child board copy is English-only. No further change was needed.
+- `git diff --check` and `sh -n scripts/test.sh scripts/bundle.sh` passed. `sh scripts/test.sh` and `sh scripts/bundle.sh` exited 127 (`swift: not found`) on this Linux workspace. Mac mini verification remains pending.
+
 ## 2026-10-24 — L2 parent copy hotfix (draft PR #31)
 
 - Made the `tapLetterAll` catalog hint and suggested-star badge bilingual in Hong Kong Traditional Chinese and English. The existing catalog hint test was not changed; child-facing English copy, behavior, and v0.32.0 / 67 are unchanged.
