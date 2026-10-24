@@ -1,6 +1,6 @@
 # ADR 0018 — English letter family: Find & flip
 
-Status: Proposed. v0.31.0 / build 66 on `feat/letter-tap-L2-tapLetterAll-ui`, stacked on L1 `1acfe45`. Mac mini L2 build and household UAT are pending.
+Status: Proposed. v0.32.0 / build 67 on `feat/letter-tap-L2-tapLetterAll-ui`, stacked on L1 `1acfe45`. Mac mini L2 build and household UAT are pending.
 
 ## Context
 
