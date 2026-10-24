@@ -32,7 +32,7 @@ final class QuestionGeneratorTests {
                     [.countVehicles, .findTheSame, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch,
                      .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree,
                      .tapCountAll, .tapCountTrace, .tapCountPick,
-                     .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish])
+                     .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll])
     }
 
     func testQuestionRNGIsDeterministicAndUniform() {
