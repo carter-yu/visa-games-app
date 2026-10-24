@@ -3871,7 +3871,7 @@ struct ShellView: View {
                     onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .twoPictureChoose, .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .traceLines, .traceShapesArrows, .traceShapesFree,
-                 .traceShapesDotted, .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .none:
+                 .traceShapesDotted, .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .none:
                 // Legacy shell is setup / parent only; 連一連 is canvas-only (CanvasActivityHost).
                 EntryActivityView(
                     question: model.currentTwoPictureQuestion,

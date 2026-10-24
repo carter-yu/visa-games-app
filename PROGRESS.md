@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-10-24 — Find & flip release compile routing fix (draft PR #31)
+
+- Added `tapLetterAll` to the canvas-only cases in the legacy entry-gate switch so the `ActivityKind?` switch is exhaustive. The active child and parent playtest paths still use `CanvasActivityHost`.
+- Audited the `ActivityKind` switches in `Sources/VisaGames` and the L2 `VisaGames` source diff from `1acfe45`. No other missing case or obvious source signature mismatch was found. No product behavior, tests, or version changed.
+- `git diff --check` and shell syntax checks passed. `sh scripts/test.sh`, `swift build -c release --product VisaGames`, and `sh scripts/bundle.sh` each exited 127 because `swift` is not installed on this Linux workspace. Mac mini release build verification remains pending.
+
 ## 2026-10-24 — Find & flip multi-target catalog check (draft PR #31)
 
 - Excluded `tapLetterAll` from the single-correct-choice confusion-tag assertion, matching the existing tap-count family exclusion. Added an explicit check that its catalog has no single correct choice. No VisaCore product code or version changed.
