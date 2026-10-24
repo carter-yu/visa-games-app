@@ -1307,7 +1307,7 @@ public enum ActivityCatalog {
         case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             return TapCountEnglishCopy.hint
         case .tapLetterAll:
-            return "Hint: look for the same letter."
+            return "提示：搵一樣嘅字母。 / Hint: look for the same letter."
         }
     }
 }

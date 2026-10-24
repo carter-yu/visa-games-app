@@ -51,7 +51,7 @@ struct ParentGameCard: View {
                     .foregroundStyle(Color.inkSoft)
             }
             if kind == .tapLetterAll {
-                Text("建議 ★")
+                Text("建議 ★ / Suggested ★")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.inkSoft)
             }

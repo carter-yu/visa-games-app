@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-10-24 — L2 parent copy hotfix (draft PR #31)
+
+- Made the `tapLetterAll` catalog hint and suggested-star badge bilingual in Hong Kong Traditional Chinese and English. The existing catalog hint test was not changed; child-facing English copy, behavior, and v0.32.0 / 67 are unchanged.
+- Reviewed the L2 diff for parent-facing copy. The card title, short label, and help are already displayed with their English counterparts; the version footer uses the locked product name. Child board copy remains English as specified by Appendix A.
+- `git diff --check` passed. `sh scripts/test.sh` stopped with exit 127 (`swift: not found`) on this Linux workspace, so Mac mini verification remains pending.
+
 ## 2026-10-24 — v0.32.0 / 67 — Letter-tap L2 Find & flip source (draft review)
 
 - Branch `feat/letter-tap-L2-tapLetterAll-ui` is stacked on L1 `1acfe45` (draft PR #30). L2 draft PR #31 is open against main and unmerged; PRs #29 and #30 remain open. Visa監 reported Mac mini L1 `VisaCoreChecks` PASS at `1acfe45`; this is L1 evidence only. The installed `/Applications` app was not changed by this slice.
