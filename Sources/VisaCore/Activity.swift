@@ -72,6 +72,8 @@ public enum ActivityKind: String, CaseIterable, Sendable, Codable, Equatable, Ha
     case tapCountAllEnglish
     case tapCountTraceEnglish
     case tapCountPickEnglish
+    /// Letters ABC · Find & flip: find both copies of the lowercase target.
+    case tapLetterAll
 }
 
 extension ActivityKind {
@@ -135,7 +137,9 @@ extension ActivityKind {
     }
 
     /// D11: a parent plays the card through once in 試玩 before a star can be turned on.
-    public var requiresPlaytestBeforeStars: Bool { isShapeTraceFamily || isTapCountFamily }
+    public var isTapLetterFamily: Bool { self == .tapLetterAll }
+    public var tapLetterLevel: ActivityLevel? { isTapLetterFamily ? .l1 : nil }
+    public var requiresPlaytestBeforeStars: Bool { isShapeTraceFamily || isTapCountFamily || isTapLetterFamily }
 
     /// How this kind deals a line-match question. Guided kinds pin geometry (straight = L1,
     /// bridge = L2); free match uses the mission star's level. Nil when not a line-match kind.
@@ -174,6 +178,7 @@ extension ActivityKind {
         case .tapCountTrace: return "一架一架數 · 數完畫"
         case .tapCountPick: return "一架一架數 · 揀啱數"
         case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentCardTitle(self)
+        case .tapLetterAll: return "英文字母 ABC · 翻字卡"
         }
     }
 
@@ -201,6 +206,7 @@ extension ActivityKind {
         case .tapCountTrace: return "Tap & Count · Count, then trace"
         case .tapCountPick: return "Tap & Count · Pick just enough"
         case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentCardEnglish(self)
+        case .tapLetterAll: return "Letters ABC · Find & flip"
         }
     }
 
@@ -228,6 +234,7 @@ extension ActivityKind {
         case .tapCountTrace: return "數完畫"
         case .tapCountPick: return "揀啱數"
         case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentShortLabel(self)
+        case .tapLetterAll: return "翻字卡"
         }
     }
 
@@ -255,6 +262,7 @@ extension ActivityKind {
         case .tapCountTrace: return "點晒啲車，再跟住箭嘴畫個數字！"
         case .tapCountPick: return "數啱幾架就撳 OK，再畫個數字！"
         case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentHelpTraditionalChinese(self)
+        case .tapLetterAll: return "搵晒嗰個英文字母，點啱一張就翻出一張字卡（圖 + 字 + 讀音）！"
         }
     }
 
@@ -281,6 +289,7 @@ extension ActivityKind {
         case .tapCountTrace: return "Tap them all, then trace the number!"
         case .tapCountPick: return "Tap just the right number, press OK, then trace it!"
         case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentHelpEnglish(self)
+        case .tapLetterAll: return "Find every copy of the letter; each one flips into a word card!"
         }
     }
 
@@ -333,6 +342,8 @@ extension ActivityKind {
             return ["tapCount.icon.trace"]
         case .tapCountPickEnglish:
             return ["tapCount.icon.pick"]
+        case .tapLetterAll:
+            return ["tapLetter.icon.all"]
         }
     }
 }
@@ -957,7 +968,8 @@ public enum ActivityCatalog {
         .tapCountPick,
         .tapCountAllEnglish,
         .tapCountTraceEnglish,
-        .tapCountPickEnglish
+        .tapCountPickEnglish,
+        .tapLetterAll
     ]
 
     /// D7 (Carter 2026-10-13, option B): new kinds join no ticket until a parent turns a star on
@@ -965,7 +977,7 @@ public enum ActivityCatalog {
     public static let defaultOffKinds: [ActivityKind] = [
         .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch, .traceLines, .traceShapesDotted,
         .traceShapesArrows, .traceShapesFree, .tapCountAll, .tapCountTrace, .tapCountPick,
-        .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish
+        .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll
     ]
 
     /// Kinds every ticket deals before a parent changes anything (the v0.22 rotation).
@@ -1294,6 +1306,8 @@ public enum ActivityCatalog {
             return TapCountCopy.hint
         case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             return TapCountEnglishCopy.hint
+        case .tapLetterAll:
+            return "Hint: look for the same letter."
         }
     }
 }

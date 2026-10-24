@@ -1,5 +1,14 @@
 # Progress
 
+## 2026-10-24 — v0.31.0 / 66 — Letter-tap L2 Find & flip source (draft review)
+
+- Branch `feat/letter-tap-L2-tapLetterAll-ui` is stacked on L1 `1acfe45` (draft PR #30). Visa監 reported Mac mini L1 `VisaCoreChecks` PASS at `1acfe45`; this is L1 evidence only. The installed `/Applications` app was not changed by this slice.
+- Added the default-off, playtest-gated `tapLetterAll` ★ parent card with the locked Hong Kong Traditional Chinese and English titles/help. The child board uses the L1 ten-card/two-target deal, house glyphs, an English-only prompt, word flips and a–e pictograms, a two-slot tray, per-card wrong marks, an in-tray Think Pause, a two-miss assisted ring, a stroke-colour completion cue, and the existing stamp/visa handoff. No ★★ writing board or parent letter settings were added.
+- Child round completion and zero-fuel exit update letter progress, word decks, and a persisted completed-round index best effort. Parent playtest does not advance these stores or grant visa time. Missing art uses a safe placeholder; no English voice leaves the screen bubble visible and does not use a Chinese voice.
+- The existing performance recorder receives generated deal fields, judged card attempts, and round result fields including first try, misses, assistance, duration, words, scan order, and letter box before/after. It cannot emit the exact retap/double-tap tags without treating an unscored touch as another judged answer; those tags are deferred. Its generic `fast` field is used instead of a separate `fast_tap` field.
+- Added two focused `VisaCoreChecks` methods for per-card tap state, copy, registration and round-index persistence; updated catalog counts and the PASS banner. ADR 0018 records the English letter card and residual OS boundary. `sh scripts/test.sh` and `sh scripts/bundle.sh` both stopped with exit 127 (`swift: not found`) on this Linux workshop. No L2 Mac mini, Wacom, TV, or N1–N9 result is claimed.
+- Next: Visa監 Mac mini sh scripts/test.sh + install/UAT of L2 tip; then L3 tapLetterWrite after Carter OK.
+
 ## 2026-10-24 — Letter-tap L1 review fallback hotfix (draft PR #30)
 
 - The Mac mini L1 first run of `sh scripts/test.sh` failed (exit 133) at `Tests/VisaCoreTests/LetterDealTests.swift:69`: expected review, got week.

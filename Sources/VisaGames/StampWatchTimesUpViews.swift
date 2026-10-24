@@ -11,6 +11,7 @@ struct StampSuccessView: View {
     let dockLeadingX: CGFloat
     let onGo: () -> Void
     let onSpeak: () -> Void
+    let englishOnly: Bool
     @Environment(\.canvasMetrics) private var metrics
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var confetti = false
@@ -39,12 +40,13 @@ struct StampSuccessView: View {
             HStack(alignment: .center, spacing: metrics.u(12)) {
                 VectorArtView(artwork: CanvasArt.stampy)
                     .frame(width: metrics.u(120), height: metrics.u(120))
-                SpeechBubbleButton(prompt: .stamped, action: onSpeak)
+                SpeechBubbleButton(prompt: englishOnly
+                    ? .englishOnly(key: "en.tapLetter.stamp", "Stamped!") : .stamped, action: onSpeak)
                     .scaleEffect(0.8, anchor: .leading)
             }
             .canvasPlaced(x: 36, y: 40)
 
-            PassportSpread(ticket: ticket, earnedMinutes: earnedMinutes)
+            PassportSpread(ticket: ticket, earnedMinutes: earnedMinutes, englishOnly: englishOnly)
                 .canvasPlaced(x: 250, y: 120)
 
             HStack(spacing: metrics.u(18)) {
@@ -53,7 +55,7 @@ struct StampSuccessView: View {
                         Image(systemName: "play.fill")
                             .font(.system(size: metrics.u(28), weight: .bold))
                         VStack(spacing: 0) {
-                            CanvasText("出發！", size: 32, weight: 900)
+                            if !englishOnly { CanvasText("出發！", size: 32, weight: 900) }
                             CanvasText("Go!", size: 18, weight: 800)
                         }
                     }
@@ -63,7 +65,7 @@ struct StampSuccessView: View {
                 }
                 .buttonStyle(ChunkyButtonStyle(fill: Color(hex: DesignTokens.Palette.mint),
                                                cornerRadius: 40, shadowDepth: 10))
-                .accessibilityLabel("出發！ Go!")
+                .accessibilityLabel(englishOnly ? "Go!" : "出發！ Go!")
 
                 VectorArtView(artwork: ticket.artwork)
                     .frame(width: metrics.u(120), height: metrics.u(75))
@@ -92,6 +94,7 @@ struct StampSuccessView: View {
 private struct PassportSpread: View {
     let ticket: MissionTicket
     let earnedMinutes: Int
+    let englishOnly: Bool
     @Environment(\.canvasMetrics) private var metrics
 
     private var roadTileCount: Int {
@@ -124,9 +127,9 @@ private struct PassportSpread: View {
                     }
                 }
                 VStack(spacing: 2) {
-                    CanvasText(ticket.titleTraditionalChinese, size: 22, weight: 800)
+                    if !englishOnly { CanvasText(ticket.titleTraditionalChinese, size: 22, weight: 800) }
                     CanvasText(ticket.titleEnglish, size: 16, weight: 700)
-                    CanvasText("\(earnedMinutes) 分鐘", size: 18, weight: 800)
+                    CanvasText(englishOnly ? "\(earnedMinutes) min" : "\(earnedMinutes) 分鐘", size: 18, weight: 800)
                 }
             }
             .frame(width: metrics.u(340), height: metrics.u(380))
@@ -137,7 +140,7 @@ private struct PassportSpread: View {
             ZStack {
                 Color.white
                 VStack(spacing: metrics.u(16)) {
-                    VisaStampBadge()
+                    VisaStampBadge(englishOnly: englishOnly)
                         .rotationEffect(.degrees(-12))
                     HStack(spacing: metrics.u(6)) {
                         ForEach(0..<max(roadTileCount, 0), id: \.self) { _ in RoadTileView() }
@@ -161,6 +164,7 @@ private struct PassportSpread: View {
 }
 
 struct VisaStampBadge: View {
+    var englishOnly = false
     @Environment(\.canvasMetrics) private var metrics
     var body: some View {
         ZStack {
@@ -172,11 +176,13 @@ struct VisaStampBadge: View {
                 .strokeBorder(Color(hex: DesignTokens.Palette.stampRed), lineWidth: metrics.u(4))
                 .frame(width: metrics.u(150), height: metrics.u(150))
             VStack(spacing: 4) {
-                CanvasText("簽證", size: 36, weight: 900, color: Color(hex: DesignTokens.Palette.stampRed))
+                if !englishOnly {
+                    CanvasText("簽證", size: 36, weight: 900, color: Color(hex: DesignTokens.Palette.stampRed))
+                }
                 CanvasText("VISA", size: 26, weight: 900, color: Color(hex: DesignTokens.Palette.stampRed))
             }
         }
-        .accessibilityLabel("簽證 VISA")
+        .accessibilityLabel(englishOnly ? "VISA" : "簽證 VISA")
     }
 }
 

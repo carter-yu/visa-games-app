@@ -4,7 +4,7 @@ import VisaCore
 final class MissionGameAssignmentTests {
     func testDefaultsAllStarsOn() {
         let assignment = MissionGameAssignment.defaults
-        expectEqual(ActivityCatalog.playableKinds.count, 23)
+        expectEqual(ActivityCatalog.playableKinds.count, 24)
         for kind in ActivityCatalog.defaultOnKinds {
             for star in ChildDifficulty.allCases {
                 expectTrue(assignment.isEnabled(kind, star: star))
@@ -134,12 +134,13 @@ final class MissionGameAssignmentTests {
     }
 
     func testParentCardNamesAreTraditionalAndUnbuiltAreNotKinds() {
-        expectEqual(ActivityKind.allCases.count, 23)
+        expectEqual(ActivityKind.allCases.count, 24)
         expectEqual(ActivityKind.twoPictureChoose.parentCardTitle, "邊架消防車")
         expectEqual(ActivityKind.findTheSame.parentShortLabel, "搵相同")
         expectEqual(ActivityKind.emptyBay.parentCardEnglish, "Empty parking bay")
         expectTrue(ActivityKind.countVehicles.parentHelpTraditionalChinese.contains("數"))
-        let banned = ["游戏", "视频", "设置", "哪辆", "连点"]
+        let banned = ["\u{6E38}\u{620F}", "\u{89C6}\u{9891}", "\u{8BBE}\u{7F6E}",
+                      "\u{54EA}\u{8F86}", "\u{8FDE}\u{70B9}"]
         for kind in ActivityKind.allCases {
             let blob = kind.parentCardTitle + kind.parentShortLabel + kind.parentHelpTraditionalChinese
             for word in banned {

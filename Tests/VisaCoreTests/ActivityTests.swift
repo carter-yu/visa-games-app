@@ -136,7 +136,7 @@ final class ActivityTests {
     }
 
     func testCatalogPlayableKindsAndRotation() {
-        expectEqual(ActivityCatalog.playableKinds.count, 23)
+        expectEqual(ActivityCatalog.playableKinds.count, 24)
         expectTrue(ActivityCatalog.playableKinds.contains(.twoPictureChoose))
         expectTrue(ActivityCatalog.playableKinds.contains(.findTheSame))
         expectTrue(ActivityCatalog.playableKinds.contains(.countVehicles))

@@ -25,6 +25,7 @@ public enum PerfChoiceCatalog {
             return ShapeTraceGenerator.reference(kind: kind).itemID
         case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             return TapCountGenerator.reference(kind: kind).itemID
+        case .tapLetterAll: return "tapLetter.all.reference"
         }
     }
 
@@ -51,6 +52,7 @@ public enum PerfChoiceCatalog {
         case .tapCountPick, .tapCountPickEnglish:
             // Picking 1…N at random hits exactly T with chance 1/N; dealt rounds carry their own N.
             return 1.0 / Double(TapCountGenerator.reference(kind: .tapCountPick).count)
+        case .tapLetterAll: return 1.0 / 45.0
         }
     }
 
@@ -83,6 +85,7 @@ public enum PerfChoiceCatalog {
             return ShapeTraceGenerator.reference(kind: kind).shapes.map(\.slot)
         case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             return TapCountGenerator.reference(kind: kind).occupiedBays.map { "bay-\($0)" }
+        case .tapLetterAll: return (0..<10).map { "card-\($0)" }
         }
     }
 
@@ -105,6 +108,7 @@ public enum PerfChoiceCatalog {
             return ShapeTraceGenerator.reference(kind: kind).shapes.map(\.slot)
         case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             return TapCountGenerator.reference(kind: kind).occupiedBays.map { "bay-\($0)" }
+        case .tapLetterAll: return (0..<10).map { "card-\($0)" }
         }
     }
 
@@ -126,6 +130,7 @@ public enum PerfChoiceCatalog {
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree: return nil
         // 揀啱數 is judged at OK (`submit`, from the dealt facts) — no single right bay.
         case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return nil
+        case .tapLetterAll: return nil
         }
     }
 
@@ -153,6 +158,7 @@ public enum PerfChoiceCatalog {
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge: return nil
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree: return nil
         case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return nil
+        case .tapLetterAll: return nil
         }
     }
 

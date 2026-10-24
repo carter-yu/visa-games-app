@@ -100,6 +100,8 @@ struct CanvasActivityHost: View {
                 shapeTrace
             case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
                 tapCount
+            case .tapLetterAll:
+                tapLetter
             case .none:
                 EmptyView()
             }
@@ -413,6 +415,20 @@ struct CanvasActivityHost: View {
                 onGuideHelp: { key, kind in model.tapCountGuideHelp(key: key, kind: kind) },
                 onGuideCue: { index in model.tapCountGuideCue(index: index) }
             )
+        }
+    }
+
+    @ViewBuilder
+    private var tapLetter: some View {
+        if let board = model.currentTapLetterBoard {
+            TapLetterBoardView(board: board, pendingMinutes: pendingMinutes,
+                               fuelBefore: model.tapLetterFuelBefore,
+                               thinkPauseRemaining: thinkRemaining,
+                               bubble: model.tapLetterBubble,
+                               celebrating: model.tapLetterCelebrating,
+                               plaqueNudge: model.tapLetterPlaqueNudge,
+                               onTap: { model.tapLetterTap(card: $0) },
+                               onReprompt: { model.speakTapLetterPrompt() })
         }
     }
 

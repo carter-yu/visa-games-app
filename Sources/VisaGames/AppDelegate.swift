@@ -49,6 +49,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var playtestShapeTraceBoard: ShapeTraceBoard?
     /// v0.28.0 一架一架數 playtest board (nil unless the playtest kind is a tap-count card).
     @Published private(set) var playtestTapCountBoard: TapCountBoard?
+    @Published private(set) var playtestTapLetterBoard: TapLetterBoard?
     private var playtestThinkEndsAt: Date?
     var isParentPlaytest: Bool { playtestKind != nil && session.mode == .parent }
     var playtestChoicesLocked: Bool { playtestThinkEndsAt != nil || playtestCompleted }
@@ -181,6 +182,20 @@ final class AppModel: ObservableObject {
     private var shapeTraceHintSpoken: Set<String> = []
     /// v0.28.0 一架一架數 child board (點一點 / 數完畫 / 揀啱數). Nil on every other kind.
     @Published private(set) var tapCountBoard: TapCountBoard?
+    @Published private(set) var tapLetterBoard: TapLetterBoard?
+    @Published private(set) var tapLetterBubble: String?
+    private var tapLetterBubbleGeneration = 0
+    @Published private(set) var tapLetterCelebrating = false
+    @Published private(set) var tapLetterPlaqueNudge = false
+    @Published private(set) var tapLetterFuelBefore = 0
+    private var tapLetterSettings = TapLetterSettingsStore().load()
+    private var tapLetterProgress = LetterProgressStore().load()
+    private var tapLetterDecks = LetterWordDecksStore().load()
+    private var tapLetterRoundIndex = LetterRoundIndexStore().load()
+    private var tapLetterLastActionAt = Date().timeIntervalSinceReferenceDate
+    private var tapLetterRoundStart = Date().timeIntervalSinceReferenceDate
+    private var tapLetterIdleSpoken = false
+    private var tapLetterPenaltyPending = false
     /// 數字設定 (shared by the 3 tap-count cards). UserDefaults, not the snapshot.
     @Published private(set) var tapCountSettings = TapCountSettings.defaults
     /// Gentle line in the tap-count tray (未揀車喎 / wrong start / 試吓撳 OK). Never a miss.
@@ -405,6 +420,7 @@ final class AppModel: ObservableObject {
         advanceThinkPauseIfNeeded(now: current)
         advancePlaytestThinkPauseIfNeeded(now: current)
         tapCountIdleCheck(now: current.timeIntervalSinceReferenceDate)
+        tapLetterIdleCheck(now: current.timeIntervalSinceReferenceDate)
         if let outcome = resilientStore.retryIfDue(now: current) {
             noteSaveOutcome(outcome, context: "retry")
         }
@@ -607,7 +623,10 @@ final class AppModel: ObservableObject {
         guideVoice.speak(.depotPickTicket)
     }
 
-    func guideSpeakStamped() { guideVoice.speak(.stamped) }
+    func guideSpeakStamped() {
+        if activeActivityKind == .tapLetterAll { tapLetterSpeak("stamp", "Stamped!") }
+        else { guideVoice.speak(.stamped) }
+    }
     func guideSpeakEmptyAllowlist() { guideVoice.speak(.emptyAllowlist) }
     func guideSpeakPickVideo() { guideVoice.speak(.pickVideo) }
     func guideSpeakResumeChoice() { guideVoice.speak(.resumeChoiceKeepWatching) }
@@ -852,6 +871,14 @@ final class AppModel: ObservableObject {
         shapeTraceNotice = nil
         tapCountBoard = kind.isTapCountFamily ? makeTapCountBoard(
             seed: seed, kind: kind, avoidingItem: lastDealtItem[kind]) : nil
+        tapLetterBoard = kind == .tapLetterAll ? makeTapLetterBoard(seed: seed) : nil
+        tapLetterBubble = nil
+        tapLetterCelebrating = false
+        tapLetterPlaqueNudge = false
+        tapLetterLastActionAt = Date().timeIntervalSinceReferenceDate
+        tapLetterRoundStart = tapLetterLastActionAt
+        tapLetterIdleSpoken = false
+        tapLetterPenaltyPending = false
         resetTapCountTransient()
         sequenceQuestion = ActivityCatalog.sequenceQuestion()
         halfMatchQuestion = ActivityCatalog.halfMatchQuestion()
@@ -899,6 +926,8 @@ final class AppModel: ObservableObject {
         successFeedbackID = nil
         sequenceTappedAssetIDs = []
         choiceDealSeed = ""
+        tapLetterBoard = nil
+        tapLetterBubble = nil
     }
 
     func useEntryHint() {
@@ -942,6 +971,8 @@ final class AppModel: ObservableObject {
             let question = tapCount?.question ?? TapCountGenerator.reference(kind: kind)
             return PerfChoiceCatalog.facts(tapCount: question, settings: tapCountSettings,
                                            tolerance: tapCountTolerance, recentTargets: tapCountRecentTargets)
+        case .tapLetterAll:
+            return tapLetterFacts(currentTapLetterBoard)
         default: return PerfChoiceCatalog.facts(kind: kind, seed: seed)
         }
     }
@@ -991,6 +1022,9 @@ final class AppModel: ObservableObject {
             en = question.promptEnglish
         case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             speakTapCountPrompt()
+            return
+        case .tapLetterAll:
+            speakTapLetterPrompt()
             return
         }
         guideVoice.speak(SpokenPrompt(
@@ -1239,7 +1273,7 @@ final class AppModel: ObservableObject {
         awaitingDeparture = true
         showTimesUp = false
         triggerSuccessFeedback()
-        guideVoice.speak(.stamped)
+        if activeActivityKind != .tapLetterAll { guideSpeakStamped() }
         VisaGamesLog.append(
             "applyEntrySuccess — 入口成功 assisted=\(assisted) earnedMin=\(earnedMinutes) entryCompleted=\(isEntryActivityCompleted) viewing=\(remainingViewingBudget(at: Date())) mode=\(session.mode) stampGate=true"
         )
@@ -1336,6 +1370,11 @@ final class AppModel: ObservableObject {
             changed?()
             return
         }
+        if activeActivityKind == .tapLetterAll {
+            tapLetterAfterPause()
+            changed?()
+            return
+        }
         // Existing assisted/hint rescue still helps when fuel remains.
         if ActivityHintPolicy.shouldAutoHint(afterMissCount: entryMissCount), !entryHintUsed {
             useEntryHint()
@@ -1347,7 +1386,17 @@ final class AppModel: ObservableObject {
     }
 
     private func returnToDepotOutOfFuel() {
-        guideVoice.speak(.outOfFuelDepot)
+        if activeActivityKind == .tapLetterAll, let board = tapLetterBoard, !board.isComplete {
+            var fields = tapLetterResultFields(board)
+            let boxes = tapLetterSaveRound(board)
+            fields["box_before"] = .string(boxes.before)
+            fields["box_after"] = .string(boxes.after)
+            perf.roundResultExtra(fields)
+        }
+        if activeActivityKind == .tapLetterAll {
+            guideVoice.speak(SpokenPrompt.englishOnly(key: "en.tapLetter.outOfFuel",
+                                                      WrongAnswerCopy.returnDepotEnglish))
+        } else { guideVoice.speak(.outOfFuelDepot) }
         VisaGamesLog.append("returnToDepotOutOfFuel — 油用晒 返車廠")
         perf.roundFinished(outcome: .zeroed, earnedMinutes: 0, assisted: false)
         resetTaskRound()
@@ -2789,6 +2838,14 @@ final class AppModel: ObservableObject {
         shapeTraceNotice = nil
         playtestTapCountBoard = kind.isTapCountFamily
             ? makeTapCountBoard(seed: playtestChoiceDealSeed, kind: kind, avoidingItem: nil) : nil
+        playtestTapLetterBoard = kind == .tapLetterAll ? makeTapLetterBoard(seed: playtestChoiceDealSeed) : nil
+        tapLetterBubble = nil
+        tapLetterCelebrating = false
+        tapLetterPlaqueNudge = false
+        tapLetterLastActionAt = Date().timeIntervalSinceReferenceDate
+        tapLetterRoundStart = tapLetterLastActionAt
+        tapLetterIdleSpoken = false
+        tapLetterPenaltyPending = false
         resetTapCountTransient()
         clearPlaytestThinkPause()
         let facts = dealFacts(kind: kind, seed: playtestChoiceDealSeed,
@@ -2852,6 +2909,9 @@ final class AppModel: ObservableObject {
             en = question.promptEnglish
         case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             speakTapCountPrompt()
+            return
+        case .tapLetterAll:
+            speakTapLetterPrompt()
             return
         }
         guideVoice.speak(SpokenPrompt(
@@ -3066,6 +3126,10 @@ final class AppModel: ObservableObject {
             tapCountAfterThinkPause(playtest: true)
             return
         }
+        if playtestKind == .tapLetterAll {
+            tapLetterAfterPause()
+            return
+        }
         // Fuel may hit 0. Stay on the cover — do not speak the depot line or end the visa.
         if ActivityHintPolicy.shouldAutoHint(afterMissCount: playtestMissCount), !playtestHintUsed {
             playtestHintUsed = true
@@ -3099,6 +3163,7 @@ final class AppModel: ObservableObject {
         playtestShapeTraceBoard = nil
         shapeTraceNotice = nil
         playtestTapCountBoard = nil
+        playtestTapLetterBoard = nil
         tapCountNotice = nil
         clearPlaytestThinkPause()
         VisaGamesLog.append("playtest discard — 試玩收起 reason=\(reason)")
@@ -3466,7 +3531,8 @@ struct ShellView: View {
                     : (model.targetVisaMinutes ?? ticket.difficulty.minutes),
                 dockLeadingX: CGFloat(BayDock.chosen(seed: model.departureDockSeed).leadingX),
                 onGo: { model.confirmDeparture() },
-                onSpeak: { model.guideSpeakStamped() }
+                onSpeak: { model.guideSpeakStamped() },
+                englishOnly: model.activeActivityKind == .tapLetterAll
             )
             .ignoresSafeArea()
         case .emptyAllowlist:
@@ -3824,6 +3890,212 @@ struct ShellView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 480, alignment: .top)
         .layoutPriority(1)
+    }
+}
+
+// MARK: - Letters ABC / Find & flip
+
+extension AppModel {
+    private var tapLetterUsesPlaytest: Bool { isParentPlaytest && playtestKind == .tapLetterAll }
+
+    var currentTapLetterBoard: TapLetterBoard? {
+        tapLetterUsesPlaytest ? playtestTapLetterBoard : tapLetterBoard
+    }
+
+    private func makeTapLetterBoard(seed: String) -> TapLetterBoard? {
+        guard let bank = try? LetterWordBank.loadBundled() else { return nil }
+        let n = tapLetterRoundIndex + 1
+        guard let deal = TapLetterGenerator.make(seed: seed, n: n, settings: tapLetterSettings,
+                                                 progress: tapLetterProgress, decks: tapLetterDecks,
+                                                 bank: bank, now: Date()) else { return nil }
+        return TapLetterBoard(deal: deal)
+    }
+
+    private func tapLetterFacts(_ board: TapLetterBoard?) -> PerfDealFacts {
+        guard let board else { return PerfChoiceCatalog.facts(kind: .tapLetterAll, seed: "reference") }
+        let deal = board.deal
+        let rows = deal.board.rows.map { $0.joined() }
+        let item = "tapLetter.all.\(deal.target).\(deal.board.letters.joined()).\(rows.joined(separator: "-"))"
+        return PerfDealFacts(item: item, gen: "letters_v1", level: .l1, chance: 1.0 / 45,
+                             slots: (0..<10).map { "card-\($0)" }, correctChoice: nil,
+                             tagsByChoice: [:], assetByChoice: [:], extraDealtFields: [
+            "target": .string(deal.target), "board_set": .string(deal.board.letters.joined()),
+            "rows": .strings(rows), "targets": .int(2), "path": .string(tapLetterSettings.path.rawValue),
+            "this_week": .strings(tapLetterSettings.validWeek), "lane": .string(deal.lane.rawValue),
+            "guard": .string(tapLetterSettings.mirrorGuard ? "on" : "off"),
+            "glyph_scale": .double(deal.glyphScale), "match_mode": .string("test")
+        ])
+    }
+
+    private func tapLetterSpeak(_ key: String, _ line: String, queued: Bool = true) {
+        let prompt = SpokenPrompt.englishOnly(key: "en.tapLetter.\(key)", line)
+        if queued { guideVoice.speakQueued(prompt) } else { guideVoice.speak(prompt) }
+    }
+
+    private func tapLetterShowBubble(_ line: String, seconds: Double = 1.2) {
+        tapLetterBubbleGeneration += 1
+        let generation = tapLetterBubbleGeneration
+        tapLetterBubble = line
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
+            guard self?.tapLetterBubbleGeneration == generation else { return }
+            self?.tapLetterBubble = nil
+        }
+    }
+
+    func speakTapLetterPrompt() {
+        guard let board = currentTapLetterBoard, !board.isComplete else { return }
+        guard !tapLetterPenaltyPending,
+              (tapLetterUsesPlaytest ? !playtestChoicesLocked : (taskRoundOpen && !choicesLocked)) else { return }
+        tapLetterSpeak("prompt", TapLetterCopy.prompt(board.deal.target), queued: false)
+    }
+
+    func tapLetterTap(card: Int) {
+        let playtest = tapLetterUsesPlaytest
+        guard let current = currentTapLetterBoard, !current.isComplete, !tapLetterPenaltyPending,
+              (playtest ? !playtestChoicesLocked : (session.mode == .lock && taskRoundOpen &&
+                activeActivityKind == .tapLetterAll && !choicesLocked && !activityJustCompleted)) else { return }
+        let clock = Date().timeIntervalSinceReferenceDate
+        var board = current
+        let outcome = board.tap(card, at: clock)
+        if playtest { playtestTapLetterBoard = board } else { tapLetterBoard = board }
+        guard outcome != .ignored && outcome != .doubleTapIgnored else { return }
+        tapLetterLastActionAt = clock
+        tapLetterIdleSpoken = false
+        let letter = board.deal.board.rows[card / 5][card % 5]
+        let choice = "card-\(card)"
+        let attempt = (tags: tapLetterTags(target: board.deal.target, chosen: letter),
+                       fields: ["card": PerfValue.int(card), "letter": .string(letter)])
+        switch outcome {
+        case .found, .allFound, .foundRetap:
+            let slot = board.deal.board.targetCards.firstIndex(of: card) ?? 0
+            let word = board.deal.words[slot]
+            tapLetterShowBubble(word.word)
+            tapLetterSpeak(word.voiceKey, "\(word.word)!" )
+            if outcome == .found || outcome == .allFound {
+                let before = playtest ? playtestPendingMinutes : pendingAwardMinutes
+                if playtest {
+                    perf.playtestAnswer(choice: choice, correct: true, pendingBefore: before, pendingAfter: before,
+                                        hintOn: board.assisted, record: attempt)
+                } else {
+                    perf.roundAnswer(choice: choice, correct: true, pendingBefore: before, pendingAfter: before,
+                                     hintOn: board.assisted, record: attempt)
+                }
+            }
+            if outcome == .allFound {
+                let token = playtest ? playtestChoiceDealSeed : choiceDealSeed
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                    guard let self, self.currentTapLetterBoard?.isComplete == true else { return }
+                    self.tapLetterCelebrating = true
+                    let line = TapLetterCopy.allFound(board.deal.target, board.deal.words[0].word,
+                                                      board.deal.words[1].word)
+                    self.tapLetterShowBubble(line, seconds: 4)
+                    self.tapLetterSpeak("allFound", line)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.6) { [weak self] in
+                        self?.finishTapLetterRound(token: token, playtest: playtest)
+                    }
+                }
+            }
+        case .miss, .knownWrongRetap:
+            let line = TapLetterCopy.wrong(letter)
+            tapLetterShowBubble(line)
+            tapLetterSpeak("thats.\(letter)", line)
+            if outcome == .miss {
+                tapLetterPenaltyPending = true
+                tapLetterFuelBefore = playtest ? playtestPendingMinutes : pendingAwardMinutes
+                let token = playtest ? playtestChoiceDealSeed : choiceDealSeed
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                    guard let self, (playtest ? self.playtestChoiceDealSeed : self.choiceDealSeed) == token else { return }
+                    self.pendingAnswerRecord = attempt
+                    if playtest { self.playtestHandle(.incorrect, selectionLabel: choice) }
+                    else { self.handleEvaluation(.incorrect, selectionLabel: choice) }
+                    self.pendingAnswerRecord = nil
+                    self.tapLetterPenaltyPending = false
+                }
+            }
+        default: break
+        }
+    }
+
+    private func tapLetterAfterPause() {
+        guard var board = currentTapLetterBoard else { return }
+        let playtest = tapLetterUsesPlaytest
+        if board.misses >= 2 && !board.assisted {
+            board.showHint()
+            if playtest { playtestTapLetterBoard = board; perf.playtestHint(afterMisses: board.misses) }
+            else { tapLetterBoard = board; perf.roundHint(afterMisses: board.misses) }
+            tapLetterSpeak("hint", TapLetterCopy.hint(board.deal.target))
+        } else {
+            tapLetterSpeak("findAgain", TapLetterCopy.findAgain(board.deal.target))
+        }
+    }
+
+    private func tapLetterTags(target: String, chosen: String) -> [String] {
+        if (target == "b" && chosen == "d") || (target == "d" && chosen == "b") { return ["mirror_lr"] }
+        if target == "c" && chosen == "b" { return ["has_stick"] }
+        return []
+    }
+
+    private func tapLetterIdleCheck(now clock: Double) {
+        guard let board = currentTapLetterBoard, !board.isComplete, !tapLetterIdleSpoken,
+              clock - tapLetterLastActionAt >= 10,
+              (tapLetterUsesPlaytest ? !playtestChoicesLocked : (activeActivityKind == .tapLetterAll &&
+                taskRoundOpen && !choicesLocked)) else { return }
+        tapLetterIdleSpoken = true
+        tapLetterPlaqueNudge = true
+        tapLetterSpeak("idle", TapLetterCopy.idle(board.deal.target))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            self?.tapLetterPlaqueNudge = false
+        }
+    }
+
+    private func finishTapLetterRound(token: String, playtest: Bool) {
+        guard let board = currentTapLetterBoard, board.isComplete,
+              (playtest ? playtestChoiceDealSeed : choiceDealSeed) == token else { return }
+        var fields = tapLetterResultFields(board)
+        if playtest {
+            guard !playtestCompleted else { return }
+            perf.playtestResultExtra(fields)
+            perf.playtestSolved(earnedMinutes: playtestPendingMinutes, assisted: board.assisted)
+            playtestCompleted = true
+            playtestLastCorrectID = "tap_letter"
+            if parentPlaytestLog.playtestedOn(.tapLetterAll) == nil {
+                parentPlaytestLog = parentPlaytestLog.recording(.tapLetterAll, on: Date())
+                parentPlaytestLogStore.save(parentPlaytestLog)
+            }
+            return
+        }
+        guard taskRoundOpen, !activityJustCompleted else { return }
+        let boxes = tapLetterSaveRound(board)
+        fields["box_before"] = .string(boxes.before)
+        fields["box_after"] = .string(boxes.after)
+        perf.roundResultExtra(fields)
+        guard pendingAwardMinutes > 0 else { returnToDepotOutOfFuel(); return }
+        lastCorrectChoiceID = "tap_letter"
+        activityJustCompleted = true
+        applyEntrySuccess(assisted: board.assisted)
+    }
+
+    private func tapLetterResultFields(_ board: TapLetterBoard) -> [String: PerfValue] {
+        [
+            "first_try": .bool(board.misses == 0), "misses": .int(board.misses),
+            "hint_used": .bool(board.assisted), "assisted": .bool(board.assisted),
+            "duration_ms": .int(Int((Date().timeIntervalSinceReferenceDate - tapLetterRoundStart) * 1_000)),
+            "flip_words": .strings(board.deal.words.map(\.word)),
+            "scan_order": .string(board.tapOrder == board.tapOrder.sorted() ? "reading" : "other"),
+            "deck_pos": .int(board.deal.decks.letters[board.deal.target]?.seenIDs.count ?? 0)
+        ]
+    }
+
+    private func tapLetterSaveRound(_ board: TapLetterBoard) -> (before: String, after: String) {
+        let before = tapLetterProgress.state(for: board.deal.target).box.rawValue
+        tapLetterProgress.record(board.deal.target, clean: board.misses == 0 && !board.assisted,
+                                 round: tapLetterRoundIndex + 1, at: Date(), lane: board.deal.lane)
+        tapLetterRoundIndex += 1
+        LetterRoundIndexStore().save(tapLetterRoundIndex)
+        tapLetterDecks = board.deal.decks
+        LetterProgressStore().save(tapLetterProgress)
+        LetterWordDecksStore().save(tapLetterDecks)
+        return (before, tapLetterProgress.state(for: board.deal.target).box.rawValue)
     }
 }
 
