@@ -4205,20 +4205,9 @@ extension AppModel {
         if currentTapLetterKind == .tapLetterWrite, tapLetterWriteRound?.canStamp != true { return }
         guard let board = currentTapLetterBoard, board.isComplete,
               (playtest ? playtestChoiceDealSeed : choiceDealSeed) == token else { return }
+        if playtest { guard !playtestCompleted else { return } }
+        else { guard taskRoundOpen, !activityJustCompleted else { return } }
         var fields = tapLetterResultFields(board)
-        if playtest {
-            guard !playtestCompleted else { return }
-            perf.playtestResultExtra(fields)
-            perf.playtestSolved(earnedMinutes: playtestPendingMinutes, assisted: board.assisted)
-            playtestCompleted = true
-            playtestLastCorrectID = "tap_letter"
-            if let kind = currentTapLetterKind, parentPlaytestLog.playtestedOn(kind) == nil {
-                parentPlaytestLog = parentPlaytestLog.recording(kind, on: Date())
-                parentPlaytestLogStore.save(parentPlaytestLog)
-            }
-            return
-        }
-        guard taskRoundOpen, !activityJustCompleted else { return }
         if currentTapLetterKind == .tapLetterWrite, let write = tapLetterWriteRound {
             let trace = write.trace
             fields["lifts"] = .int(trace.lifts)
@@ -4238,6 +4227,17 @@ extension AppModel {
         let boxes = tapLetterSaveRound(board)
         fields["box_before"] = .string(boxes.before)
         fields["box_after"] = .string(boxes.after)
+        if playtest {
+            perf.playtestResultExtra(fields)
+            perf.playtestSolved(earnedMinutes: playtestPendingMinutes, assisted: board.assisted)
+            playtestCompleted = true
+            playtestLastCorrectID = "tap_letter"
+            if let kind = currentTapLetterKind, parentPlaytestLog.playtestedOn(kind) == nil {
+                parentPlaytestLog = parentPlaytestLog.recording(kind, on: Date())
+                parentPlaytestLogStore.save(parentPlaytestLog)
+            }
+            return
+        }
         perf.roundResultExtra(fields)
         guard pendingAwardMinutes > 0 else { returnToDepotOutOfFuel(); return }
         lastCorrectChoiceID = "tap_letter"

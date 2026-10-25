@@ -76,6 +76,48 @@ final class LetterDealTests {
         expectEqual(otherOld.target, "a")
     }
 
+    func testPlaytestSaveRotatesWeekAfterLiveRound() throws {
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        let progressStore = LetterProgressStore(defaults: defaults)
+        let roundStore = LetterRoundIndexStore(defaults: defaults)
+        let now = Date(timeIntervalSince1970: 86_400)
+        var progress = LetterProgress()
+        progress.record("a", clean: true, round: 1, at: now)
+        progressStore.save(progress)
+        roundStore.save(1)
+
+        for expected in ["b", "c"] {
+            var saved = progressStore.load()
+            let round = roundStore.load() + 1
+            let deal = LetterScheduler.next(seed: "parent-playtest", n: round,
+                                            settings: .defaults, progress: saved, now: now)
+            expectEqual(deal.target, expected)
+            expectEqual(deal.lane, .week)
+            saved.record(deal.target, clean: true, round: round, at: now, lane: deal.lane)
+            progressStore.save(saved)
+            roundStore.save(round)
+        }
+        expectEqual(progressStore.load().weekDeals, ["a", "b", "c"])
+        expectEqual(progressStore.load().lastTarget, "c")
+        expectEqual(roundStore.load(), 3)
+
+        let source = try String(contentsOfFile: "Sources/VisaGames/AppDelegate.swift", encoding: .utf8)
+        guard let start = source.range(of: "private func finishTapLetterRound(token: String, playtest: Bool)"),
+              let end = source.range(of: "private func tapLetterResultFields", range: start.upperBound..<source.endIndex) else {
+            expectTrue(false, "Letter completion source exists")
+            return
+        }
+        let completion = source[start.lowerBound..<end.lowerBound]
+        guard let save = completion.range(of: "tapLetterSaveRound(board)"),
+              let writeProgress = completion.range(of: "letterWriteProgress.record(board.deal.target"),
+              let playtest = completion.range(of: "if playtest {\n            perf.playtestResultExtra(fields)") else {
+            expectTrue(false, "Letter completion saves and handles playtest")
+            return
+        }
+        expectTrue(writeProgress.lowerBound < playtest.lowerBound, "Playtest write progress is saved")
+        expectTrue(save.lowerBound < playtest.lowerBound, "Playtest saves before completion returns")
+    }
+
     func testWordBankAndDeck() throws {
         let bank = try LetterWordBank.load(url: URL(fileURLWithPath: "Resources/LetterTap/starter-bank.json"))
         expectEqual(bank.letters.count, 26)
