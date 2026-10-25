@@ -547,6 +547,7 @@ struct TestRunner {
         let letterDeal = LetterDealTests()
         letterDeal.testPathSettingsAndProgress()
         letterDeal.testSchedulerAndBoardAcrossSeeds()
+        try letterDeal.testPlaytestSaveRotatesWeekAfterLiveRound()
         try letterDeal.testWordBankAndDeck()
         try letterDeal.testBankSchemaAndContent()
         let tapLetter = TapLetterBoardTests()

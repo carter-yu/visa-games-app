@@ -1,5 +1,12 @@
 # Progress
 
+## 2026-10-25 — v0.33.1 / 69 — Letter playtest week rotation hotfix (draft PR)
+
+- `finishTapLetterRound` now saves a successful parent playtest to the shared letter progress, word decks, and round index before recording playtest completion. Find & write playtests also save the existing writing progress and stroke glance bookkeeping. Playtest still grants no visa and uses its playtest completion flags.
+- Added a focused offline check that simulates a live `a` round followed by persisted playtest saves and verifies the next two default-week targets are `b` and `c`. A source guard checks that letter and writing saves precede the playtest completion return. The parent version label, Info.plist, and version assertion are 0.33.1 / build 69.
+- `git diff --check`, shell syntax checks, and plist parsing passed. `sh scripts/test.sh` and `sh scripts/bundle.sh` each exited 127 (`swift: not found`) on Linux; no Swift build or Mac mini/TV result is claimed. The existing OS escape-path inventory remains in `docs/phase-0-kiosk-checklist.md`.
+- Next: Visa監 Mac mini test+bundle+install 0.33.1; Carter playtest UAT letter rotation a→b→c…
+
 ## 2026-10-25 — 0.33.0 / 68 — L3/L2 letter stroke-order parity hotfix (draft PR #33)
 
 - Carter UAT screenshots found that Find & flip lacked the numeral-style smiley pen on the letter plaque and Find & write used SF Symbol-only guidance over the first path. This source hotfix on `feat/letter-tap-L3-tapLetterWrite-ui` adds Latin stroke-order reveal, teal ink and flash before the stamp or writing transition, and a timeline-driven car demo or silent pen glance on the writing board.
