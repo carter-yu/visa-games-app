@@ -425,6 +425,7 @@ struct CanvasActivityHost: View {
             if shownKind == .tapLetterWrite, let round = model.tapLetterWriteRound,
                round.phase == .writing || round.phase == .done {
                 TapLetterWriteBoardView(round: round, guide: model.tapLetterWriteGuide,
+                    demoStartedAt: model.tapLetterWriteDemoStartedAt,
                     bubble: model.tapLetterBubble,
                     onDown: { model.tapLetterWritePenDown($0) },
                     onMove: { model.tapLetterWritePenMove($0) },
@@ -437,6 +438,7 @@ struct CanvasActivityHost: View {
                                thinkPauseRemaining: thinkRemaining,
                                bubble: model.tapLetterBubble,
                                celebrating: model.tapLetterCelebrating,
+                               strokeReveal: model.tapLetterStrokeReveal,
                                plaqueNudge: model.tapLetterPlaqueNudge,
                                onTap: { model.tapLetterTap(card: $0) },
                                onReprompt: { model.speakTapLetterPrompt() })

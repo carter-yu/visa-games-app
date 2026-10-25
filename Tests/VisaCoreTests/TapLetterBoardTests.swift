@@ -48,6 +48,28 @@ final class TapLetterBoardTests {
 }
 
 extension TapLetterBoardTests {
+    func testLatinRevealTimingAndWritingGuides() {
+        for letter in "abcde" {
+            guard let glyph = StrokeGlyph.latin(letter) else { expectTrue(false, "Latin glyph"); continue }
+            for dosage in StrokeOrderDosage.allCases {
+                let timeline = StrokeOrderTimeline(glyph: glyph, dosage: dosage)
+                expectTrue(timeline.duration > 0)
+                let reveal = StrokeOrderReveal(dosage: dosage, duration: timeline.duration, startAt: 10.2)
+                let finish = reveal.finishDelay(now: 10, minimum: 2.4, flash: 0.8)
+                expectTrue(finish >= timeline.duration + 0.9)
+                expectTrue(finish > timeline.duration, "stamp waits for the full pen timeline")
+                expectTrue(reveal.writing(now: 10.2))
+                expectFalse(reveal.writing(now: 10.2 + timeline.duration))
+            }
+            let teach = StrokeOrderTimeline(glyph: glyph, dosage: .teach)
+            let glance = StrokeOrderTimeline(glyph: glyph, dosage: .glance)
+            expectTrue(teach.duration > glance.duration)
+        }
+        expectEqual(StrokeOrderPlan.star1(setting: .remind, learned: false), .remind)
+        expectEqual(StrokeOrderPlan.star1(setting: .remind, learned: true), .glance)
+        expectEqual(StrokeOrderPlan.star1(setting: .off, learned: false), nil)
+    }
+
     func testWritePhaseAndCopy() throws {
         let bank = try LetterWordBank.load(url: URL(fileURLWithPath: "Resources/LetterTap/starter-bank.json"))
         let deal = TapLetterGenerator.make(seed: "letter-write", n: 1, settings: .defaults,
@@ -58,6 +80,7 @@ extension TapLetterBoardTests {
         expectEqual(round.tap(deal.board.targetCards[1], at: 2), .allFound)
         expectEqual(round.phase, .transition)
         expectTrue(!round.canStamp)
+        expectEqual(round.phase, .transition)
         expectEqual(round.tap(deal.board.targetCards[0], at: 3), .ignored)
         round.beginWriting()
         expectEqual(round.phase, .writing)

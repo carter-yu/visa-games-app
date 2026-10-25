@@ -553,6 +553,7 @@ struct TestRunner {
         try tapLetter.testTwoTargetsAndPerCardPenalty()
         tapLetter.testCopyAndRegistration()
         try tapLetter.testWritePhaseAndCopy()
+        tapLetter.testLatinRevealTimingAndWritingGuides()
         tapCount.testNumeralStrokeDataMatchesTheStrokeOrderSheet()
         tapCount.testNumeralCornersAndCuspsSitWhereTheSheetSays()
         tapCount.testEveryNumeralCompletesAtEveryToleranceAndNeverAtPenDown()

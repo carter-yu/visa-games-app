@@ -184,6 +184,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var tapCountBoard: TapCountBoard?
     @Published private(set) var tapLetterWriteRound: TapLetterWriteRound?
     @Published private(set) var tapLetterWriteGuide = "none"
+    @Published private(set) var tapLetterWriteDemoStartedAt: Double = 0
     private var letterWriteProgress = LetterWriteProgressStore().load()
     private var tapLetterCuspSpoken = false
     private var tapLetterGlanceReason: StrokeOrderProgress.GlanceReason?
@@ -191,6 +192,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var tapLetterBubble: String?
     private var tapLetterBubbleGeneration = 0
     @Published private(set) var tapLetterCelebrating = false
+    @Published private(set) var tapLetterStrokeReveal: StrokeOrderReveal?
     @Published private(set) var tapLetterPlaqueNudge = false
     @Published private(set) var tapLetterFuelBefore = 0
     private var tapLetterSettings = TapLetterSettingsStore().load()
@@ -885,6 +887,7 @@ final class AppModel: ObservableObject {
         tapLetterCuspSpoken = false
         tapLetterBubble = nil
         tapLetterCelebrating = false
+        tapLetterStrokeReveal = nil
         tapLetterPlaqueNudge = false
         tapLetterLastActionAt = Date().timeIntervalSinceReferenceDate
         tapLetterRoundStart = tapLetterLastActionAt
@@ -2855,6 +2858,7 @@ final class AppModel: ObservableObject {
         tapLetterCuspSpoken = false
         tapLetterBubble = nil
         tapLetterCelebrating = false
+        tapLetterStrokeReveal = nil
         tapLetterPlaqueNudge = false
         tapLetterLastActionAt = Date().timeIntervalSinceReferenceDate
         tapLetterRoundStart = tapLetterLastActionAt
@@ -4024,14 +4028,9 @@ extension AppModel {
                                                       board.deal.words[1].word)
                     self.tapLetterShowBubble(line, seconds: 4)
                     self.tapLetterSpeak("allFound", line)
-                    if self.currentTapLetterKind == .tapLetterWrite {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
-                            self?.beginTapLetterWriting(token: token)
-                        }
-                    } else {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.6) { [weak self] in
-                            self?.finishTapLetterRound(token: token, playtest: playtest)
-                        }
+                    let delay = self.startTapLetterStrokeReveal(letter: board.deal.target)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                        self?.finishTapLetterFind(token: token, playtest: playtest)
                     }
                 }
             }
@@ -4056,6 +4055,36 @@ extension AppModel {
         }
     }
 
+    private func startTapLetterStrokeReveal(letter: String) -> Double {
+        let learned = letterWriteProgress.isLearned(letter)
+        guard let character = letter.first,
+              let dosage = StrokeOrderPlan.star1(setting: tapCountSettings.strokeOrder, learned: learned),
+              let glyph = StrokeGlyph.latin(character) else { return 2.4 }
+        let timeline = StrokeOrderTimeline(glyph: glyph, dosage: dosage)
+        let clock = Date().timeIntervalSinceReferenceDate
+        tapLetterStrokeReveal = StrokeOrderReveal(dosage: dosage, duration: timeline.duration,
+                                                  startAt: clock + Self.strokeRevealLead)
+        return tapLetterStrokeReveal?.finishDelay(now: clock, minimum: 2.4, flash: Self.strokeRevealFlash) ?? 2.4
+    }
+
+    private func finishTapLetterFind(token: String, playtest: Bool) {
+        guard (playtest ? playtestChoiceDealSeed : choiceDealSeed) == token,
+              currentTapLetterBoard?.isComplete == true else { return }
+        let clock = Date().timeIntervalSinceReferenceDate
+        if let reveal = tapLetterStrokeReveal {
+            let wait = reveal.finishDelay(now: clock, minimum: 0, flash: Self.strokeRevealFlash)
+            if wait > 0.05 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + wait) { [weak self] in
+                    self?.finishTapLetterFind(token: token, playtest: playtest)
+                }
+                return
+            }
+        }
+        tapLetterStrokeReveal = nil
+        if currentTapLetterKind == .tapLetterWrite { beginTapLetterWriting(token: token) }
+        else { finishTapLetterRound(token: token, playtest: playtest) }
+    }
+
     private func beginTapLetterWriting(token: String) {
         guard currentTapLetterKind == .tapLetterWrite, let board = currentTapLetterBoard,
               board.isComplete, var write = tapLetterWriteRound,
@@ -4064,9 +4093,11 @@ extension AppModel {
         let learned = letterWriteProgress.isLearned(letter)
         let clock = Date().timeIntervalSinceReferenceDate
         let key = "latin:\(letter)"
-        let reason = learned ? strokeOrderProgress.dueGlance(key, today: StrokeOrderProgress.day(clock: clock)) : nil
+        let reason = learned && tapCountSettings.strokeOrder != .off
+            ? strokeOrderProgress.dueGlance(key, today: StrokeOrderProgress.day(clock: clock)) : nil
         tapLetterGlanceReason = reason
         tapLetterWriteGuide = learned ? (reason == nil ? "none" : "glance") : "car"
+        tapLetterWriteDemoStartedAt = clock
         tapLetterCuspSpoken = false
         write.beginWriting(demo: tapLetterWriteGuide != "none")
         tapLetterWriteRound = write
@@ -4077,9 +4108,9 @@ extension AppModel {
                 tapLetterSpeak("rhyme.\(letter).\(index)", line)
             }
         }
-        let duration = tapLetterWriteGuide == "glance"
-            ? (StrokeGlyph.latin(letter.first ?? "a").map { StrokeOrderTimeline(glyph: $0, dosage: .glance).duration } ?? 1.3)
-            : 4.5
+        let duration = StrokeGlyph.latin(letter.first ?? "a").map {
+            StrokeOrderTimeline(glyph: $0, dosage: tapLetterWriteGuide == "glance" ? .glance : .teach).duration
+        } ?? 4.5
         DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
             guard let self, (self.tapLetterUsesPlaytest ? self.playtestChoiceDealSeed : self.choiceDealSeed) == token,
                   var current = self.tapLetterWriteRound, current.phase == .writing, current.demoActive else { return }

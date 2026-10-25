@@ -12,3 +12,9 @@ Status: Proposed. v0.33.0 / build 68 on `feat/letter-tap-L3-tapLetterWrite-ui`, 
 ## Verification
 
 The source includes a find-to-write phase test and version assertions. Native Swift compilation, Mac mini input, TV display, and household UAT remain pending.
+
+## 2026-10-25 parity addendum
+
+- Find & flip and Find & write now show the shared Latin smiley-pen stroke reveal on the letter plaque after the two cards are found. The existing parent tap-count stroke-order setting supplies the dosage; missing glyph data or Off uses a 2.4-second fallback. Stamp or writing starts only after the reveal and flash.
+- Find & write uses the Latin stroke timeline for the full car demo and the learned-letter pen glance. The car uses tap-count guide artwork and retains the English mnemonic. A first touch still dismisses either guide without painting or judging a wrong answer.
+- Plaque tap replay is not included in this hotfix. The existing plaque button remains a prompt replay.

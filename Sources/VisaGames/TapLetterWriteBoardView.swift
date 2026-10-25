@@ -5,6 +5,7 @@ import VisaCore
 struct TapLetterWriteBoardView: View {
     let round: TapLetterWriteRound
     let guide: String
+    let demoStartedAt: Double
     let bubble: String?
     let onDown: (LineMatchPoint) -> Bool
     let onMove: (LineMatchPoint) -> Void
@@ -13,7 +14,7 @@ struct TapLetterWriteBoardView: View {
 
     var body: some View {
         CanvasStage { LineMatchBackdrop() } content: {
-            TapLetterWriteStage(round: round, guide: guide, bubble: bubble,
+            TapLetterWriteStage(round: round, guide: guide, demoStartedAt: demoStartedAt, bubble: bubble,
                 onDown: onDown, onMove: onMove, onUp: onUp, onReprompt: onReprompt)
         }
     }
@@ -22,6 +23,7 @@ struct TapLetterWriteBoardView: View {
 private struct TapLetterWriteStage: View {
     let round: TapLetterWriteRound
     let guide: String
+    let demoStartedAt: Double
     let bubble: String?
     let onDown: (LineMatchPoint) -> Bool
     let onMove: (LineMatchPoint) -> Void
@@ -31,7 +33,6 @@ private struct TapLetterWriteStage: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var started = false
     @State private var swallowed = false
-    @State private var demoProgress: CGFloat = 0
 
     private var letter: String { round.board.deal.target }
     private var trace: ShapeTraceBoard { round.trace }
@@ -71,14 +72,7 @@ private struct TapLetterWriteStage: View {
                     .canvasPlaced(x: 465, y: 65)
             }
         }
-        .onAppear {
-            onReprompt()
-            if round.demoActive {
-                withAnimation(reduceMotion ? nil : .linear(duration: guide == "glance" ? 1.4 : 4.5)) {
-                    demoProgress = 1
-                }
-            }
-        }
+        .onAppear(perform: onReprompt)
     }
 
     private var header: some View {
@@ -158,13 +152,37 @@ private struct TapLetterWriteStage: View {
                     .background(RoundedRectangle(cornerRadius: metrics.u(8)).fill(.red))
                     .canvasPlaced(x: 745, y: 145)
             }
-            if round.demoActive, let path = paths.first {
-                let point = path.point(at: path.length * Double(demoProgress))
-                Image(systemName: guide == "glance" ? "pencil.tip" : "car.side.fill")
-                    .font(.system(size: metrics.u(26)))
-                    .foregroundStyle(teal)
-                    .position(x: metrics.u(CGFloat(point.x)), y: metrics.u(CGFloat(point.y)))
+            demoLayer
+        }
+    }
+
+    @ViewBuilder private var demoLayer: some View {
+        if round.demoActive, let character = letter.first, let glyph = StrokeGlyph.latin(character) {
+            let dosage: StrokeOrderDosage = guide == "glance" ? .glance : .teach
+            let timeline = StrokeOrderTimeline(glyph: glyph, dosage: dosage)
+            TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+                let t = min(timeline.duration, max(0, context.date.timeIntervalSinceReferenceDate - demoStartedAt))
+                Canvas { canvas, _ in
+                    var g = canvas
+                    g.scaleBy(x: metrics.scale, y: metrics.scale)
+                    let place = StrokeOrderDrawing.Placement(offset: LineMatchPoint(x: 545, y: 142), scale: 1)
+                    StrokeOrderDrawing.ink(timeline, at: t, reduceMotion: reduceMotion, place: place,
+                                           colour: teal, outline: 46, core: 36, opacity: 0.75, in: &g)
+                    if guide == "glance" {
+                        StrokeOrderDrawing.pen(timeline, at: t, reduceMotion: reduceMotion, place: place,
+                                               nibColour: 0x168F96, penScale: 0.85, in: &g)
+                    } else {
+                        let pose = timeline.pose(at: t, reduceMotion: reduceMotion)
+                        let path = glyph.strokes[pose.stroke].path
+                        let point = place.point(path.point(at: pose.distance))
+                        TapCountDrawing.place(TapCountArt.guideGhostCar, at: point, scale: 0.72,
+                                              angle: path.angle(at: pose.distance), in: &g)
+                    }
+                }
             }
+            .frame(width: metrics.u(1280), height: metrics.u(720))
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
         }
     }
 

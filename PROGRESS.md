@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-10-25 — 0.33.0 / 68 — L3/L2 letter stroke-order parity hotfix (draft PR #33)
+
+- Carter UAT screenshots found that Find & flip lacked the numeral-style smiley pen on the letter plaque and Find & write used SF Symbol-only guidance over the first path. This source hotfix on `feat/letter-tap-L3-tapLetterWrite-ui` adds Latin stroke-order reveal, teal ink and flash before the stamp or writing transition, and a timeline-driven car demo or silent pen glance on the writing board.
+- The reveal uses the existing parent tap-count stroke-order setting and 2.4-second fallback. The writing demo retains the English mnemonic and first-touch dismissal. Plaque tap replay remains a prompt replay, not a pen replay. ADR 0019 records the parity mapping.
+- Focused VisaCoreChecks cover Latin a–e timeline duration, reveal transition timing, dosage, and the existing find-to-write phase. `git diff --check` passed. `sh scripts/test.sh` and `sh scripts/bundle.sh` each exited 127 (`swift: not found`) on Linux. Mac mini, TV, Wacom, and household UAT remain pending; PR #33 is unmerged.
+
 ## 2026-10-25 — v0.33.0 / 68 — L3 Find & write source (draft review)
 
 - Mac mini `VisaCoreChecks` failed on stale catalog/kind count assertions (24→25); the test-only hotfix was pushed to draft PR #33. Mac mini retest, install, and UAT remain pending.

@@ -405,6 +405,11 @@ public struct StrokeOrderReveal: Equatable, Sendable {
         return startedAt + duration
     }
 
+    /// Keep a result transition after the last ink and the flash, including a later replay.
+    public func finishDelay(now: Double, minimum: Double, flash: Double) -> Double {
+        max(minimum, endsAt(now: now) + flash - now)
+    }
+
     /// A tap on the plate: while writing → finish now; afterwards → replay (at most 2). Returns what happened.
     public enum TapResult: Equatable, Sendable { case finished, replayed, ignored }
 
