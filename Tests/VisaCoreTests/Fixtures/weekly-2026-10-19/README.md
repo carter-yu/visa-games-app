@@ -86,3 +86,17 @@ records with:
 ```sh
 python3 ../weekly-ranking-5.6/reference_analysis.py . 2026-10-19 2026-10-25T13:00:00.000Z > expected-analysis.json
 ```
+
+## W3 text of the same records
+
+`expected-text.json` is the W3 `WeeklyReportText.canonicalJSON()` for the same request, with the child's
+name Cedric and the synthetic titles of `video-titles.json` (ADR 0023). `testWeeklyTextGoldenFixtures`
+(`WeeklyTextTests.swift`) compares it byte for byte. Nothing is ranked here, so it exercises the
+fallbacks: 「今個星期玩得太少，未排名。」, `hl.games.none`, `insuff.zero` for rows with n = 0,
+`insuff.noMethod` for the unknown kinds, a practice rate without a trend (last week has 4 practice
+rounds), F7 and A12 from fast wrong taps, and a video title with digits. `expected-metrics.json` and
+`expected-analysis.json` are unchanged by W3. Regenerate it after the records with:
+
+```sh
+python3 ../weekly-ranking-5.6/reference_text.py . 2026-10-19 2026-10-25T13:00:00.000Z video-titles.json > expected-text.json
+```

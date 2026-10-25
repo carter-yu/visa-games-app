@@ -1,0 +1,2165 @@
+{
+  "analysis": 1,
+  "builder": 1,
+  "changes": [],
+  "child_name": "Cedric",
+  "data_until": "2026-10-25T13:00:00.000Z",
+  "empty": null,
+  "facts": {
+    "days_without_play": [
+      1
+    ],
+    "games": [
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "twoPictureChoose",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 2,
+        "two_weeks_n": 2,
+        "type": "quiz",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "findTheSame",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 3,
+        "two_weeks_n": 4,
+        "type": "quiz",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "countVehicles",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 1,
+        "two_weeks_n": 5,
+        "type": "quiz",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "sequenceShortToLong",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 1,
+        "two_weeks_n": 1,
+        "type": "quiz",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "halfMatch",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 2,
+        "two_weeks_n": 2,
+        "type": "quiz",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "shapeCousin",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 1,
+        "two_weeks_n": 1,
+        "type": "quiz",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "capacityCompare",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 2,
+        "two_weeks_n": 2,
+        "type": "quiz",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "moreFewer",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 1,
+        "two_weeks_n": 2,
+        "type": "quiz",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "shadowMatch",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 2,
+        "two_weeks_n": 2,
+        "type": "quiz",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "emptyBay",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 3,
+        "two_weeks_n": 3,
+        "type": "quiz",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "lineMatchGuidedStraight",
+        "off_path": 1,
+        "off_path_units": 3,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 1,
+        "two_weeks_n": 1,
+        "type": "practice",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 1
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "lineMatchGuidedBridge",
+        "off_path": 0,
+        "off_path_units": 3,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 0,
+        "two_weeks_n": 1,
+        "type": "practice",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 1,
+        "wrong_start_known": 1
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "lineMatch",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 2,
+        "two_weeks_n": 3,
+        "type": "quiz",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "traceLines",
+        "off_path": 1,
+        "off_path_units": 2,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 1,
+        "two_weeks_n": 1,
+        "type": "practice",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 1
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "traceShapesDotted",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 0,
+        "two_weeks_n": 1,
+        "type": "practice",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "traceShapesArrows",
+        "off_path": 2,
+        "off_path_units": 3,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 1,
+        "two_weeks_n": 1,
+        "type": "practice",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 1
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "traceShapesFree",
+        "off_path": 1,
+        "off_path_units": 6,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 1,
+        "two_weeks_n": 1,
+        "type": "practice",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 2
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "tapCountAll",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 1,
+        "two_weeks_k": 2,
+        "two_weeks_n": 3,
+        "type": "practice",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 1,
+        "guide_clean_known": 1,
+        "kind": "tapCountTrace",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 1,
+        "previous_guide_clean_known": 1,
+        "recount_rounds": 0,
+        "two_weeks_k": 2,
+        "two_weeks_n": 2,
+        "type": "practice",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "tapCountPick",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 1,
+        "two_weeks_n": 1,
+        "type": "quiz",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "tapCountAllEnglish",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 1,
+        "two_weeks_n": 1,
+        "type": "practice",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 1,
+        "guide_clean_known": 2,
+        "kind": "tapCountTraceEnglish",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 1,
+        "two_weeks_n": 2,
+        "type": "practice",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "tapCountPickEnglish",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 1,
+        "two_weeks_n": 1,
+        "type": "quiz",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "tapLetterAll",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 1,
+        "two_weeks_n": 1,
+        "type": "quiz",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "mysteryQuiz",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 1,
+        "two_weeks_n": 1,
+        "type": "quiz",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      },
+      {
+        "guide_clean": 0,
+        "guide_clean_known": 0,
+        "kind": "mysteryTrace",
+        "off_path": 0,
+        "off_path_units": 0,
+        "previous_guide_clean": 0,
+        "previous_guide_clean_known": 0,
+        "recount_rounds": 0,
+        "two_weeks_k": 0,
+        "two_weeks_n": 0,
+        "type": "practice",
+        "wrong_lines": {},
+        "wrong_lines_total": 0,
+        "wrong_start": 0,
+        "wrong_start_known": 0
+      }
+    ],
+    "numerals_learned": [],
+    "plays": 6,
+    "quiz_fast_wrong": 3,
+    "quiz_wrong_attempts": 6,
+    "rounds_change": 25,
+    "settings": {
+      "category_mix": null,
+      "count_voice": null,
+      "direction_hint": null,
+      "guide_level": "standard",
+      "line_tolerance": null,
+      "range": null,
+      "slant_lines": null,
+      "trace_scaffold": null
+    },
+    "video_minutes_per_day_played": 9,
+    "video_minutes_per_play": 9,
+    "video_ms": 3267150,
+    "videos": [
+      {
+        "minutes": 21,
+        "title": "數字歌 1 to 10 Counting song",
+        "video": "vid-c",
+        "watched_ms": 1240250
+      },
+      {
+        "minutes": 19,
+        "title": "消防車出動 Fire engines on call",
+        "video": "vid-b",
+        "watched_ms": 1145000
+      },
+      {
+        "minutes": 15,
+        "title": "巴士總站 Bus depot tour",
+        "video": "vid-a",
+        "watched_ms": 881900
+      }
+    ]
+  },
+  "games": [
+    {
+      "comment": [
+        {
+          "en": "Played 1×, all right first time; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[twoPictureChoose/quiz].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[twoPictureChoose/quiz].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部一次答啱，再玩 4 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "right first time in all 1",
+        "id": "frag.quiz.all",
+        "traceable": [
+          {
+            "path": "analysis.games[twoPictureChoose/quiz].n",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "1 局全部一次答啱"
+      },
+      "kind": "twoPictureChoose",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 1×, all right first time; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[twoPictureChoose/quiz].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[twoPictureChoose/quiz].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部一次答啱，再玩 4 局就排名。"
+        }
+      ],
+      "type": "quiz"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 2×; 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[findTheSame/quiz].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[findTheSame/quiz].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次，再玩 3 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "1 of 2 right first time",
+        "id": "frag.quiz",
+        "traceable": [
+          {
+            "path": "analysis.games[findTheSame/quiz].n",
+            "value": "2"
+          },
+          {
+            "path": "analysis.games[findTheSame/quiz].k",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "2 局入面 1 局一次答啱"
+      },
+      "kind": "findTheSame",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 2×; 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[findTheSame/quiz].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[findTheSame/quiz].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次，再玩 3 局就排名。"
+        }
+      ],
+      "type": "quiz"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 4×; 1 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[countVehicles/quiz].n",
+              "value": "4"
+            },
+            {
+              "path": "analysis.ranking.insufficient[countVehicles/quiz].more",
+              "value": "1"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 4 次，再玩 1 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "1 of 4 right first time",
+        "id": "frag.quiz",
+        "traceable": [
+          {
+            "path": "analysis.games[countVehicles/quiz].n",
+            "value": "4"
+          },
+          {
+            "path": "analysis.games[countVehicles/quiz].k",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "4 局入面 1 局一次答啱"
+      },
+      "kind": "countVehicles",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 4×; 1 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[countVehicles/quiz].n",
+              "value": "4"
+            },
+            {
+              "path": "analysis.ranking.insufficient[countVehicles/quiz].more",
+              "value": "1"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 4 次，再玩 1 局就排名。"
+        }
+      ],
+      "type": "quiz"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 1×, all right first time; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[sequenceShortToLong/quiz].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[sequenceShortToLong/quiz].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部一次答啱，再玩 4 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "right first time in all 1",
+        "id": "frag.quiz.all",
+        "traceable": [
+          {
+            "path": "analysis.games[sequenceShortToLong/quiz].n",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "1 局全部一次答啱"
+      },
+      "kind": "sequenceShortToLong",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 1×, all right first time; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[sequenceShortToLong/quiz].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[sequenceShortToLong/quiz].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部一次答啱，再玩 4 局就排名。"
+        }
+      ],
+      "type": "quiz"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 2×, all right first time; 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[halfMatch/quiz].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[halfMatch/quiz].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次，全部一次答啱，再玩 3 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "right first time in all 2",
+        "id": "frag.quiz.all",
+        "traceable": [
+          {
+            "path": "analysis.games[halfMatch/quiz].n",
+            "value": "2"
+          }
+        ],
+        "verbatim": [],
+        "zh": "2 局全部一次答啱"
+      },
+      "kind": "halfMatch",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 2×, all right first time; 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[halfMatch/quiz].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[halfMatch/quiz].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次，全部一次答啱，再玩 3 局就排名。"
+        }
+      ],
+      "type": "quiz"
+    },
+    {
+      "comment": [
+        {
+          "en": "5 more to rank.",
+          "id": "insuff.zero",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[shapeCousin/quiz].more",
+              "value": "5"
+            }
+          ],
+          "verbatim": [],
+          "zh": "再玩 5 局就排名。"
+        }
+      ],
+      "fact": null,
+      "kind": "shapeCousin",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "5 more to rank.",
+          "id": "insuff.zero",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[shapeCousin/quiz].more",
+              "value": "5"
+            }
+          ],
+          "verbatim": [],
+          "zh": "再玩 5 局就排名。"
+        }
+      ],
+      "type": "quiz"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 2×, all right first time; 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[capacityCompare/quiz].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[capacityCompare/quiz].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次，全部一次答啱，再玩 3 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "right first time in all 2",
+        "id": "frag.quiz.all",
+        "traceable": [
+          {
+            "path": "analysis.games[capacityCompare/quiz].n",
+            "value": "2"
+          }
+        ],
+        "verbatim": [],
+        "zh": "2 局全部一次答啱"
+      },
+      "kind": "capacityCompare",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 2×, all right first time; 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[capacityCompare/quiz].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[capacityCompare/quiz].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次，全部一次答啱，再玩 3 局就排名。"
+        }
+      ],
+      "type": "quiz"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 1×, all right first time; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[moreFewer/quiz].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[moreFewer/quiz].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部一次答啱，再玩 4 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "right first time in all 1",
+        "id": "frag.quiz.all",
+        "traceable": [
+          {
+            "path": "analysis.games[moreFewer/quiz].n",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "1 局全部一次答啱"
+      },
+      "kind": "moreFewer",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 1×, all right first time; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[moreFewer/quiz].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[moreFewer/quiz].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部一次答啱，再玩 4 局就排名。"
+        }
+      ],
+      "type": "quiz"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 2×, all right first time; 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[shadowMatch/quiz].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[shadowMatch/quiz].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次，全部一次答啱，再玩 3 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "right first time in all 2",
+        "id": "frag.quiz.all",
+        "traceable": [
+          {
+            "path": "analysis.games[shadowMatch/quiz].n",
+            "value": "2"
+          }
+        ],
+        "verbatim": [],
+        "zh": "2 局全部一次答啱"
+      },
+      "kind": "shadowMatch",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 2×, all right first time; 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[shadowMatch/quiz].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[shadowMatch/quiz].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次，全部一次答啱，再玩 3 局就排名。"
+        }
+      ],
+      "type": "quiz"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 2×, all right first time; 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[emptyBay/quiz].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[emptyBay/quiz].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次，全部一次答啱，再玩 3 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "right first time in all 2",
+        "id": "frag.quiz.all",
+        "traceable": [
+          {
+            "path": "analysis.games[emptyBay/quiz].n",
+            "value": "2"
+          }
+        ],
+        "verbatim": [],
+        "zh": "2 局全部一次答啱"
+      },
+      "kind": "emptyBay",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 2×, all right first time; 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[emptyBay/quiz].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[emptyBay/quiz].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次，全部一次答啱，再玩 3 局就排名。"
+        }
+      ],
+      "type": "quiz"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 1×, all smooth; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[lineMatchGuidedStraight/practice].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[lineMatchGuidedStraight/practice].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部做得順，再玩 4 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "smooth in all 1",
+        "id": "frag.practice.all",
+        "traceable": [
+          {
+            "path": "analysis.games[lineMatchGuidedStraight/practice].n",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "1 局全部做得順"
+      },
+      "kind": "lineMatchGuidedStraight",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 1×, all smooth; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[lineMatchGuidedStraight/practice].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[lineMatchGuidedStraight/practice].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部做得順，再玩 4 局就排名。"
+        }
+      ],
+      "type": "practice"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 1× (first week); 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[lineMatchGuidedBridge/practice].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[lineMatchGuidedBridge/practice].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次（第一個星期玩），再玩 4 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "smooth in 0 of 1",
+        "id": "frag.practice",
+        "traceable": [
+          {
+            "path": "analysis.games[lineMatchGuidedBridge/practice].n",
+            "value": "1"
+          },
+          {
+            "path": "analysis.games[lineMatchGuidedBridge/practice].k",
+            "value": "0"
+          }
+        ],
+        "verbatim": [],
+        "zh": "1 局入面 0 局做得順"
+      },
+      "kind": "lineMatchGuidedBridge",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 1× (first week); 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[lineMatchGuidedBridge/practice].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[lineMatchGuidedBridge/practice].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次（第一個星期玩），再玩 4 局就排名。"
+        }
+      ],
+      "type": "practice"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 2×; 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[lineMatch/quiz].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[lineMatch/quiz].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次，再玩 3 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "1 of 2 right first time",
+        "id": "frag.quiz",
+        "traceable": [
+          {
+            "path": "analysis.games[lineMatch/quiz].n",
+            "value": "2"
+          },
+          {
+            "path": "analysis.games[lineMatch/quiz].k",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "2 局入面 1 局一次答啱"
+      },
+      "kind": "lineMatch",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 2×; 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[lineMatch/quiz].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[lineMatch/quiz].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次，再玩 3 局就排名。"
+        }
+      ],
+      "type": "quiz"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 1×, all smooth; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[traceLines/practice].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[traceLines/practice].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部做得順，再玩 4 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "smooth in all 1",
+        "id": "frag.practice.all",
+        "traceable": [
+          {
+            "path": "analysis.games[traceLines/practice].n",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "1 局全部做得順"
+      },
+      "kind": "traceLines",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 1×, all smooth; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[traceLines/practice].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[traceLines/practice].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部做得順，再玩 4 局就排名。"
+        }
+      ],
+      "type": "practice"
+    },
+    {
+      "comment": [
+        {
+          "en": "5 more to rank.",
+          "id": "insuff.zero",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[traceShapesDotted/practice].more",
+              "value": "5"
+            }
+          ],
+          "verbatim": [],
+          "zh": "再玩 5 局就排名。"
+        }
+      ],
+      "fact": null,
+      "kind": "traceShapesDotted",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "5 more to rank.",
+          "id": "insuff.zero",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[traceShapesDotted/practice].more",
+              "value": "5"
+            }
+          ],
+          "verbatim": [],
+          "zh": "再玩 5 局就排名。"
+        }
+      ],
+      "type": "practice"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 1×, all smooth; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[traceShapesArrows/practice].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[traceShapesArrows/practice].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部做得順，再玩 4 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "smooth in all 1",
+        "id": "frag.practice.all",
+        "traceable": [
+          {
+            "path": "analysis.games[traceShapesArrows/practice].n",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "1 局全部做得順"
+      },
+      "kind": "traceShapesArrows",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 1×, all smooth; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[traceShapesArrows/practice].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[traceShapesArrows/practice].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部做得順，再玩 4 局就排名。"
+        }
+      ],
+      "type": "practice"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 1×, all smooth; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[traceShapesFree/practice].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[traceShapesFree/practice].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部做得順，再玩 4 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "smooth in all 1",
+        "id": "frag.practice.all",
+        "traceable": [
+          {
+            "path": "analysis.games[traceShapesFree/practice].n",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "1 局全部做得順"
+      },
+      "kind": "traceShapesFree",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 1×, all smooth; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[traceShapesFree/practice].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[traceShapesFree/practice].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部做得順，再玩 4 局就排名。"
+        }
+      ],
+      "type": "practice"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 2×; 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[tapCountAll/practice].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[tapCountAll/practice].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次，再玩 3 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "smooth in 1 of 2",
+        "id": "frag.practice",
+        "traceable": [
+          {
+            "path": "analysis.games[tapCountAll/practice].n",
+            "value": "2"
+          },
+          {
+            "path": "analysis.games[tapCountAll/practice].k",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "2 局入面 1 局做得順"
+      },
+      "kind": "tapCountAll",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 2×; 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[tapCountAll/practice].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[tapCountAll/practice].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次，再玩 3 局就排名。"
+        }
+      ],
+      "type": "practice"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 1×, all smooth; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[tapCountTrace/practice].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[tapCountTrace/practice].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部做得順，再玩 4 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "smooth in all 1",
+        "id": "frag.practice.all",
+        "traceable": [
+          {
+            "path": "analysis.games[tapCountTrace/practice].n",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "1 局全部做得順"
+      },
+      "kind": "tapCountTrace",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 1×, all smooth; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[tapCountTrace/practice].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[tapCountTrace/practice].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部做得順，再玩 4 局就排名。"
+        }
+      ],
+      "type": "practice"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 1×, all right first time; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[tapCountPick/quiz].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[tapCountPick/quiz].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部一次答啱，再玩 4 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "right first time in all 1",
+        "id": "frag.quiz.all",
+        "traceable": [
+          {
+            "path": "analysis.games[tapCountPick/quiz].n",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "1 局全部一次答啱"
+      },
+      "kind": "tapCountPick",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 1×, all right first time; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[tapCountPick/quiz].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[tapCountPick/quiz].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部一次答啱，再玩 4 局就排名。"
+        }
+      ],
+      "type": "quiz"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 1×, all smooth; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[tapCountAllEnglish/practice].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[tapCountAllEnglish/practice].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部做得順，再玩 4 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "smooth in all 1",
+        "id": "frag.practice.all",
+        "traceable": [
+          {
+            "path": "analysis.games[tapCountAllEnglish/practice].n",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "1 局全部做得順"
+      },
+      "kind": "tapCountAllEnglish",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 1×, all smooth; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[tapCountAllEnglish/practice].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[tapCountAllEnglish/practice].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部做得順，再玩 4 局就排名。"
+        }
+      ],
+      "type": "practice"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 2× (first week); 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[tapCountTraceEnglish/practice].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[tapCountTraceEnglish/practice].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次（第一個星期玩），再玩 3 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "smooth in 1 of 2",
+        "id": "frag.practice",
+        "traceable": [
+          {
+            "path": "analysis.games[tapCountTraceEnglish/practice].n",
+            "value": "2"
+          },
+          {
+            "path": "analysis.games[tapCountTraceEnglish/practice].k",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "2 局入面 1 局做得順"
+      },
+      "kind": "tapCountTraceEnglish",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 2× (first week); 3 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[tapCountTraceEnglish/practice].n",
+              "value": "2"
+            },
+            {
+              "path": "analysis.ranking.insufficient[tapCountTraceEnglish/practice].more",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 2 次（第一個星期玩），再玩 3 局就排名。"
+        }
+      ],
+      "type": "practice"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 1×, all right first time; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[tapCountPickEnglish/quiz].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[tapCountPickEnglish/quiz].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部一次答啱，再玩 4 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "right first time in all 1",
+        "id": "frag.quiz.all",
+        "traceable": [
+          {
+            "path": "analysis.games[tapCountPickEnglish/quiz].n",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "1 局全部一次答啱"
+      },
+      "kind": "tapCountPickEnglish",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 1×, all right first time; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[tapCountPickEnglish/quiz].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[tapCountPickEnglish/quiz].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部一次答啱，再玩 4 局就排名。"
+        }
+      ],
+      "type": "quiz"
+    },
+    {
+      "comment": [
+        {
+          "en": "Played 1×, all right first time; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[tapLetterAll/quiz].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[tapLetterAll/quiz].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部一次答啱，再玩 4 局就排名。"
+        }
+      ],
+      "fact": {
+        "en": "right first time in all 1",
+        "id": "frag.quiz.all",
+        "traceable": [
+          {
+            "path": "analysis.games[tapLetterAll/quiz].n",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "1 局全部一次答啱"
+      },
+      "kind": "tapLetterAll",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "Played 1×, all right first time; 4 more to rank.",
+          "id": "insuff.n",
+          "traceable": [
+            {
+              "path": "analysis.ranking.insufficient[tapLetterAll/quiz].n",
+              "value": "1"
+            },
+            {
+              "path": "analysis.ranking.insufficient[tapLetterAll/quiz].more",
+              "value": "4"
+            }
+          ],
+          "verbatim": [],
+          "zh": "玩咗 1 次，全部一次答啱，再玩 4 局就排名。"
+        }
+      ],
+      "type": "quiz"
+    },
+    {
+      "comment": [
+        {
+          "en": "No scoring method yet.",
+          "id": "insuff.noMethod",
+          "traceable": [],
+          "verbatim": [],
+          "zh": "未有評分方法。"
+        }
+      ],
+      "fact": {
+        "en": "right first time in all 1",
+        "id": "frag.quiz.all",
+        "traceable": [
+          {
+            "path": "analysis.games[mysteryQuiz/quiz].n",
+            "value": "1"
+          }
+        ],
+        "verbatim": [],
+        "zh": "1 局全部一次答啱"
+      },
+      "kind": "mysteryQuiz",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "No scoring method yet.",
+          "id": "insuff.noMethod",
+          "traceable": [],
+          "verbatim": [],
+          "zh": "未有評分方法。"
+        }
+      ],
+      "type": "quiz"
+    },
+    {
+      "comment": [
+        {
+          "en": "No scoring method yet.",
+          "id": "insuff.noMethod",
+          "traceable": [],
+          "verbatim": [],
+          "zh": "未有評分方法。"
+        }
+      ],
+      "fact": null,
+      "kind": "mysteryTrace",
+      "placement": "insufficient",
+      "short": [
+        {
+          "en": "No scoring method yet.",
+          "id": "insuff.noMethod",
+          "traceable": [],
+          "verbatim": [],
+          "zh": "未有評分方法。"
+        }
+      ],
+      "type": "practice"
+    }
+  ],
+  "highlights": [
+    {
+      "en": "Played on 6 days (none on Tue): 38 rounds in all, 24 quiz and 14 practice, 25 more than last week.",
+      "id": "hl.volume",
+      "traceable": [
+        {
+          "path": "metrics.current.totals.days_played",
+          "value": "6"
+        },
+        {
+          "path": "metrics.current.totals.rounds",
+          "value": "38"
+        },
+        {
+          "path": "metrics.current.totals.quiz_rounds",
+          "value": "24"
+        },
+        {
+          "path": "metrics.current.totals.practice_rounds",
+          "value": "14"
+        },
+        {
+          "path": "facts.rounds_change",
+          "value": "25"
+        }
+      ],
+      "verbatim": [],
+      "zh": "今個星期有 6 日玩（星期二冇玩），總共 38 局：答題 24 局、練習 14 局，比上星期多 25 局。"
+    },
+    {
+      "en": "Quiz games right first time 78% (last week 75%, about the same); practice games done smoothly 73%.",
+      "id": "hl.rates",
+      "traceable": [
+        {
+          "path": "metrics.current.totals.quiz_rate#pct",
+          "value": "78"
+        },
+        {
+          "path": "metrics.previous.totals.quiz_rate#pct",
+          "value": "75"
+        },
+        {
+          "path": "metrics.current.totals.practice_rate#pct",
+          "value": "73"
+        }
+      ],
+      "verbatim": [],
+      "zh": "答題遊戲第一次答啱 78%（上星期 75%，差唔多）；練習遊戲做得順 73%。"
+    },
+    {
+      "en": "Each game had only a few rounds; we'll look at rankings next week.",
+      "id": "hl.games.none",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "每個遊戲都玩得唔多，下星期再睇排名。"
+    },
+    {
+      "en": "About 35 min of games and 54 min of videos; 4 h 35 min of visa earned.",
+      "id": "hl.time",
+      "traceable": [
+        {
+          "path": "metrics.current.totals.game_min#m",
+          "value": "35"
+        },
+        {
+          "path": "metrics.current.totals.video_min#m",
+          "value": "54"
+        },
+        {
+          "path": "metrics.current.totals.visa_min#h",
+          "value": "4"
+        },
+        {
+          "path": "metrics.current.totals.visa_min#m",
+          "value": "35"
+        }
+      ],
+      "verbatim": [],
+      "zh": "遊戲大約 35 分鐘，睇片大約 54 分鐘，賺到簽證 4 小時 35 分。"
+    }
+  ],
+  "ranking": {
+    "also_learning": null,
+    "also_well": null,
+    "status": {
+      "en": "Too little play this week to rank the games.",
+      "id": "rank.notRanked",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "今個星期玩得太少，未排名。"
+    },
+    "still_learning_split": null,
+    "top_split": null
+  },
+  "recommendations": {
+    "app": [
+      {
+        "because": {
+          "en": "3 of 6 wrong taps came before the question finished.",
+          "id": "A12.because",
+          "traceable": [
+            {
+              "path": "facts.quiz_fast_wrong",
+              "value": "3"
+            },
+            {
+              "path": "facts.quiz_wrong_attempts",
+              "value": "6"
+            }
+          ],
+          "verbatim": [],
+          "zh": "答錯嘅時候，有 3/6 次係未聽完題目就撳。"
+        },
+        "check": {
+          "en": "share of taps before the question finished",
+          "id": "A12.check",
+          "traceable": [],
+          "verbatim": [],
+          "zh": "未聽完就撳嘅比例"
+        },
+        "current": null,
+        "id": "A12",
+        "kinds": [],
+        "settings": [],
+        "suggested": null,
+        "text": {
+          "en": "Try unlocking the choices only after the question has been read out (UX experiment).",
+          "id": "A12",
+          "traceable": [],
+          "verbatim": [],
+          "zh": "試吓題目講完先解鎖選擇（UX 實驗）。"
+        }
+      }
+    ],
+    "app_none": null,
+    "family": [
+      {
+        "because": {
+          "en": "\"Count the vehicles\" often tapped before the question finished (2 of 3).",
+          "id": "ev.list",
+          "traceable": [
+            {
+              "path": "metrics.current.kinds[countVehicles/quiz].fast_wrong",
+              "value": "2"
+            },
+            {
+              "path": "metrics.current.kinds[countVehicles/quiz].wrong_attempts",
+              "value": "3"
+            }
+          ],
+          "verbatim": [],
+          "zh": "「數車仔」好多次未聽完題目就撳（2/3 次）。"
+        },
+        "id": "F7",
+        "kinds": [
+          "countVehicles"
+        ],
+        "text": {
+          "en": "Play a round or two together: \"listen first, then tap\".",
+          "id": "F7",
+          "traceable": [],
+          "verbatim": [],
+          "zh": "陪佢玩一兩局，提醒佢「聽完先撳」。"
+        }
+      }
+    ],
+    "family_none": null,
+    "praise": {
+      "en": "When something goes well, praise the effort: \"You looked at the road so carefully!\" rather than \"you're clever\".",
+      "id": "F8",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "見到佢做得好，讚佢做嘅過程：「你好細心咁睇條路！」，唔使講「你好聰明」。"
+    },
+    "questions": []
+  },
+  "text": 1,
+  "time_zone": "Asia/Hong_Kong",
+  "videos": {
+    "en": "Most-watched videos: \"數字歌 1 to 10 Counting song\" (21 min), \"消防車出動 Fire engines on call\" (19 min), \"巴士總站 Bus depot tour\" (15 min).",
+    "id": "videos.top",
+    "traceable": [
+      {
+        "path": "facts.videos[0].minutes#m",
+        "value": "21"
+      },
+      {
+        "path": "facts.videos[1].minutes#m",
+        "value": "19"
+      },
+      {
+        "path": "facts.videos[2].minutes#m",
+        "value": "15"
+      }
+    ],
+    "verbatim": [
+      "數字歌 1 to 10 Counting song",
+      "消防車出動 Fire engines on call",
+      "巴士總站 Bus depot tour"
+    ],
+    "zh": "睇得最多嘅片：「數字歌 1 to 10 Counting song」（21 分鐘）、「消防車出動 Fire engines on call」（19 分鐘）、「巴士總站 Bus depot tour」（15 分鐘）。"
+  },
+  "week_start": "2026-10-19",
+  "win_candidates": [
+    {
+      "en": "First time playing \"Line Match · Straight road\".",
+      "id": "win.newGame",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次玩「連一連 · 沿路送」。"
+    },
+    {
+      "en": "First time playing \"Line Match · Bridge road\".",
+      "id": "win.newGame",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次玩「連一連 · 沿路過橋」。"
+    },
+    {
+      "en": "First time playing \"Shapes · Follow the arrows\".",
+      "id": "win.newGame",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次玩「畫形狀 · 跟箭嘴」。"
+    },
+    {
+      "en": "First time playing \"Shapes · Draw it yourself\".",
+      "id": "win.newGame",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次玩「畫形狀 · 自己畫」。"
+    },
+    {
+      "en": "First time playing \"Tap & Count · Pick just enough\".",
+      "id": "win.newGame",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次玩「一架一架數 · 揀啱數」。"
+    },
+    {
+      "en": "First time playing \"Tap & Count in English · Tap each one\".",
+      "id": "win.newGame",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次玩「一架一架數（英文）· 點一點」。"
+    },
+    {
+      "en": "First time playing \"Tap & Count in English · Count & draw\".",
+      "id": "win.newGame",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次玩「一架一架數（英文）· 數完畫」。"
+    },
+    {
+      "en": "First time playing \"Tap & Count in English · Just right\".",
+      "id": "win.newGame",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次玩「一架一架數（英文）· 揀啱數」。"
+    },
+    {
+      "en": "First time playing \"Letters ABC · Find & flip\".",
+      "id": "win.newGame",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次玩「英文字母 ABC · 翻字卡」。"
+    },
+    {
+      "en": "First time playing \"mysteryQuiz\".",
+      "id": "win.newGame",
+      "traceable": [],
+      "verbatim": [
+        "mysteryQuiz"
+      ],
+      "zh": "第一次玩「mysteryQuiz」。"
+    },
+    {
+      "en": "First time playing \"mysteryTrace\".",
+      "id": "win.newGame",
+      "traceable": [],
+      "verbatim": [
+        "mysteryTrace"
+      ],
+      "zh": "第一次玩「mysteryTrace」。"
+    },
+    {
+      "en": "First smooth round of \"Line Match · Straight road\".",
+      "id": "win.firstSmooth",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次順順利利完成「連一連 · 沿路送」。"
+    },
+    {
+      "en": "First smooth round of \"Shapes · Follow the arrows\".",
+      "id": "win.firstSmooth",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次順順利利完成「畫形狀 · 跟箭嘴」。"
+    },
+    {
+      "en": "First smooth round of \"Shapes · Draw it yourself\".",
+      "id": "win.firstSmooth",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次順順利利完成「畫形狀 · 自己畫」。"
+    },
+    {
+      "en": "First smooth round of \"Tap & Count in English · Tap each one\".",
+      "id": "win.firstSmooth",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次順順利利完成「一架一架數（英文）· 點一點」。"
+    },
+    {
+      "en": "First smooth round of \"Tap & Count in English · Count & draw\".",
+      "id": "win.firstSmooth",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次順順利利完成「一架一架數（英文）· 數完畫」。"
+    },
+    {
+      "en": "Never ran out of fuel all week.",
+      "id": "win.noFuelOut",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "成個星期冇一次油用晒。"
+    }
+  ],
+  "wins": [
+    {
+      "en": "First time playing \"Line Match · Straight road\".",
+      "id": "win.newGame",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次玩「連一連 · 沿路送」。"
+    },
+    {
+      "en": "First time playing \"Line Match · Bridge road\".",
+      "id": "win.newGame",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次玩「連一連 · 沿路過橋」。"
+    },
+    {
+      "en": "First time playing \"Shapes · Follow the arrows\".",
+      "id": "win.newGame",
+      "traceable": [],
+      "verbatim": [],
+      "zh": "第一次玩「畫形狀 · 跟箭嘴」。"
+    }
+  ]
+}
