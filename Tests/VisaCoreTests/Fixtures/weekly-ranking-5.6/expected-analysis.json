@@ -1,0 +1,1140 @@
+{
+  "analysis": 1,
+  "builder": 1,
+  "changes": {
+    "assignment": [
+      {
+        "date": "2026-10-22",
+        "kind": "tapCountTraceEnglish",
+        "on": true,
+        "star": 1
+      }
+    ],
+    "config": [
+      {
+        "date": "2026-10-21",
+        "kinds": [
+          "lineMatchGuidedStraight",
+          "lineMatchGuidedBridge",
+          "lineMatch"
+        ],
+        "new": "wide",
+        "old": "standard",
+        "what": "lineMatch_tolerance"
+      }
+    ],
+    "excluded_rounds": {
+      "by_reason": {
+        "parent_playtest": 6,
+        "parent_uat": 5
+      },
+      "open_at_cutoff": 0,
+      "total": 11
+    },
+    "gen": [],
+    "mix": {
+      "practice_rounds": {
+        "change": "up",
+        "current": 57,
+        "previous": 44
+      },
+      "quiz_rounds": {
+        "change": null,
+        "current": 97,
+        "previous": 86
+      },
+      "stars": {
+        "current": [
+          102,
+          32,
+          20
+        ],
+        "previous": [
+          87,
+          26,
+          17
+        ]
+      }
+    },
+    "versions": [
+      {
+        "app": "0.31.0",
+        "first_day": 0,
+        "last_day": 2
+      },
+      {
+        "app": "0.31.1",
+        "first_day": 3,
+        "last_day": 6
+      }
+    ]
+  },
+  "comparison": {
+    "areas": [
+      {
+        "area": "numbers",
+        "change": "same",
+        "k0": 13,
+        "k1": 12,
+        "n0": 25,
+        "n1": 24
+      },
+      {
+        "area": "matching",
+        "change": "same",
+        "k0": 25,
+        "k1": 32,
+        "n0": 33,
+        "n1": 40
+      },
+      {
+        "area": "comparing",
+        "change": "same",
+        "k0": 21,
+        "k1": 28,
+        "n0": 28,
+        "n1": 33
+      },
+      {
+        "area": "pen",
+        "change": null,
+        "k0": 0,
+        "k1": 0,
+        "n0": 0,
+        "n1": 0
+      },
+      {
+        "area": "letters",
+        "change": null,
+        "k0": 0,
+        "k1": 0,
+        "n0": 0,
+        "n1": 0
+      },
+      {
+        "area": "other",
+        "change": null,
+        "k0": 0,
+        "k1": 0,
+        "n0": 0,
+        "n1": 0
+      }
+    ],
+    "baseline": false,
+    "clear_changes": [
+      {
+        "change": "up",
+        "kind": "traceShapesDotted",
+        "type": "practice"
+      },
+      {
+        "change": "up",
+        "kind": "traceShapesArrows",
+        "type": "practice"
+      }
+    ],
+    "days_played": {
+      "change": null,
+      "current": 6,
+      "previous": 7
+    },
+    "families": [
+      {
+        "change": "same",
+        "family": "lines",
+        "k0": 7,
+        "k1": 6,
+        "n0": 8,
+        "n1": 6
+      },
+      {
+        "change": "up",
+        "family": "shapes",
+        "k0": 9,
+        "k1": 14,
+        "n0": 15,
+        "n1": 17
+      },
+      {
+        "change": "same",
+        "family": "roads",
+        "k0": 4,
+        "k1": 7,
+        "n0": 6,
+        "n1": 11
+      },
+      {
+        "change": "same",
+        "family": "tapAll",
+        "k0": 7,
+        "k1": 11,
+        "n0": 9,
+        "n1": 13
+      },
+      {
+        "change": "same",
+        "family": "tapTrace",
+        "k0": 2,
+        "k1": 4,
+        "n0": 6,
+        "n1": 10
+      }
+    ],
+    "game_min": {
+      "change": "up",
+      "current": 127.278083,
+      "previous": 95.476500
+    },
+    "practice": {
+      "change": "same",
+      "k0": 29,
+      "k1": 42,
+      "n0": 44,
+      "n1": 57
+    },
+    "previous_covered_days": 7,
+    "quiz": {
+      "change": "same",
+      "k0": 59,
+      "k1": 72,
+      "n0": 86,
+      "n1": 97
+    },
+    "rounds": {
+      "change": null,
+      "current": 154,
+      "previous": 130
+    },
+    "video_min": {
+      "change": null,
+      "current": 885.000000,
+      "previous": 840.000000
+    }
+  },
+  "data_until": "2026-10-25T13:00:00.000Z",
+  "games": [
+    {
+      "area": "matching",
+      "chance": 0.500000,
+      "days_played": 2,
+      "family": null,
+      "fixed_question": true,
+      "help_heavy": false,
+      "hi": 0.948910,
+      "k": 2,
+      "kind": "twoPictureChoose",
+      "lo": 0.515668,
+      "m": 0.732289,
+      "memorised": false,
+      "n": 2,
+      "new": false,
+      "placement": "insufficient",
+      "rate": 1.000000,
+      "rounds": 2,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        2,
+        0,
+        0
+      ],
+      "tier": "insufficient",
+      "type": "quiz",
+      "wow": {
+        "change": null,
+        "k0": 4,
+        "k1": 2,
+        "n0": 4,
+        "n1": 2
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "matching",
+      "chance": 0.333333,
+      "days_played": 6,
+      "family": null,
+      "fixed_question": false,
+      "help_heavy": false,
+      "hi": 0.711859,
+      "k": 7,
+      "kind": "findTheSame",
+      "lo": 0.415818,
+      "m": 0.563838,
+      "memorised": false,
+      "n": 10,
+      "new": false,
+      "placement": "also_learning",
+      "rate": 0.700000,
+      "rounds": 10,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        7,
+        2,
+        1
+      ],
+      "tier": "learning",
+      "type": "quiz",
+      "wow": {
+        "change": "same",
+        "k0": 5,
+        "k1": 7,
+        "n0": 8,
+        "n1": 10
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "numbers",
+      "chance": 0.333333,
+      "days_played": 6,
+      "family": null,
+      "fixed_question": false,
+      "help_heavy": false,
+      "hi": 0.388899,
+      "k": 6,
+      "kind": "countVehicles",
+      "lo": 0.099294,
+      "m": 0.244096,
+      "memorised": false,
+      "n": 14,
+      "new": false,
+      "placement": "still_learning",
+      "rate": 0.428571,
+      "rounds": 14,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        10,
+        2,
+        2
+      ],
+      "tier": "needs_practice",
+      "type": "quiz",
+      "wow": {
+        "change": "same",
+        "k0": 7,
+        "k1": 6,
+        "n0": 16,
+        "n1": 14
+      },
+      "zeroed": 1
+    },
+    {
+      "area": "comparing",
+      "chance": 0.041667,
+      "days_played": 6,
+      "family": null,
+      "fixed_question": true,
+      "help_heavy": false,
+      "hi": 0.878673,
+      "k": 7,
+      "kind": "sequenceShortToLong",
+      "lo": 0.679703,
+      "m": 0.779188,
+      "memorised": false,
+      "n": 8,
+      "new": false,
+      "placement": "top",
+      "rate": 0.875000,
+      "rounds": 8,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        5,
+        2,
+        1
+      ],
+      "tier": "going_well",
+      "type": "quiz",
+      "wow": {
+        "change": "same",
+        "k0": 5,
+        "k1": 7,
+        "n0": 7,
+        "n1": 8
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "matching",
+      "chance": 0.333333,
+      "days_played": 6,
+      "family": null,
+      "fixed_question": true,
+      "help_heavy": false,
+      "hi": 0.901785,
+      "k": 10,
+      "kind": "halfMatch",
+      "lo": 0.684047,
+      "m": 0.792916,
+      "memorised": true,
+      "n": 11,
+      "new": false,
+      "placement": "top",
+      "rate": 0.909091,
+      "rounds": 11,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        7,
+        3,
+        1
+      ],
+      "tier": "going_well",
+      "type": "quiz",
+      "wow": {
+        "change": "same",
+        "k0": 8,
+        "k1": 10,
+        "n0": 9,
+        "n1": 11
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "comparing",
+      "chance": 0.333333,
+      "days_played": 3,
+      "family": null,
+      "fixed_question": true,
+      "help_heavy": false,
+      "hi": 0.942498,
+      "k": 4,
+      "kind": "shapeCousin",
+      "lo": 0.655936,
+      "m": 0.799217,
+      "memorised": false,
+      "n": 4,
+      "new": false,
+      "placement": "insufficient",
+      "rate": 1.000000,
+      "rounds": 4,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        3,
+        1,
+        0
+      ],
+      "tier": "insufficient",
+      "type": "quiz",
+      "wow": {
+        "change": null,
+        "k0": 3,
+        "k1": 4,
+        "n0": 3,
+        "n1": 4
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "comparing",
+      "chance": 0.500000,
+      "days_played": 6,
+      "family": null,
+      "fixed_question": true,
+      "help_heavy": false,
+      "hi": 0.903701,
+      "k": 11,
+      "kind": "capacityCompare",
+      "lo": 0.645516,
+      "m": 0.774608,
+      "memorised": true,
+      "n": 12,
+      "new": false,
+      "placement": "also_well",
+      "rate": 0.916667,
+      "rounds": 12,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        8,
+        3,
+        1
+      ],
+      "tier": "going_well",
+      "type": "quiz",
+      "wow": {
+        "change": "same",
+        "k0": 9,
+        "k1": 11,
+        "n0": 10,
+        "n1": 12
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "numbers",
+      "chance": 0.500000,
+      "days_played": 6,
+      "family": null,
+      "fixed_question": true,
+      "help_heavy": false,
+      "hi": 0.520160,
+      "k": 6,
+      "kind": "moreFewer",
+      "lo": 0.107517,
+      "m": 0.313838,
+      "memorised": false,
+      "n": 10,
+      "new": false,
+      "placement": "still_learning",
+      "rate": 0.600000,
+      "rounds": 10,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        7,
+        2,
+        1
+      ],
+      "tier": "needs_practice",
+      "type": "quiz",
+      "wow": {
+        "change": "same",
+        "k0": 6,
+        "k1": 6,
+        "n0": 9,
+        "n1": 10
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "matching",
+      "chance": 0.333333,
+      "days_played": 6,
+      "family": null,
+      "fixed_question": true,
+      "help_heavy": false,
+      "hi": 0.969200,
+      "k": 9,
+      "kind": "shadowMatch",
+      "lo": 0.783682,
+      "m": 0.876441,
+      "memorised": false,
+      "n": 9,
+      "new": false,
+      "placement": "top",
+      "rate": 1.000000,
+      "rounds": 9,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        6,
+        2,
+        1
+      ],
+      "tier": "going_well",
+      "type": "quiz",
+      "wow": {
+        "change": "same",
+        "k0": 5,
+        "k1": 9,
+        "n0": 6,
+        "n1": 9
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "comparing",
+      "chance": 0.333333,
+      "days_played": 6,
+      "family": null,
+      "fixed_question": true,
+      "help_heavy": false,
+      "hi": 0.686759,
+      "k": 6,
+      "kind": "emptyBay",
+      "lo": 0.373815,
+      "m": 0.530287,
+      "memorised": false,
+      "n": 9,
+      "new": false,
+      "placement": "also_learning",
+      "rate": 0.666667,
+      "rounds": 9,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        6,
+        2,
+        1
+      ],
+      "tier": "learning",
+      "type": "quiz",
+      "wow": {
+        "change": "same",
+        "k0": 4,
+        "k1": 6,
+        "n0": 8,
+        "n1": 9
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "pen",
+      "chance": null,
+      "days_played": 6,
+      "family": "roads",
+      "fixed_question": false,
+      "help_heavy": false,
+      "hi": 0.897226,
+      "k": 5,
+      "kind": "lineMatchGuidedStraight",
+      "lo": 0.692248,
+      "m": 0.794737,
+      "memorised": false,
+      "n": 6,
+      "new": false,
+      "placement": "also_well",
+      "rate": 0.833333,
+      "rounds": 6,
+      "settings": [
+        {
+          "date": "2026-10-21",
+          "reason": "config",
+          "star": null,
+          "value": "wide",
+          "what": "lineMatch_tolerance"
+        },
+        {
+          "field": "tolerance",
+          "new": "wide",
+          "old": "standard",
+          "reason": "signature"
+        }
+      ],
+      "star_rule": null,
+      "stars": [
+        4,
+        1,
+        1
+      ],
+      "tier": "going_well",
+      "type": "practice",
+      "wow": {
+        "change": null,
+        "k0": 3,
+        "k1": 5,
+        "n0": 4,
+        "n1": 6
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "pen",
+      "chance": null,
+      "days_played": 4,
+      "family": "roads",
+      "fixed_question": false,
+      "help_heavy": false,
+      "hi": 0.682117,
+      "k": 2,
+      "kind": "lineMatchGuidedBridge",
+      "lo": 0.417298,
+      "m": 0.549708,
+      "memorised": false,
+      "n": 5,
+      "new": false,
+      "placement": "still_learning",
+      "rate": 0.400000,
+      "rounds": 5,
+      "settings": [
+        {
+          "date": "2026-10-21",
+          "reason": "config",
+          "star": null,
+          "value": "wide",
+          "what": "lineMatch_tolerance"
+        },
+        {
+          "field": "tolerance",
+          "new": "wide",
+          "old": "standard",
+          "reason": "signature"
+        }
+      ],
+      "star_rule": null,
+      "stars": [
+        3,
+        1,
+        1
+      ],
+      "tier": "learning",
+      "type": "practice",
+      "wow": {
+        "change": null,
+        "k0": 1,
+        "k1": 2,
+        "n0": 2,
+        "n1": 5
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "matching",
+      "chance": 0.260417,
+      "days_played": 6,
+      "family": null,
+      "fixed_question": false,
+      "help_heavy": false,
+      "hi": 0.571792,
+      "k": 4,
+      "kind": "lineMatch",
+      "lo": 0.259089,
+      "m": 0.415440,
+      "memorised": false,
+      "n": 8,
+      "new": false,
+      "placement": "still_learning",
+      "rate": 0.500000,
+      "rounds": 8,
+      "settings": [
+        {
+          "date": "2026-10-21",
+          "reason": "config",
+          "star": null,
+          "value": "wide",
+          "what": "lineMatch_tolerance"
+        },
+        {
+          "field": "tolerance",
+          "new": "wide",
+          "old": "standard",
+          "reason": "signature"
+        }
+      ],
+      "star_rule": null,
+      "stars": [
+        3,
+        3,
+        2
+      ],
+      "tier": "learning",
+      "type": "quiz",
+      "wow": {
+        "change": "same",
+        "k0": 3,
+        "k1": 4,
+        "n0": 6,
+        "n1": 8
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "pen",
+      "chance": null,
+      "days_played": 6,
+      "family": "lines",
+      "fixed_question": false,
+      "help_heavy": false,
+      "hi": 0.972611,
+      "k": 6,
+      "kind": "traceLines",
+      "lo": 0.816862,
+      "m": 0.894737,
+      "memorised": false,
+      "n": 6,
+      "new": false,
+      "placement": "top",
+      "rate": 1.000000,
+      "rounds": 6,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        4,
+        1,
+        1
+      ],
+      "tier": "going_well",
+      "type": "practice",
+      "wow": {
+        "change": "same",
+        "k0": 7,
+        "k1": 6,
+        "n0": 8,
+        "n1": 6
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "pen",
+      "chance": null,
+      "days_played": 6,
+      "family": "shapes",
+      "fixed_question": false,
+      "help_heavy": false,
+      "hi": 0.916842,
+      "k": 7,
+      "kind": "traceShapesDotted",
+      "lo": 0.741053,
+      "m": 0.828947,
+      "memorised": false,
+      "n": 8,
+      "new": false,
+      "placement": "top",
+      "rate": 0.875000,
+      "rounds": 8,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        5,
+        2,
+        1
+      ],
+      "tier": "going_well",
+      "type": "practice",
+      "wow": {
+        "change": "up",
+        "k0": 6,
+        "k1": 7,
+        "n0": 9,
+        "n1": 8
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "pen",
+      "chance": null,
+      "days_played": 6,
+      "family": "shapes",
+      "fixed_question": false,
+      "help_heavy": false,
+      "hi": 0.860525,
+      "k": 7,
+      "kind": "traceShapesArrows",
+      "lo": 0.669839,
+      "m": 0.765182,
+      "memorised": false,
+      "n": 9,
+      "new": false,
+      "placement": "also_well",
+      "rate": 0.777778,
+      "rounds": 9,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        6,
+        2,
+        1
+      ],
+      "tier": "going_well",
+      "type": "practice",
+      "wow": {
+        "change": "up",
+        "k0": 3,
+        "k1": 7,
+        "n0": 6,
+        "n1": 9
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "numbers",
+      "chance": null,
+      "days_played": 6,
+      "family": "tapAll",
+      "fixed_question": false,
+      "help_heavy": false,
+      "hi": 0.897226,
+      "k": 5,
+      "kind": "tapCountAll",
+      "lo": 0.692248,
+      "m": 0.794737,
+      "memorised": false,
+      "n": 6,
+      "new": false,
+      "placement": "also_well",
+      "rate": 0.833333,
+      "rounds": 6,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        4,
+        1,
+        1
+      ],
+      "tier": "going_well",
+      "type": "practice",
+      "wow": {
+        "change": "same",
+        "k0": 4,
+        "k1": 5,
+        "n0": 5,
+        "n1": 6
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "numbers",
+      "chance": null,
+      "days_played": 6,
+      "family": "tapTrace",
+      "fixed_question": false,
+      "help_heavy": false,
+      "hi": 0.661742,
+      "k": 3,
+      "kind": "tapCountTrace",
+      "lo": 0.419598,
+      "m": 0.540670,
+      "memorised": false,
+      "n": 7,
+      "new": false,
+      "placement": "still_learning",
+      "rate": 0.428571,
+      "rounds": 7,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        5,
+        1,
+        1
+      ],
+      "tier": "learning",
+      "type": "practice",
+      "wow": {
+        "change": "same",
+        "k0": 2,
+        "k1": 3,
+        "n0": 6,
+        "n1": 7
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "numbers",
+      "chance": null,
+      "days_played": 6,
+      "family": "tapAll",
+      "fixed_question": false,
+      "help_heavy": false,
+      "hi": 0.908048,
+      "k": 6,
+      "kind": "tapCountAllEnglish",
+      "lo": 0.718746,
+      "m": 0.813397,
+      "memorised": false,
+      "n": 7,
+      "new": false,
+      "placement": "also_well",
+      "rate": 0.857143,
+      "rounds": 7,
+      "settings": [],
+      "star_rule": null,
+      "stars": [
+        5,
+        1,
+        1
+      ],
+      "tier": "going_well",
+      "type": "practice",
+      "wow": {
+        "change": null,
+        "k0": 3,
+        "k1": 6,
+        "n0": 4,
+        "n1": 7
+      },
+      "zeroed": 0
+    },
+    {
+      "area": "numbers",
+      "chance": null,
+      "days_played": 2,
+      "family": "tapTrace",
+      "fixed_question": false,
+      "help_heavy": false,
+      "hi": 0.711465,
+      "k": 1,
+      "kind": "tapCountTraceEnglish",
+      "lo": 0.416355,
+      "m": 0.563910,
+      "memorised": false,
+      "n": 3,
+      "new": true,
+      "placement": "insufficient",
+      "rate": 0.333333,
+      "rounds": 3,
+      "settings": [
+        {
+          "date": "2026-10-22",
+          "reason": "config",
+          "star": 1,
+          "value": "true",
+          "what": "assignment"
+        }
+      ],
+      "star_rule": null,
+      "stars": [
+        2,
+        0,
+        1
+      ],
+      "tier": "insufficient",
+      "type": "practice",
+      "wow": {
+        "change": null,
+        "k0": 0,
+        "k1": 1,
+        "n0": 0,
+        "n1": 3
+      },
+      "zeroed": 0
+    }
+  ],
+  "pooled": {
+    "practice": 0.736842,
+    "quiz": 0.598434
+  },
+  "previous_week_start": "2026-10-12",
+  "ranking": {
+    "also_learning": {
+      "practice": [],
+      "quiz": [
+        "emptyBay",
+        "findTheSame"
+      ]
+    },
+    "also_well": {
+      "practice": [
+        "tapCountAllEnglish",
+        "lineMatchGuidedStraight",
+        "tapCountAll",
+        "traceShapesArrows"
+      ],
+      "quiz": [
+        "capacityCompare"
+      ]
+    },
+    "insufficient": [
+      {
+        "days_played": 3,
+        "k": 4,
+        "kind": "shapeCousin",
+        "more": 1,
+        "n": 4,
+        "reason": "too_few",
+        "type": "quiz"
+      },
+      {
+        "days_played": 2,
+        "k": 2,
+        "kind": "twoPictureChoose",
+        "more": 3,
+        "n": 2,
+        "reason": "too_few",
+        "type": "quiz"
+      },
+      {
+        "days_played": 2,
+        "k": 1,
+        "kind": "tapCountTraceEnglish",
+        "more": 2,
+        "n": 3,
+        "reason": "too_few",
+        "type": "practice"
+      }
+    ],
+    "qualified": {
+      "practice": 8,
+      "quiz": 9
+    },
+    "ranked": true,
+    "still_learning": {
+      "candidates": 7,
+      "practice": [
+        "tapCountTrace",
+        "lineMatchGuidedBridge"
+      ],
+      "quiz": [
+        "countVehicles",
+        "moreFewer",
+        "lineMatch"
+      ],
+      "size": 5,
+      "slots": {
+        "practice": 2,
+        "quiz": 3
+      }
+    },
+    "top": {
+      "practice": [
+        "traceLines",
+        "traceShapesDotted"
+      ],
+      "quiz": [
+        "shadowMatch",
+        "halfMatch",
+        "sequenceShortToLong"
+      ],
+      "size": 5,
+      "slots": {
+        "practice": 2,
+        "quiz": 3
+      }
+    }
+  },
+  "time_zone": "Asia/Hong_Kong",
+  "week_start": "2026-10-19",
+  "win_candidates": [
+    {
+      "id": "win.newGame",
+      "kind": "tapCountTraceEnglish"
+    },
+    {
+      "id": "win.numeral",
+      "numerals": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "win.streak",
+      "kind": "shadowMatch",
+      "run": 9
+    },
+    {
+      "id": "win.rise",
+      "k0": 6,
+      "k1": 7,
+      "kind": "traceShapesDotted",
+      "n0": 9,
+      "n1": 8,
+      "type": "practice"
+    },
+    {
+      "id": "win.rise",
+      "k0": 3,
+      "k1": 7,
+      "kind": "traceShapesArrows",
+      "n0": 6,
+      "n1": 9,
+      "type": "practice"
+    },
+    {
+      "day": 6,
+      "id": "win.firstSmooth",
+      "kind": "tapCountTraceEnglish"
+    }
+  ],
+  "wins": [
+    {
+      "id": "win.newGame",
+      "kind": "tapCountTraceEnglish"
+    },
+    {
+      "id": "win.numeral",
+      "numerals": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "win.streak",
+      "kind": "shadowMatch",
+      "run": 9
+    }
+  ]
+}

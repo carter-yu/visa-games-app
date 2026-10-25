@@ -1,5 +1,40 @@
 # Progress
 
+## 2026-10-25 — Weekly report W2: ranking, week over week and wins (VisaCore, draft PR source)
+
+- W1 is on main via #36 (`992a7b3`). Branch `feat/weekly-report-W2` starts from that commit. The scope is design §12 W2 (§4.10, §5.1–5.6, the §6.5 rules and the page-5 changes; D4 A, D5 A). ADR 0022 records the choices made where the design left room.
+- New VisaCore files: `WeeklyRanking.swift`, `WeeklyComparison.swift`, `WeeklyWins.swift` and `WeeklyAnalysis.swift`.
+  - Builder: `WeeklyAnalysisBuilder.build(events:rollup:window:)` returns `WeeklyAnalysis`: the W1 model plus games, ranking, comparison, wins and changes. `canonicalJSON()` uses the W1 `WeeklyJSON` rules and English ids.
+  - Ranking (§5):
+    - who qualifies (n ≥ 5; otherwise `too_few` or `no_method`) and the §5.2 tiers;
+    - T = min(5, ceil(E / 2)), with largest remainder on |Q| : |P| in integers and spill-over;
+    - the list orders with the catalog tie-break, and 「其他都做得好」 / 「其他仲學緊」;
+    - the one-day case on the 數據唔夠 list, the ★★★ rule, 「同一題」 and the memorised flag.
+  - Week over week (§4.10):
+    - rate words (n ≥ 5 in both weeks, pooled SE: `up` / `down` / `same` / `unsure`) and the counts and minutes rule;
+    - the ⚙ marker: settings families and star assignment, the dominant deal signature including `res.guide_level`, and a ★★★ share move of ≥ 30 points;
+    - clear changes, which never include a ⚙ row.
+  - Wins (§6.5): the 8 rules in priority order, as ids and parameters. At most 3 are shown; all candidates are kept.
+  - Changes panel data: versions, settings old → new, net star-assignment changes, `gen` changes, the game mix, and excluded and open rounds.
+  - W1 change: one internal entry point, `WeeklyMetricsBuilder.build(ordered:index:window:)`, so W2 reads the same index. W1 output is unchanged.
+- Fixtures:
+  - New `Tests/VisaCoreTests/Fixtures/weekly-ranking-5.6/`: the design's sample week as 1,132 synthetic records in 15 HKT day files, with no rollup.
+    - `make_fixture.py` copies the sample generator and its random draws from `mockups/make_sample.py`. It adds the previous week (the sample's `PREV`), the Wednesday tolerance change, a star assignment, two versions and 11 parent rounds.
+    - `reference_analysis.py` is an independent Python reading of the W2 rules on top of the W1 reference; it gives `expected-analysis.json`. The folder has a README.
+  - New `weekly-2026-10-19/expected-analysis.json`: the W2 analysis of the W1 records, with a README section. `expected-metrics.json` is unchanged.
+- Nine checks in `WeeklyRankingTests.swift`, registered in `VisaCoreChecks` with the PASS banner updated: `testNoGameInBothLists`, `testInsufficientNeverRanked`, `testStillLearningNeedsTwoDays`, `testProportionalSplitAndSpill`, `testMeaningfulChangeTable`, `testSettingsMarker`, `testWinsCatalogue`, `testWorkedExample56ReproducedExactly` and `testWeeklyAnalysisGoldenFixtures`.
+- Checked on this box, in Python only:
+  - On the new records, the W1 and W2 references give the §5.6 table at 3 decimals:
+    - priors 0.598 / 0.737, and every row's n, k, chance, m (lo – hi) and tier;
+    - going well 3 + 2 and still learning 3 + 2 with the design's members;
+    - the two "other" lists and the 數據唔夠 rows.
+  - The wins, clear changes and memorised flags match the sample model.
+  - The assertions of the seven rule checks, mirrored in Python against the reference, hold. The mirror uses the same synthetic events, the same score tables and the same 600-week random placement property.
+  - Regenerating both fixtures gave identical bytes. The W1 reference still reproduces `expected-metrics.json` byte for byte.
+  - The OpenCC scan (`mockups/check_traditional.py`) of the new Swift files found no Simplified characters.
+- Not run: Swift is not installed on this Linux box. No Swift compile, check pass or golden match is claimed. Mac mini `sh scripts/test.sh` is pending.
+- No family-visible change: the version stays 0.34.0 / 70. No UI, recording, settings or kiosk change. The OS escape-path inventory remains in `docs/phase-0-kiosk-checklist.md`.
+
 ## 2026-10-25 — Weekly report W1: weekly index and metrics (VisaCore, draft PR source)
 
 - Branch `feat/weekly-report-W1` from main `e2c3e2a`. Scope is design `visa-games-design/weekly-report/design.md` §12 W1 (§4.1–4.9, §9.6; D1–D13 locked 2026-10-24 HKT). ADR 0021 records the choices made where the design left room.

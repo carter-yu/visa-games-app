@@ -71,3 +71,18 @@ python3 reference_model.py . 2026-10-19 2026-10-25T13:00:00.000Z > expected-metr
 Python reading of design §4.1–4.9 (no code shared with Swift; the estimator is the
 `MasteryEstimator.swift` formula, cross-checked against `mockups/weekly_model.py`). Change the
 records or the rules on both sides together, then regenerate and review the diff.
+
+## W2 analysis of the same records
+
+`expected-analysis.json` is the W2 `WeeklyAnalysis.canonicalJSON()` for the same request (ranking,
+week over week, ⚙, wins and the page-5 changes; ADR 0022). `testWeeklyAnalysisGoldenFixtures`
+(`WeeklyRankingTests.swift`) compares it byte for byte. Nothing here qualifies for ranking (no kind has
+5 answered or smooth rounds), so it exercises the other paths: `too_few` rows with n = 0, `no_method`
+for `mysteryQuiz` and `mysteryTrace`, the 0.33.1 → 0.34.0 versions, a settings change without an
+earlier value, a `gen` change for `findTheSame`, ★★★ shifts, the excluded and open rounds, rollup
+history and first-ever wins. `expected-metrics.json` is unchanged by W2. Regenerate it after the
+records with:
+
+```sh
+python3 ../weekly-ranking-5.6/reference_analysis.py . 2026-10-19 2026-10-25T13:00:00.000Z > expected-analysis.json
+```

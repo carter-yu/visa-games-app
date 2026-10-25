@@ -1,0 +1,3 @@
+{"actor":"system","app":"0.30.0","launch":"L-1009","mode":"lock","mono":40.0,"reason":"launch","seq":1,"session":"s-1009p","t":"session_start","ts":"2026-10-09T12:00:00.000Z","tz":"+08:00","v":1}
+{"actor":"system","app":"0.30.0","build":"0.30.0","launch":"L-1009","mode":"lock","mono":40.0,"seq":2,"session":"s-1009p","t":"app_launch","ts":"2026-10-09T12:00:00.000Z","tz":"+08:00","v":1}
+{"actor":"parent","app":"0.30.0","category_mix":"numbers:35,body:30,animals:20,zodiac:15","kind":"lineMatch","launch":"L-1009","mode":"parent","mono":340.0,"seq":3,"session":"s-1009p","t":"config_change","ts":"2026-10-09T12:05:00.000Z","tz":"+08:00","v":1,"value":"standard","what":"lineMatch_tolerance"}

@@ -391,6 +391,11 @@ public enum WeeklyMetricsBuilder {
         let ordered = PerfCodec.ordered(events)
         let excluded = PerfFilter.excludedSessions(in: ordered)
         let index = Index(ordered: ordered, excluded: excluded, rollup: rollup)
+        return build(ordered: ordered, index: index, window: window)
+    }
+
+    /// The same model from records already ordered and indexed, so W2 reads one index.
+    static func build(ordered: [PerfEvent], index: Index, window: WeeklyWindow) -> WeeklyModel {
         let current = metrics(index, window: window)
         let previousWindow = window.shifted(weeks: -1)
         let previous = metrics(index, window: previousWindow)
