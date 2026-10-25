@@ -185,6 +185,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var tapLetterWriteRound: TapLetterWriteRound?
     @Published private(set) var tapLetterWriteGuide = "none"
     @Published private(set) var tapLetterWriteDemoStartedAt: Double = 0
+    @Published private(set) var tapLetterGuideRun: TapCountGuideRun?
+    private var tapLetterGuideSpeechGeneration = 0
     private var letterWriteProgress = LetterWriteProgressStore().load()
     private var tapLetterCuspSpoken = false
     private var tapLetterGlanceReason: StrokeOrderProgress.GlanceReason?
@@ -884,6 +886,8 @@ final class AppModel: ObservableObject {
             seed: seed, kind: kind, avoidingItem: lastDealtItem[kind]) : nil
         tapLetterBoard = kind.isTapLetterFamily ? makeTapLetterBoard(seed: seed) : nil
         tapLetterWriteRound = kind == .tapLetterWrite ? tapLetterBoard.map { TapLetterWriteRound(deal: $0.deal) } : nil
+        tapLetterGuideRun = nil
+        tapLetterGuideSpeechGeneration += 1
         tapLetterCuspSpoken = false
         tapLetterBubble = nil
         tapLetterCelebrating = false
@@ -2855,6 +2859,8 @@ final class AppModel: ObservableObject {
             ? makeTapCountBoard(seed: playtestChoiceDealSeed, kind: kind, avoidingItem: nil) : nil
         playtestTapLetterBoard = kind.isTapLetterFamily ? makeTapLetterBoard(seed: playtestChoiceDealSeed) : nil
         tapLetterWriteRound = kind == .tapLetterWrite ? playtestTapLetterBoard.map { TapLetterWriteRound(deal: $0.deal) } : nil
+        tapLetterGuideRun = nil
+        tapLetterGuideSpeechGeneration += 1
         tapLetterCuspSpoken = false
         tapLetterBubble = nil
         tapLetterCelebrating = false
@@ -4093,30 +4099,69 @@ extension AppModel {
         let learned = letterWriteProgress.isLearned(letter)
         let clock = Date().timeIntervalSinceReferenceDate
         let key = "latin:\(letter)"
-        let reason = learned && tapCountSettings.strokeOrder != .off
-            ? strokeOrderProgress.dueGlance(key, today: StrokeOrderProgress.day(clock: clock)) : nil
+        let plan = TapCountGuidePlan(level: tapCountSettings.guidance, learned: learned)
+        let reason = StrokeOrderPlan.star2Glance(setting: tapCountSettings.strokeOrder,
+            guidance: tapCountSettings.guidance, learned: learned, carDemo: plan.demo,
+            progress: strokeOrderProgress, key: key, today: StrokeOrderProgress.day(clock: clock))
         tapLetterGlanceReason = reason
-        tapLetterWriteGuide = learned ? (reason == nil ? "none" : "glance") : "car"
-        tapLetterWriteDemoStartedAt = clock
+        let glyphGuide = letter.first.flatMap { NumeralGuide(letter: $0) }
+        let glanceGlyph = letter.first.flatMap { StrokeGlyph.latin($0) }
+        let glanceDuration = reason != nil && !plan.demo && tapCountSettings.strokeOrder != .off
+            ? glanceGlyph.map { StrokeOrderTimeline(glyph: $0, dosage: .glance).duration } ?? 0 : 0
+        let timeline = glyphGuide.map { TapCountDemoTimeline(guide: $0) }
+        tapLetterGuideRun = glyphGuide.map {
+            TapCountGuideRun(plan: plan, demoDuration: timeline?.duration ?? 0, now: clock,
+                             demoLead: Self.tapCountGuideDemoLead, glanceDuration: glanceDuration)
+        }
+        tapLetterWriteGuide = tapLetterGuideRun?.isGlance == true ? "glance" : (plan.demo && glyphGuide != nil ? "car" : "none")
+        tapLetterWriteDemoStartedAt = clock + Self.tapCountGuideDemoLead
         tapLetterCuspSpoken = false
+        tapLetterGuideSpeechGeneration += 1
         write.beginWriting(demo: tapLetterWriteGuide != "none")
         tapLetterWriteRound = write
         tapLetterCelebrating = false
-        tapLetterSpeak("write.prompt.\(letter)", TapLetterCopy.writePrompt(letter))
         if tapLetterWriteGuide == "car" {
-            TapLetterCopy.mnemonic(letter).enumerated().forEach { index, line in
-                tapLetterSpeak("rhyme.\(letter).\(index)", line)
+            tapLetterSpeak("guide.\(letter).watchFirst", letterGuideLine(LetterGuideData.copy.watchFirst.en, letter: letter))
+            scheduleLetterGuideSpeech(letter: letter, start: tapLetterWriteDemoStartedAt)
+        } else {
+            tapLetterSpeak("write.prompt.\(letter)", TapLetterCopy.writePrompt(letter))
+        }
+        if let run = tapLetterGuideRun, let start = run.demoStartedAt {
+            let duration = run.demoDuration + start - clock
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
+                guard let self, (self.tapLetterUsesPlaytest ? self.playtestChoiceDealSeed : self.choiceDealSeed) == token,
+                      var current = self.tapLetterWriteRound, current.phase == .writing, current.demoActive else { return }
+                current.finishDemo()
+                self.tapLetterWriteRound = current
+                if self.tapLetterWriteGuide == "car" { self.tapLetterSpeak("guide.\(letter).yourTurn", self.letterGuideLine(LetterGuideData.copy.yourTurn.en, letter: letter)) }
             }
         }
-        let duration = StrokeGlyph.latin(letter.first ?? "a").map {
-            StrokeOrderTimeline(glyph: $0, dosage: tapLetterWriteGuide == "glance" ? .glance : .teach).duration
-        } ?? 4.5
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
-            guard let self, (self.tapLetterUsesPlaytest ? self.playtestChoiceDealSeed : self.choiceDealSeed) == token,
-                  var current = self.tapLetterWriteRound, current.phase == .writing, current.demoActive else { return }
-            current.finishDemo()
-            self.tapLetterWriteRound = current
-            if self.tapLetterWriteGuide == "car" { self.tapLetterSpeak("yourTurn", "Your turn!") }
+    }
+
+    private func spokenLetterName(_ letter: String) -> String {
+        ["a": "ay", "b": "bee", "c": "see", "d": "dee", "e": "ee", "g": "jee",
+         "k": "kay", "o": "oh", "u": "you"][letter] ?? letter
+    }
+
+    private func letterGuideLine(_ line: String, letter: String) -> String {
+        line.replacingOccurrences(of: "{L}", with: spokenLetterName(letter))
+    }
+
+    private func scheduleLetterGuideSpeech(letter: String, start: Double) {
+        guard let character = letter.first, let glyphGuide = NumeralGuide(letter: character) else { return }
+        let timeline = TapCountDemoTimeline(guide: glyphGuide)
+        tapLetterGuideSpeechGeneration += 1
+        let generation = tapLetterGuideSpeechGeneration
+        let token = tapLetterUsesPlaytest ? playtestChoiceDealSeed : choiceDealSeed
+        let events = timeline.beatStarts.enumerated().map { ($0.element, "beat\($0.offset + 1)", glyphGuide.spec.beats[$0.offset].line.en) }
+            + [(timeline.mergeStart, "merge", glyphGuide.spec.merge.en)]
+        for (offset, key, line) in events {
+            DispatchQueue.main.asyncAfter(deadline: .now() + max(0, start + offset - Date().timeIntervalSinceReferenceDate)) { [weak self] in
+                guard let self, self.tapLetterGuideSpeechGeneration == generation,
+                      (self.tapLetterUsesPlaytest ? self.playtestChoiceDealSeed : self.choiceDealSeed) == token,
+                      self.tapLetterWriteRound?.demoActive == true else { return }
+                self.tapLetterSpeak("guide.\(letter).\(key)", line)
+            }
         }
     }
 
@@ -4126,10 +4171,18 @@ extension AppModel {
               round.phase == .writing else { return false }
         if round.endDemoNoPaint() {
             tapLetterWriteRound = round
+            var run = tapLetterGuideRun
+            _ = run?.skipDemo(now: Date().timeIntervalSinceReferenceDate)
+            tapLetterGuideRun = run
+            tapLetterGuideSpeechGeneration += 1
+            if tapLetterWriteGuide == "car" { tapLetterSpeak("guide.\(round.board.deal.target).yourTurn", letterGuideLine(LetterGuideData.copy.yourTurn.en, letter: round.board.deal.target)) }
             return false
         }
         var trace = round.trace
         _ = trace.penDown(at: point, now: Date().timeIntervalSinceReferenceDate)
+        if trace.wrongStarts > round.trace.wrongStarts {
+            noteLetterGuideHelp(key: "wrong_start.\(trace.wrongStarts)", kind: "wrong_start")
+        }
         round.acceptTrace(trace)
         tapLetterWriteRound = round
         return true
@@ -4139,15 +4192,12 @@ extension AppModel {
         guard var round = tapLetterWriteRound, round.phase == .writing, !round.demoActive else { return }
         var trace = round.trace
         _ = trace.penMove(to: point, now: Date().timeIntervalSinceReferenceDate)
-        if trace.isAtCorner, trace.currentPath?.cusps.contains(where: { abs($0 - trace.progress) < 0.5 }) == true,
-           !tapLetterCuspSpoken {
-            tapLetterCuspSpoken = true
-            let cue = round.board.deal.target == "b" ? TapLetterCopy.cueBackUp : TapLetterCopy.cueDownAgain
-            tapLetterSpeak("write.cue", cue)
-            tapLetterShowBubble(cue, seconds: 2)
+        if trace.wrongStarts > round.trace.wrongStarts || trace.reverseDirections > round.trace.reverseDirections {
+            noteLetterGuideHelp(key: "direction.\(trace.wrongStarts).\(trace.reverseDirections)", kind: "direction")
         }
         round.acceptTrace(trace)
         tapLetterWriteRound = round
+        tapLetterGuideTick(now: Date().timeIntervalSinceReferenceDate)
         if round.canStamp {
             let letter = round.board.deal.target
             let line = TapLetterCopy.writeDone(letter)
@@ -4188,7 +4238,66 @@ extension AppModel {
         return []
     }
 
+    private func noteLetterGuideHelp(key: String, kind: String) {
+        guard var run = tapLetterGuideRun else { return }
+        let wasClean = run.clean
+        guard run.noteHelp(key: key, kind: kind) else { return }
+        tapLetterGuideRun = run
+        if wasClean, let letter = tapLetterWriteRound?.board.deal.target {
+            letterWriteProgress.record(letter, clean: false)
+            LetterWriteProgressStore().save(letterWriteProgress)
+            var strokes = strokeOrderProgress
+            strokes.reset("latin:\(letter)")
+            saveStrokeOrderProgress(strokes)
+        }
+        if kind == "redemo", run.redemos <= Self.tapCountGuideMaxRedemos,
+           let round = tapLetterWriteRound, let letter = round.board.deal.target.first {
+            run.restartDemo(now: Date().timeIntervalSinceReferenceDate, lead: Self.tapCountGuideDemoLead)
+            tapLetterGuideRun = run
+            tapLetterWriteGuide = "car"
+            var replay = round
+            replay.restartDemo()
+            tapLetterWriteRound = replay
+            tapLetterWriteDemoStartedAt = run.demoStartedAt ?? 0
+            let generation = tapLetterGuideSpeechGeneration + 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.tapCountGuideDemoLead + run.demoDuration) { [weak self] in
+                guard let self, self.tapLetterGuideSpeechGeneration == generation,
+                      var current = self.tapLetterWriteRound, current.demoActive else { return }
+                current.finishDemo()
+                self.tapLetterWriteRound = current
+            }
+            tapLetterSpeak("guide.redemo", LetterGuideData.copy.redemo.en)
+            scheduleLetterGuideSpeech(letter: String(letter), start: tapLetterWriteDemoStartedAt)
+        } else if (kind == "stall" || kind == "ghost_to_end"), run.plan.cueWords,
+                  let round = tapLetterWriteRound,
+                  let letter = round.board.deal.target.first, let guide = NumeralGuide(letter: letter) {
+            if let index = guide.beats.firstIndex(where: { $0.stroke == round.trace.strokeIndex && $0.end > round.trace.progress + 10 }) {
+                let line = guide.spec.beats[index].line.en
+                tapLetterSpeak("guide.\(letter).beat\(index + 1)", line, queued: false)
+                tapLetterShowBubble(line, seconds: 3)
+            }
+        }
+    }
+
+    private func tapLetterGuideTick(now clock: Double) {
+        guard let round = tapLetterWriteRound, round.phase == .writing, !round.demoActive,
+              let character = round.board.deal.target.first,
+              let guide = NumeralGuide(letter: character), let run = tapLetterGuideRun else { return }
+        let help = TapCountGuideCoach.help(plan: run.plan, guide: guide, trace: round.trace, readyAt: run.readyAt, now: clock)
+        if let key = help.key { noteLetterGuideHelp(key: key, kind: help.kind) }
+        if run.plan.cueWords, let cue = TapCountGuideCoach.activeCue(guide: guide, trace: round.trace),
+           !run.cuesSaid.contains(cue.index) {
+            var next = tapLetterGuideRun ?? run
+            _ = next.noteCue(cue.index)
+            tapLetterGuideRun = next
+            let line = guide.spec.cues[cue.index].line.en
+            tapLetterSpeak("guide.\(character).cue\(cue.index + 1)", line, queued: false)
+            tapLetterShowBubble(line, seconds: 3)
+        }
+    }
+
     private func tapLetterIdleCheck(now clock: Double) {
+        tapLetterGuideTick(now: clock)
         guard let board = currentTapLetterBoard, !board.isComplete, !tapLetterIdleSpoken,
               clock - tapLetterLastActionAt >= 10,
               (tapLetterUsesPlaytest ? !playtestChoicesLocked : (activeActivityKind?.isTapLetterFamily == true &&
@@ -4215,7 +4324,7 @@ extension AppModel {
             fields["cusp_overshoot"] = .int(trace.cornerOvershoots)
             fields["reverse"] = .int(trace.reverseDirections)
             fields["guide_demo"] = .string(tapLetterWriteGuide)
-            let clean = trace.wrongStarts == 0 && trace.reverseDirections == 0 && trace.offPathCount == 0
+            let clean = (tapLetterGuideRun?.clean ?? true) && trace.wrongStarts == 0 && trace.reverseDirections == 0 && trace.offPathCount == 0
             letterWriteProgress.record(board.deal.target, clean: clean)
             LetterWriteProgressStore().save(letterWriteProgress)
             var strokes = strokeOrderProgress

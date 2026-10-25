@@ -590,6 +590,10 @@ struct TestRunner {
         guide.testHelpTimersShowHelpButNeverMarkWrong()
         guide.testHeadlightsShowOnlyTheNextThreeDotsAheadOfTheCar()
         try guide.testGuidanceWiringSourceGuards()
+        let letterGuide = LetterGuideTests()
+        letterGuide.testLetterDataAndGeometry()
+        letterGuide.testECuesAndTangent()
+        try letterGuide.testEStallAndLevelGates()
 
         let strokes = StrokeOrderTests()
         strokes.testTimelineTotalsMatchTheDesignTable()

@@ -41,6 +41,7 @@ public struct TapLetterWriteRound: Sendable {
     }
 
     public mutating func finishDemo() { demoActive = false }
+    public mutating func restartDemo() { guard phase == .writing else { return }; demoActive = true }
 
     public mutating func acceptTrace(_ next: ShapeTraceBoard) {
         guard phase == .writing, !demoActive, next.isMonotonicSuccessor(of: trace) else { return }

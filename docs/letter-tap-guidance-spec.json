@@ -1,0 +1,207 @@
+{
+  "timing": {"hopSeconds": 0.5, "cuePauseSeconds": 0.3, "mergeSeconds": 0.6, "routeFadeSeconds": 1.5,
+             "cueLeadUnits": 50, "headlightDots": 3, "stallRingGhostSeconds": 1.2},
+  "levels": {
+    "more":     {"demo": "always", "headlights": true, "cueSigns": true, "cueWords": true,
+                 "fadeLaterStrokes": true, "hop": true, "stallSeconds": 1, "ghostToEndSeconds": 5, "redemoSeconds": 15,
+                 "learnedKeeps": ["headlights", "cueSigns", "cueWords"]},
+    "standard": {"demo": "untilLearned", "headlights": true, "cueSigns": true, "cueWords": true,
+                 "fadeLaterStrokes": true, "hop": true, "stallSeconds": 2, "ghostToEndSeconds": 8, "redemoSeconds": 20,
+                 "learnedKeeps": ["headlights"]},
+    "less":     {"demo": "never", "headlights": false, "cueSigns": false, "cueWords": false,
+                 "fadeLaterStrokes": true, "hop": true, "stallSeconds": null, "ghostToEndSeconds": 8, "redemoSeconds": null,
+                 "learnedKeeps": []}
+  },
+  "learned": {"cleanInARow": 2,
+              "cleanMeans": ["no stall help (ring + next-bit demo)", "no ghost to the end", "no re-demo after idle",
+                             "no wrong-start or reverse-direction prompt"],
+              "sharedAcrossLanguages": true},
+  "touchDuringDemo": "endsDemoNoPaint",
+  "letters": {
+    "a": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [146, 226], "pass": 1}, "seconds": 1.6,
+         "zh": "", "zhSub": "", "en": "Round like a c..."},
+        {"stroke": 0, "until": {"point": [148, 130], "pass": 1}, "seconds": 0.8,
+         "zh": "", "zhSub": "", "en": "Up the side, stop!"},
+        {"stroke": 0, "until": 1.0, "seconds": 0.9,
+         "zh": "", "zhSub": "", "en": "Straight back down!"}
+      ],
+      "merge": {"zh": "", "zhSub": "", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 0, "point": [148, 130], "pass": 1, "sign": "stop", "signAt": [212, 126],
+         "zh": "", "zhSub": "", "en": "Stop! Now straight down!"}
+      ],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    },
+    "b": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [44, 270], "pass": 1}, "seconds": 1.3,
+         "zh": "", "zhSub": "", "en": "Down from the top, stop!"},
+        {"stroke": 0, "until": {"point": [44, 186], "pass": 2}, "seconds": 0.7,
+         "zh": "", "zhSub": "", "en": "Back up a bit..."},
+        {"stroke": 0, "until": 1.0, "seconds": 1.7,
+         "zh": "", "zhSub": "", "en": "Round the tummy!"}
+      ],
+      "merge": {"zh": "", "zhSub": "", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 0, "point": [44, 270], "pass": 1, "sign": "stop", "signAt": [-20, 262],
+         "zh": "", "zhSub": "", "en": "Stop! Back up!"}
+      ],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    },
+    "c": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [40, 200], "pass": 1}, "seconds": 1.1,
+         "zh": "", "zhSub": "", "en": "Up and over the top..."},
+        {"stroke": 0, "until": 1.0, "seconds": 1.0,
+         "zh": "", "zhSub": "", "en": "Then round the bottom!"}
+      ],
+      "merge": {"zh": "", "zhSub": "", "en": "Your turn!"},
+      "cues": [],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    },
+    "d": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [146, 226], "pass": 1}, "seconds": 1.6,
+         "zh": "", "zhSub": "", "en": "Round like a c..."},
+        {"stroke": 0, "until": {"point": [148, 30], "pass": 1}, "seconds": 1.2,
+         "zh": "", "zhSub": "", "en": "Up high to the top, stop!"},
+        {"stroke": 0, "until": 1.0, "seconds": 1.2,
+         "zh": "", "zhSub": "", "en": "Straight back down!"}
+      ],
+      "merge": {"zh": "", "zhSub": "", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 0, "point": [148, 30], "pass": 1, "sign": "stop", "signAt": [212, 42],
+         "zh": "", "zhSub": "", "en": "Stop! Now straight down!"}
+      ],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    },
+    "e": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [154, 202], "pass": 1}, "seconds": 1.0,
+         "zh": "", "zhSub": "", "en": "Across the middle, stop!"},
+        {"stroke": 0, "until": {"point": [40, 202], "pass": 2}, "seconds": 1.3,
+         "zh": "", "zhSub": "", "en": "Up and over the top..."},
+        {"stroke": 0, "until": 1.0, "seconds": 1.1,
+         "zh": "", "zhSub": "", "en": "Then round the bottom!"}
+      ],
+      "merge": {"zh": "", "zhSub": "", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 0, "point": [154, 202], "pass": 1, "sign": "stop", "signAt": [218, 196],
+         "zh": "", "zhSub": "", "en": "Stop! Now up and round!"},
+        {"stroke": 0, "point": [40, 202], "pass": 2, "sign": "ahead", "signAt": [-24, 206],
+         "zh": "", "zhSub": "", "en": "Keep going, round the bottom!"}
+      ],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    },
+    "g": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [146, 226], "pass": 1}, "seconds": 1.6,
+         "zh": "", "zhSub": "", "en": "Round like a c..."},
+        {"stroke": 0, "until": {"point": [148, 130], "pass": 1}, "seconds": 0.8,
+         "zh": "", "zhSub": "", "en": "Up the side, stop!"},
+        {"stroke": 0, "until": 1.0, "seconds": 1.5,
+         "zh": "", "zhSub": "", "en": "Down low, and curl back!"}
+      ],
+      "merge": {"zh": "", "zhSub": "", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 0, "point": [148, 130], "pass": 1, "sign": "stop", "signAt": [212, 126],
+         "zh": "", "zhSub": "", "en": "Stop! Now straight down!"}
+      ],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    },
+    "k": {
+      "beats": [
+        {"stroke": 0, "until": 1.0, "seconds": 1.2,
+         "zh": "", "zhSub": "", "en": "Down from the top!"},
+        {"stroke": 1, "until": {"point": [52, 208], "pass": 1}, "seconds": 0.8,
+         "zh": "", "zhSub": "", "en": "Kick in, stop!"},
+        {"stroke": 1, "until": 1.0, "seconds": 0.8,
+         "zh": "", "zhSub": "", "en": "Then kick out!"}
+      ],
+      "merge": {"zh": "", "zhSub": "", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 1, "point": [52, 208], "pass": 1, "sign": "stop", "signAt": [-20, 214],
+         "zh": "", "zhSub": "", "en": "Stop! Now kick out!"}
+      ],
+      "hop": {"zh": "", "zhSub": "", "en": "Now kick in, kick out!"},
+      "hopArcSide": "right",
+      "lastStroke": {"zh": "", "zhSub": "", "en": "Last one: in and out!", "enSub": "jump across first"}
+    },
+    "o": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [152, 200], "pass": 1}, "seconds": 1.5,
+         "zh": "", "zhSub": "", "en": "Round like a c..."},
+        {"stroke": 0, "until": 1.0, "seconds": 0.7,
+         "zh": "", "zhSub": "", "en": "Up and close it!"}
+      ],
+      "merge": {"zh": "", "zhSub": "", "en": "Your turn!"},
+      "cues": [],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    },
+    "u": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [148, 216], "pass": 1}, "seconds": 1.3,
+         "zh": "", "zhSub": "", "en": "Down and round..."},
+        {"stroke": 0, "until": {"point": [148, 130], "pass": 1}, "seconds": 0.7,
+         "zh": "", "zhSub": "", "en": "Up the side, stop!"},
+        {"stroke": 0, "until": 1.0, "seconds": 0.9,
+         "zh": "", "zhSub": "", "en": "Straight back down!"}
+      ],
+      "merge": {"zh": "", "zhSub": "", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 0, "point": [148, 130], "pass": 1, "sign": "stop", "signAt": [212, 126],
+         "zh": "", "zhSub": "", "en": "Stop! Now straight down!"}
+      ],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    }
+  },
+  "copy": {
+    "watchFirst":  {"zh": "", "zhSub": "", "en": "Now write {L}! Watch the car first!", "enSub": ""},
+    "yourTurn":    {"zh": "", "zhSub": "", "en": "Your turn! Follow the arrows and write {L}!", "enSub": ""},
+    "trayDemo":    {"zh": "", "zhSub": "", "en": "Watch the car first!", "enSub": "then it's your turn"},
+    "trayTrace":   {"zh": "", "zhSub": "", "en": "Keep going!", "enSub": "follow the white arrows"},
+    "trayStall":   {"zh": "", "zhSub": "", "en": "See where the car goes", "enSub": "then carry on from your car"},
+    "legendDemoCar":     {"zh": "", "zhSub": "", "en": "Demo car", "enSub": "watch it once"},
+    "legendRoute":       {"zh": "", "zhSub": "", "en": "Route", "enSub": "where it went"},
+    "legendHeadlights":  {"zh": "", "zhSub": "", "en": "Headlights", "enSub": "which way next"},
+    "legendAhead":       {"zh": "", "zhSub": "", "en": "Keep going", "enSub": "go this way"},
+    "legendStop":        {"zh": "", "zhSub": "", "en": "Stop", "enSub": "stop, then turn"},
+    "legendStrokeOrder": {"zh": "", "zhSub": "", "en": "Line order", "enSub": "1 first, then 2"},
+    "legendHop":         {"zh": "", "zhSub": "", "en": "Hop", "enSub": "on to the next line"},
+    "stopWord": {"zh": "", "en": "STOP"},
+    "redemo": {"zh": "", "zhSub": "", "en": "Let's watch the car again!"},
+    "parent": {
+      "title": "描字母提示 · Letter tracing help",
+      "more": "多啲：次次先睇示範；卡住 1 秒就幫 · More: a demo every time; help after 1 s",
+      "standard": "標準：示範到識寫為止；車頭燈、路牌同口訣；卡住 2 秒就幫 · Standard: demo until learned; headlights, signs and rhymes; help after 2 s",
+      "less": "少啲：冇示範、冇車頭燈；卡住 8 秒先幫 · Less: no demo or headlights; help after 8 s",
+      "learnedNote": "識寫咗 = 同一個字母連續 2 次冇提示寫完；一卡住就變返學緊；級數同描數字共用 · Learned = written twice in a row with no help; one stall brings the help back; same level as number tracing",
+      "moreShort": "多啲", "standardShort": "標準", "lessShort": "少啲"
+    }
+  },
+  "styles": {"route": {"glow": "#FFF3A6", "glowWidth": 19, "core": "#FFB534", "coreWidth": 6, "dash": [9, 7]},
+             "beam": {"outer": "#FFF6C8", "outerWidth": 30, "inner": "#FFE680", "innerWidth": 12, "innerOpacity": 0.55},
+             "hopArc": {"stroke": "#2B2630", "width": 6, "dash": [1, 13]},
+             "fadedStrokeOpacity": 0.35, "stallRing": {"radius": 40, "fill": "#FFF1A8", "stroke": "#F5B82E"},
+             "litGlow": {"color": "#FFF3A6", "width": 58, "opacity": 0.7, "seconds": 0.5},
+             "letterBoard": {"laneScale": 0.61, "carScale": 0.6, "noseUnits": 42, "chevScale": 0.7,
+                             "laneDotSpacing": 30, "stopSignScale": 0.8, "aheadSignScale": 1.0}}
+}

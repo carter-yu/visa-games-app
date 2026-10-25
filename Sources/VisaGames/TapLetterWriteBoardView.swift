@@ -6,6 +6,8 @@ struct TapLetterWriteBoardView: View {
     let round: TapLetterWriteRound
     let guide: String
     let demoStartedAt: Double
+    let guideRun: TapCountGuideRun?
+    let now: Double
     let bubble: String?
     let onDown: (LineMatchPoint) -> Bool
     let onMove: (LineMatchPoint) -> Void
@@ -14,7 +16,7 @@ struct TapLetterWriteBoardView: View {
 
     var body: some View {
         CanvasStage { LineMatchBackdrop() } content: {
-            TapLetterWriteStage(round: round, guide: guide, demoStartedAt: demoStartedAt, bubble: bubble,
+            TapLetterWriteStage(round: round, guide: guide, demoStartedAt: demoStartedAt, guideRun: guideRun, now: now, bubble: bubble,
                 onDown: onDown, onMove: onMove, onUp: onUp, onReprompt: onReprompt)
         }
     }
@@ -24,6 +26,8 @@ private struct TapLetterWriteStage: View {
     let round: TapLetterWriteRound
     let guide: String
     let demoStartedAt: Double
+    let guideRun: TapCountGuideRun?
+    let now: Double
     let bubble: String?
     let onDown: (LineMatchPoint) -> Bool
     let onMove: (LineMatchPoint) -> Void
@@ -33,11 +37,23 @@ private struct TapLetterWriteStage: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var started = false
     @State private var swallowed = false
+    @State private var cueShownAt: [Int: Double] = [:]
 
     private var letter: String { round.board.deal.target }
     private var trace: ShapeTraceBoard { round.trace }
     private var paths: [TracePath] { trace.shapes.first?.strokes ?? [] }
     private var teal: Color { Color(hex: 0x168F96) }
+    private var glyphGuide: NumeralGuide? { letter.first.flatMap { NumeralGuide(letter: $0) } }
+    private var timeline: TapCountDemoTimeline? { glyphGuide.map { TapCountDemoTimeline(guide: $0) } }
+    private var demoPending: Bool { guideRun?.demoPending(now: now) == true && round.demoActive }
+    private var activeCueIndex: Int? {
+        guard !demoPending, let glyphGuide else { return nil }
+        return TapCountGuideCoach.activeCue(guide: glyphGuide, trace: trace)?.index
+    }
+    private var help: TapCountGuideHelp {
+        guard let run = guideRun, let glyphGuide, !demoPending, !trace.isComplete else { return .none }
+        return TapCountGuideCoach.help(plan: run.plan, guide: glyphGuide, trace: trace, readyAt: run.readyAt, now: now)
+    }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -65,14 +81,20 @@ private struct TapLetterWriteStage: View {
                         swallowed = false
                     })
                 .canvasPlaced(x: 395, y: 113)
-            if let bubble {
-                CanvasText(bubble, size: 24, weight: 900)
-                    .padding(metrics.u(12))
-                    .background(RoundedRectangle(cornerRadius: metrics.u(18)).fill(.white))
-                    .canvasPlaced(x: 465, y: 65)
+            if let guideRun, let timeline, let t = guideRun.demoTime(now: now), t >= 0,
+               let beat = timeline.beat(at: t), let glyphGuide, glyphGuide.spec.beats.indices.contains(beat) {
+                engineBubble(glyphGuide.spec.beats[beat].line.en)
+            } else if let guideRun, let timeline, let t = guideRun.demoTime(now: now),
+                      t >= timeline.mergeStart, let glyphGuide {
+                engineBubble(glyphGuide.spec.merge.en)
+            } else if let bubble {
+                engineBubble(bubble)
             }
         }
-        .onAppear(perform: onReprompt)
+        .onAppear { if guideRun == nil { onReprompt() } }
+        .onChange(of: activeCueIndex) { index in
+            if let index, cueShownAt[index] == nil { cueShownAt[index] = Date().timeIntervalSinceReferenceDate }
+        }
     }
 
     private var header: some View {
@@ -81,7 +103,8 @@ private struct TapLetterWriteStage: View {
                 VectorArtView(artwork: CanvasArt.stampy)
                     .frame(width: metrics.u(80), height: metrics.u(80))
             }.buttonStyle(.plain)
-            CanvasText(round.canStamp ? "You wrote" : "Now write", size: 43, weight: 900)
+            CanvasText(round.canStamp ? "You wrote" : (demoPending && guide == "car" ? "Watch the car write" : "Now write"),
+                       size: demoPending && guide == "car" ? 31 : 43, weight: 900)
             LatinLetterGlyph(letter: letter, ink: .ink, lineWidth: 26)
                 .frame(width: metrics.u(48), height: metrics.u(75))
             CanvasText("!", size: 43, weight: 900)
@@ -135,29 +158,33 @@ private struct TapLetterWriteStage: View {
                 let path = paths[index]
                 let visible = index <= trace.strokeIndex || trace.isComplete
                 drawn(path)
-                    .stroke(teal.opacity(visible ? 0.23 : 0.08),
-                            style: StrokeStyle(lineWidth: metrics.u(CGFloat(LatinGlyphs.laneInkWidth)),
-                                               lineCap: .round, lineJoin: .round, dash: [metrics.u(2), metrics.u(12)]))
+                    .stroke(Color(hex: 0xE7E4E8).opacity(visible ? 1 : 0.35),
+                            style: StrokeStyle(lineWidth: metrics.u(CGFloat(NumeralGlyphs.laneWidth * 0.92 * LetterGuideData.board.laneScale)), lineCap: .round, lineJoin: .round))
+                drawn(path)
+                    .stroke(Color(hex: 0xB4AEB5).opacity(visible ? 0.9 : 0.35),
+                            style: StrokeStyle(lineWidth: metrics.u(4), lineCap: .round,
+                                               dash: [metrics.u(1), metrics.u(CGFloat(LetterGuideData.board.laneDotSpacing - 1))]))
                 drawn(path)
                     .trim(from: 0, to: fraction(index, path))
                     .stroke(teal, style: StrokeStyle(lineWidth: metrics.u(17), lineCap: .round, lineJoin: .round))
             }
+            guidanceLayer
             if let path = trace.currentPath {
-                marker(path.start, green: true, angle: path.angle(at: 0))
+                if trace.progress < 1 || !["a", "d", "g", "e"].contains(letter) {
+                    marker(path.start, green: true, angle: path.angle(at: 0))
+                } else {
+                    Circle().stroke(Color.green, lineWidth: metrics.u(5))
+                        .frame(width: metrics.u(24), height: metrics.u(24))
+                        .position(x: metrics.u(CGFloat(path.start.x)), y: metrics.u(CGFloat(path.start.y)))
+                }
                 marker(path.end, green: false, angle: path.angle(at: path.length))
-            }
-            if trace.isAtCorner, trace.currentPath?.cusps.contains(where: { abs($0 - trace.progress) < 0.5 }) == true {
-                CanvasText("STOP", size: 20, weight: 900)
-                    .padding(metrics.u(6))
-                    .background(RoundedRectangle(cornerRadius: metrics.u(8)).fill(.red))
-                    .canvasPlaced(x: 745, y: 145)
             }
             demoLayer
         }
     }
 
     @ViewBuilder private var demoLayer: some View {
-        if round.demoActive, let character = letter.first, let glyph = StrokeGlyph.latin(character) {
+        if round.demoActive, guide == "glance", let character = letter.first, let glyph = StrokeGlyph.latin(character) {
             let dosage: StrokeOrderDosage = guide == "glance" ? .glance : .teach
             let timeline = StrokeOrderTimeline(glyph: glyph, dosage: dosage)
             TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
@@ -171,12 +198,6 @@ private struct TapLetterWriteStage: View {
                     if guide == "glance" {
                         StrokeOrderDrawing.pen(timeline, at: t, reduceMotion: reduceMotion, place: place,
                                                nibColour: 0x168F96, penScale: 0.85, in: &g)
-                    } else {
-                        let pose = timeline.pose(at: t, reduceMotion: reduceMotion)
-                        let path = glyph.strokes[pose.stroke].path
-                        let point = place.point(path.point(at: pose.distance))
-                        TapCountDrawing.place(TapCountArt.guideGhostCar, at: point, scale: 0.72,
-                                              angle: path.angle(at: pose.distance), in: &g)
                     }
                 }
             }
@@ -184,6 +205,52 @@ private struct TapLetterWriteStage: View {
             .allowsHitTesting(false)
             .accessibilityHidden(true)
         }
+    }
+
+    @ViewBuilder private var guidanceLayer: some View {
+        if let glyphGuide, let run = guideRun {
+            TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+                let clock = context.date.timeIntervalSinceReferenceDate
+                let currentHelp = demoPending ? TapCountGuideHelp.none :
+                    TapCountGuideCoach.help(plan: run.plan, guide: glyphGuide, trace: trace, readyAt: run.readyAt, now: clock)
+                let cue = demoPending || !run.plan.cueSigns ? nil : TapCountGuideCoach.activeCue(guide: glyphGuide, trace: trace)
+                let draw = TapCountGuideDraw(plan: run.plan, numeral: glyphGuide, demo: demoPending,
+                    headlights: demoPending ? [] : TapCountGuideCoach.headlights(plan: run.plan, guide: glyphGuide, trace: trace),
+                    cue: cue, popAt: cue.flatMap { cueShownAt[$0.index] }, stopWord: "STOP", reduceMotion: reduceMotion, now: clock)
+                let state = TapCountGuideMotionState(numeral: glyphGuide, timeline: timeline, run: run, trace: trace,
+                    help: currentHelp, wiggleAt: nil, reduceMotion: reduceMotion,
+                    board: LineMatchRect(x: 440, y: 126, width: 400, height: 408), stopWord: "STOP")
+                Canvas { canvas, _ in
+                    var g = canvas
+                    g.scaleBy(x: metrics.scale, y: metrics.scale)
+                    if let path = trace.currentPath, !demoPending {
+                        TapCountDrawing.guideHeadlights(draw, path: path, progress: trace.progress, scale: 1, in: &g)
+                        if let cue { TapCountDrawing.guideCueSign(cue, guide: draw, in: &g) }
+                    }
+                    if demoPending {
+                        TapCountDrawing.guideWatchBadge(board: CGRect(x: 440, y: 126, width: 400, height: 408), in: &g)
+                    }
+                    TapCountDrawing.guideMotion(state, now: clock, in: &g)
+                }
+            }
+            .frame(width: metrics.u(1280), height: metrics.u(720))
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+    }
+
+    private func engineBubble(_ line: String) -> some View {
+        HStack(spacing: metrics.u(6)) {
+            VectorArtView(artwork: TapCountArt.speaker)
+                .frame(width: metrics.u(27), height: metrics.u(27))
+            CanvasText(line, size: 20, weight: 900)
+                .lineLimit(2)
+        }
+        .frame(width: metrics.u(266), height: metrics.u(104))
+        .background(RoundedRectangle(cornerRadius: metrics.u(25)).fill(.white))
+        .overlay(RoundedRectangle(cornerRadius: metrics.u(25)).strokeBorder(Color.ink, lineWidth: metrics.u(4)))
+        .canvasPlaced(x: 164, y: 418)
+        .allowsHitTesting(false)
     }
 
     private func drawn(_ path: TracePath) -> Path {
@@ -203,11 +270,17 @@ private struct TapLetterWriteStage: View {
     }
 
     private func marker(_ point: LineMatchPoint, green: Bool, angle: Double) -> some View {
-        Image(systemName: "arrow.right.circle.fill")
-            .font(.system(size: metrics.u(30)))
-            .foregroundStyle(green ? Color.green : Color.red)
+        VectorArtView(artwork: green ? ShapeTraceArt.go : ShapeTraceArt.end)
+            .frame(width: metrics.u(48), height: metrics.u(48))
             .rotationEffect(.radians(angle))
             .position(x: metrics.u(CGFloat(point.x)), y: metrics.u(CGFloat(point.y)))
+    }
+
+    private func legend(_ art: CanvasArtwork, _ title: String) -> some View {
+        HStack(spacing: metrics.u(3)) {
+            VectorArtView(artwork: art).frame(width: metrics.u(27), height: metrics.u(27))
+            CanvasText(title, size: 15, weight: 800)
+        }
     }
 
     private var tray: some View {
@@ -219,8 +292,13 @@ private struct TapLetterWriteStage: View {
             CanvasText("Write", size: 22, weight: 900)
             LatinLetterGlyph(letter: letter, ink: .ink, lineWidth: 24)
                 .frame(width: metrics.u(24), height: metrics.u(42))
-            CanvasText(round.canStamp ? "Next: your stamp!" : "Keep going!", size: 24, weight: 900)
-            CanvasText("Nothing to get wrong", size: 18, weight: 700)
+            VStack(alignment: .leading) {
+                CanvasText(round.canStamp ? "Next: your stamp!" : (demoPending ? LetterGuideData.copy.trayDemo.en : (help == .none ? LetterGuideData.copy.trayTrace.en : LetterGuideData.copy.trayStall.en)), size: 22, weight: 900)
+                CanvasText(demoPending ? LetterGuideData.copy.trayDemo.enSub : (help == .none ? LetterGuideData.copy.trayTrace.enSub : LetterGuideData.copy.trayStall.enSub), size: 16, weight: 700)
+            }
+            if guideRun?.plan.headlights == true { legend(TapCountArt.guideChev, "Headlights") }
+            if glyphGuide?.cues.contains(where: { $0.sign == .ahead }) == true { legend(TapCountArt.guideAhead, "Keep going") }
+            if glyphGuide?.cues.contains(where: { $0.sign == .stop }) == true { legend(TapCountArt.guideStop, "Stop") }
         }
         .frame(width: metrics.u(1010), height: metrics.u(125))
         .background(RoundedRectangle(cornerRadius: metrics.u(24)).fill(Color(hex: DesignTokens.Palette.paper)))

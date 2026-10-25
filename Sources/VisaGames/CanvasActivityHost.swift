@@ -426,6 +426,8 @@ struct CanvasActivityHost: View {
                round.phase == .writing || round.phase == .done {
                 TapLetterWriteBoardView(round: round, guide: model.tapLetterWriteGuide,
                     demoStartedAt: model.tapLetterWriteDemoStartedAt,
+                    guideRun: model.tapLetterGuideRun,
+                    now: model.now.timeIntervalSinceReferenceDate,
                     bubble: model.tapLetterBubble,
                     onDown: { model.tapLetterWritePenDown($0) },
                     onMove: { model.tapLetterWritePenMove($0) },
