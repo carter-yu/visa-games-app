@@ -1,5 +1,31 @@
 # Progress
 
+## 2026-10-25 — Weekly report W1: weekly index and metrics (VisaCore, draft PR source)
+
+- Branch `feat/weekly-report-W1` from main `e2c3e2a`. Scope is design `visa-games-design/weekly-report/design.md` §12 W1 (§4.1–4.9, §9.6; D1–D13 locked 2026-10-24 HKT). ADR 0021 records the choices made where the design left room.
+- New VisaCore files: `WeeklyWindow.swift`, `WeeklyMetrics.swift`, `WeeklyJSON.swift`.
+  - Window: `WeeklyWindow` runs Monday 00:00 to Sunday 24:00 in `Asia/Hong_Kong`, on a Gregorian, Monday-first, POSIX calendar, with a `dataUntil` cut-off.
+  - Round index: each `game_dealt` joined to its last `round_result` seen by the cut-off. A deal without a result is either open or lost.
+  - Reused unchanged: `PerfCodec.ordered`, `PerfFilter` (countable and excluded sessions), `isPracticeOnly` and `PerfMastery`.
+  - Metrics: quiz and practice rows; per-round chance (the written `game_dealt.chance`, else the §4.3 rebuild, else the catalog); §4.4 quiz metrics; §4.5 smooth rules and help-heavy.
+  - Time (§4.6): game minutes capped at 10 per round; a missing `video_end` falls back to the last `video_progress`.
+  - Also: §4.7 sessions and days, §4.8 totals, §4.9 new kinds (raw records plus rollup, reset by `stats_marker{cleared}`), the §7.2 area map, practice families, the previous week, trend weeks, and `WeeklyModel.canonicalJSON()`.
+- Golden fixture `Tests/VisaCoreTests/Fixtures/weekly-2026-10-19/`:
+  - Synthetic HKT day files for 2026-10-08 to 10-25: 274 records and 1 torn line, plus a rollup with 2 days.
+  - `expected-metrics.json` comes from the independent `reference_model.py`; `make_fixture.py` generates the records; the README states the encoding rules.
+  - Cases: parent_uat; playtest; a session excluded then re-included after the cut-off; a session that stays excluded; a round crossing midnight HKT; Sunday 23:59:59 vs Monday 00:00; the version change 0.33.1 → 0.34.0; a config change; tapCountTrace with and without `guide_clean`; an unknown event type and unknown kinds; a missing `video_end` after a power cut; a crash mid-round; a round open at the cut-off; a 15-minute walk-away round.
+- Six weekly-metrics checks, registered in `VisaCoreChecks` with the PASS banner updated: `testPracticeNeverInFirstTry`, `testPerRoundChance`, `testGameMinutesCap`, `testNewGameUsesRollup`, `testWeeklyGoldenFixtureByteForByte` and `testWeeklyModel35kEventsUnderBudget` (35,100 events, < 300 ms, prints the measured time). `Package.swift` excludes `Fixtures` from the check target.
+- Checked on this box:
+  - Regenerating the fixture and the expected file gave identical bytes.
+  - The reference's quiz estimates match `mockups/weekly_model.py` within 6-decimal rounding.
+  - `git diff --check` passed.
+- Not run: Swift is not installed on this Linux box (`which swift` finds nothing). `sh scripts/test.sh` needed sandbox approval and was not run. No Swift compile, golden match or timing result is claimed. Mac mini `sh scripts/test.sh` and `sh scripts/bundle.sh` are pending.
+- No family-visible change: the version stays 0.34.0 / 70, as for the letter-tap L0/L1 core slices. No UI, recording, settings or kiosk change. Writing `game_dealt.chance` is deferred (ADR 0021). The OS escape-path inventory remains in `docs/phase-0-kiosk-checklist.md`.
+
+## 2026-10-25 — v0.34.0 / 70 merged
+
+- The letter mid-stroke guide and the letter playtest week rotation are on main via #34 (`fb03304`) and #35 (`e2c3e2a`). As reported for this entry: Mac mini test and bundle exited 0, and Carter's UAT was OK at 2026-10-25 12:13 HKT. Neither was re-run on this box.
+
 ## 2026-10-25 — v0.34.0 / 70 — Letter mid-stroke guidance (draft PR source)
 
 - Copied the locked letter guidance JSON without edits and generated English-only Swift data for a, b, c, d, e, g, k, o and u. Regenerating `TapCountGuideData.swift` from the numeral spec produced a byte-identical file.
