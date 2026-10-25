@@ -41,20 +41,22 @@ struct LatinLetterGlyph: View {
 
 struct TapLetterBoardView: View {
     let board: TapLetterBoard
+    let isWrite: Bool
     let pendingMinutes: Int
     let fuelBefore: Int
     let thinkPauseRemaining: Int
     let bubble: String?
     let celebrating: Bool
+    let strokeReveal: StrokeOrderReveal?
     let plaqueNudge: Bool
     let onTap: (Int) -> Void
     let onReprompt: () -> Void
 
     var body: some View {
         CanvasStage { LineMatchBackdrop() } content: {
-            TapLetterStageContent(board: board, pendingMinutes: pendingMinutes, fuelBefore: fuelBefore,
+            TapLetterStageContent(board: board, isWrite: isWrite, pendingMinutes: pendingMinutes, fuelBefore: fuelBefore,
                                   thinkPauseRemaining: thinkPauseRemaining, bubble: bubble,
-                                  celebrating: celebrating, plaqueNudge: plaqueNudge,
+                                  celebrating: celebrating, strokeReveal: strokeReveal, plaqueNudge: plaqueNudge,
                                   onTap: onTap, onReprompt: onReprompt)
         }
     }
@@ -62,11 +64,13 @@ struct TapLetterBoardView: View {
 
 private struct TapLetterStageContent: View {
     let board: TapLetterBoard
+    let isWrite: Bool
     let pendingMinutes: Int
     let fuelBefore: Int
     let thinkPauseRemaining: Int
     let bubble: String?
     let celebrating: Bool
+    let strokeReveal: StrokeOrderReveal?
     let plaqueNudge: Bool
     let onTap: (Int) -> Void
     let onReprompt: () -> Void
@@ -84,6 +88,7 @@ private struct TapLetterStageContent: View {
                                       y: CGFloat(136 + (index / 5) * 206))
                 }
                 tray
+                strokeRevealLayer
                 if let bubble {
                     bubbleLine(bubble)
                         .padding(metrics.u(12))
@@ -94,8 +99,44 @@ private struct TapLetterStageContent: View {
         .onAppear(perform: onReprompt)
         .onChange(of: celebrating) { value in
             if value {
-                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.8)) { paintProgress = 1 }
+                if strokeReveal == nil {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.8)) { paintProgress = 1 }
+                }
             } else { paintProgress = 0 }
+        }
+    }
+
+    @ViewBuilder private var strokeRevealLayer: some View {
+        if let reveal = strokeReveal, let character = board.deal.target.first,
+           let glyph = StrokeGlyph.latin(character) {
+            let timeline = StrokeOrderTimeline(glyph: glyph, dosage: reveal.dosage)
+            TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+                let now = context.date.timeIntervalSinceReferenceDate
+                Canvas { canvas, _ in
+                    var g = canvas
+                    g.scaleBy(x: metrics.scale, y: metrics.scale)
+                    let glyphScale = 142.0 / 380.0
+                    let place = StrokeOrderDrawing.Placement(
+                        offset: LineMatchPoint(x: 416 + (120 - 190 * glyphScale) / 2, y: 555), scale: glyphScale)
+                    if reveal.writing(now: now) {
+                        let t = max(0, now - reveal.startedAt)
+                        StrokeOrderDrawing.ink(timeline, at: t, reduceMotion: reduceMotion, place: place,
+                                               colour: Color(hex: 0x168F96), outline: 35, core: 27, in: &g)
+                        StrokeOrderDrawing.pen(timeline, at: t, reduceMotion: reduceMotion, place: place,
+                                               nibColour: 0x168F96, penScale: 0.55, in: &g)
+                    } else if now >= reveal.endsAt(now: now) {
+                        StrokeOrderDrawing.ink(timeline, at: nil, reduceMotion: reduceMotion, place: place,
+                                               colour: Color(hex: 0x168F96), outline: 35, core: 27, in: &g)
+                        if !reduceMotion && now - reveal.endsAt(now: now) < 0.25 {
+                            let flash = CGRect(x: 416, y: 555, width: 120, height: 142)
+                            g.fill(Path(roundedRect: flash, cornerRadius: 15), with: .color(.white.opacity(0.35)))
+                        }
+                    }
+                }
+            }
+            .frame(width: metrics.u(1280), height: metrics.u(720))
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
         }
     }
 
@@ -133,7 +174,7 @@ private struct TapLetterStageContent: View {
             Spacer()
             VStack {
                 CanvasText("ABC", size: 23, weight: 900)
-                CanvasText("Find & flip", size: 14, weight: 800)
+                CanvasText(isWrite ? "Find & write" : "Find & flip", size: 14, weight: 800)
             }
             .padding(metrics.u(9))
             .background(RoundedRectangle(cornerRadius: metrics.u(14)).fill(Color(hex: DesignTokens.Palette.sunny)))
@@ -207,7 +248,7 @@ private struct TapLetterStageContent: View {
                 ZStack {
                     LatinLetterGlyph(letter: board.deal.target, ink: .ink, lineWidth: 28)
                     LatinLetterGlyph(letter: board.deal.target, ink: Color(hex: 0x168F96),
-                                     lineWidth: 28, reveal: paintProgress)
+                                     lineWidth: 28, reveal: strokeReveal == nil ? paintProgress : 0)
                 }
                 .frame(width: metrics.u(120), height: metrics.u(142))
                 .background(RoundedRectangle(cornerRadius: metrics.u(15)).fill(Color(hex: DesignTokens.Palette.sunny)))

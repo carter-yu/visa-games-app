@@ -119,7 +119,7 @@ public enum QuestionGeneration {
         .countVehicles, .findTheSame, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch,
         .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree,
         .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish,
-        .tapLetterAll
+        .tapLetterAll, .tapLetterWrite
     ]
 
     public static let maxRerolls = 8

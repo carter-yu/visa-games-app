@@ -265,6 +265,7 @@ final class PerformanceRecordTests {
         expectEqual(PerfChoiceCatalog.asset(kind: .countVehicles, choice: "count-2"), nil)
         expectEqual(PerfChoiceCatalog.correctChoice(for: .sequenceShortToLong), nil)
         expectEqual(PerfChoiceCatalog.correctChoice(for: .tapLetterAll), nil)
+        expectEqual(PerfChoiceCatalog.correctChoice(for: .tapLetterWrite), nil)
     }
 
     func testActorRuleCountableAndParentExclusion() {
@@ -535,8 +536,8 @@ final class PerformanceRecordTests {
         }
         let version = plistValue("CFBundleShortVersionString") ?? "?"
         expectTrue(view.contains("static let versionLabel = \"Visa Games v\(version)\""))
-        expectEqual(version, "0.32.0")
-        expectEqual(plistValue("CFBundleVersion"), "67")
+        expectEqual(version, "0.33.0")
+        expectEqual(plistValue("CFBundleVersion"), "68")
         guard let start = view.range(of: "private func advancedSection("),
               let end = view.range(of: "private var advancedContent", range: start.upperBound..<view.endIndex) else {
             expectTrue(false)

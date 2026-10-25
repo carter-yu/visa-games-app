@@ -100,7 +100,7 @@ struct CanvasActivityHost: View {
                 shapeTrace
             case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
                 tapCount
-            case .tapLetterAll:
+            case .tapLetterAll, .tapLetterWrite:
                 tapLetter
             case .none:
                 EmptyView()
@@ -422,14 +422,27 @@ struct CanvasActivityHost: View {
     @ViewBuilder
     private var tapLetter: some View {
         if let board = model.currentTapLetterBoard {
-            TapLetterBoardView(board: board, pendingMinutes: pendingMinutes,
+            if shownKind == .tapLetterWrite, let round = model.tapLetterWriteRound,
+               round.phase == .writing || round.phase == .done {
+                TapLetterWriteBoardView(round: round, guide: model.tapLetterWriteGuide,
+                    demoStartedAt: model.tapLetterWriteDemoStartedAt,
+                    bubble: model.tapLetterBubble,
+                    onDown: { model.tapLetterWritePenDown($0) },
+                    onMove: { model.tapLetterWritePenMove($0) },
+                    onUp: { model.tapLetterWritePenUp() },
+                    onReprompt: { model.speakTapLetterPrompt() })
+            } else {
+            TapLetterBoardView(board: board, isWrite: shownKind == .tapLetterWrite,
+                               pendingMinutes: pendingMinutes,
                                fuelBefore: model.tapLetterFuelBefore,
                                thinkPauseRemaining: thinkRemaining,
                                bubble: model.tapLetterBubble,
                                celebrating: model.tapLetterCelebrating,
+                               strokeReveal: model.tapLetterStrokeReveal,
                                plaqueNudge: model.tapLetterPlaqueNudge,
                                onTap: { model.tapLetterTap(card: $0) },
                                onReprompt: { model.speakTapLetterPrompt() })
+            }
         }
     }
 

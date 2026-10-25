@@ -1,5 +1,20 @@
 # Progress
 
+## 2026-10-25 — 0.33.0 / 68 — L3/L2 letter stroke-order parity hotfix (draft PR #33)
+
+- Carter UAT screenshots found that Find & flip lacked the numeral-style smiley pen on the letter plaque and Find & write used SF Symbol-only guidance over the first path. This source hotfix on `feat/letter-tap-L3-tapLetterWrite-ui` adds Latin stroke-order reveal, teal ink and flash before the stamp or writing transition, and a timeline-driven car demo or silent pen glance on the writing board.
+- The reveal uses the existing parent tap-count stroke-order setting and 2.4-second fallback. The writing demo retains the English mnemonic and first-touch dismissal. Plaque tap replay remains a prompt replay, not a pen replay. ADR 0019 records the parity mapping.
+- Focused VisaCoreChecks cover Latin a–e timeline duration, reveal transition timing, dosage, and the existing find-to-write phase. `git diff --check` passed. `sh scripts/test.sh` and `sh scripts/bundle.sh` each exited 127 (`swift: not found`) on Linux. Mac mini, TV, Wacom, and household UAT remain pending; PR #33 is unmerged.
+
+## 2026-10-25 — v0.33.0 / 68 — L3 Find & write source (draft review)
+
+- Mac mini `VisaCoreChecks` failed on stale catalog/kind count assertions (24→25); the test-only hotfix was pushed to draft PR #33. Mac mini retest, install, and UAT remain pending.
+- Branch `feat/letter-tap-L3-tapLetterWrite-ui` is based on main `e936b57`. It adds a separate default-off, playtest-gated ★★ Find & write card. The child finds and flips both target cards, then traces the same lowercase letter on a four-line board before the existing stamp and visa handoff.
+- Writing reuses the monotonic shape-trace model and LWT letter paths. Pen events do not call `WrongAnswerPolicy` or deduct visa minutes. English writing prompts, a–e mnemonics, a writing-progress store, and the parent Hong Kong Traditional Chinese / English title, help, and suggested ★★ badge are included. The parent ball-stick toggle is not wired in this slice.
+- `Resources/Info.plist` and the parent version label are 0.33.0 / build 68; the version test asserts both fields. ADR 0019 records the boundary. The existing macOS escape-path inventory remains in `docs/phase-0-kiosk-checklist.md`.
+- `git diff --check` passed. `sh scripts/test.sh` and `sh scripts/bundle.sh` each exited 127 (`swift: not found`) on this Linux workspace; no Swift compile or test pass is claimed.
+- Mac mini Swift build and tests, Wacom input, TV display, household UAT, and N1–N9 verification have not been run for this slice.
+
 ## 2026-10-24 — StrokeGlyph integration compile fix (draft PR #32)
 
 - On `integration/letter-tap-L2-stroke-order`, removed the duplicate `StrokeScript`, `StrokeGlyph`, and digit adapter from `LatinGlyphs.swift`. `StrokeOrder.swift` owns the canonical type and unchanged digit factory; its initializer now provides default LWT order and empty alternates. The Latin factory remains in a `StrokeGlyph` extension with the same authored paths and alternates. Equality now compares all stored glyph metadata.
