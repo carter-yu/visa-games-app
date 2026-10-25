@@ -1,0 +1,103 @@
+{
+  "days": {
+    "2026-06-30": {
+      "games": {
+        "capacityCompare|1": {
+          "abandoned": 0,
+          "active_hist": [
+            2,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "active_ms": 9000,
+          "answered": 2,
+          "deals": 2,
+          "first_try": 2,
+          "hinted": 0,
+          "misses": 0,
+          "solved": 2,
+          "zeroed": 0
+        },
+        "halfMatch|1": {
+          "abandoned": 0,
+          "active_hist": [
+            1,
+            2,
+            0,
+            0,
+            0,
+            0
+          ],
+          "active_ms": 21000,
+          "answered": 3,
+          "deals": 3,
+          "first_try": 2,
+          "hinted": 0,
+          "misses": 1,
+          "solved": 3,
+          "zeroed": 0
+        }
+      },
+      "multi_page_visits": 0,
+      "paged_visits": 0,
+      "uncounted_plays": 0,
+      "uncounted_rounds": 0,
+      "videos": {}
+    },
+    "2026-07-02": {
+      "games": {
+        "lineMatch|1|variants_v1|guided": {
+          "abandoned": 0,
+          "active_hist": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "active_ms": 0,
+          "answered": 0,
+          "deals": 1,
+          "first_try": 0,
+          "hinted": 0,
+          "misses": 0,
+          "solved": 1,
+          "zeroed": 0
+        },
+        "tapLetterWrite|1": {
+          "abandoned": 0,
+          "active_hist": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "active_ms": 0,
+          "answered": 0,
+          "deals": 0,
+          "first_try": 0,
+          "hinted": 0,
+          "misses": 0,
+          "solved": 0,
+          "zeroed": 0
+        }
+      },
+      "multi_page_visits": 0,
+      "paged_visits": 0,
+      "uncounted_plays": 0,
+      "uncounted_rounds": 1,
+      "videos": {}
+    }
+  },
+  "folded_days": [
+    "2026-06-30",
+    "2026-07-02"
+  ],
+  "rollup_schema": 2
+}
