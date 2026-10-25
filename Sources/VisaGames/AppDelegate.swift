@@ -4109,7 +4109,7 @@ extension AppModel {
         let glanceDuration = reason != nil && !plan.demo && tapCountSettings.strokeOrder != .off
             ? glanceGlyph.map { StrokeOrderTimeline(glyph: $0, dosage: .glance).duration } ?? 0 : 0
         let timeline = glyphGuide.map { TapCountDemoTimeline(guide: $0) }
-        tapLetterGuideRun = glyphGuide.map {
+        tapLetterGuideRun = glyphGuide.map { _ in
             TapCountGuideRun(plan: plan, demoDuration: timeline?.duration ?? 0, now: clock,
                              demoLead: Self.tapCountGuideDemoLead, glanceDuration: glanceDuration)
         }
