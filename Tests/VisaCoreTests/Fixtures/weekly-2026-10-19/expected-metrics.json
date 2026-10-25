@@ -1,0 +1,3957 @@
+{
+  "builder": 1,
+  "current": {
+    "areas": [
+      {
+        "area": "numbers",
+        "practice_finished": 6,
+        "practice_rate": 0.666667,
+        "practice_rounds": 6,
+        "practice_smooth": 4,
+        "practice_smooth_defined": 6,
+        "quiz_adjusted": 0.395973,
+        "quiz_answered": 7,
+        "quiz_chance_mean": 0.290476,
+        "quiz_expected": 2.033333,
+        "quiz_expected_answered": 7,
+        "quiz_first_try": 4,
+        "quiz_rate": 0.571429,
+        "quiz_rounds": 7,
+        "rounds": 13
+      },
+      {
+        "area": "matching",
+        "practice_finished": 0,
+        "practice_rate": null,
+        "practice_rounds": 0,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_adjusted": 0.682119,
+        "quiz_answered": 9,
+        "quiz_chance_mean": 0.300926,
+        "quiz_expected": 2.708333,
+        "quiz_expected_answered": 9,
+        "quiz_first_try": 7,
+        "quiz_rate": 0.777778,
+        "quiz_rounds": 9,
+        "rounds": 9
+      },
+      {
+        "area": "comparing",
+        "practice_finished": 0,
+        "practice_rate": null,
+        "practice_rounds": 0,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_adjusted": 1.000000,
+        "quiz_answered": 5,
+        "quiz_chance_mean": 0.341667,
+        "quiz_expected": 1.708333,
+        "quiz_expected_answered": 5,
+        "quiz_first_try": 5,
+        "quiz_rate": 1.000000,
+        "quiz_rounds": 6,
+        "rounds": 6
+      },
+      {
+        "area": "pen",
+        "practice_finished": 6,
+        "practice_rate": 0.800000,
+        "practice_rounds": 7,
+        "practice_smooth": 4,
+        "practice_smooth_defined": 5,
+        "quiz_adjusted": null,
+        "quiz_answered": 0,
+        "quiz_chance_mean": null,
+        "quiz_expected": 0.000000,
+        "quiz_expected_answered": 0,
+        "quiz_first_try": 0,
+        "quiz_rate": null,
+        "quiz_rounds": 0,
+        "rounds": 7
+      },
+      {
+        "area": "letters",
+        "practice_finished": 0,
+        "practice_rate": null,
+        "practice_rounds": 0,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_adjusted": 1.000000,
+        "quiz_answered": 1,
+        "quiz_chance_mean": 0.022222,
+        "quiz_expected": 0.022222,
+        "quiz_expected_answered": 1,
+        "quiz_first_try": 1,
+        "quiz_rate": 1.000000,
+        "quiz_rounds": 1,
+        "rounds": 1
+      },
+      {
+        "area": "other",
+        "practice_finished": 1,
+        "practice_rate": null,
+        "practice_rounds": 1,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_adjusted": null,
+        "quiz_answered": 1,
+        "quiz_chance_mean": null,
+        "quiz_expected": 0.000000,
+        "quiz_expected_answered": 0,
+        "quiz_first_try": 1,
+        "quiz_rate": 1.000000,
+        "quiz_rounds": 1,
+        "rounds": 2
+      }
+    ],
+    "covered_days": 7,
+    "data_until": "2026-10-25T13:00:00.000Z",
+    "days": [
+      {
+        "date": "2026-10-19",
+        "game_min": 4.008333,
+        "index": 0,
+        "new_kinds": [
+          "traceShapesArrows"
+        ],
+        "plays": 1,
+        "practice_finished": 2,
+        "practice_min": 1.325000,
+        "practice_rounds": 2,
+        "practice_smooth": 2,
+        "practice_smooth_defined": 2,
+        "quiz_answered": 4,
+        "quiz_first_try": 3,
+        "quiz_min": 2.683333,
+        "quiz_rounds": 4,
+        "rounds": 6,
+        "sessions": 2,
+        "video_estimated": false,
+        "video_min": 11.708333,
+        "visa_min": 45
+      },
+      {
+        "date": "2026-10-20",
+        "game_min": 0.000000,
+        "index": 1,
+        "new_kinds": [],
+        "plays": 0,
+        "practice_finished": 0,
+        "practice_min": 0.000000,
+        "practice_rounds": 0,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_answered": 0,
+        "quiz_first_try": 0,
+        "quiz_min": 0.000000,
+        "quiz_rounds": 0,
+        "rounds": 0,
+        "sessions": 0,
+        "video_estimated": false,
+        "video_min": 0.000000,
+        "visa_min": 0
+      },
+      {
+        "date": "2026-10-21",
+        "game_min": 5.979167,
+        "index": 2,
+        "new_kinds": [
+          "tapCountPick",
+          "tapCountPickEnglish",
+          "mysteryQuiz"
+        ],
+        "plays": 1,
+        "practice_finished": 0,
+        "practice_min": 0.000000,
+        "practice_rounds": 0,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_answered": 6,
+        "quiz_first_try": 5,
+        "quiz_min": 5.979167,
+        "quiz_rounds": 6,
+        "rounds": 6,
+        "sessions": 2,
+        "video_estimated": false,
+        "video_min": 14.083333,
+        "visa_min": 60
+      },
+      {
+        "date": "2026-10-22",
+        "game_min": 14.637500,
+        "index": 3,
+        "new_kinds": [
+          "tapCountTraceEnglish"
+        ],
+        "plays": 1,
+        "practice_finished": 4,
+        "practice_min": 11.987500,
+        "practice_rounds": 4,
+        "practice_smooth": 3,
+        "practice_smooth_defined": 4,
+        "quiz_answered": 4,
+        "quiz_first_try": 4,
+        "quiz_min": 2.650000,
+        "quiz_rounds": 4,
+        "rounds": 8,
+        "sessions": 2,
+        "video_estimated": false,
+        "video_min": 10.004167,
+        "visa_min": 65
+      },
+      {
+        "date": "2026-10-23",
+        "game_min": 3.975000,
+        "index": 4,
+        "new_kinds": [
+          "lineMatchGuidedStraight",
+          "lineMatchGuidedBridge",
+          "traceShapesFree",
+          "mysteryTrace"
+        ],
+        "plays": 1,
+        "practice_finished": 5,
+        "practice_min": 3.312500,
+        "practice_rounds": 5,
+        "practice_smooth": 2,
+        "practice_smooth_defined": 3,
+        "quiz_answered": 1,
+        "quiz_first_try": 1,
+        "quiz_min": 0.662500,
+        "quiz_rounds": 1,
+        "rounds": 6,
+        "sessions": 1,
+        "video_estimated": true,
+        "video_min": 2.990000,
+        "visa_min": 55
+      },
+      {
+        "date": "2026-10-24",
+        "game_min": 1.325000,
+        "index": 5,
+        "new_kinds": [
+          "tapCountAllEnglish"
+        ],
+        "plays": 1,
+        "practice_finished": 2,
+        "practice_min": 1.325000,
+        "practice_rounds": 2,
+        "practice_smooth": 1,
+        "practice_smooth_defined": 2,
+        "quiz_answered": 0,
+        "quiz_first_try": 0,
+        "quiz_min": 0.000000,
+        "quiz_rounds": 1,
+        "rounds": 3,
+        "sessions": 1,
+        "video_estimated": false,
+        "video_min": 5.000000,
+        "visa_min": 10
+      },
+      {
+        "date": "2026-10-25",
+        "game_min": 5.545833,
+        "index": 6,
+        "new_kinds": [
+          "tapLetterAll"
+        ],
+        "plays": 1,
+        "practice_finished": 0,
+        "practice_min": 0.245833,
+        "practice_rounds": 1,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_answered": 8,
+        "quiz_first_try": 5,
+        "quiz_min": 5.300000,
+        "quiz_rounds": 8,
+        "rounds": 9,
+        "sessions": 1,
+        "video_estimated": false,
+        "video_min": 10.666667,
+        "visa_min": 40
+      }
+    ],
+    "excluded_rounds": {
+      "by_reason": {
+        "excluded_session": 2,
+        "parent_playtest": 1,
+        "parent_uat": 2
+      },
+      "total": 5
+    },
+    "families": [
+      {
+        "family": "lines",
+        "finished": 1,
+        "rate": 1.000000,
+        "rounds": 1,
+        "smooth": 1,
+        "smooth_defined": 1
+      },
+      {
+        "family": "shapes",
+        "finished": 3,
+        "rate": 1.000000,
+        "rounds": 4,
+        "smooth": 2,
+        "smooth_defined": 2
+      },
+      {
+        "family": "roads",
+        "finished": 2,
+        "rate": 0.500000,
+        "rounds": 2,
+        "smooth": 1,
+        "smooth_defined": 2
+      },
+      {
+        "family": "tapAll",
+        "finished": 3,
+        "rate": 0.666667,
+        "rounds": 3,
+        "smooth": 2,
+        "smooth_defined": 3
+      },
+      {
+        "family": "tapTrace",
+        "finished": 3,
+        "rate": 0.666667,
+        "rounds": 3,
+        "smooth": 2,
+        "smooth_defined": 3
+      }
+    ],
+    "kinds": [
+      {
+        "adjusted": 1.000000,
+        "answered": 1,
+        "area": "matching",
+        "chance_known": true,
+        "chance_mean": 0.500000,
+        "days": [
+          {
+            "answered": 1,
+            "day": 4,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 4.398520,
+          "beta": 0.601480,
+          "hi": 0.982947,
+          "lo": 0.535869,
+          "m": 0.759408,
+          "mean": 0.879704,
+          "p0": 0.849630,
+          "sd": 0.132806
+        },
+        "expected": 0.500000,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 1,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "twoPictureChoose",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": false,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 1
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 0.250000,
+        "answered": 2,
+        "area": "matching",
+        "chance_known": true,
+        "chance_mean": 0.333333,
+        "days": [
+          {
+            "answered": 1,
+            "day": 3,
+            "first_try": 1,
+            "rounds": 1
+          },
+          {
+            "answered": 1,
+            "day": 6,
+            "first_try": 0,
+            "rounds": 1
+          }
+        ],
+        "days_played": 2,
+        "estimate": {
+          "alpha": 4.198027,
+          "beta": 1.801973,
+          "hi": 0.768229,
+          "lo": 0.330784,
+          "m": 0.549507,
+          "mean": 0.699671,
+          "p0": 0.799507,
+          "sd": 0.173259
+        },
+        "expected": 0.666667,
+        "family": null,
+        "fast_wrong": 1,
+        "fast_wrong_share": 0.500000,
+        "first_try": 1,
+        "help_rate": 0.500000,
+        "helped": 1,
+        "kind": "findTheSame",
+        "median_active_s": 11.000000,
+        "misses": 2,
+        "misses_per_round": 1.000000,
+        "new": false,
+        "no_result": 0,
+        "rate": 0.500000,
+        "rounds": 2,
+        "solved": 2,
+        "stars": [
+          {
+            "answered": 1,
+            "first_try": 0,
+            "rounds": 1,
+            "stars": 1
+          },
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 2,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 0.000000,
+        "answered": 4,
+        "area": "numbers",
+        "chance_known": true,
+        "chance_mean": 0.291667,
+        "days": [
+          {
+            "answered": 1,
+            "day": 0,
+            "first_try": 0,
+            "rounds": 1
+          },
+          {
+            "answered": 1,
+            "day": 3,
+            "first_try": 1,
+            "rounds": 1
+          },
+          {
+            "answered": 2,
+            "day": 6,
+            "first_try": 0,
+            "rounds": 2
+          }
+        ],
+        "days_played": 3,
+        "estimate": {
+          "alpha": 4.147903,
+          "beta": 3.852097,
+          "hi": 0.518106,
+          "lo": 0.122330,
+          "m": 0.320218,
+          "mean": 0.518488,
+          "p0": 0.786976,
+          "sd": 0.166553
+        },
+        "expected": 1.166667,
+        "family": null,
+        "fast_wrong": 2,
+        "fast_wrong_share": 0.666667,
+        "first_try": 1,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "countVehicles",
+        "median_active_s": 11.000000,
+        "misses": 3,
+        "misses_per_round": 0.750000,
+        "new": false,
+        "no_result": 0,
+        "rate": 0.250000,
+        "rounds": 4,
+        "solved": 4,
+        "stars": [
+          {
+            "answered": 2,
+            "first_try": 0,
+            "rounds": 2,
+            "stars": 1
+          },
+          {
+            "answered": 2,
+            "first_try": 1,
+            "rounds": 2,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": "over_by_1",
+        "top_wrong_tag_count": 2,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 3,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 1.000000,
+        "answered": 1,
+        "area": "comparing",
+        "chance_known": true,
+        "chance_mean": 0.041667,
+        "days": [
+          {
+            "answered": 1,
+            "day": 3,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.847163,
+          "beta": 1.152837,
+          "hi": 0.910415,
+          "lo": 0.608401,
+          "m": 0.759408,
+          "mean": 0.769433,
+          "p0": 0.711791,
+          "sd": 0.171953
+        },
+        "expected": 0.041667,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 1,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "sequenceShortToLong",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": false,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 1
+          },
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 1.000000,
+        "answered": 2,
+        "area": "matching",
+        "chance_known": true,
+        "chance_mean": 0.333333,
+        "days": [
+          {
+            "answered": 1,
+            "day": 0,
+            "first_try": 1,
+            "rounds": 1
+          },
+          {
+            "answered": 1,
+            "day": 6,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 2,
+        "estimate": {
+          "alpha": 5.198027,
+          "beta": 0.801973,
+          "hi": 0.961873,
+          "lo": 0.637140,
+          "m": 0.799507,
+          "mean": 0.866338,
+          "p0": 0.799507,
+          "sd": 0.128617
+        },
+        "expected": 0.666667,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 2,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "halfMatch",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": false,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 2,
+        "solved": 2,
+        "stars": [
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 1
+          },
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": null,
+        "answered": 0,
+        "area": "comparing",
+        "chance_known": true,
+        "chance_mean": null,
+        "days": [
+          {
+            "answered": 0,
+            "day": 5,
+            "first_try": 0,
+            "rounds": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": null,
+        "expected": 0.000000,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 0,
+        "help_rate": null,
+        "helped": 0,
+        "kind": "shapeCousin",
+        "median_active_s": null,
+        "misses": 0,
+        "misses_per_round": null,
+        "new": false,
+        "no_result": 1,
+        "rate": null,
+        "rounds": 1,
+        "solved": 0,
+        "stars": [
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 1,
+            "stars": 1
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 1,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 1.000000,
+        "answered": 2,
+        "area": "comparing",
+        "chance_known": true,
+        "chance_mean": 0.500000,
+        "days": [
+          {
+            "answered": 1,
+            "day": 2,
+            "first_try": 1,
+            "rounds": 1
+          },
+          {
+            "answered": 1,
+            "day": 6,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 2,
+        "estimate": {
+          "alpha": 5.398520,
+          "beta": 0.601480,
+          "hi": 0.990573,
+          "lo": 0.608441,
+          "m": 0.799507,
+          "mean": 0.899753,
+          "p0": 0.849630,
+          "sd": 0.113514
+        },
+        "expected": 1.000000,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 2,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "capacityCompare",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": false,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 2,
+        "solved": 2,
+        "stars": [
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 1
+          },
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 1.000000,
+        "answered": 1,
+        "area": "numbers",
+        "chance_known": true,
+        "chance_mean": 0.500000,
+        "days": [
+          {
+            "answered": 1,
+            "day": 2,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 4.398520,
+          "beta": 0.601480,
+          "hi": 0.982947,
+          "lo": 0.535869,
+          "m": 0.759408,
+          "mean": 0.879704,
+          "p0": 0.849630,
+          "sd": 0.132806
+        },
+        "expected": 0.500000,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 1,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "moreFewer",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": false,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 1
+          },
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 1.000000,
+        "answered": 2,
+        "area": "matching",
+        "chance_known": true,
+        "chance_mean": 0.333333,
+        "days": [
+          {
+            "answered": 1,
+            "day": 0,
+            "first_try": 1,
+            "rounds": 1
+          },
+          {
+            "answered": 1,
+            "day": 6,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 2,
+        "estimate": {
+          "alpha": 5.198027,
+          "beta": 0.801973,
+          "hi": 0.961873,
+          "lo": 0.637140,
+          "m": 0.799507,
+          "mean": 0.866338,
+          "p0": 0.799507,
+          "sd": 0.128617
+        },
+        "expected": 0.666667,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 2,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "shadowMatch",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": false,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 2,
+        "solved": 2,
+        "stars": [
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 1
+          },
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 1.000000,
+        "answered": 2,
+        "area": "comparing",
+        "chance_known": true,
+        "chance_mean": 0.333333,
+        "days": [
+          {
+            "answered": 1,
+            "day": 3,
+            "first_try": 1,
+            "rounds": 1
+          },
+          {
+            "answered": 1,
+            "day": 6,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 2,
+        "estimate": {
+          "alpha": 5.198027,
+          "beta": 0.801973,
+          "hi": 0.961873,
+          "lo": 0.637140,
+          "m": 0.799507,
+          "mean": 0.866338,
+          "p0": 0.799507,
+          "sd": 0.128617
+        },
+        "expected": 0.666667,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 2,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "emptyBay",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": false,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 2,
+        "solved": 2,
+        "stars": [
+          {
+            "answered": 2,
+            "first_try": 2,
+            "rounds": 2,
+            "stars": 1
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "area": "pen",
+        "days": [
+          {
+            "day": 4,
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.000000,
+          "beta": 2.000000,
+          "hi": 0.768320,
+          "lo": 0.431680,
+          "m": 0.600000,
+          "mean": 0.600000,
+          "p0": 0.500000,
+          "sd": 0.200000
+        },
+        "family": "roads",
+        "finished": 1,
+        "guide_helps_mean": null,
+        "help_heavy": false,
+        "kind": "lineMatchGuidedStraight",
+        "new": true,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "smooth": 1,
+        "smooth_defined": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1,
+            "stars": 1
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 2
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 3
+          }
+        ],
+        "type": "practice",
+        "unfinished": 0,
+        "zeroed": 0
+      },
+      {
+        "area": "pen",
+        "days": [
+          {
+            "day": 4,
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 0,
+            "smooth_defined": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 2.000000,
+          "beta": 3.000000,
+          "hi": 0.568320,
+          "lo": 0.231680,
+          "m": 0.400000,
+          "mean": 0.400000,
+          "p0": 0.500000,
+          "sd": 0.200000
+        },
+        "family": "roads",
+        "finished": 1,
+        "guide_helps_mean": null,
+        "help_heavy": false,
+        "kind": "lineMatchGuidedBridge",
+        "new": true,
+        "no_result": 0,
+        "rate": 0.000000,
+        "rounds": 1,
+        "smooth": 0,
+        "smooth_defined": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 1
+          },
+          {
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 0,
+            "smooth_defined": 1,
+            "stars": 2
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 3
+          }
+        ],
+        "type": "practice",
+        "unfinished": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 0.441860,
+        "answered": 2,
+        "area": "matching",
+        "chance_known": true,
+        "chance_mean": 0.104167,
+        "days": [
+          {
+            "answered": 1,
+            "day": 0,
+            "first_try": 1,
+            "rounds": 1
+          },
+          {
+            "answered": 1,
+            "day": 2,
+            "first_try": 0,
+            "rounds": 1
+          }
+        ],
+        "days_played": 2,
+        "estimate": {
+          "alpha": 3.922348,
+          "beta": 2.077652,
+          "hi": 0.782402,
+          "lo": 0.444518,
+          "m": 0.613460,
+          "mean": 0.653725,
+          "p0": 0.730587,
+          "sd": 0.179829
+        },
+        "expected": 0.208333,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": 0.000000,
+        "first_try": 1,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "lineMatch",
+        "median_active_s": 9.000000,
+        "misses": 1,
+        "misses_per_round": 0.500000,
+        "new": false,
+        "no_result": 0,
+        "rate": 0.500000,
+        "rounds": 2,
+        "solved": 2,
+        "stars": [
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 1
+          },
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 2
+          },
+          {
+            "answered": 1,
+            "first_try": 0,
+            "rounds": 1,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 1,
+        "zeroed": 0
+      },
+      {
+        "area": "pen",
+        "days": [
+          {
+            "day": 3,
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.000000,
+          "beta": 2.000000,
+          "hi": 0.768320,
+          "lo": 0.431680,
+          "m": 0.600000,
+          "mean": 0.600000,
+          "p0": 0.500000,
+          "sd": 0.200000
+        },
+        "family": "lines",
+        "finished": 1,
+        "guide_helps_mean": null,
+        "help_heavy": false,
+        "kind": "traceLines",
+        "new": false,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "smooth": 1,
+        "smooth_defined": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1,
+            "stars": 1
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 2
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 3
+          }
+        ],
+        "type": "practice",
+        "unfinished": 0,
+        "zeroed": 0
+      },
+      {
+        "area": "pen",
+        "days": [
+          {
+            "day": 6,
+            "finished": 0,
+            "rounds": 1,
+            "smooth": 0,
+            "smooth_defined": 0
+          }
+        ],
+        "days_played": 1,
+        "estimate": null,
+        "family": "shapes",
+        "finished": 0,
+        "guide_helps_mean": null,
+        "help_heavy": false,
+        "kind": "traceShapesDotted",
+        "new": false,
+        "no_result": 0,
+        "rate": null,
+        "rounds": 1,
+        "smooth": 0,
+        "smooth_defined": 0,
+        "solved": 0,
+        "stars": [
+          {
+            "finished": 0,
+            "rounds": 1,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 1
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 2
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 3
+          }
+        ],
+        "type": "practice",
+        "unfinished": 1,
+        "zeroed": 0
+      },
+      {
+        "area": "pen",
+        "days": [
+          {
+            "day": 0,
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.000000,
+          "beta": 2.000000,
+          "hi": 0.768320,
+          "lo": 0.431680,
+          "m": 0.600000,
+          "mean": 0.600000,
+          "p0": 0.500000,
+          "sd": 0.200000
+        },
+        "family": "shapes",
+        "finished": 1,
+        "guide_helps_mean": null,
+        "help_heavy": false,
+        "kind": "traceShapesArrows",
+        "new": true,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "smooth": 1,
+        "smooth_defined": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 1
+          },
+          {
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1,
+            "stars": 2
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 3
+          }
+        ],
+        "type": "practice",
+        "unfinished": 0,
+        "zeroed": 0
+      },
+      {
+        "area": "pen",
+        "days": [
+          {
+            "day": 4,
+            "finished": 2,
+            "rounds": 2,
+            "smooth": 1,
+            "smooth_defined": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.000000,
+          "beta": 2.000000,
+          "hi": 0.768320,
+          "lo": 0.431680,
+          "m": 0.600000,
+          "mean": 0.600000,
+          "p0": 0.500000,
+          "sd": 0.200000
+        },
+        "family": "shapes",
+        "finished": 2,
+        "guide_helps_mean": null,
+        "help_heavy": false,
+        "kind": "traceShapesFree",
+        "new": true,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 2,
+        "smooth": 1,
+        "smooth_defined": 1,
+        "solved": 2,
+        "stars": [
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 1
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 2
+          },
+          {
+            "finished": 2,
+            "rounds": 2,
+            "smooth": 1,
+            "smooth_defined": 1,
+            "stars": 3
+          }
+        ],
+        "type": "practice",
+        "unfinished": 0,
+        "zeroed": 0
+      },
+      {
+        "area": "numbers",
+        "days": [
+          {
+            "day": 3,
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1
+          },
+          {
+            "day": 5,
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 0,
+            "smooth_defined": 1
+          }
+        ],
+        "days_played": 2,
+        "estimate": {
+          "alpha": 3.000000,
+          "beta": 3.000000,
+          "hi": 0.659047,
+          "lo": 0.340953,
+          "m": 0.500000,
+          "mean": 0.500000,
+          "p0": 0.500000,
+          "sd": 0.188982
+        },
+        "family": "tapAll",
+        "finished": 2,
+        "guide_helps_mean": null,
+        "help_heavy": false,
+        "kind": "tapCountAll",
+        "new": false,
+        "no_result": 0,
+        "rate": 0.500000,
+        "rounds": 2,
+        "smooth": 1,
+        "smooth_defined": 2,
+        "solved": 2,
+        "stars": [
+          {
+            "finished": 2,
+            "rounds": 2,
+            "smooth": 1,
+            "smooth_defined": 2,
+            "stars": 1
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 2
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 3
+          }
+        ],
+        "type": "practice",
+        "unfinished": 0,
+        "zeroed": 0
+      },
+      {
+        "area": "numbers",
+        "days": [
+          {
+            "day": 0,
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.000000,
+          "beta": 2.000000,
+          "hi": 0.768320,
+          "lo": 0.431680,
+          "m": 0.600000,
+          "mean": 0.600000,
+          "p0": 0.500000,
+          "sd": 0.200000
+        },
+        "family": "tapTrace",
+        "finished": 1,
+        "guide_helps_mean": 0.000000,
+        "help_heavy": false,
+        "kind": "tapCountTrace",
+        "new": false,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "smooth": 1,
+        "smooth_defined": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 1
+          },
+          {
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1,
+            "stars": 2
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 3
+          }
+        ],
+        "type": "practice",
+        "unfinished": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 1.000000,
+        "answered": 1,
+        "area": "numbers",
+        "chance_known": true,
+        "chance_mean": 0.200000,
+        "days": [
+          {
+            "answered": 1,
+            "day": 2,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 4.037632,
+          "beta": 0.962368,
+          "hi": 0.928726,
+          "lo": 0.590090,
+          "m": 0.759408,
+          "mean": 0.807526,
+          "p0": 0.759408,
+          "sd": 0.160949
+        },
+        "expected": 0.200000,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 1,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "tapCountPick",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": true,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 1
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 2
+          },
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "area": "numbers",
+        "days": [
+          {
+            "day": 5,
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.000000,
+          "beta": 2.000000,
+          "hi": 0.768320,
+          "lo": 0.431680,
+          "m": 0.600000,
+          "mean": 0.600000,
+          "p0": 0.500000,
+          "sd": 0.200000
+        },
+        "family": "tapAll",
+        "finished": 1,
+        "guide_helps_mean": null,
+        "help_heavy": false,
+        "kind": "tapCountAllEnglish",
+        "new": true,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "smooth": 1,
+        "smooth_defined": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1,
+            "stars": 1
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 2
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 3
+          }
+        ],
+        "type": "practice",
+        "unfinished": 0,
+        "zeroed": 0
+      },
+      {
+        "area": "numbers",
+        "days": [
+          {
+            "day": 3,
+            "finished": 2,
+            "rounds": 2,
+            "smooth": 1,
+            "smooth_defined": 2
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.000000,
+          "beta": 3.000000,
+          "hi": 0.659047,
+          "lo": 0.340953,
+          "m": 0.500000,
+          "mean": 0.500000,
+          "p0": 0.500000,
+          "sd": 0.188982
+        },
+        "family": "tapTrace",
+        "finished": 2,
+        "guide_helps_mean": 2.000000,
+        "help_heavy": true,
+        "kind": "tapCountTraceEnglish",
+        "new": true,
+        "no_result": 0,
+        "rate": 0.500000,
+        "rounds": 2,
+        "smooth": 1,
+        "smooth_defined": 2,
+        "solved": 2,
+        "stars": [
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 1
+          },
+          {
+            "finished": 2,
+            "rounds": 2,
+            "smooth": 1,
+            "smooth_defined": 2,
+            "stars": 2
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 3
+          }
+        ],
+        "type": "practice",
+        "unfinished": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 1.000000,
+        "answered": 1,
+        "area": "numbers",
+        "chance_known": true,
+        "chance_mean": 0.166667,
+        "days": [
+          {
+            "answered": 1,
+            "day": 2,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.997533,
+          "beta": 1.002467,
+          "hi": 0.924480,
+          "lo": 0.594336,
+          "m": 0.759408,
+          "mean": 0.799507,
+          "p0": 0.749383,
+          "sd": 0.163450
+        },
+        "expected": 0.166667,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 1,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "tapCountPickEnglish",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": true,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 1
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 2
+          },
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 1.000000,
+        "answered": 1,
+        "area": "letters",
+        "chance_known": true,
+        "chance_mean": 0.022222,
+        "days": [
+          {
+            "answered": 1,
+            "day": 6,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.823773,
+          "beta": 1.176227,
+          "hi": 0.908451,
+          "lo": 0.610365,
+          "m": 0.759408,
+          "mean": 0.764755,
+          "p0": 0.705943,
+          "sd": 0.173159
+        },
+        "expected": 0.022222,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 1,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "tapLetterAll",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": true,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 1
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": null,
+        "answered": 1,
+        "area": "other",
+        "chance_known": false,
+        "chance_mean": null,
+        "days": [
+          {
+            "answered": 1,
+            "day": 2,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": null,
+        "expected": null,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 1,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "mysteryQuiz",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": true,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 1
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "area": "other",
+        "days": [
+          {
+            "day": 4,
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 0,
+            "smooth_defined": 0
+          }
+        ],
+        "days_played": 1,
+        "estimate": null,
+        "family": null,
+        "finished": 1,
+        "guide_helps_mean": null,
+        "help_heavy": false,
+        "kind": "mysteryTrace",
+        "new": true,
+        "no_result": 0,
+        "rate": null,
+        "rounds": 1,
+        "smooth": 0,
+        "smooth_defined": 0,
+        "solved": 1,
+        "stars": [
+          {
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 1
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 2
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 3
+          }
+        ],
+        "type": "practice",
+        "unfinished": 0,
+        "zeroed": 0
+      }
+    ],
+    "new_kinds": [
+      "lineMatchGuidedStraight",
+      "lineMatchGuidedBridge",
+      "traceShapesArrows",
+      "traceShapesFree",
+      "tapCountPick",
+      "tapCountAllEnglish",
+      "tapCountTraceEnglish",
+      "tapCountPickEnglish",
+      "tapLetterAll",
+      "mysteryQuiz",
+      "mysteryTrace"
+    ],
+    "open_at_cutoff": 1,
+    "partial": false,
+    "pooled": {
+      "practice": 0.500000,
+      "quiz": 0.699260
+    },
+    "rounds": [
+      {
+        "answered": true,
+        "chance": 0.333333,
+        "day": 0,
+        "first_try": true,
+        "game_ms": 41750,
+        "kind": "shadowMatch",
+        "outcome": "solved",
+        "round": "r026",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 5
+      },
+      {
+        "answered": true,
+        "chance": 0.333333,
+        "day": 0,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "halfMatch",
+        "outcome": "solved",
+        "round": "r027",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 5
+      },
+      {
+        "answered": true,
+        "chance": 0.250000,
+        "day": 0,
+        "first_try": false,
+        "game_ms": 39750,
+        "kind": "countVehicles",
+        "outcome": "solved",
+        "round": "r028",
+        "smooth": null,
+        "stars": 2,
+        "type": "quiz",
+        "visa_min": 5
+      },
+      {
+        "answered": true,
+        "chance": 0.166667,
+        "day": 0,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "lineMatch",
+        "outcome": "solved",
+        "round": "r029",
+        "smooth": null,
+        "stars": 2,
+        "type": "quiz",
+        "visa_min": 10
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 0,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "tapCountTrace",
+        "outcome": "solved",
+        "round": "r030",
+        "smooth": true,
+        "stars": 2,
+        "type": "practice",
+        "visa_min": 10
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 0,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "traceShapesArrows",
+        "outcome": "solved",
+        "round": "r031",
+        "smooth": true,
+        "stars": 2,
+        "type": "practice",
+        "visa_min": 10
+      },
+      {
+        "answered": true,
+        "chance": 0.041667,
+        "day": 2,
+        "first_try": false,
+        "game_ms": 39750,
+        "kind": "lineMatch",
+        "outcome": "solved",
+        "round": "r035",
+        "smooth": null,
+        "stars": 3,
+        "type": "quiz",
+        "visa_min": 10
+      },
+      {
+        "answered": true,
+        "chance": 0.200000,
+        "day": 2,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "tapCountPick",
+        "outcome": "solved",
+        "round": "r036",
+        "smooth": null,
+        "stars": 3,
+        "type": "quiz",
+        "visa_min": 15
+      },
+      {
+        "answered": true,
+        "chance": 0.166667,
+        "day": 2,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "tapCountPickEnglish",
+        "outcome": "solved",
+        "round": "r037",
+        "smooth": null,
+        "stars": 3,
+        "type": "quiz",
+        "visa_min": 15
+      },
+      {
+        "answered": true,
+        "chance": 0.500000,
+        "day": 2,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "capacityCompare",
+        "outcome": "solved",
+        "round": "r038",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 5
+      },
+      {
+        "answered": true,
+        "chance": null,
+        "day": 2,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "mysteryQuiz",
+        "outcome": "solved",
+        "round": "r039",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 5
+      },
+      {
+        "answered": true,
+        "chance": 0.500000,
+        "day": 2,
+        "first_try": true,
+        "game_ms": 160000,
+        "kind": "moreFewer",
+        "outcome": "solved",
+        "round": "r040",
+        "smooth": null,
+        "stars": 2,
+        "type": "quiz",
+        "visa_min": 10
+      },
+      {
+        "answered": true,
+        "chance": 0.250000,
+        "day": 3,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "countVehicles",
+        "outcome": "solved",
+        "round": "r041",
+        "smooth": null,
+        "stars": 2,
+        "type": "quiz",
+        "visa_min": 10
+      },
+      {
+        "answered": true,
+        "chance": 0.333333,
+        "day": 3,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "findTheSame",
+        "outcome": "solved",
+        "round": "r042",
+        "smooth": null,
+        "stars": 2,
+        "type": "quiz",
+        "visa_min": 10
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 3,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "tapCountTraceEnglish",
+        "outcome": "solved",
+        "round": "r043",
+        "smooth": false,
+        "stars": 2,
+        "type": "practice",
+        "visa_min": 10
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 3,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "tapCountTraceEnglish",
+        "outcome": "solved",
+        "round": "r044",
+        "smooth": true,
+        "stars": 2,
+        "type": "practice",
+        "visa_min": 10
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 3,
+        "first_try": null,
+        "game_ms": 600000,
+        "kind": "tapCountAll",
+        "outcome": "solved",
+        "round": "r045",
+        "smooth": true,
+        "stars": 1,
+        "type": "practice",
+        "visa_min": 5
+      },
+      {
+        "answered": true,
+        "chance": 0.333333,
+        "day": 3,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "emptyBay",
+        "outcome": "solved",
+        "round": "r046",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 5
+      },
+      {
+        "answered": true,
+        "chance": 0.041667,
+        "day": 3,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "sequenceShortToLong",
+        "outcome": "solved",
+        "round": "r047",
+        "smooth": null,
+        "stars": 2,
+        "type": "quiz",
+        "visa_min": 10
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 3,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "traceLines",
+        "outcome": "solved",
+        "round": "r048",
+        "smooth": true,
+        "stars": 1,
+        "type": "practice",
+        "visa_min": 5
+      },
+      {
+        "answered": true,
+        "chance": 0.500000,
+        "day": 4,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "twoPictureChoose",
+        "outcome": "solved",
+        "round": "r049",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 5
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 4,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "traceShapesFree",
+        "outcome": "solved",
+        "round": "r050",
+        "smooth": true,
+        "stars": 3,
+        "type": "practice",
+        "visa_min": 15
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 4,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "traceShapesFree",
+        "outcome": "solved",
+        "round": "r051",
+        "smooth": null,
+        "stars": 3,
+        "type": "practice",
+        "visa_min": 15
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 4,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "lineMatchGuidedStraight",
+        "outcome": "solved",
+        "round": "r052",
+        "smooth": true,
+        "stars": 1,
+        "type": "practice",
+        "visa_min": 5
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 4,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "lineMatchGuidedBridge",
+        "outcome": "solved",
+        "round": "r053",
+        "smooth": false,
+        "stars": 2,
+        "type": "practice",
+        "visa_min": 10
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 4,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "mysteryTrace",
+        "outcome": "solved",
+        "round": "r054",
+        "smooth": null,
+        "stars": 1,
+        "type": "practice",
+        "visa_min": 5
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 5,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "tapCountAllEnglish",
+        "outcome": "solved",
+        "round": "r055",
+        "smooth": true,
+        "stars": 1,
+        "type": "practice",
+        "visa_min": 5
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 5,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "tapCountAll",
+        "outcome": "solved",
+        "round": "r056",
+        "smooth": false,
+        "stars": 1,
+        "type": "practice",
+        "visa_min": 5
+      },
+      {
+        "answered": false,
+        "chance": 0.333333,
+        "day": 5,
+        "first_try": false,
+        "game_ms": 0,
+        "kind": "shapeCousin",
+        "outcome": "no_result",
+        "round": "r057",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 0
+      },
+      {
+        "answered": true,
+        "chance": 0.333333,
+        "day": 6,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "halfMatch",
+        "outcome": "solved",
+        "round": "r060",
+        "smooth": null,
+        "stars": 2,
+        "type": "quiz",
+        "visa_min": 10
+      },
+      {
+        "answered": true,
+        "chance": 0.333333,
+        "day": 6,
+        "first_try": false,
+        "game_ms": 39750,
+        "kind": "findTheSame",
+        "outcome": "solved",
+        "round": "r061",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 0
+      },
+      {
+        "answered": true,
+        "chance": 0.500000,
+        "day": 6,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "capacityCompare",
+        "outcome": "solved",
+        "round": "r062",
+        "smooth": null,
+        "stars": 2,
+        "type": "quiz",
+        "visa_min": 10
+      },
+      {
+        "answered": true,
+        "chance": 0.333333,
+        "day": 6,
+        "first_try": false,
+        "game_ms": 39750,
+        "kind": "countVehicles",
+        "outcome": "solved",
+        "round": "r063",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 0
+      },
+      {
+        "answered": true,
+        "chance": 0.333333,
+        "day": 6,
+        "first_try": false,
+        "game_ms": 39750,
+        "kind": "countVehicles",
+        "outcome": "solved",
+        "round": "r064",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 0
+      },
+      {
+        "answered": true,
+        "chance": 0.022222,
+        "day": 6,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "tapLetterAll",
+        "outcome": "solved",
+        "round": "r065",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 5
+      },
+      {
+        "answered": true,
+        "chance": 0.333333,
+        "day": 6,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "shadowMatch",
+        "outcome": "solved",
+        "round": "r066",
+        "smooth": null,
+        "stars": 2,
+        "type": "quiz",
+        "visa_min": 10
+      },
+      {
+        "answered": true,
+        "chance": 0.333333,
+        "day": 6,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "emptyBay",
+        "outcome": "solved",
+        "round": "r067",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 5
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 6,
+        "first_try": null,
+        "game_ms": 14750,
+        "kind": "traceShapesDotted",
+        "outcome": "abandoned",
+        "round": "r068",
+        "smooth": null,
+        "stars": 1,
+        "type": "practice",
+        "visa_min": 0
+      }
+    ],
+    "stars": [
+      19,
+      14,
+      5
+    ],
+    "totals": {
+      "days_played": 6,
+      "game_min": 35.470833,
+      "plays": 6,
+      "practice_finished": 13,
+      "practice_min": 18.195833,
+      "practice_rate": 0.727273,
+      "practice_rounds": 14,
+      "practice_smooth": 8,
+      "practice_smooth_defined": 11,
+      "quiz_adjusted": 0.677996,
+      "quiz_answered": 23,
+      "quiz_chance_mean": 0.294192,
+      "quiz_expected": 6.472222,
+      "quiz_expected_answered": 22,
+      "quiz_first_try": 18,
+      "quiz_min": 17.275000,
+      "quiz_rate": 0.782609,
+      "quiz_rounds": 24,
+      "rounds": 38,
+      "sessions": 9,
+      "video_estimated": true,
+      "video_min": 54.452500,
+      "visa_min": 275
+    },
+    "week_end": "2026-10-25",
+    "week_start": "2026-10-19"
+  },
+  "data_until": "2026-10-25T13:00:00.000Z",
+  "previous": {
+    "areas": [
+      {
+        "area": "numbers",
+        "practice_finished": 2,
+        "practice_rate": 1.000000,
+        "practice_rounds": 2,
+        "practice_smooth": 2,
+        "practice_smooth_defined": 2,
+        "quiz_adjusted": 0.000000,
+        "quiz_answered": 2,
+        "quiz_chance_mean": 0.375000,
+        "quiz_expected": 0.750000,
+        "quiz_expected_answered": 2,
+        "quiz_first_try": 0,
+        "quiz_rate": 0.000000,
+        "quiz_rounds": 2,
+        "rounds": 4
+      },
+      {
+        "area": "matching",
+        "practice_finished": 1,
+        "practice_rate": 1.000000,
+        "practice_rounds": 1,
+        "practice_smooth": 1,
+        "practice_smooth_defined": 1,
+        "quiz_adjusted": 1.000000,
+        "quiz_answered": 4,
+        "quiz_chance_mean": 0.333333,
+        "quiz_expected": 1.333333,
+        "quiz_expected_answered": 4,
+        "quiz_first_try": 4,
+        "quiz_rate": 1.000000,
+        "quiz_rounds": 5,
+        "rounds": 6
+      },
+      {
+        "area": "comparing",
+        "practice_finished": 0,
+        "practice_rate": null,
+        "practice_rounds": 0,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_adjusted": 1.000000,
+        "quiz_answered": 2,
+        "quiz_chance_mean": 0.333333,
+        "quiz_expected": 0.666667,
+        "quiz_expected_answered": 2,
+        "quiz_first_try": 2,
+        "quiz_rate": 1.000000,
+        "quiz_rounds": 2,
+        "rounds": 2
+      },
+      {
+        "area": "pen",
+        "practice_finished": 1,
+        "practice_rate": 0.000000,
+        "practice_rounds": 1,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 1,
+        "quiz_adjusted": null,
+        "quiz_answered": 0,
+        "quiz_chance_mean": null,
+        "quiz_expected": 0.000000,
+        "quiz_expected_answered": 0,
+        "quiz_first_try": 0,
+        "quiz_rate": null,
+        "quiz_rounds": 0,
+        "rounds": 1
+      },
+      {
+        "area": "letters",
+        "practice_finished": 0,
+        "practice_rate": null,
+        "practice_rounds": 0,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_adjusted": null,
+        "quiz_answered": 0,
+        "quiz_chance_mean": null,
+        "quiz_expected": 0.000000,
+        "quiz_expected_answered": 0,
+        "quiz_first_try": 0,
+        "quiz_rate": null,
+        "quiz_rounds": 0,
+        "rounds": 0
+      },
+      {
+        "area": "other",
+        "practice_finished": 0,
+        "practice_rate": null,
+        "practice_rounds": 0,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_adjusted": null,
+        "quiz_answered": 0,
+        "quiz_chance_mean": null,
+        "quiz_expected": 0.000000,
+        "quiz_expected_answered": 0,
+        "quiz_first_try": 0,
+        "quiz_rate": null,
+        "quiz_rounds": 0,
+        "rounds": 0
+      }
+    ],
+    "covered_days": 7,
+    "data_until": "2026-10-18T16:00:00.000Z",
+    "days": [
+      {
+        "date": "2026-10-12",
+        "game_min": 1.325000,
+        "index": 0,
+        "new_kinds": [],
+        "plays": 1,
+        "practice_finished": 1,
+        "practice_min": 0.662500,
+        "practice_rounds": 1,
+        "practice_smooth": 1,
+        "practice_smooth_defined": 1,
+        "quiz_answered": 1,
+        "quiz_first_try": 1,
+        "quiz_min": 0.662500,
+        "quiz_rounds": 1,
+        "rounds": 2,
+        "sessions": 1,
+        "video_estimated": false,
+        "video_min": 8.000000,
+        "visa_min": 15
+      },
+      {
+        "date": "2026-10-13",
+        "game_min": 0.662500,
+        "index": 1,
+        "new_kinds": [],
+        "plays": 0,
+        "practice_finished": 0,
+        "practice_min": 0.000000,
+        "practice_rounds": 0,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_answered": 1,
+        "quiz_first_try": 0,
+        "quiz_min": 0.662500,
+        "quiz_rounds": 1,
+        "rounds": 1,
+        "sessions": 1,
+        "video_estimated": false,
+        "video_min": 0.000000,
+        "visa_min": 5
+      },
+      {
+        "date": "2026-10-14",
+        "game_min": 0.000000,
+        "index": 2,
+        "new_kinds": [],
+        "plays": 0,
+        "practice_finished": 0,
+        "practice_min": 0.000000,
+        "practice_rounds": 0,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_answered": 0,
+        "quiz_first_try": 0,
+        "quiz_min": 0.000000,
+        "quiz_rounds": 0,
+        "rounds": 0,
+        "sessions": 0,
+        "video_estimated": false,
+        "video_min": 0.000000,
+        "visa_min": 0
+      },
+      {
+        "date": "2026-10-15",
+        "game_min": 1.987500,
+        "index": 3,
+        "new_kinds": [
+          "tapCountAll"
+        ],
+        "plays": 0,
+        "practice_finished": 2,
+        "practice_min": 1.325000,
+        "practice_rounds": 2,
+        "practice_smooth": 2,
+        "practice_smooth_defined": 2,
+        "quiz_answered": 1,
+        "quiz_first_try": 1,
+        "quiz_min": 0.662500,
+        "quiz_rounds": 1,
+        "rounds": 3,
+        "sessions": 1,
+        "video_estimated": false,
+        "video_min": 0.000000,
+        "visa_min": 20
+      },
+      {
+        "date": "2026-10-16",
+        "game_min": 1.987500,
+        "index": 4,
+        "new_kinds": [
+          "twoPictureChoose",
+          "shapeCousin",
+          "traceShapesDotted"
+        ],
+        "plays": 1,
+        "practice_finished": 1,
+        "practice_min": 0.662500,
+        "practice_rounds": 1,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 1,
+        "quiz_answered": 2,
+        "quiz_first_try": 2,
+        "quiz_min": 1.325000,
+        "quiz_rounds": 2,
+        "rounds": 3,
+        "sessions": 1,
+        "video_estimated": false,
+        "video_min": 15.095833,
+        "visa_min": 15
+      },
+      {
+        "date": "2026-10-17",
+        "game_min": 1.654167,
+        "index": 5,
+        "new_kinds": [],
+        "plays": 0,
+        "practice_finished": 0,
+        "practice_min": 0.000000,
+        "practice_rounds": 0,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_answered": 2,
+        "quiz_first_try": 1,
+        "quiz_min": 1.654167,
+        "quiz_rounds": 3,
+        "rounds": 3,
+        "sessions": 1,
+        "video_estimated": false,
+        "video_min": 0.000000,
+        "visa_min": 5
+      },
+      {
+        "date": "2026-10-18",
+        "game_min": 0.662500,
+        "index": 6,
+        "new_kinds": [],
+        "plays": 1,
+        "practice_finished": 0,
+        "practice_min": 0.000000,
+        "practice_rounds": 0,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_answered": 1,
+        "quiz_first_try": 1,
+        "quiz_min": 0.662500,
+        "quiz_rounds": 1,
+        "rounds": 1,
+        "sessions": 1,
+        "video_estimated": false,
+        "video_min": 2.833333,
+        "visa_min": 5
+      }
+    ],
+    "excluded_rounds": {
+      "by_reason": {
+        "parent_playtest": 1,
+        "parent_uat": 1
+      },
+      "total": 2
+    },
+    "families": [
+      {
+        "family": "lines",
+        "finished": 0,
+        "rate": null,
+        "rounds": 0,
+        "smooth": 0,
+        "smooth_defined": 0
+      },
+      {
+        "family": "shapes",
+        "finished": 1,
+        "rate": 0.000000,
+        "rounds": 1,
+        "smooth": 0,
+        "smooth_defined": 1
+      },
+      {
+        "family": "roads",
+        "finished": 1,
+        "rate": 1.000000,
+        "rounds": 1,
+        "smooth": 1,
+        "smooth_defined": 1
+      },
+      {
+        "family": "tapAll",
+        "finished": 1,
+        "rate": 1.000000,
+        "rounds": 1,
+        "smooth": 1,
+        "smooth_defined": 1
+      },
+      {
+        "family": "tapTrace",
+        "finished": 1,
+        "rate": 1.000000,
+        "rounds": 1,
+        "smooth": 1,
+        "smooth_defined": 1
+      }
+    ],
+    "kinds": [
+      {
+        "adjusted": 1.000000,
+        "answered": 1,
+        "area": "matching",
+        "chance_known": true,
+        "chance_mean": 0.500000,
+        "days": [
+          {
+            "answered": 1,
+            "day": 4,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 4.000000,
+          "beta": 1.000000,
+          "hi": 0.874865,
+          "lo": 0.325135,
+          "m": 0.600000,
+          "mean": 0.800000,
+          "p0": 0.750000,
+          "sd": 0.163299
+        },
+        "expected": 0.500000,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 1,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "twoPictureChoose",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": true,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 1
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 1.000000,
+        "answered": 2,
+        "area": "matching",
+        "chance_known": true,
+        "chance_mean": 0.333333,
+        "days": [
+          {
+            "answered": 1,
+            "day": 5,
+            "first_try": 1,
+            "rounds": 2
+          },
+          {
+            "answered": 1,
+            "day": 6,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 2,
+        "estimate": {
+          "alpha": 4.666667,
+          "beta": 1.333333,
+          "hi": 0.865034,
+          "lo": 0.468300,
+          "m": 0.666667,
+          "mean": 0.777778,
+          "p0": 0.666667,
+          "sd": 0.157135
+        },
+        "expected": 0.666667,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 2,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "findTheSame",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": false,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 3,
+        "solved": 2,
+        "stars": [
+          {
+            "answered": 2,
+            "first_try": 2,
+            "rounds": 3,
+            "stars": 1
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 1,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 0.000000,
+        "answered": 1,
+        "area": "numbers",
+        "chance_known": true,
+        "chance_mean": 0.250000,
+        "days": [
+          {
+            "answered": 1,
+            "day": 1,
+            "first_try": 0,
+            "rounds": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 2.500000,
+          "beta": 2.500000,
+          "hi": 0.562388,
+          "lo": 0.104279,
+          "m": 0.333333,
+          "mean": 0.500000,
+          "p0": 0.625000,
+          "sd": 0.204124
+        },
+        "expected": 0.250000,
+        "family": null,
+        "fast_wrong": 1,
+        "fast_wrong_share": 1.000000,
+        "first_try": 0,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "countVehicles",
+        "median_active_s": 11.000000,
+        "misses": 1,
+        "misses_per_round": 1.000000,
+        "new": false,
+        "no_result": 0,
+        "rate": 0.000000,
+        "rounds": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 1
+          },
+          {
+            "answered": 1,
+            "first_try": 0,
+            "rounds": 1,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 1,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 1.000000,
+        "answered": 1,
+        "area": "comparing",
+        "chance_known": true,
+        "chance_mean": 0.333333,
+        "days": [
+          {
+            "answered": 1,
+            "day": 4,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.666667,
+          "beta": 1.333333,
+          "hi": 0.827906,
+          "lo": 0.372094,
+          "m": 0.600000,
+          "mean": 0.733333,
+          "p0": 0.666667,
+          "sd": 0.180534
+        },
+        "expected": 0.333333,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 1,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "shapeCousin",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": true,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 1
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 0.000000,
+        "answered": 1,
+        "area": "numbers",
+        "chance_known": true,
+        "chance_mean": 0.500000,
+        "days": [
+          {
+            "answered": 1,
+            "day": 5,
+            "first_try": 0,
+            "rounds": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.000000,
+          "beta": 2.000000,
+          "hi": 0.536640,
+          "lo": 0.000000,
+          "m": 0.200000,
+          "mean": 0.600000,
+          "p0": 0.750000,
+          "sd": 0.200000
+        },
+        "expected": 0.500000,
+        "family": null,
+        "fast_wrong": 1,
+        "fast_wrong_share": 0.500000,
+        "first_try": 0,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "moreFewer",
+        "median_active_s": null,
+        "misses": 2,
+        "misses_per_round": 2.000000,
+        "new": false,
+        "no_result": 0,
+        "rate": 0.000000,
+        "rounds": 1,
+        "solved": 0,
+        "stars": [
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 1
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 2
+          },
+          {
+            "answered": 1,
+            "first_try": 0,
+            "rounds": 1,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 2,
+        "zeroed": 1
+      },
+      {
+        "adjusted": 1.000000,
+        "answered": 1,
+        "area": "comparing",
+        "chance_known": true,
+        "chance_mean": 0.333333,
+        "days": [
+          {
+            "answered": 1,
+            "day": 3,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.666667,
+          "beta": 1.333333,
+          "hi": 0.827906,
+          "lo": 0.372094,
+          "m": 0.600000,
+          "mean": 0.733333,
+          "p0": 0.666667,
+          "sd": 0.180534
+        },
+        "expected": 0.333333,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 1,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "emptyBay",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": false,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 1
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "adjusted": 1.000000,
+        "answered": 1,
+        "area": "matching",
+        "chance_known": true,
+        "chance_mean": 0.166667,
+        "days": [
+          {
+            "answered": 1,
+            "day": 0,
+            "first_try": 1,
+            "rounds": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.333333,
+          "beta": 1.666667,
+          "hi": 0.794359,
+          "lo": 0.405641,
+          "m": 0.600000,
+          "mean": 0.666667,
+          "p0": 0.583333,
+          "sd": 0.192450
+        },
+        "expected": 0.166667,
+        "family": null,
+        "fast_wrong": 0,
+        "fast_wrong_share": null,
+        "first_try": 1,
+        "help_rate": 0.000000,
+        "helped": 0,
+        "kind": "lineMatch",
+        "median_active_s": 7.000000,
+        "misses": 0,
+        "misses_per_round": 0.000000,
+        "new": false,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 1
+          },
+          {
+            "answered": 1,
+            "first_try": 1,
+            "rounds": 1,
+            "stars": 2
+          },
+          {
+            "answered": 0,
+            "first_try": 0,
+            "rounds": 0,
+            "stars": 3
+          }
+        ],
+        "top_wrong_tag": null,
+        "top_wrong_tag_count": 0,
+        "type": "quiz",
+        "unfinished": 0,
+        "wrong_attempts": 0,
+        "zeroed": 0
+      },
+      {
+        "area": "matching",
+        "days": [
+          {
+            "day": 0,
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.000000,
+          "beta": 2.000000,
+          "hi": 0.768320,
+          "lo": 0.431680,
+          "m": 0.600000,
+          "mean": 0.600000,
+          "p0": 0.500000,
+          "sd": 0.200000
+        },
+        "family": "roads",
+        "finished": 1,
+        "guide_helps_mean": null,
+        "help_heavy": false,
+        "kind": "lineMatch",
+        "new": false,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "smooth": 1,
+        "smooth_defined": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1,
+            "stars": 1
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 2
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 3
+          }
+        ],
+        "type": "practice",
+        "unfinished": 0,
+        "zeroed": 0
+      },
+      {
+        "area": "pen",
+        "days": [
+          {
+            "day": 4,
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 0,
+            "smooth_defined": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 2.000000,
+          "beta": 3.000000,
+          "hi": 0.568320,
+          "lo": 0.231680,
+          "m": 0.400000,
+          "mean": 0.400000,
+          "p0": 0.500000,
+          "sd": 0.200000
+        },
+        "family": "shapes",
+        "finished": 1,
+        "guide_helps_mean": null,
+        "help_heavy": false,
+        "kind": "traceShapesDotted",
+        "new": true,
+        "no_result": 0,
+        "rate": 0.000000,
+        "rounds": 1,
+        "smooth": 0,
+        "smooth_defined": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 0,
+            "smooth_defined": 1,
+            "stars": 1
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 2
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 3
+          }
+        ],
+        "type": "practice",
+        "unfinished": 0,
+        "zeroed": 0
+      },
+      {
+        "area": "numbers",
+        "days": [
+          {
+            "day": 3,
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.000000,
+          "beta": 2.000000,
+          "hi": 0.768320,
+          "lo": 0.431680,
+          "m": 0.600000,
+          "mean": 0.600000,
+          "p0": 0.500000,
+          "sd": 0.200000
+        },
+        "family": "tapAll",
+        "finished": 1,
+        "guide_helps_mean": null,
+        "help_heavy": false,
+        "kind": "tapCountAll",
+        "new": true,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "smooth": 1,
+        "smooth_defined": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1,
+            "stars": 1
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 2
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 3
+          }
+        ],
+        "type": "practice",
+        "unfinished": 0,
+        "zeroed": 0
+      },
+      {
+        "area": "numbers",
+        "days": [
+          {
+            "day": 3,
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1
+          }
+        ],
+        "days_played": 1,
+        "estimate": {
+          "alpha": 3.000000,
+          "beta": 2.000000,
+          "hi": 0.768320,
+          "lo": 0.431680,
+          "m": 0.600000,
+          "mean": 0.600000,
+          "p0": 0.500000,
+          "sd": 0.200000
+        },
+        "family": "tapTrace",
+        "finished": 1,
+        "guide_helps_mean": 0.000000,
+        "help_heavy": false,
+        "kind": "tapCountTrace",
+        "new": false,
+        "no_result": 0,
+        "rate": 1.000000,
+        "rounds": 1,
+        "smooth": 1,
+        "smooth_defined": 1,
+        "solved": 1,
+        "stars": [
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 1
+          },
+          {
+            "finished": 1,
+            "rounds": 1,
+            "smooth": 1,
+            "smooth_defined": 1,
+            "stars": 2
+          },
+          {
+            "finished": 0,
+            "rounds": 0,
+            "smooth": 0,
+            "smooth_defined": 0,
+            "stars": 3
+          }
+        ],
+        "type": "practice",
+        "unfinished": 0,
+        "zeroed": 0
+      }
+    ],
+    "new_kinds": [
+      "twoPictureChoose",
+      "shapeCousin",
+      "traceShapesDotted",
+      "tapCountAll"
+    ],
+    "open_at_cutoff": 0,
+    "partial": false,
+    "pooled": {
+      "practice": 0.500000,
+      "quiz": 0.500000
+    },
+    "rounds": [
+      {
+        "answered": null,
+        "chance": null,
+        "day": 0,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "lineMatch",
+        "outcome": "solved",
+        "round": "r011",
+        "smooth": true,
+        "stars": 1,
+        "type": "practice",
+        "visa_min": 5
+      },
+      {
+        "answered": true,
+        "chance": 0.166667,
+        "day": 0,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "lineMatch",
+        "outcome": "solved",
+        "round": "r012",
+        "smooth": null,
+        "stars": 2,
+        "type": "quiz",
+        "visa_min": 10
+      },
+      {
+        "answered": true,
+        "chance": 0.250000,
+        "day": 1,
+        "first_try": false,
+        "game_ms": 39750,
+        "kind": "countVehicles",
+        "outcome": "solved",
+        "round": "r013",
+        "smooth": null,
+        "stars": 2,
+        "type": "quiz",
+        "visa_min": 5
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 3,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "tapCountAll",
+        "outcome": "solved",
+        "round": "r015",
+        "smooth": true,
+        "stars": 1,
+        "type": "practice",
+        "visa_min": 5
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 3,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "tapCountTrace",
+        "outcome": "solved",
+        "round": "r016",
+        "smooth": true,
+        "stars": 2,
+        "type": "practice",
+        "visa_min": 10
+      },
+      {
+        "answered": true,
+        "chance": 0.333333,
+        "day": 3,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "emptyBay",
+        "outcome": "solved",
+        "round": "r017",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 5
+      },
+      {
+        "answered": true,
+        "chance": 0.333333,
+        "day": 4,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "shapeCousin",
+        "outcome": "solved",
+        "round": "r019",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 5
+      },
+      {
+        "answered": true,
+        "chance": 0.500000,
+        "day": 4,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "twoPictureChoose",
+        "outcome": "solved",
+        "round": "r020",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 5
+      },
+      {
+        "answered": null,
+        "chance": null,
+        "day": 4,
+        "first_try": null,
+        "game_ms": 39750,
+        "kind": "traceShapesDotted",
+        "outcome": "solved",
+        "round": "r021",
+        "smooth": false,
+        "stars": 1,
+        "type": "practice",
+        "visa_min": 5
+      },
+      {
+        "answered": true,
+        "chance": 0.500000,
+        "day": 5,
+        "first_try": false,
+        "game_ms": 39750,
+        "kind": "moreFewer",
+        "outcome": "zeroed",
+        "round": "r022",
+        "smooth": null,
+        "stars": 3,
+        "type": "quiz",
+        "visa_min": 0
+      },
+      {
+        "answered": false,
+        "chance": 0.333333,
+        "day": 5,
+        "first_try": false,
+        "game_ms": 19750,
+        "kind": "findTheSame",
+        "outcome": "abandoned",
+        "round": "r023",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 0
+      },
+      {
+        "answered": true,
+        "chance": 0.333333,
+        "day": 5,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "findTheSame",
+        "outcome": "solved",
+        "round": "r024",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 5
+      },
+      {
+        "answered": true,
+        "chance": 0.333333,
+        "day": 6,
+        "first_try": true,
+        "game_ms": 39750,
+        "kind": "findTheSame",
+        "outcome": "solved",
+        "round": "r025",
+        "smooth": null,
+        "stars": 1,
+        "type": "quiz",
+        "visa_min": 5
+      }
+    ],
+    "stars": [
+      9,
+      3,
+      1
+    ],
+    "totals": {
+      "days_played": 6,
+      "game_min": 8.279167,
+      "plays": 3,
+      "practice_finished": 4,
+      "practice_min": 2.650000,
+      "practice_rate": 0.750000,
+      "practice_rounds": 4,
+      "practice_smooth": 3,
+      "practice_smooth_defined": 4,
+      "quiz_adjusted": 0.619048,
+      "quiz_answered": 8,
+      "quiz_chance_mean": 0.343750,
+      "quiz_expected": 2.750000,
+      "quiz_expected_answered": 8,
+      "quiz_first_try": 6,
+      "quiz_min": 5.629167,
+      "quiz_rate": 0.750000,
+      "quiz_rounds": 9,
+      "rounds": 13,
+      "sessions": 6,
+      "video_estimated": false,
+      "video_min": 25.929167,
+      "visa_min": 65
+    },
+    "week_end": "2026-10-18",
+    "week_start": "2026-10-12"
+  },
+  "time_zone": "Asia/Hong_Kong",
+  "week_start": "2026-10-19",
+  "weeks": [
+    {
+      "current": false,
+      "open_at_cutoff": 1,
+      "partial": true,
+      "practice_finished": 3,
+      "practice_rate": 0.666667,
+      "practice_rounds": 3,
+      "practice_smooth": 2,
+      "practice_smooth_defined": 3,
+      "quiz_adjusted": 0.727273,
+      "quiz_answered": 6,
+      "quiz_chance_mean": 0.388889,
+      "quiz_expected": 2.333333,
+      "quiz_expected_answered": 6,
+      "quiz_first_try": 5,
+      "quiz_rate": 0.833333,
+      "quiz_rounds": 6,
+      "rounds": 9,
+      "week_start": "2026-10-05"
+    },
+    {
+      "current": false,
+      "open_at_cutoff": 0,
+      "partial": false,
+      "practice_finished": 4,
+      "practice_rate": 0.750000,
+      "practice_rounds": 4,
+      "practice_smooth": 3,
+      "practice_smooth_defined": 4,
+      "quiz_adjusted": 0.619048,
+      "quiz_answered": 8,
+      "quiz_chance_mean": 0.343750,
+      "quiz_expected": 2.750000,
+      "quiz_expected_answered": 8,
+      "quiz_first_try": 6,
+      "quiz_rate": 0.750000,
+      "quiz_rounds": 9,
+      "rounds": 13,
+      "week_start": "2026-10-12"
+    },
+    {
+      "current": true,
+      "open_at_cutoff": 1,
+      "partial": false,
+      "practice_finished": 13,
+      "practice_rate": 0.727273,
+      "practice_rounds": 14,
+      "practice_smooth": 8,
+      "practice_smooth_defined": 11,
+      "quiz_adjusted": 0.677996,
+      "quiz_answered": 23,
+      "quiz_chance_mean": 0.294192,
+      "quiz_expected": 6.472222,
+      "quiz_expected_answered": 22,
+      "quiz_first_try": 18,
+      "quiz_rate": 0.782609,
+      "quiz_rounds": 24,
+      "rounds": 38,
+      "week_start": "2026-10-19"
+    }
+  ]
+}

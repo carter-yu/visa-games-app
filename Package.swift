@@ -8,6 +8,7 @@ let package = Package(
     targets: [
         .target(name: "VisaCore"),
         .executableTarget(name: "VisaGames", dependencies: ["VisaCore"]),
-        .executableTarget(name: "VisaCoreChecks", dependencies: ["VisaCore"], path: "Tests/VisaCoreTests")
+        .executableTarget(name: "VisaCoreChecks", dependencies: ["VisaCore"], path: "Tests/VisaCoreTests",
+                          exclude: ["Fixtures"])
     ]
 )
