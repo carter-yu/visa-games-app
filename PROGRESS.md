@@ -1,5 +1,12 @@
 # Progress
 
+## 2026-10-25 — v0.34.0 / 70 — Letter mid-stroke guidance (draft PR source)
+
+- Copied the locked letter guidance JSON without edits and generated English-only Swift data for a, b, c, d, e, g, k, o and u. Regenerating `TapCountGuideData.swift` from the numeral spec produced a byte-identical file.
+- The shared guide resolves Latin paths, uses the letter board's car/headlight/ring/route sizes, and turns AHEAD signs along the path for letters and numerals 6/10. Find & write live writing now presents beat demos, cues, stall and idle help, and the engine bubble. The existing shared tracing-help and stroke-order settings gate the two systems; letter learned progress consumes the guide's clean record.
+- Added focused offline checks for letter guide coverage, cue geometry, e's junction and help timing, and tangent angle. Updated the product version, build, and version assertion to 0.34.0 / 70. `git diff --check` passed. `sh scripts/test.sh` and `sh scripts/bundle.sh` each exited 127 (`swift: not found`) on Linux, so Swift compilation and Mac/TV behavior are unverified.
+- The macOS escape-path inventory remains in `docs/phase-0-kiosk-checklist.md`; no kiosk boundary changed.
+
 ## 2026-10-25 — v0.33.1 / 69 — Letter playtest week rotation hotfix (draft PR)
 
 - `finishTapLetterRound` now saves a successful parent playtest to the shared letter progress, word decks, and round index before recording playtest completion. Find & write playtests also save the existing writing progress and stroke glance bookkeeping. Playtest still grants no visa and uses its playtest completion flags.

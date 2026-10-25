@@ -396,6 +396,22 @@ public struct TapCountGuideProgressStore {
     }
 }
 
+public struct LetterBoardGuideStyle: Equatable, Sendable {
+    public let laneScale: Double
+    public let carScale: Double
+    public let noseUnits: Double
+    public let chevScale: Double
+    public let laneDotSpacing: Double
+    public let stopSignScale: Double
+    public let aheadSignScale: Double
+    public init(laneScale: Double, carScale: Double, noseUnits: Double, chevScale: Double,
+                laneDotSpacing: Double, stopSignScale: Double, aheadSignScale: Double) {
+        self.laneScale = laneScale; self.carScale = carScale; self.noseUnits = noseUnits
+        self.chevScale = chevScale; self.laneDotSpacing = laneDotSpacing
+        self.stopSignScale = stopSignScale; self.aheadSignScale = aheadSignScale
+    }
+}
+
 // MARK: - Resolved geometry (stage units, the same paths as the trace board)
 
 public struct NumeralGuide: Equatable, Sendable {
@@ -414,6 +430,7 @@ public struct NumeralGuide: Equatable, Sendable {
     }
 
     public let numeral: Int
+    public let glyphKey: String
     public let spec: NumeralGuideSpec
     public let paths: [TracePath]
     public let scale: Double
@@ -428,6 +445,22 @@ public struct NumeralGuide: Equatable, Sendable {
         let strokes = NumeralGlyphs.strokes(n)
         let paths = NumeralGlyphs.paths(n, offset: placement.offset, scale: placement.scale)
         guard !paths.isEmpty else { return nil }
+        self.init(spec: spec, glyphKey: "\(n)", placement: placement, strokes: strokes, paths: paths)
+    }
+
+    public init?(letter: Character) {
+        guard let spec = LetterGuideData.letter(letter) else { return nil }
+        let placement = (offset: LineMatchPoint(x: 545, y: 142), scale: 1.0)
+        let strokes = LatinGlyphs.strokes(letter).map {
+            NumeralStroke($0.svg, corners: $0.corners, cusps: $0.cusps, closed: $0.closed)
+        }
+        let paths = LatinGlyphs.paths(letter, offset: placement.offset, scale: placement.scale)
+        guard !paths.isEmpty else { return nil }
+        self.init(spec: spec, glyphKey: "latin:\(letter)", placement: placement, strokes: strokes, paths: paths)
+    }
+
+    private init?(spec: NumeralGuideSpec, glyphKey: String,
+                  placement: (offset: LineMatchPoint, scale: Double), strokes: [NumeralStroke], paths: [TracePath]) {
         var beats: [Beat] = []
         for beat in spec.beats {
             guard paths.indices.contains(beat.stroke), beat.seconds > 0 else { return nil }
@@ -449,7 +482,8 @@ public struct NumeralGuide: Equatable, Sendable {
                                       y: placement.offset.y + cue.signAt.y * placement.scale)
             cues.append(Cue(index: index, stroke: cue.stroke, distance: d, sign: cue.sign, signPoint: sign))
         }
-        self.numeral = n
+        self.numeral = spec.numeral
+        self.glyphKey = glyphKey
         self.spec = spec
         self.paths = paths
         self.scale = placement.scale
@@ -462,6 +496,10 @@ public struct NumeralGuide: Equatable, Sendable {
     public static let pointTolerance: Double = 6
 
     /// Glyph distance from `point` to the stroke (nearest sample; for the data test).
+    public static func glyphOffset(of point: NumeralGuidePoint, on stroke: LatinStroke) -> Double? {
+        glyphOffset(of: point, on: NumeralStroke(stroke.svg, corners: stroke.corners, cusps: stroke.cusps, closed: stroke.closed))
+    }
+
     public static func glyphOffset(of point: NumeralGuidePoint, on stroke: NumeralStroke) -> Double? {
         let path = TracePath(svg: stroke.svg, corners: stroke.corners, cusps: stroke.cusps, closed: stroke.closed)
         guard let at = passDistance(point, on: path) else { return nil }
@@ -506,7 +544,15 @@ public struct NumeralGuide: Equatable, Sendable {
     }
 
     /// Lane dot spacing in stage units (`stroke-dasharray 0 30` in glyph units).
-    public var dotSpacing: Double { 30 * scale }
+    public var dotSpacing: Double { glyphKey.hasPrefix("latin:") ? LetterGuideData.board.laneDotSpacing : 30 * scale }
+    public var noseUnits: Double { glyphKey.hasPrefix("latin:") ? LetterGuideData.board.noseUnits : TapCountGuideCoach.noseUnits }
+    public var carScale: Double { glyphKey.hasPrefix("latin:") ? LetterGuideData.board.carScale : 0.72 }
+    public var chevronScale: Double { glyphKey.hasPrefix("latin:") ? LetterGuideData.board.chevScale : scale }
+
+    public func aheadAngle(for cue: Cue) -> Double {
+        let path = paths[cue.stroke]
+        return path.angle(at: min(path.length, cue.distance + 24))
+    }
 
     /// Cues on `stroke`, in order.
     public func cues(onStroke stroke: Int) -> [Cue] { cues.filter { $0.stroke == stroke } }
@@ -805,7 +851,7 @@ public enum TapCountGuideCoach {
         guard plan.headlights, !trace.isComplete, let path = trace.currentPath else { return [] }
         let spacing = guide.dotSpacing
         guard spacing > 0 else { return [] }
-        var m = (trace.progress + noseUnits) / spacing
+        var m = (trace.progress + guide.noseUnits) / spacing
         m = m.rounded(.down) + 1
         var out: [Double] = []
         while out.count < count {
