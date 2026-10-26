@@ -103,3 +103,39 @@ python3 reference_text.py . 2026-10-19 2026-10-25T13:00:00.000Z video-titles.jso
 cd ../weekly-2026-10-19
 python3 ../weekly-ranking-5.6/reference_text.py . 2026-10-19 2026-10-25T13:00:00.000Z video-titles.json > expected-text.json
 ```
+
+## W4 report HTML (design §3, §8, §9; ADR 0024)
+
+`expected-report.html` is `WeeklyReportHTML.render` of this week's W3 text with `generatedAt`
+`2026-10-25T13:00:00.000Z` and the sample watermark on (this is the design's sample week, so it wears
+「示例數據 EXAMPLE DATA」 like `mockups/sample-report.html`; real reports have it off). Six A4 page
+sections; every chart is inline SVG; no script, URL, font file or image.
+
+`reference_html.py` is an independent Python reading of design §3, §8, §9 and ADR 0024. It reads a
+folder's `expected-metrics.json`, `expected-analysis.json` and `expected-text.json` (the W3 word tables
+come from `reference_text.py`) and shares no code with Swift; the Swift label table, stylesheet and
+palette were generated from its tables. Every coordinate and layout estimate is an integer in tenths
+of a px; chance means printed as whole percents are refused when they sit near a rounding tie.
+`expected-metrics.json` (new in W4) is the W1 model of this folder, made with
+`../weekly-2026-10-19/reference_model.py`, so the reference can read the day table, the matrix and the
+week charts.
+
+Checks that read it (`WeeklyReportHTMLTests.swift`):
+
+- `testHTMLGolden`: first `WeeklyModel`, `WeeklyAnalysis` and `WeeklyReportText` against the three JSON
+  goldens, then the HTML byte for byte (the same check reads `../weekly-2026-10-19/expected-report.html`).
+  On a mismatch it reports the first differing line and byte offset and writes the Swift output to
+  `$TMPDIR/weekly-ranking-5.6-report-actual.html` (or `-metrics-`, `-analysis-`, `-text-actual.json`).
+- `testPageCountSix`, `testNoTextOverflowBudget`, `testHTMLPaletteTokens`, `testHTMLSelfContained`,
+  `testHTMLWellFormed`, `testW3StringsPresent` and `testHTMLTraditionalOnlyAndNoBannedWords` scan it with
+  the W1 fixture's report and nine synthetic weeks built in the test file.
+
+Regenerate after the records, the W1–W3 goldens or the layout change:
+
+```sh
+cd Tests/VisaCoreTests/Fixtures/weekly-ranking-5.6
+python3 ../weekly-2026-10-19/reference_model.py . 2026-10-19 2026-10-25T13:00:00.000Z > expected-metrics.json
+python3 reference_html.py . 2026-10-25T13:00:00.000Z --sample > expected-report.html
+cd ../weekly-2026-10-19
+python3 ../weekly-ranking-5.6/reference_html.py . 2026-10-25T13:00:00.000Z > expected-report.html
+```
