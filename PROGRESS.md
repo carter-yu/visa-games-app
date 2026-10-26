@@ -1,5 +1,32 @@
 # Progress
 
+## 2026-10-26 — Weekly report W3: report text (VisaCore, draft PR source)
+
+- W2 is on main via #37 (`9f1087b`). Branch `feat/weekly-report-W3` starts from that commit. The scope is design §12 W3: the §6 templates, highlights, wins text and game comments, and the §7 recommendations and questions, in Chinese and English (D6 B templates, D7 Cedric, D8 B video titles). ADR 0023 records the choices made where the design left room, including the copy written for gaps.
+- New VisaCore files: `WeeklyTextFormat.swift`, `WeeklyTextTemplates.swift`, `WeeklyTextFacts.swift` and `WeeklyReportText.swift`.
+  - Builder: `WeeklyReportTextBuilder.build(events:rollup:window:childName:videoTitles:)` returns `WeeklyReportText`; `canonicalJSON()` uses the W1 `WeeklyJSON` rules. It reads the W1 index and calls the W2 analysis unchanged.
+  - Registry: 154 templates, each with an id, typed slots, Chinese and English text and its precondition. One formatter rounds every number half up in integers, and every printed number is recorded per sentence as (path, value).
+  - Text: highlights with their fallbacks and trend fragments; every W2 win candidate; each game's long and page-4 comments (1 main + 1 extra, first match wins); the page-4 list lines; the top 3 videos; 「今個星期冇改設定」.
+  - Recommendations: family items F1–F8 (at most 3, F8 as a closing line) and app items A1–A12 with A4b (at most 4). Each section claims its games, and a suggestion equal to this week's recorded setting is skipped. Q1 with its note, and Q2 with the child's name.
+  - W1 and W2 code and goldens are unchanged.
+- Fixtures:
+  - `weekly-ranking-5.6/expected-text.json` and `weekly-2026-10-19/expected-text.json`, with synthetic `video-titles.json` in each folder.
+  - The goldens come from the new `weekly-ranking-5.6/reference_text.py`, an independent Python reading of the W3 rules on top of the W1 and W2 references.
+  - `traditional-check/simplified-only.txt` holds 2,708 OpenCC Simplified-only characters, without 吓 / 晒, from `make_simplified_list.py` (`opencc-python-reimplemented` 0.1.7). Each folder's README has the regeneration commands.
+- Eight checks in `WeeklyTextTests.swift`, registered in `VisaCoreChecks` with the PASS banner updated: `testWeeklyTextFormatter`, `testEveryNumberTraceable`, `testNoBannedWords`, `testReportStringsTraditionalOnly`, `testTemplateSelectionDeterministic`, `testSampleSentences67ReproducedExactly`, `testWeeklyTextGoldenFixtures` and `testRecommendationRulesAndClaims`.
+- Checked on this box, in Python only:
+  - The reference renders all ten design §6.7 sentences, Chinese and English, exactly from the §5.6 fixture records, which are unchanged. The check's literals match the design text character for character.
+  - A script compared the Swift registry with the reference's template table: the same 154 ids, texts and slot names.
+  - Regenerating both text goldens gave identical bytes. The W1 and W2 references still reproduce `expected-metrics.json` and both `expected-analysis.json` files byte for byte.
+  - A Python mirror of the four language and number checks over both goldens found:
+    - no untraced or stale number;
+    - no banned phrase or word;
+    - no character from the OpenCC list or the existing Simplified sets.
+  - The design's `check_traditional.py` finds no Simplified characters in the new sources and goldens. It reports only the allowed 搵 variant (§6.3).
+  - The synthetic weeks of `testTemplateSelectionDeterministic` and `testRecommendationRulesAndClaims` were mirrored in Python, and the reference gives the asserted ids and places.
+- Not run: Swift is not installed on this Linux box. No Swift compile, check pass or golden match is claimed. Mac mini `sh scripts/test.sh` is pending.
+- No family-visible change: the version stays 0.34.0 / 70. No UI, recording, settings or kiosk change. The OS escape-path inventory remains in `docs/phase-0-kiosk-checklist.md`.
+
 ## 2026-10-25 — Weekly report W2: ranking, week over week and wins (VisaCore, draft PR source)
 
 - W1 is on main via #36 (`992a7b3`). Branch `feat/weekly-report-W2` starts from that commit. The scope is design §12 W2 (§4.10, §5.1–5.6, the §6.5 rules and the page-5 changes; D4 A, D5 A). ADR 0022 records the choices made where the design left room.

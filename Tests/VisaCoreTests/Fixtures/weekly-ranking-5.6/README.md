@@ -78,3 +78,28 @@ previous week's n / k and that no ★★★ share moves by 30 points. `reference
 independent Python reading of design §4.10, §5, §6.5 and the page-5 changes (ADR 0022). It takes the
 W1 metrics from `../weekly-2026-10-19/reference_model.py` and shares no code with Swift. Change the
 records or the rules on both sides together, then regenerate and review the diff.
+
+## W3 text (design §6, §7; ADR 0023)
+
+`expected-text.json` is `WeeklyReportText.canonicalJSON()` for the same request, with the child's name
+Cedric (D7) and the synthetic video titles of `video-titles.json` (D8 B; made-up labels for the fixture's
+video ids, one with digits to exercise the verbatim rule). It holds every sentence (Chinese, English,
+traced numbers, verbatim spans) and the W3 facts block. `reference_text.py` is an independent Python
+reading of the W3 templates and rules on top of `reference_analysis.py`; it shares no code with Swift.
+
+Checks that read it (`WeeklyTextTests.swift`):
+
+- `testWeeklyTextGoldenFixtures`: byte for byte (the same check reads `../weekly-2026-10-19/expected-text.json`);
+  on a mismatch it writes the Swift output to `$TMPDIR/weekly-ranking-5.6-text-actual.json`.
+- `testSampleSentences67ReproducedExactly`: the ten design §6.7 sentences, Chinese and English, from this week.
+- `testEveryNumberTraceable`, `testNoBannedWords`, `testReportStringsTraditionalOnly` and
+  `testTemplateSelectionDeterministic` scan its sentences too.
+
+Regenerate after the records or the rules change (the W1 fixture's text uses the same script):
+
+```sh
+cd Tests/VisaCoreTests/Fixtures/weekly-ranking-5.6
+python3 reference_text.py . 2026-10-19 2026-10-25T13:00:00.000Z video-titles.json > expected-text.json
+cd ../weekly-2026-10-19
+python3 ../weekly-ranking-5.6/reference_text.py . 2026-10-19 2026-10-25T13:00:00.000Z video-titles.json > expected-text.json
+```
