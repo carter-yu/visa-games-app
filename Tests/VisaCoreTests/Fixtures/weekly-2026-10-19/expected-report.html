@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-HK">
+<head>
+<meta charset="utf-8">
+<title>VisaGames 每週學習報告 2026-10-19</title>
+<meta name="author" content="VisaGames">
+<style>
+@page { size: A4; margin: 0; }
+html { font-family: "PingFang HK", "Noto Sans CJK HK", sans-serif; color: #0b0b0b; font-size: 12px; line-height: 1.38; -webkit-text-size-adjust: none; overflow-wrap: break-word; }
+body { margin: 0; background: #ffffff; }
+p { margin: 0; }
+section.page { position: relative; box-sizing: border-box; width: 794px; height: 1123px; overflow: hidden; padding: 72px 53px 57px 53px; background: #ffffff; break-after: page; page-break-after: always; }
+section.page:last-of-type { break-after: auto; page-break-after: auto; }
+@media print { section.page { width: 210mm; height: 297mm; } }
+.runhead { position: absolute; left: 53px; right: 53px; top: 0; height: 62px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 0.8px solid #e1e0d9; padding-bottom: 4px; }
+.runhead .rh-left { font-size: 9.6px; color: #52514e; white-space: nowrap; }
+.runhead .rh-left b { color: #2f4b8f; font-weight: 700; }
+.runhead .rh-tag { font-size: 9.3px; font-weight: 700; color: #b8312f; border: 1px solid #b8312f; border-radius: 7px; padding: 0 7px; white-space: nowrap; }
+.runfoot { position: absolute; left: 53px; right: 53px; top: 1073px; display: flex; justify-content: space-between; align-items: flex-start; font-size: 8.3px; color: #898781; line-height: 1.35; }
+.runfoot .pageno { font-size: 8.8px; white-space: nowrap; margin-left: 12px; }
+.wm { position: absolute; top: 446px; left: -45px; width: 794px; text-align: center; transform: rotate(-32deg); font-size: 53px; font-weight: 700; color: #b8312f; opacity: 0.1; letter-spacing: 2.7px; white-space: nowrap; }
+.en { color: #52514e; font-size: 9.9px; line-height: 1.3; }
+.zh { font-size: 12px; }
+.pair { margin: 0 0 6px 0; }
+.pair .en { display: block; margin-top: 1px; }
+h1 { font-size: 26.7px; line-height: 35px; margin: 0; color: #2f4b8f; font-weight: 700; letter-spacing: 0.7px; }
+h1 .en { font-size: 14px; color: #52514e; font-weight: 400; letter-spacing: 0; margin-left: 8px; }
+h2 { font-size: 17px; line-height: 23px; margin: 0 0 6px 0; color: #2f4b8f; font-weight: 700; }
+h2 .en { font-size: 11.5px; color: #52514e; font-weight: 400; margin-left: 6px; }
+h3 { font-size: 13px; line-height: 18px; margin: 0 0 5px 0; font-weight: 700; }
+h3 .en { font-size: 10px; color: #52514e; font-weight: 400; margin-left: 5px; }
+.cover { border-left: 8px solid #2f4b8f; padding: 2px 0 2px 15px; margin-bottom: 14px; }
+.cover .meta { margin-top: 6px; font-size: 12px; color: #52514e; }
+.cover .meta .en { display: block; font-size: 9.9px; }
+.highlights { background: #fff6df; border-radius: 11px; padding: 13px 17px 7px 17px; margin-bottom: 14px; }
+.highlights .pair { margin-bottom: 8px; }
+.highlights .zh { font-size: 13px; }
+.highlights .en { font-size: 10.4px; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+.tile { border: 0.8px solid #e1e0d9; border-radius: 10px; padding: 9px 11px 8px 11px; }
+.tile .lbl { font-size: 10.7px; color: #52514e; line-height: 1.25; }
+.tile .lbl .en { display: block; font-size: 8.8px; color: #898781; }
+.tile .val { font-size: 22.7px; font-weight: 700; margin: 2px 0 1px 0; line-height: 1.15; white-space: nowrap; }
+.tile .val small { font-size: 12px; font-weight: 400; color: #52514e; }
+.tile .val.na { color: #898781; }
+.tile .cmp { font-size: 9.9px; color: #52514e; line-height: 1.3; }
+.tile .cmp .en { font-size: 8.7px; color: #898781; display: block; }
+.sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 1px; }
+.sw.q { background: #2a78d6; }
+.sw.p { background: #1baf7a; }
+.sw.v { background: #eb6834; }
+.pair.key { margin-bottom: 4px; }
+.key .zh { font-size: 10.7px; }
+.key .en { font-size: 9px; }
+.tilenote { margin: -6px 0 12px 0; }
+.tilenote .zh { font-size: 10.7px; color: #52514e; }
+.tilenote .en { font-size: 9px; color: #898781; }
+.twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 19px; }
+.box { border-radius: 10px; padding: 11px 14px 4px 14px; }
+.box.wins { background: #fff4c7; }
+.box.next { background: #ddebff; }
+ul.items { list-style: none; padding: 0; margin: 0; }
+ul.items li { margin: 0 0 7px 0; padding-left: 16px; position: relative; }
+ul.items li::before { content: "✓"; position: absolute; left: 0; top: 0; color: #2f4b8f; font-weight: 700; font-size: 11.3px; }
+ul.items.dots li::before { content: "•"; font-size: 13.3px; top: -2px; }
+ul.items li .en { display: block; }
+.note { font-size: 9.9px; color: #52514e; margin-top: 11px; line-height: 1.4; }
+.note .en { display: block; font-size: 9px; color: #898781; }
+.chart { margin: 0 0 6px 0; }
+.chart svg { display: block; width: 100%; height: auto; }
+.charttitle { font-size: 12.3px; font-weight: 700; margin-bottom: 4px; }
+.charttitle .en { font-size: 9.6px; font-weight: 400; margin-left: 5px; }
+.chartnote { font-size: 10.7px; color: #52514e; border: 0.8px solid #e1e0d9; border-radius: 10px; padding: 9px 12px; margin: 0 0 10px 0; }
+.chartnote .en { display: block; font-size: 9px; color: #898781; }
+table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+table.daily { font-size: 10.7px; margin-top: 4px; }
+table.daily th { font-size: 9.3px; font-weight: 700; color: #52514e; text-align: right; padding: 4px 4px 5px 4px; border-bottom: 1px solid #c3c2b7; vertical-align: bottom; line-height: 1.25; }
+table.daily th .en { display: block; font-weight: 400; font-size: 8.3px; color: #898781; }
+table.daily th.l, table.daily td.l { text-align: left; }
+table.daily td { padding: 5px 4px; border-bottom: 0.7px solid #e1e0d9; text-align: right; font-variant-numeric: tabular-nums; vertical-align: top; }
+table.daily td .en { display: block; font-size: 8.5px; color: #898781; }
+table.daily tr.total td { font-weight: 700; border-top: 1px solid #c3c2b7; border-bottom: none; }
+table.daily td.muted { color: #898781; }
+table.daily td.note-cell { font-size: 9.6px; }
+table.matrix { font-size: 10.1px; }
+table.matrix th { font-size: 9px; color: #52514e; font-weight: 700; padding: 2px 2px 3px 2px; border-bottom: 1px solid #c3c2b7; text-align: center; line-height: 1.2; vertical-align: bottom; }
+table.matrix th .en { display: block; font-weight: 400; font-size: 8px; color: #898781; }
+table.matrix th.name { text-align: left; }
+table.matrix td { padding: 2px 2px; border-bottom: 0.7px solid #e1e0d9; text-align: center; font-variant-numeric: tabular-nums; vertical-align: middle; }
+table.matrix td.name { text-align: left; padding-left: 3px; line-height: 1.15; }
+table.matrix td.name .en { display: block; font-size: 8.1px; color: #898781; }
+table.matrix td.q { background: #e5effa; }
+table.matrix td.p { background: #e4f5ef; }
+table.matrix td.na { color: #898781; }
+table.matrix td.tot { font-weight: 700; }
+table.matrix td.stars { color: #52514e; font-size: 9px; }
+table.matrix tr.area td { background: #f6f5f1; font-size: 9.3px; font-weight: 700; color: #52514e; padding: 3px 3px; text-align: left; }
+table.matrix tr.area td .en { font-weight: 400; color: #898781; margin-left: 4px; font-size: 8.3px; }
+table.matrix tr.fold td { text-align: left; color: #52514e; font-size: 9.3px; padding: 4px 3px; }
+table.matrix tr.fold td .en { display: block; font-size: 8.1px; color: #898781; }
+.badge { display: inline-block; font-size: 8px; font-weight: 700; border-radius: 4px; padding: 0 4px; margin-right: 3px; vertical-align: 1px; line-height: 1.35; color: #0b0b0b; white-space: nowrap; }
+.badge.q { background: #e5effa; border: 0.7px solid #9ec5f4; }
+.badge.p { background: #e4f5ef; border: 0.7px solid #8fd8bd; }
+.badge.new { background: #fde3d7; border: 0.7px solid #f3b39a; }
+.badge.fixed { background: #f1f0ec; border: 0.7px solid #c3c2b7; color: #52514e; font-weight: 400; }
+.badge.cfg { background: #f1f0ec; border: 0.7px solid #c3c2b7; color: #52514e; }
+.rank { margin-bottom: 10px; }
+.rank .head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1.2px solid #2f4b8f; padding-bottom: 3px; margin-bottom: 4px; }
+.rank .head h3 { margin: 0; color: #2f4b8f; }
+.rank .head .split { font-size: 9.9px; color: #52514e; white-space: nowrap; }
+.row { display: grid; grid-template-columns: 196px 155px 1fr; gap: 11px; padding: 4px 0; border-bottom: 0.7px solid #e1e0d9; }
+.row .nm { font-size: 12px; line-height: 15px; font-weight: 700; }
+.row .nm .en { display: block; font-weight: 400; font-size: 9.2px; line-height: 12px; }
+.fact { font-size: 11.2px; line-height: 14.5px; }
+.fact .en { display: block; font-size: 9px; line-height: 12px; }
+.fact .stars { display: block; font-size: 8.8px; line-height: 11.5px; color: #898781; }
+.cm { font-size: 10.9px; line-height: 14.4px; }
+.cm .en { display: block; font-size: 8.9px; line-height: 11.6px; }
+.status { font-size: 11.5px; line-height: 15.8px; margin: 2px 0 6px 0; }
+.status .en { display: block; font-size: 9.3px; line-height: 12.1px; }
+.also { font-size: 10.4px; line-height: 14.5px; margin: 6px 0 0 0; }
+.also .en { display: block; font-size: 9px; line-height: 12px; color: #52514e; }
+.insuff .row { grid-template-columns: 196px 1fr; }
+.insuff .cols { display: grid; grid-template-columns: 1fr 1fr; column-gap: 19px; }
+.insuff .item { padding: 3px 0; border-bottom: 0.7px solid #e1e0d9; }
+.insuff .item .nm { font-size: 10.7px; line-height: 13.4px; font-weight: 700; }
+.insuff .item .nm .en { display: inline; font-weight: 400; font-size: 8.8px; line-height: 13.4px; margin-left: 4px; }
+.insuff .item .cm { font-size: 9.9px; line-height: 12.9px; }
+.insuff .item .cm .en { font-size: 8.5px; line-height: 11px; }
+.method { background: #f6f5f1; border-radius: 9px; padding: 8px 12px 6px 12px; font-size: 9.9px; line-height: 13.8px; margin-top: 8px; }
+.method .en { display: block; font-size: 8.8px; line-height: 11.4px; color: #52514e; margin-bottom: 4px; }
+.dense .rank { margin-bottom: 6px; }
+.dense .row { padding: 2px 0; }
+.dense .row .nm { font-size: 11px; line-height: 13.5px; }
+.dense .row .nm .en { font-size: 8.6px; line-height: 11px; }
+.dense .fact { font-size: 10.2px; line-height: 13px; }
+.dense .fact .en { font-size: 8.4px; line-height: 11px; }
+.dense .fact .stars { font-size: 8.2px; line-height: 10.5px; }
+.dense .cm { font-size: 10px; line-height: 13px; }
+.dense .cm .en { font-size: 8.2px; line-height: 10.6px; }
+.dense .also { font-size: 9.6px; line-height: 13px; }
+.dense .also .en { font-size: 8.4px; line-height: 11px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 19px; }
+.panel { border: 0.8px solid #e1e0d9; border-radius: 10px; padding: 10px 13px 3px 13px; margin-top: 8px; }
+.panel ul.items li { margin-bottom: 6px; }
+.rec { padding: 5px 0; border-bottom: 0.7px solid #e1e0d9; }
+.rec .t { font-size: 12px; line-height: 16px; font-weight: 700; }
+.rec .t .en { display: block; font-weight: 400; font-size: 9.6px; line-height: 12.5px; color: #52514e; }
+.rec .why { font-size: 10px; line-height: 13.5px; color: #52514e; margin-top: 2px; }
+.rec .why .en { display: block; font-size: 9px; line-height: 12px; color: #898781; }
+.rec .param { font-size: 9.3px; line-height: 12.5px; color: #898781; margin-top: 2px; font-family: Menlo, "Noto Sans Mono CJK HK", monospace; }
+.rec .decide { font-size: 8.5px; font-weight: 700; color: #2f4b8f; border: 0.8px solid #2f4b8f; border-radius: 4px; padding: 0 4px; margin-left: 5px; vertical-align: 1px; white-space: nowrap; }
+.sec { margin-top: 11px; }
+.howto { margin-top: 10px; border-top: 1.1px solid #2f4b8f; padding-top: 7px; }
+.gloss { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 23px; font-size: 10px; line-height: 13.5px; margin-top: 4px; }
+.gloss b { font-weight: 700; }
+.gloss .en { display: block; font-size: 8.8px; line-height: 11.5px; color: #52514e; }
+.dense .rec { padding: 3px 0; }
+.dense .rec .t { font-size: 11px; line-height: 14.5px; }
+.dense .rec .t .en { font-size: 9px; line-height: 11.5px; }
+.dense .rec .why { font-size: 9.4px; line-height: 12.5px; }
+.dense .rec .why .en { font-size: 8.4px; line-height: 11px; }
+.dense .rec .param { font-size: 8.6px; line-height: 11.5px; }
+.dense .sec { margin-top: 7px; }
+.dense .howto { margin-top: 8px; padding-top: 6px; }
+.dense .gloss { gap: 2px 23px; font-size: 9.4px; line-height: 12.5px; }
+.dense .gloss .en { font-size: 8.2px; line-height: 10.5px; }
+.privacy { margin-top: 11px; font-size: 9.6px; line-height: 13px; color: #52514e; border-top: 0.8px solid #e1e0d9; padding-top: 8px; }
+.privacy .en { display: block; font-size: 8.8px; line-height: 11.5px; color: #898781; }
+</style>
+</head>
+<body>
+<section class="page" id="p1">
+<div class="runhead"><div class="rh-left"><b>VisaGames 每週學習報告</b> Weekly report · 2026年10月19–25日 · 家長版，只供家人參考 For parents, family use only</div></div>
+<div class="cover"><h1>每週學習報告<span class="en">Weekly learning report</span></h1><div class="meta">2026年10月19–25日 · 資料截至 10月25日 21:00 · Cedric<span class="en">19–25 Oct 2026 · data up to Sun 25 Oct, 21:00 HKT · Cedric</span></div></div>
+<div class="highlights">
+<h3>本週重點<span class="en">Highlights</span></h3>
+<p class="pair"><span class="zh">今個星期有 6 日玩（星期二冇玩），總共 38 局：答題 24 局、練習 14 局，比上星期多 25 局。</span><span class="en">Played on 6 days (none on Tue): 38 rounds in all, 24 quiz and 14 practice, 25 more than last week.</span></p>
+<p class="pair"><span class="zh">答題遊戲第一次答啱 78%（上星期 75%，差唔多）；練習遊戲做得順 73%。</span><span class="en">Quiz games right first time 78% (last week 75%, about the same); practice games done smoothly 73%.</span></p>
+<p class="pair"><span class="zh">每個遊戲都玩得唔多，下星期再睇排名。</span><span class="en">Each game had only a few rounds; we&#39;ll look at rankings next week.</span></p>
+<p class="pair"><span class="zh">遊戲大約 35 分鐘，睇片大約 54 分鐘，賺到簽證 4 小時 35 分。</span><span class="en">About 35 min of games and 54 min of videos; 4 h 35 min of visa earned.</span></p>
+<p class="pair"><span class="zh">睇得最多嘅片：「數字歌 1 to 10 Counting song」（21 分鐘）、「消防車出動 Fire engines on call」（19 分鐘）、「巴士總站 Bus depot tour」（15 分鐘）。</span><span class="en">Most-watched videos: &quot;數字歌 1 to 10 Counting song&quot; (21 min), &quot;消防車出動 Fire engines on call&quot; (19 min), &quot;巴士總站 Bus depot tour&quot; (15 min).</span></p>
+</div>
+<div class="tiles">
+<div class="tile"><div class="lbl">有玩嘅日子<span class="en">Days played</span></div><div class="val">6<small> / 7 日</small></div><div class="cmp">上星期 6 日<span class="en">Last week: 6 days</span></div></div>
+<div class="tile"><div class="lbl">遊戲局數<span class="en">Rounds played</span></div><div class="val">38</div><div class="cmp">上星期 13 局 · ↑ 明顯多咗<span class="en">Last week: 13 rounds · ↑ clearly more</span></div></div>
+<div class="tile"><div class="lbl"><span class="sw q"></span>答題遊戲：第一次答啱<span class="en">Quiz games: right first time</span></div><div class="val">78%</div><div class="cmp">上星期 75% · 差唔多 · 亂估都有約 29%<span class="en">Last week 75% · about the same · guessing ≈ 29%</span></div></div>
+<div class="tile"><div class="lbl"><span class="sw p"></span>練習遊戲：做得順<span class="en">Practice games: done smoothly</span></div><div class="val">73%</div><div class="cmp">上星期 75%<span class="en">Last week 75%</span></div></div>
+<div class="tile"><div class="lbl">遊戲時間<span class="en">Game time</span></div><div class="val">35<small> 分鐘</small></div><div class="cmp">上星期 8 分鐘 · ↑ 明顯多咗 · 每局平均 0.9 分鐘<span class="en">Last week 8 min · ↑ clearly more · 0.9 min per round</span></div></div>
+<div class="tile"><div class="lbl"><span class="sw v"></span>睇片時間<span class="en">Video time</span></div><div class="val"><small>約 </small>54<small> 分鐘</small></div><div class="cmp">上星期 26 分鐘 · ↑ 明顯多咗 · 賺到簽證 4 小時 35 分<span class="en">Last week 26 min · ↑ clearly more · visa earned 4 h 35 min</span></div></div>
+</div>
+<div class="twocol">
+<div class="box wins"><h3>本週亮點<span class="en">Wins this week</span></h3>
+<ul class="items">
+<li>第一次玩「連一連 · 沿路送」。<span class="en">First time playing &quot;Line Match · Straight road&quot;.</span></li>
+<li>第一次玩「連一連 · 沿路過橋」。<span class="en">First time playing &quot;Line Match · Bridge road&quot;.</span></li>
+<li>第一次玩「畫形狀 · 跟箭嘴」。<span class="en">First time playing &quot;Shapes · Follow the arrows&quot;.</span></li>
+</ul></div>
+<div class="box next"><h3>下星期可以試吓<span class="en">Try next week</span></h3>
+<ul class="items dots">
+<li>陪佢玩一兩局，提醒佢「聽完先撳」。<span class="en">Play a round or two together: &quot;listen first, then tap&quot;.</span></li>
+</ul></div>
+</div>
+<p class="note">只計 Cedric 自己玩：家長試玩、測試簽證、測試模式都唔計。今個星期有 5 局唔計。今個星期 app 更新咗 1 次、改咗 1 個設定，詳情喺第 5 頁。<span class="en">Counts Cedric&#39;s own play only; parent playtests, test visas and test mode are excluded. 5 rounds were not counted this week. App updates this week: 1; setting changes: 1 (page 5).</span></p>
+<div class="runfoot"><div class="prov">VisaGames 週報 v1 · builder 1 · 資料截至 2026-10-25 21:00 HKT · 製作於 2026-10-25 21:00 HKT · App v0.33.1–v0.34.0 · 數據指紋 2e22dece<br>只計 Cedric 自己玩 · Counts Cedric&#39;s own play only</div><div class="pageno">第 1 頁，共 6 頁 · Page 1 of 6</div></div>
+</section>
+<section class="page" id="p2">
+<div class="runhead"><div class="rh-left"><b>VisaGames 每週學習報告</b> Weekly report · 2026年10月19–25日 · 家長版，只供家人參考 For parents, family use only</div></div>
+<h2>每日明細<span class="en">Day by day</span></h2>
+<div class="charttitle">每日遊戲同睇片時間（分鐘）<span class="en">Minutes per day: games (quiz + practice) and videos</span></div>
+<div class="chart">
+<svg viewBox="0 0 688 240" role="img">
+<rect x="46" y="6" width="9" height="9" fill="#2a78d6" rx="2"/>
+<text x="59" y="14" font-size="9.5" fill="#0b0b0b" text-anchor="start" font-weight="700">答題遊戲</text>
+<text x="101" y="14" font-size="8.5" fill="#52514e" text-anchor="start">Quiz games</text>
+<rect x="164.8" y="6" width="9" height="9" fill="#1baf7a" rx="2"/>
+<text x="177.8" y="14" font-size="9.5" fill="#0b0b0b" text-anchor="start" font-weight="700">練習遊戲</text>
+<text x="219.8" y="14" font-size="8.5" fill="#52514e" text-anchor="start">Practice games</text>
+<rect x="298.2" y="6" width="9" height="9" fill="#eb6834" rx="2"/>
+<text x="311.2" y="14" font-size="9.5" fill="#0b0b0b" text-anchor="start" font-weight="700">睇片</text>
+<text x="334.2" y="14" font-size="8.5" fill="#52514e" text-anchor="start">Videos</text>
+<line x1="46" y1="186" x2="683" y2="186" stroke="#c3c2b7" stroke-width="1"/>
+<text x="40" y="189.5" font-size="9" fill="#898781" text-anchor="end">0</text>
+<line x1="46" y1="136" x2="683" y2="136" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="40" y="139.5" font-size="9" fill="#898781" text-anchor="end">5</text>
+<line x1="46" y1="86" x2="683" y2="86" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="40" y="89.5" font-size="9" fill="#898781" text-anchor="end">10</text>
+<line x1="46" y1="36" x2="683" y2="36" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="40" y="39.5" font-size="9" fill="#898781" text-anchor="end">15</text>
+<text x="40" y="26" font-size="8.5" fill="#898781" text-anchor="end">分鐘 min</text>
+<text x="91.5" y="201" font-size="9.5" fill="#0b0b0b" text-anchor="middle" font-weight="700">星期一</text>
+<text x="91.5" y="213" font-size="8.5" fill="#898781" text-anchor="middle">Mon 19</text>
+<rect x="68.5" y="159.2" width="20" height="26.8" fill="#2a78d6"/>
+<path d="M68.5 157.2 V147.9 Q68.5 143.9 72.5 143.9 H84.5 Q88.5 143.9 88.5 147.9 V157.2 Z" fill="#1baf7a"/>
+<path d="M94.5 186 V72.9 Q94.5 68.9 98.5 68.9 H110.5 Q114.5 68.9 114.5 72.9 V186 Z" fill="#eb6834"/>
+<text x="182.5" y="201" font-size="9.5" fill="#0b0b0b" text-anchor="middle" font-weight="700">星期二</text>
+<text x="182.5" y="213" font-size="8.5" fill="#898781" text-anchor="middle">Tue 20</text>
+<text x="182.5" y="178" font-size="9" fill="#898781" text-anchor="middle">冇玩 No play</text>
+<text x="273.5" y="201" font-size="9.5" fill="#0b0b0b" text-anchor="middle" font-weight="700">星期三</text>
+<text x="273.5" y="213" font-size="8.5" fill="#898781" text-anchor="middle">Wed 21</text>
+<path d="M250.5 186 V130.2 Q250.5 126.2 254.5 126.2 H266.5 Q270.5 126.2 270.5 130.2 V186 Z" fill="#2a78d6"/>
+<path d="M276.5 186 V49.2 Q276.5 45.2 280.5 45.2 H292.5 Q296.5 45.2 296.5 49.2 V186 Z" fill="#eb6834"/>
+<text x="364.5" y="201" font-size="9.5" fill="#0b0b0b" text-anchor="middle" font-weight="700">星期四</text>
+<text x="364.5" y="213" font-size="8.5" fill="#898781" text-anchor="middle">Thu 22</text>
+<rect x="341.5" y="159.5" width="20" height="26.5" fill="#2a78d6"/>
+<path d="M341.5 157.5 V41.6 Q341.5 37.6 345.5 37.6 H357.5 Q361.5 37.6 361.5 41.6 V157.5 Z" fill="#1baf7a"/>
+<path d="M367.5 186 V90 Q367.5 86 371.5 86 H383.5 Q387.5 86 387.5 90 V186 Z" fill="#eb6834"/>
+<text x="455.5" y="201" font-size="9.5" fill="#0b0b0b" text-anchor="middle" font-weight="700">星期五</text>
+<text x="455.5" y="213" font-size="8.5" fill="#898781" text-anchor="middle">Fri 23</text>
+<rect x="432.5" y="179.4" width="20" height="6.6" fill="#2a78d6"/>
+<path d="M432.5 177.4 V148.3 Q432.5 144.3 436.5 144.3 H448.5 Q452.5 144.3 452.5 148.3 V177.4 Z" fill="#1baf7a"/>
+<path d="M458.5 186 V160.1 Q458.5 156.1 462.5 156.1 H474.5 Q478.5 156.1 478.5 160.1 V186 Z" fill="#eb6834"/>
+<text x="546.5" y="201" font-size="9.5" fill="#0b0b0b" text-anchor="middle" font-weight="700">星期六</text>
+<text x="546.5" y="213" font-size="8.5" fill="#898781" text-anchor="middle">Sat 24</text>
+<path d="M523.5 186 V176.7 Q523.5 172.7 527.5 172.7 H539.5 Q543.5 172.7 543.5 176.7 V186 Z" fill="#1baf7a"/>
+<path d="M549.5 186 V140 Q549.5 136 553.5 136 H565.5 Q569.5 136 569.5 140 V186 Z" fill="#eb6834"/>
+<text x="637.5" y="201" font-size="9.5" fill="#0b0b0b" text-anchor="middle" font-weight="700">星期日</text>
+<text x="637.5" y="213" font-size="8.5" fill="#898781" text-anchor="middle">Sun 25</text>
+<text x="637.5" y="225" font-size="8" fill="#898781" text-anchor="middle">截至 21:00 / to 21:00</text>
+<rect x="614.5" y="133" width="20" height="53" fill="#2a78d6"/>
+<path d="M614.5 131 V131 Q614.5 128.5 617 128.5 H632 Q634.5 128.5 634.5 131 V131 Z" fill="#1baf7a"/>
+<path d="M640.5 186 V83.3 Q640.5 79.3 644.5 79.3 H656.5 Q660.5 79.3 660.5 83.3 V186 Z" fill="#eb6834"/>
+</svg>
+</div>
+<table class="daily">
+<colgroup><col style="width:96px"><col style="width:52px"><col style="width:64px"><col style="width:76px"><col style="width:68px"><col style="width:54px"><col style="width:54px"><col style="width:62px"><col></colgroup>
+<tr><th class="l">日期<span class="en">Date</span></th><th>玩咗幾次<span class="en">Sessions</span></th><th>局數<span class="en">Rounds (quiz / practice)</span></th><th>答題：第一次答啱<span class="en">Quiz: right first time</span></th><th>練習：做得順<span class="en">Practice: smooth</span></th><th>遊戲（分鐘）<span class="en">Games (min)</span></th><th>睇片（分鐘）<span class="en">Videos (min)</span></th><th>賺到簽證（分鐘）<span class="en">Visa earned (min)</span></th><th class="l">備註<span class="en">Note</span></th></tr>
+<tr><td class="l">10月19日（一）<span class="en">Mon 19 Oct</span></td><td>2</td><td>6<span class="en">4 / 2</span></td><td>3/4<span class="en">75%</span></td><td>2/2<span class="en">100%</span></td><td>4</td><td>12</td><td>45</td><td class="l note-cell">第一次玩「畫形狀 · 跟箭嘴」<span class="en">first time: Shapes · Follow the arrows</span></td></tr>
+<tr><td class="l">10月20日（二）<span class="en">Tue 20 Oct</span></td><td class="muted l" colspan="7">冇玩 · No play</td><td class="l note-cell"></td></tr>
+<tr><td class="l">10月21日（三）<span class="en">Wed 21 Oct</span></td><td>2</td><td>6<span class="en">6 / 0</span></td><td>5/6<span class="en">83%</span></td><td class="muted">—</td><td>6</td><td>14</td><td>60</td><td class="l note-cell">第一次玩「一架一架數 · 揀啱數」；同另外 2 個新遊戲<span class="en">first time: Tap &amp; Count · Pick just enough; +2 more new</span></td></tr>
+<tr><td class="l">10月22日（四）<span class="en">Thu 22 Oct</span></td><td>2</td><td>8<span class="en">4 / 4</span></td><td>4/4<span class="en">100%</span></td><td>3/4<span class="en">75%</span></td><td>15</td><td>10</td><td>65</td><td class="l note-cell">第一次玩「一架一架數（英文）· 數完畫」<span class="en">first time: Tap &amp; Count in English · Count &amp; draw</span></td></tr>
+<tr><td class="l">10月23日（五）<span class="en">Fri 23 Oct</span></td><td>1</td><td>6<span class="en">1 / 5</span></td><td>1/1<span class="en">100%</span></td><td>2/3<span class="en">67%</span></td><td>4</td><td>約 3</td><td>55</td><td class="l note-cell">第一次玩「連一連 · 沿路送」；同另外 3 個新遊戲<span class="en">first time: Line Match · Straight road; +3 more new</span></td></tr>
+<tr><td class="l">10月24日（六）<span class="en">Sat 24 Oct</span></td><td>1</td><td>3<span class="en">1 / 2</span></td><td class="muted">—</td><td>1/2<span class="en">50%</span></td><td>1</td><td>5</td><td>10</td><td class="l note-cell">第一次玩「一架一架數（英文）· 點一點」<span class="en">first time: Tap &amp; Count in English · Tap each one</span></td></tr>
+<tr><td class="l">10月25日（日）<span class="en">Sun 25 Oct</span></td><td>1</td><td>9<span class="en">8 / 1</span></td><td>5/8<span class="en">63%</span></td><td class="muted">—</td><td>6</td><td>11</td><td>40</td><td class="l note-cell">第一次玩「英文字母 ABC · 翻字卡」；截至 21:00<span class="en">first time: Letters ABC · Find &amp; flip; to 21:00</span></td></tr>
+<tr class="total"><td class="l">合計<span class="en">Week</span></td><td>9</td><td>38<span class="en">24 / 14</span></td><td>18/23<span class="en">78%</span></td><td>8/11<span class="en">73%</span></td><td>35</td><td>約 54</td><td>275</td><td class="l"></td></tr>
+</table>
+<p class="note">揀車票：★ 19 次 · ★★ 14 次 · ★★★ 5 次（星愈多，簽證愈長；部分遊戲星愈多題目愈難）。<span class="en">Tickets chosen: ★ 19 · ★★ 14 · ★★★ 5 (more stars = longer visa; for some games, harder questions).</span></p>
+<p class="note">遊戲時間 = 每局由出題到完成（唔計家長時間，每局最多計 10 分鐘）。睇片時間 = 片真正播咗嘅時間。星期日只計到 21:00。「約」= 片未播完就停咗（例如停電），用最後記錄到嘅時間。<span class="en">Game time = from question shown to finished (parent time excluded, at most 10 min per round). Video time = time a video actually played. Sun counts up to 21:00. 「約」 = a video stopped without an end record (e.g. a power cut); the last recorded time is used.</span></p>
+<div class="runfoot"><div class="prov">VisaGames 週報 v1 · builder 1 · 資料截至 2026-10-25 21:00 HKT · 製作於 2026-10-25 21:00 HKT · App v0.33.1–v0.34.0 · 數據指紋 2e22dece<br>只計 Cedric 自己玩 · Counts Cedric&#39;s own play only</div><div class="pageno">第 2 頁，共 6 頁 · Page 2 of 6</div></div>
+</section>
+<section class="page" id="p3">
+<div class="runhead"><div class="rh-left"><b>VisaGames 每週學習報告</b> Weekly report · 2026年10月19–25日 · 家長版，只供家人參考 For parents, family use only</div></div>
+<h2>玩咗乜、做成點<span class="en">Which games, and how they went</span></h2>
+<p class="pair key"><span class="zh">每格：答題遊戲 = 第一次答啱／答咗幾多局；練習遊戲 = 做得順／玩咗幾多局。空格 = 嗰日冇玩；「—」= 冇可以計嘅結果。</span><span class="en">Each cell: quiz games = right first time / rounds; practice games = done smoothly / rounds. Blank = not played; &quot;—&quot; = nothing to score.</span></p>
+<p class="pair key"><span class="zh">「同一題」= 呢個遊戲次次都係同一條題目；「新」= 今個星期第一次玩；「⚙ 設定改咗」= 今個星期改過設定。</span><span class="en">&quot;同一題&quot; = always the same question; &quot;新 New&quot; = first played this week; &quot;⚙&quot; = settings changed this week.</span></p>
+<table class="matrix">
+<colgroup><col style="width:288px"><col style="width:42px"><col style="width:42px"><col style="width:42px"><col style="width:42px"><col style="width:42px"><col style="width:42px"><col style="width:42px"><col style="width:46px"><col style="width:60px"></colgroup>
+<tr><th class="name">遊戲<span class="en">Game</span></th><th>一<span class="en">Mon 19</span></th><th>二<span class="en">Tue 20</span></th><th>三<span class="en">Wed 21</span></th><th>四<span class="en">Thu 22</span></th><th>五<span class="en">Fri 23</span></th><th>六<span class="en">Sat 24</span></th><th>日<span class="en">Sun 25</span></th><th>合計<span class="en">Week</span></th><th>★ · ★★ · ★★★<span class="en">tickets</span></th></tr>
+<tr class="area"><td colspan="10">數字・數量<span class="en">Numbers &amp; quantity</span></td></tr>
+<tr><td class="name"><span class="badge q">答題</span>數車仔<span class="en">Count the vehicles</span></td><td class="q">0/1</td><td></td><td></td><td class="q">1/1</td><td></td><td></td><td class="q">0/2</td><td class="tot">1/4</td><td class="stars">2 · 2 · 0</td></tr>
+<tr><td class="name"><span class="badge q">答題</span><span class="badge fixed">同一題</span><span class="badge cfg">⚙ 設定改咗</span>邊邊車多啲<span class="en">Which lot has more</span></td><td></td><td></td><td class="q">1/1</td><td></td><td></td><td></td><td></td><td class="tot">1/1</td><td class="stars">0 · 1 · 0</td></tr>
+<tr><td class="name"><span class="badge q">答題</span><span class="badge new">新 New</span>一架一架數 · 揀啱數<span class="en">Tap &amp; Count · Pick just enough</span></td><td></td><td></td><td class="q">1/1</td><td></td><td></td><td></td><td></td><td class="tot">1/1</td><td class="stars">0 · 0 · 1</td></tr>
+<tr><td class="name"><span class="badge q">答題</span><span class="badge new">新 New</span>一架一架數（英文）· 揀啱數<span class="en">Tap &amp; Count in English · Just right</span></td><td></td><td></td><td class="q">1/1</td><td></td><td></td><td></td><td></td><td class="tot">1/1</td><td class="stars">0 · 0 · 1</td></tr>
+<tr><td class="name"><span class="badge p">練習</span>一架一架數 · 點一點<span class="en">Tap &amp; Count · Tap each one</span></td><td></td><td></td><td></td><td class="p">1/1</td><td></td><td class="p">0/1</td><td></td><td class="tot">1/2</td><td class="stars">2 · 0 · 0</td></tr>
+<tr><td class="name"><span class="badge p">練習</span>一架一架數 · 數完畫<span class="en">Tap &amp; Count · Count, then trace</span></td><td class="p">1/1</td><td></td><td></td><td></td><td></td><td></td><td></td><td class="tot">1/1</td><td class="stars">0 · 1 · 0</td></tr>
+<tr><td class="name"><span class="badge p">練習</span><span class="badge new">新 New</span>一架一架數（英文）· 點一點<span class="en">Tap &amp; Count in English · Tap each one</span></td><td></td><td></td><td></td><td></td><td></td><td class="p">1/1</td><td></td><td class="tot">1/1</td><td class="stars">1 · 0 · 0</td></tr>
+<tr><td class="name"><span class="badge p">練習</span><span class="badge new">新 New</span>一架一架數（英文）· 數完畫<span class="en">Tap &amp; Count in English · Count &amp; draw</span></td><td></td><td></td><td></td><td class="p">1/2</td><td></td><td></td><td></td><td class="tot">1/2</td><td class="stars">0 · 2 · 0</td></tr>
+<tr class="area"><td colspan="10">觀察・配對<span class="en">Looking &amp; matching</span></td></tr>
+<tr><td class="name"><span class="badge q">答題</span><span class="badge fixed">同一題</span>邊架消防車<span class="en">Which fire truck</span></td><td></td><td></td><td></td><td></td><td class="q">1/1</td><td></td><td></td><td class="tot">1/1</td><td class="stars">1 · 0 · 0</td></tr>
+<tr><td class="name"><span class="badge q">答題</span><span class="badge cfg">⚙ 設定改咗</span>搵同一個<span class="en">Find the same</span></td><td></td><td></td><td></td><td class="q">1/1</td><td></td><td></td><td class="q">0/1</td><td class="tot">1/2</td><td class="stars">1 · 1 · 0</td></tr>
+<tr><td class="name"><span class="badge q">答題</span><span class="badge fixed">同一題</span>搵另一半<span class="en">Find the other half</span></td><td class="q">1/1</td><td></td><td></td><td></td><td></td><td></td><td class="q">1/1</td><td class="tot">2/2</td><td class="stars">1 · 1 · 0</td></tr>
+<tr><td class="name"><span class="badge q">答題</span><span class="badge fixed">同一題</span>邊個影子<span class="en">Match the shadow</span></td><td class="q">1/1</td><td></td><td></td><td></td><td></td><td></td><td class="q">1/1</td><td class="tot">2/2</td><td class="stars">1 · 1 · 0</td></tr>
+<tr><td class="name"><span class="badge q">答題</span><span class="badge cfg">⚙ 設定改咗</span>連一連 · 自己配<span class="en">Line Match · Free match</span></td><td class="q">1/1</td><td></td><td class="q">0/1</td><td></td><td></td><td></td><td></td><td class="tot">1/2</td><td class="stars">0 · 1 · 1</td></tr>
+<tr class="area"><td colspan="10">比較・概念<span class="en">Comparing &amp; concepts</span></td></tr>
+<tr><td class="name"><span class="badge q">答題</span><span class="badge fixed">同一題</span>短到長車隊<span class="en">Short-to-long convoy</span></td><td></td><td></td><td></td><td class="q">1/1</td><td></td><td></td><td></td><td class="tot">1/1</td><td class="stars">0 · 1 · 0</td></tr>
+<tr><td class="name"><span class="badge q">答題</span><span class="badge fixed">同一題</span>圓圓嘅<span class="en">Round like the sun</span></td><td></td><td></td><td></td><td></td><td></td><td class="na">—</td><td></td><td class="tot na">—</td><td class="stars">1 · 0 · 0</td></tr>
+<tr><td class="name"><span class="badge q">答題</span><span class="badge fixed">同一題</span>邊架載多啲人<span class="en">Who carries more</span></td><td></td><td></td><td class="q">1/1</td><td></td><td></td><td></td><td class="q">1/1</td><td class="tot">2/2</td><td class="stars">1 · 1 · 0</td></tr>
+<tr><td class="name"><span class="badge q">答題</span><span class="badge fixed">同一題</span>空車位<span class="en">Empty parking bay</span></td><td></td><td></td><td></td><td class="q">1/1</td><td></td><td></td><td class="q">1/1</td><td class="tot">2/2</td><td class="stars">2 · 0 · 0</td></tr>
+<tr class="area"><td colspan="10">手眼・畫線<span class="en">Pen control &amp; tracing</span></td></tr>
+<tr><td class="name"><span class="badge p">練習</span><span class="badge new">新 New</span><span class="badge cfg">⚙ 設定改咗</span>連一連 · 沿路送<span class="en">Line Match · Straight road</span></td><td></td><td></td><td></td><td></td><td class="p">1/1</td><td></td><td></td><td class="tot">1/1</td><td class="stars">1 · 0 · 0</td></tr>
+<tr><td class="name"><span class="badge p">練習</span><span class="badge new">新 New</span><span class="badge cfg">⚙ 設定改咗</span>連一連 · 沿路過橋<span class="en">Line Match · Bridge road</span></td><td></td><td></td><td></td><td></td><td class="p">0/1</td><td></td><td></td><td class="tot">0/1</td><td class="stars">0 · 1 · 0</td></tr>
+<tr><td class="name"><span class="badge p">練習</span>畫直線 · 熱身<span class="en">Lines · Warm-up</span></td><td></td><td></td><td></td><td class="p">1/1</td><td></td><td></td><td></td><td class="tot">1/1</td><td class="stars">1 · 0 · 0</td></tr>
+<tr><td class="name"><span class="badge p">練習</span><span class="badge new">新 New</span>畫形狀 · 自己畫<span class="en">Shapes · Draw it yourself</span></td><td></td><td></td><td></td><td></td><td class="p">1/1</td><td></td><td></td><td class="tot">1/1</td><td class="stars">0 · 0 · 2</td></tr>
+<tr class="fold"><td colspan="10">其他 5 個遊戲（共 5 局）：畫形狀 · 跟虛線、畫形狀 · 跟箭嘴、英文字母 ABC · 翻字卡、mysteryQuiz、mysteryTrace<span class="en">5 other games (5 rounds): Shapes · Follow the dots, Shapes · Follow the arrows, Letters ABC · Find &amp; flip, mysteryQuiz, mysteryTrace</span></td></tr>
+</table>
+<div class="runfoot"><div class="prov">VisaGames 週報 v1 · builder 1 · 資料截至 2026-10-25 21:00 HKT · 製作於 2026-10-25 21:00 HKT · App v0.33.1–v0.34.0 · 數據指紋 2e22dece<br>只計 Cedric 自己玩 · Counts Cedric&#39;s own play only</div><div class="pageno">第 3 頁，共 6 頁 · Page 3 of 6</div></div>
+</section>
+<section class="page" id="p4">
+<div class="runhead"><div class="rh-left"><b>VisaGames 每週學習報告</b> Weekly report · 2026年10月19–25日 · 家長版，只供家人參考 For parents, family use only</div></div>
+<h2>做得好嘅同仲學緊嘅<span class="en">Going well, and still learning</span></h2>
+<p class="status">今個星期玩得太少，未排名。<span class="en">Too little play this week to rank the games.</span></p>
+<div class="rank insuff">
+<div class="head"><h3>數據唔夠（未排名）<span class="en">Not enough data yet (not ranked)</span></h3></div>
+<div class="cols">
+<div class="item"><div class="nm"><span class="badge q">答題</span>數車仔<span class="en">Count the vehicles</span></div><div class="cm">玩咗 4 次，再玩 1 局就排名。<span class="en">Played 4×; 1 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge q">答題</span><span class="badge cfg">⚙ 設定改咗</span>搵同一個<span class="en">Find the same</span></div><div class="cm">玩咗 2 次，再玩 3 局就排名。<span class="en">Played 2×; 3 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge q">答題</span><span class="badge fixed">同一題</span>搵另一半<span class="en">Find the other half</span></div><div class="cm">玩咗 2 次，全部一次答啱，再玩 3 局就排名。<span class="en">Played 2×, all right first time; 3 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge q">答題</span><span class="badge fixed">同一題</span>邊架載多啲人<span class="en">Who carries more</span></div><div class="cm">玩咗 2 次，全部一次答啱，再玩 3 局就排名。<span class="en">Played 2×, all right first time; 3 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge q">答題</span><span class="badge fixed">同一題</span>邊個影子<span class="en">Match the shadow</span></div><div class="cm">玩咗 2 次，全部一次答啱，再玩 3 局就排名。<span class="en">Played 2×, all right first time; 3 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge q">答題</span><span class="badge fixed">同一題</span>空車位<span class="en">Empty parking bay</span></div><div class="cm">玩咗 2 次，全部一次答啱，再玩 3 局就排名。<span class="en">Played 2×, all right first time; 3 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge q">答題</span><span class="badge cfg">⚙ 設定改咗</span>連一連 · 自己配<span class="en">Line Match · Free match</span></div><div class="cm">玩咗 2 次，再玩 3 局就排名。<span class="en">Played 2×; 3 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge q">答題</span><span class="badge fixed">同一題</span>邊架消防車<span class="en">Which fire truck</span></div><div class="cm">玩咗 1 次，全部一次答啱，再玩 4 局就排名。<span class="en">Played 1×, all right first time; 4 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge q">答題</span><span class="badge fixed">同一題</span>短到長車隊<span class="en">Short-to-long convoy</span></div><div class="cm">玩咗 1 次，全部一次答啱，再玩 4 局就排名。<span class="en">Played 1×, all right first time; 4 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge q">答題</span><span class="badge fixed">同一題</span><span class="badge cfg">⚙ 設定改咗</span>邊邊車多啲<span class="en">Which lot has more</span></div><div class="cm">玩咗 1 次，全部一次答啱，再玩 4 局就排名。<span class="en">Played 1×, all right first time; 4 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge q">答題</span><span class="badge new">新 New</span>一架一架數 · 揀啱數<span class="en">Tap &amp; Count · Pick just enough</span></div><div class="cm">玩咗 1 次，全部一次答啱，再玩 4 局就排名。<span class="en">Played 1×, all right first time; 4 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge q">答題</span><span class="badge new">新 New</span>一架一架數（英文）· 揀啱數<span class="en">Tap &amp; Count in English · Just right</span></div><div class="cm">玩咗 1 次，全部一次答啱，再玩 4 局就排名。<span class="en">Played 1×, all right first time; 4 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge q">答題</span><span class="badge new">新 New</span>英文字母 ABC · 翻字卡<span class="en">Letters ABC · Find &amp; flip</span></div><div class="cm">玩咗 1 次，全部一次答啱，再玩 4 局就排名。<span class="en">Played 1×, all right first time; 4 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge q">答題</span><span class="badge fixed">同一題</span>圓圓嘅<span class="en">Round like the sun</span></div><div class="cm">再玩 5 局就排名。<span class="en">5 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge q">答題</span><span class="badge new">新 New</span>mysteryQuiz<span class="en">mysteryQuiz</span></div><div class="cm">未有評分方法。<span class="en">No scoring method yet.</span></div></div>
+<div class="item"><div class="nm"><span class="badge p">練習</span>一架一架數 · 點一點<span class="en">Tap &amp; Count · Tap each one</span></div><div class="cm">玩咗 2 次，再玩 3 局就排名。<span class="en">Played 2×; 3 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge p">練習</span><span class="badge new">新 New</span>一架一架數（英文）· 數完畫<span class="en">Tap &amp; Count in English · Count &amp; draw</span></div><div class="cm">玩咗 2 次（第一個星期玩），再玩 3 局就排名。<span class="en">Played 2× (first week); 3 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge p">練習</span><span class="badge new">新 New</span><span class="badge cfg">⚙ 設定改咗</span>連一連 · 沿路送<span class="en">Line Match · Straight road</span></div><div class="cm">玩咗 1 次，全部做得順，再玩 4 局就排名。<span class="en">Played 1×, all smooth; 4 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge p">練習</span><span class="badge new">新 New</span><span class="badge cfg">⚙ 設定改咗</span>連一連 · 沿路過橋<span class="en">Line Match · Bridge road</span></div><div class="cm">玩咗 1 次（第一個星期玩），再玩 4 局就排名。<span class="en">Played 1× (first week); 4 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge p">練習</span>畫直線 · 熱身<span class="en">Lines · Warm-up</span></div><div class="cm">玩咗 1 次，全部做得順，再玩 4 局就排名。<span class="en">Played 1×, all smooth; 4 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge p">練習</span><span class="badge new">新 New</span>畫形狀 · 跟箭嘴<span class="en">Shapes · Follow the arrows</span></div><div class="cm">玩咗 1 次，全部做得順，再玩 4 局就排名。<span class="en">Played 1×, all smooth; 4 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge p">練習</span><span class="badge new">新 New</span>畫形狀 · 自己畫<span class="en">Shapes · Draw it yourself</span></div><div class="cm">玩咗 1 次，全部做得順，再玩 4 局就排名。<span class="en">Played 1×, all smooth; 4 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge p">練習</span>一架一架數 · 數完畫<span class="en">Tap &amp; Count · Count, then trace</span></div><div class="cm">玩咗 1 次，全部做得順，再玩 4 局就排名。<span class="en">Played 1×, all smooth; 4 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge p">練習</span><span class="badge new">新 New</span>一架一架數（英文）· 點一點<span class="en">Tap &amp; Count in English · Tap each one</span></div><div class="cm">玩咗 1 次，全部做得順，再玩 4 局就排名。<span class="en">Played 1×, all smooth; 4 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge p">練習</span>畫形狀 · 跟虛線<span class="en">Shapes · Follow the dots</span></div><div class="cm">再玩 5 局就排名。<span class="en">5 more to rank.</span></div></div>
+<div class="item"><div class="nm"><span class="badge p">練習</span><span class="badge new">新 New</span>mysteryTrace<span class="en">mysteryTrace</span></div><div class="cm">未有評分方法。<span class="en">No scoring method yet.</span></div></div>
+</div>
+</div>
+<div class="method">點樣排：要玩夠 5 局先排名（「仲學緊」仲要玩過 2 日）。答題遊戲睇「第一次答啱」（扣除亂估），練習遊戲睇「做得順」；兩張名單按合資格嘅答題、練習遊戲數目分位，用保守估計，玩得少唔會被誤判。<span class="en">How we rank: 5 rounds to be ranked (and 2 days to be listed as still learning). Quiz games: right first time, lucky guesses removed; practice games: done smoothly. Places are shared by how many quiz and practice games qualified, using cautious estimates, so a little play is never misjudged.</span></div>
+<div class="runfoot"><div class="prov">VisaGames 週報 v1 · builder 1 · 資料截至 2026-10-25 21:00 HKT · 製作於 2026-10-25 21:00 HKT · App v0.33.1–v0.34.0 · 數據指紋 2e22dece<br>只計 Cedric 自己玩 · Counts Cedric&#39;s own play only</div><div class="pageno">第 4 頁，共 6 頁 · Page 4 of 6</div></div>
+</section>
+<section class="page" id="p5">
+<div class="runhead"><div class="rh-left"><b>VisaGames 每週學習報告</b> Weekly report · 2026年10月19–25日 · 家長版，只供家人參考 For parents, family use only</div></div>
+<h2>同上星期比較<span class="en">Compared with last week</span></h2>
+<div class="grid2"><div><div class="charttitle">每星期局數<span class="en">Rounds per week</span></div>
+<div class="chart">
+<svg viewBox="0 0 330 182" role="img">
+<rect x="34" y="5" width="9" height="9" fill="#2a78d6" rx="2"/>
+<text x="47" y="13" font-size="9.5" fill="#0b0b0b" text-anchor="start" font-weight="700">答題</text>
+<text x="70" y="13" font-size="8.5" fill="#52514e" text-anchor="start">Quiz</text>
+<rect x="105.7" y="5" width="9" height="9" fill="#1baf7a" rx="2"/>
+<text x="118.7" y="13" font-size="9.5" fill="#0b0b0b" text-anchor="start" font-weight="700">練習</text>
+<text x="141.7" y="13" font-size="8.5" fill="#52514e" text-anchor="start">Practice</text>
+<line x1="34" y1="130" x2="322" y2="130" stroke="#c3c2b7" stroke-width="1"/>
+<text x="29" y="133.5" font-size="8.5" fill="#898781" text-anchor="end">0</text>
+<line x1="34" y1="104.5" x2="322" y2="104.5" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="29" y="108" font-size="8.5" fill="#898781" text-anchor="end">10</text>
+<line x1="34" y1="79" x2="322" y2="79" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="29" y="82.5" font-size="8.5" fill="#898781" text-anchor="end">20</text>
+<line x1="34" y1="53.5" x2="322" y2="53.5" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="29" y="57" font-size="8.5" fill="#898781" text-anchor="end">30</text>
+<line x1="34" y1="28" x2="322" y2="28" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="29" y="31.5" font-size="8.5" fill="#898781" text-anchor="end">40</text>
+<rect x="70" y="114.7" width="24" height="15.3" fill="#ffffff" stroke="#2a78d6" stroke-width="1.5"/>
+<path d="M70 112.7 V109 Q70 105 74 105 H90 Q94 105 94 109 V112.7 Z" fill="#ffffff" stroke="#1baf7a" stroke-width="1.5"/>
+<text x="82" y="100" font-size="9.5" fill="#0b0b0b" text-anchor="middle" font-weight="700">9</text>
+<rect x="166" y="107" width="24" height="23" fill="#2a78d6"/>
+<path d="M166 105 V98.8 Q166 94.8 170 94.8 H186 Q190 94.8 190 98.8 V105 Z" fill="#1baf7a"/>
+<text x="178" y="89.8" font-size="9.5" fill="#0b0b0b" text-anchor="middle" font-weight="700">13</text>
+<rect x="262" y="68.8" width="24" height="61.2" fill="#2a78d6"/>
+<path d="M262 66.8 V35.1 Q262 31.1 266 31.1 H282 Q286 31.1 286 35.1 V66.8 Z" fill="#1baf7a"/>
+<text x="274" y="26.1" font-size="9.5" fill="#0b0b0b" text-anchor="middle" font-weight="700">38</text>
+<text x="82" y="144" font-size="9" fill="#0b0b0b" text-anchor="middle">10/5–11</text>
+<text x="82" y="155" font-size="8" fill="#898781" text-anchor="middle">部分</text>
+<text x="82" y="165" font-size="8" fill="#898781" text-anchor="middle">partial</text>
+<text x="178" y="144" font-size="9" fill="#0b0b0b" text-anchor="middle">10/12–18</text>
+<text x="274" y="144" font-size="9" fill="#0b0b0b" text-anchor="middle" font-weight="700">10/19–25</text>
+<text x="274" y="155" font-size="8" fill="#898781" text-anchor="middle">今個星期</text>
+<text x="274" y="165" font-size="8" fill="#898781" text-anchor="middle">this week</text>
+</svg>
+</div></div><div><div class="charttitle">每星期表現<span class="en">Quiz right first time · practice smooth</span></div>
+<div class="chart">
+<svg viewBox="0 0 330 182" role="img">
+<rect x="34" y="5" width="9" height="9" fill="#2a78d6" rx="2"/>
+<text x="47" y="13" font-size="9.5" fill="#0b0b0b" text-anchor="start" font-weight="700">答題</text>
+<text x="70" y="13" font-size="8.5" fill="#52514e" text-anchor="start">Quiz</text>
+<rect x="105.7" y="5" width="9" height="9" fill="#1baf7a" rx="2"/>
+<text x="118.7" y="13" font-size="9.5" fill="#0b0b0b" text-anchor="start" font-weight="700">練習</text>
+<text x="141.7" y="13" font-size="8.5" fill="#52514e" text-anchor="start">Practice</text>
+<line x1="34" y1="130" x2="290" y2="130" stroke="#c3c2b7" stroke-width="1"/>
+<text x="29" y="133.5" font-size="8.5" fill="#898781" text-anchor="end">0%</text>
+<line x1="34" y1="104.5" x2="290" y2="104.5" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="29" y="108" font-size="8.5" fill="#898781" text-anchor="end">25%</text>
+<line x1="34" y1="79" x2="290" y2="79" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="29" y="82.5" font-size="8.5" fill="#898781" text-anchor="end">50%</text>
+<line x1="34" y1="53.5" x2="290" y2="53.5" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="29" y="57" font-size="8.5" fill="#898781" text-anchor="end">75%</text>
+<line x1="34" y1="28" x2="290" y2="28" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="29" y="31.5" font-size="8.5" fill="#898781" text-anchor="end">100%</text>
+<polyline points="76.7,45 162,53.5 247.3,50.2" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="76.7" cy="45" r="6" fill="#ffffff"/>
+<circle cx="76.7" cy="45" r="4" fill="#ffffff" stroke="#2a78d6" stroke-width="2"/>
+<circle cx="162" cy="53.5" r="6" fill="#ffffff"/>
+<circle cx="162" cy="53.5" r="4" fill="#2a78d6"/>
+<circle cx="247.3" cy="50.2" r="6" fill="#ffffff"/>
+<circle cx="247.3" cy="50.2" r="4" fill="#2a78d6"/>
+<circle cx="247.3" cy="55.8" r="6" fill="#ffffff"/>
+<circle cx="247.3" cy="55.8" r="4" fill="#1baf7a"/>
+<text x="256.3" y="46.2" font-size="9" fill="#0b0b0b" text-anchor="start" font-weight="700">答題 78%</text>
+<text x="256.3" y="67.8" font-size="9" fill="#0b0b0b" text-anchor="start" font-weight="700">練習 73%</text>
+<text x="76.7" y="144" font-size="9" fill="#0b0b0b" text-anchor="middle">10/5–11</text>
+<text x="76.7" y="155" font-size="8" fill="#898781" text-anchor="middle">部分</text>
+<text x="76.7" y="165" font-size="8" fill="#898781" text-anchor="middle">partial</text>
+<text x="162" y="144" font-size="9" fill="#0b0b0b" text-anchor="middle">10/12–18</text>
+<text x="247.3" y="144" font-size="9" fill="#0b0b0b" text-anchor="middle" font-weight="700">10/19–25</text>
+<text x="247.3" y="155" font-size="8" fill="#898781" text-anchor="middle">今個星期</text>
+<text x="247.3" y="165" font-size="8" fill="#898781" text-anchor="middle">this week</text>
+<text x="34" y="179" font-size="7.6" fill="#898781" text-anchor="start">少過 5 局嘅星期唔畫點 · weeks with &lt; 5 rounds of a type are not plotted</text>
+</svg>
+</div></div></div>
+<div class="charttitle">答題遊戲（按類別）：第一次答啱<span class="en">Quiz games by area: right first time</span></div>
+<div class="chart">
+<svg viewBox="0 0 688 164" role="img">
+<rect x="0" y="5" width="9" height="9" fill="#2a78d6" rx="2"/>
+<text x="13" y="13" font-size="9.5" fill="#0b0b0b" text-anchor="start" font-weight="700">今個星期</text>
+<text x="55" y="13" font-size="8.5" fill="#52514e" text-anchor="start">This week</text>
+<path d="M119.2 3 l5 5 l-5 5 l-5 -5 Z" fill="#ffffff" stroke="#52514e" stroke-width="1.5"/>
+<text x="126.2" y="13" font-size="9.5" fill="#0b0b0b" text-anchor="start" font-weight="700">上星期</text>
+<text x="158.7" y="13" font-size="8.5" fill="#52514e" text-anchor="start">Last week</text>
+<rect x="217.9" y="4" width="16" height="10" fill="#e1e0d9"/>
+<text x="237.9" y="13" font-size="9.5" fill="#0b0b0b" text-anchor="start" font-weight="700">亂估都有嘅水平</text>
+<text x="308.4" y="13" font-size="8.5" fill="#52514e" text-anchor="start">Lucky-guess level</text>
+<line x1="186" y1="24" x2="186" y2="144" stroke="#c3c2b7" stroke-width="1"/>
+<text x="186" y="156" font-size="8.5" fill="#898781" text-anchor="middle">0%</text>
+<line x1="268.5" y1="24" x2="268.5" y2="144" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="268.5" y="156" font-size="8.5" fill="#898781" text-anchor="middle">25%</text>
+<line x1="351" y1="24" x2="351" y2="144" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="351" y="156" font-size="8.5" fill="#898781" text-anchor="middle">50%</text>
+<line x1="433.5" y1="24" x2="433.5" y2="144" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="433.5" y="156" font-size="8.5" fill="#898781" text-anchor="middle">75%</text>
+<line x1="516" y1="24" x2="516" y2="144" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="516" y="156" font-size="8.5" fill="#898781" text-anchor="middle">100%</text>
+<text x="0" y="35" font-size="10" fill="#0b0b0b" text-anchor="start" font-weight="700">數字・數量</text>
+<text x="0" y="45" font-size="8.5" fill="#898781" text-anchor="start">Numbers &amp; quantity</text>
+<rect x="186" y="27" width="95.7" height="18" fill="#e1e0d9"/>
+<path d="M186 30 H370.6 Q374.6 30 374.6 34 V38 Q374.6 42 370.6 42 H186 Z" fill="#2a78d6"/>
+<text x="384.6" y="40" font-size="9.5" fill="#0b0b0b" text-anchor="start">57%（7 局）</text>
+<text x="384.6" y="48" font-size="8" fill="#898781" text-anchor="start">亂估都有約 29% · guessing ≈ 29%</text>
+<text x="0" y="59" font-size="10" fill="#0b0b0b" text-anchor="start" font-weight="700">觀察・配對</text>
+<text x="0" y="69" font-size="8.5" fill="#898781" text-anchor="start">Looking &amp; matching</text>
+<rect x="186" y="51" width="99" height="18" fill="#e1e0d9"/>
+<path d="M186 54 H438.7 Q442.7 54 442.7 58 V62 Q442.7 66 438.7 66 H186 Z" fill="#2a78d6"/>
+<text x="452.7" y="64" font-size="9.5" fill="#0b0b0b" text-anchor="start">78%（9 局）</text>
+<text x="452.7" y="72" font-size="8" fill="#898781" text-anchor="start">亂估都有約 30% · guessing ≈ 30%</text>
+<text x="0" y="83" font-size="10" fill="#0b0b0b" text-anchor="start" font-weight="700">比較・概念</text>
+<text x="0" y="93" font-size="8.5" fill="#898781" text-anchor="start">Comparing &amp; concepts</text>
+<rect x="186" y="75" width="112.2" height="18" fill="#e1e0d9"/>
+<path d="M186 78 H512 Q516 78 516 82 V86 Q516 90 512 90 H186 Z" fill="#2a78d6"/>
+<text x="526" y="88" font-size="9.5" fill="#0b0b0b" text-anchor="start">100%（5 局）</text>
+<text x="526" y="96" font-size="8" fill="#898781" text-anchor="start">亂估都有約 34% · guessing ≈ 34%</text>
+<text x="0" y="107" font-size="10" fill="#0b0b0b" text-anchor="start" font-weight="700">字母</text>
+<text x="0" y="117" font-size="8.5" fill="#898781" text-anchor="start">Letters</text>
+<text x="190" y="112" font-size="9" fill="#898781" text-anchor="start">數據唔夠（1 局） Not enough data (1 round)</text>
+<text x="0" y="131" font-size="10" fill="#0b0b0b" text-anchor="start" font-weight="700">其他</text>
+<text x="0" y="141" font-size="8.5" fill="#898781" text-anchor="start">Other</text>
+<text x="190" y="136" font-size="9" fill="#898781" text-anchor="start">數據唔夠（1 局） Not enough data (1 round)</text>
+</svg>
+</div>
+<div class="charttitle">練習遊戲（按種類）：做得順<span class="en">Practice games by type: done smoothly</span></div>
+<div class="chart">
+<svg viewBox="0 0 688 164" role="img">
+<rect x="0" y="5" width="9" height="9" fill="#1baf7a" rx="2"/>
+<text x="13" y="13" font-size="9.5" fill="#0b0b0b" text-anchor="start" font-weight="700">今個星期</text>
+<text x="55" y="13" font-size="8.5" fill="#52514e" text-anchor="start">This week</text>
+<path d="M119.2 3 l5 5 l-5 5 l-5 -5 Z" fill="#ffffff" stroke="#52514e" stroke-width="1.5"/>
+<text x="126.2" y="13" font-size="9.5" fill="#0b0b0b" text-anchor="start" font-weight="700">上星期</text>
+<text x="158.7" y="13" font-size="8.5" fill="#52514e" text-anchor="start">Last week</text>
+<line x1="186" y1="24" x2="186" y2="144" stroke="#c3c2b7" stroke-width="1"/>
+<text x="186" y="156" font-size="8.5" fill="#898781" text-anchor="middle">0%</text>
+<line x1="268.5" y1="24" x2="268.5" y2="144" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="268.5" y="156" font-size="8.5" fill="#898781" text-anchor="middle">25%</text>
+<line x1="351" y1="24" x2="351" y2="144" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="351" y="156" font-size="8.5" fill="#898781" text-anchor="middle">50%</text>
+<line x1="433.5" y1="24" x2="433.5" y2="144" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="433.5" y="156" font-size="8.5" fill="#898781" text-anchor="middle">75%</text>
+<line x1="516" y1="24" x2="516" y2="144" stroke="#e1e0d9" stroke-width="0.8"/>
+<text x="516" y="156" font-size="8.5" fill="#898781" text-anchor="middle">100%</text>
+<text x="0" y="35" font-size="10" fill="#0b0b0b" text-anchor="start" font-weight="700">畫直線</text>
+<text x="0" y="45" font-size="8.5" fill="#898781" text-anchor="start">Lines</text>
+<text x="190" y="40" font-size="9" fill="#898781" text-anchor="start">數據唔夠（1 局） Not enough data (1 round)</text>
+<text x="0" y="59" font-size="10" fill="#0b0b0b" text-anchor="start" font-weight="700">畫形狀</text>
+<text x="0" y="69" font-size="8.5" fill="#898781" text-anchor="start">Shapes</text>
+<text x="190" y="64" font-size="9" fill="#898781" text-anchor="start">數據唔夠（2 局） Not enough data (2 rounds)</text>
+<text x="0" y="83" font-size="10" fill="#0b0b0b" text-anchor="start" font-weight="700">沿路連線</text>
+<text x="0" y="93" font-size="8.5" fill="#898781" text-anchor="start">Road matching</text>
+<text x="190" y="88" font-size="9" fill="#898781" text-anchor="start">數據唔夠（2 局） Not enough data (2 rounds)</text>
+<text x="0" y="107" font-size="10" fill="#0b0b0b" text-anchor="start" font-weight="700">點數</text>
+<text x="0" y="117" font-size="8.5" fill="#898781" text-anchor="start">Tap to count</text>
+<text x="190" y="112" font-size="9" fill="#898781" text-anchor="start">數據唔夠（3 局） Not enough data (3 rounds)</text>
+<text x="0" y="131" font-size="10" fill="#0b0b0b" text-anchor="start" font-weight="700">數完畫數字</text>
+<text x="0" y="141" font-size="8.5" fill="#898781" text-anchor="start">Count, then trace</text>
+<text x="190" y="136" font-size="9" fill="#898781" text-anchor="start">數據唔夠（3 局） Not enough data (3 rounds)</text>
+</svg>
+</div>
+<div class="grid2"><div class="panel"><h3>明顯變化<span class="en">Clear changes</span></h3>
+<ul class="items dots">
+<li>冇遊戲有明顯變化：同上星期差唔多，或者局數太少未比較到。<span class="en">No game changed clearly: about the same as last week, or too few rounds to compare.</span></li>
+<li>⚙ 「搵同一個」、「邊邊車多啲」、「連一連 · 沿路送」同另外 2 個遊戲今個星期改咗設定，所以唔同上星期比。<span class="en">⚙ &quot;Find the same&quot;, &quot;Which lot has more&quot;, &quot;Line Match · Straight road&quot; and 2 more: settings changed this week, so not compared.</span></li>
+</ul></div>
+<div class="panel"><h3>今個星期 app 有咩改動<span class="en">What changed in the app</span></h3>
+<ul class="items dots">
+<li>用過 2 個 app 版本：v0.33.1（10月19–22日）、v0.34.0（10月22–25日）。<span class="en">2 app versions used: v0.33.1 (19–22 Oct) and v0.34.0 (22–25 Oct).</span></li>
+<li>10月21日（三）連一連寬容度改做 闊（影響 3 個遊戲）。<span class="en">Wed 21 Oct: Line Match tolerance set to Wide (affects 3 games).</span></li>
+<li>「搵同一個」題目來源：同一題 → 多款題目。<span class="en">&quot;Find the same&quot; question source: Same question → Varied questions.</span></li>
+<li>遊戲組合：練習遊戲佔 37%（上星期 31%）。<span class="en">Game mix: practice games were 37% of rounds (last week 31%).</span></li>
+<li>冇計：家長試玩 1 局、測試模式 2 局、「唔計呢段」2 局、製作報告時仲玩緊 1 局。<span class="en">Not counted: parent playtest 1, test mode 2, sessions marked not to count 2, in progress when the report was made 1.</span></li>
+</ul></div></div>
+<div class="runfoot"><div class="prov">VisaGames 週報 v1 · builder 1 · 資料截至 2026-10-25 21:00 HKT · 製作於 2026-10-25 21:00 HKT · App v0.33.1–v0.34.0 · 數據指紋 2e22dece<br>只計 Cedric 自己玩 · Counts Cedric&#39;s own play only</div><div class="pageno">第 5 頁，共 6 頁 · Page 5 of 6</div></div>
+</section>
+<section class="page" id="p6">
+<div class="runhead"><div class="rh-left"><b>VisaGames 每週學習報告</b> Weekly report · 2026年10月19–25日 · 家長版，只供家人參考 For parents, family use only</div></div>
+<h2>結論同下一步<span class="en">Conclusion and next steps</span></h2>
+<h3>屋企人可以做<span class="en">Family can do</span></h3>
+<div class="rec"><div class="t">陪佢玩一兩局，提醒佢「聽完先撳」。<span class="en">Play a round or two together: &quot;listen first, then tap&quot;.</span></div><div class="why">因為：「數車仔」好多次未聽完題目就撳（2/3 次）。<span class="en">Because: &quot;Count the vehicles&quot; often tapped before the question finished (2 of 3).</span></div></div>
+<div class="rec"><div class="t">見到佢做得好，讚佢做嘅過程：「你好細心咁睇條路！」，唔使講「你好聰明」。<span class="en">When something goes well, praise the effort: &quot;You looked at the road so carefully!&quot; rather than &quot;you&#39;re clever&quot;.</span></div></div>
+<div class="sec">
+<h3>App 改動（建議，Carter 決定）<span class="en">App changes (backlog — Carter decides)</span></h3>
+<div class="rec"><div class="t">試吓題目講完先解鎖選擇（UX 實驗）。<span class="decide">Carter 決定</span><span class="en">Try unlocking the choices only after the question has been read out (UX experiment).</span></div><div class="why">因為：答錯嘅時候，有 3/6 次係未聽完題目就撳。　下星期睇：未聽完就撳嘅比例<span class="en">Because: 3 of 6 wrong taps came before the question finished. Check next week: share of taps before the question finished.</span></div></div>
+</div>
+<div class="howto">
+<h3>點樣睇呢份報告<span class="en">How to read this report</span></h3>
+<div class="gloss">
+<div><b>答題遊戲</b>：有啱有錯嘅遊戲，例如「數車仔」。<span class="en">Quiz games: games with a right answer.</span></div>
+<div><b>練習遊戲</b>：畫線、點數、沿路連線，冇錯可言。<span class="en">Practice games: tracing, tap-to-count, road matching; nothing is wrong.</span></div>
+<div><b>第一次答啱</b>：第一下就揀啱，冇揀錯。<span class="en">Right first time: the first answer was right, with no wrong tap.</span></div>
+<div><b>亂估都有</b>：例如兩揀一，亂撳都有一半機會啱。<span class="en">Lucky-guess level: with 2 choices, random taps are right half the time.</span></div>
+<div><b>做得順</b>：例如由起點開始、冇行錯方向、出界唔多。<span class="en">Done smoothly: e.g. started at the start, right direction, rarely off the path.</span></div>
+<div><b>數據唔夠</b>：今個星期玩少過 5 局，唔排名。<span class="en">Not enough data: fewer than 5 rounds this week; not ranked.</span></div>
+<div><b>差唔多／明顯</b>：相差少過 20 個百分點就係「差唔多」；局數少要差更多先算明顯。<span class="en">About the same / clear: under 20 points is about the same; with few rounds a bigger gap is needed.</span></div>
+<div><b>報告同「表現」頁</b>：報告只睇今個星期；app「表現」頁睇近期所有紀錄，所以標籤可以唔同。<span class="en">Report vs 表現 screen: the report looks at this week only, the screen at all recent play, so labels can differ.</span></div>
+</div></div>
+<p class="privacy">呢份報告喺屋企部 Mac 度製作，冇上網。分享之前諗清楚收件人。<span class="en">Made on the home Mac, offline. Think about who receives it before sharing.</span></p>
+<div class="runfoot"><div class="prov">VisaGames 週報 v1 · builder 1 · 資料截至 2026-10-25 21:00 HKT · 製作於 2026-10-25 21:00 HKT · App v0.33.1–v0.34.0 · 數據指紋 2e22dece<br>只計 Cedric 自己玩 · Counts Cedric&#39;s own play only</div><div class="pageno">第 6 頁，共 6 頁 · Page 6 of 6</div></div>
+</section>
+</body>
+</html>

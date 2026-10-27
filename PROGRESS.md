@@ -1,5 +1,35 @@
 # Progress
 
+## 2026-10-27 — Weekly report W4: report HTML (VisaCore, draft PR source)
+
+- W3 is on main via #38 (`ef766f1`). Branch `feat/weekly-report-W4` starts from that commit. The scope is design §12 W4: `WeeklyReportHTML.render` with charts C1–C4 and M1 as inline SVG and the CSS ported from `mockups/report.css` (§3, §8, §9.2, §9.5, §9.6; D2, D7, D8, D10, D13). ADR 0024 records the choices made where the design left room, including the copy written for gaps.
+- New VisaCore files: `WeeklyReportHTML.swift`, `WeeklyReportCharts.swift`, `WeeklyReportLayout.swift`, `WeeklyReportLabels.swift`, `WeeklyReportCSS.swift` and `WeeklyReportPalette.swift`.
+  - API: `WeeklyReportHTML.render(_:options:)` takes the W3 `WeeklyReportText`, which carries the W2 analysis and the W1 model, and `WeeklyReportHTMLOptions(generatedAt:sampleWatermark:)`. It never reads the clock. `fingerprint(_:)` gives the §9.6 數據指紋.
+  - Output: one HTML string with six fixed 794 × 1123 px page sections (page 1 only for a week without countable play), inline CSS and inline SVG only; no script, URL, web font or image file.
+  - Charts C1, M1 (with the > 22-row fold), C2a, C2b, C3 and C4 with direct labels, and every §3 / §8 empty and low-data state.
+  - All static copy sits in one table: 177 labels (Chinese and English), weekdays, months and the 8-entry glossary. Every colour sits in `WeeklyReportPalette` (23 tokens).
+  - A deterministic height estimate picks denser page-4 and page-6 variants. Lists are capped; no text is truncated.
+  - W1–W3 code and goldens are unchanged.
+- Fixtures:
+  - `weekly-ranking-5.6/expected-report.html` (72,992 bytes, sample watermark on) and `weekly-2026-10-19/expected-report.html` (67,438 bytes, no watermark). Both come from the new `weekly-ranking-5.6/reference_html.py`, an independent Python reading of the W4 rules over each folder's W1–W3 JSON goldens, with `generatedAt` `2026-10-25T13:00:00.000Z`.
+  - New `weekly-ranking-5.6/expected-metrics.json` (198,506 bytes): the W1 model of that folder from `reference_model.py`. The reference reads it, and `testHTMLGolden` compares it before the HTML.
+  - Both READMEs have a W4 section with the regeneration commands.
+- Nine checks in `WeeklyReportHTMLTests.swift`, registered in `VisaCoreChecks` with the PASS banner updated: `testHTMLGolden`, `testPageCountSix`, `testChartFallbacks`, `testNoTextOverflowBudget`, `testHTMLPaletteTokens`, `testHTMLSelfContained`, `testHTMLWellFormed`, `testW3StringsPresent` and `testHTMLTraditionalOnlyAndNoBannedWords`.
+  - `testHTMLGolden` compares the W1–W3 JSON goldens first, then the HTML byte for byte. On a mismatch it reports the first differing line and byte offset and writes the Swift output to `$TMPDIR`.
+  - The checks read both goldens and ten synthetic weeks: 0, 1 and 2 weeks of history, a partial previous week with zero minutes, a week in progress, a 28-game fold, no countable play, videos only, nothing going well, and the page-5 caps.
+- Palette validator (`validate_palette.js "#2a78d6,#eb6834,#1baf7a" --mode light --surface "#ffffff"`):
+  - Adjacent pairs: ALL CHECKS PASS (lightness, chroma, CVD worst ΔE 9.2 deutan, normal-vision worst ΔE 27.6). WARN: #1baf7a is 2.82:1 on white, so direct labels are required; every chart value is labelled or in a table.
+  - `--pairs all`: ALL CHECKS PASS, with the same WARN.
+  - The app does not run the JS; `testHTMLPaletteTokens` pins the hexes.
+- Checked on this box, in Python and headless Chrome only:
+  - Regenerating both report goldens gave identical bytes. The W1–W3 references still reproduce all six JSON goldens byte for byte.
+  - A script compared the Swift label table, stylesheet and palette with the reference's tables: identical.
+  - A Python replay of the nine checks' assertions (8,878) over both goldens and the ten synthetic weeks passes.
+  - Chrome (local files only; previews kept outside the repo): both goldens print as 6 A4 pages. Across the goldens and synthetic weeks, the tallest page content ends at 1,026.5 of 1,066 px, and no element overflows the page width.
+  - The design's `check_traditional.py` finds no Simplified characters in the new sources, checks, reference and goldens. It reports only the allowed 搵 variant (§6.3).
+- Not run: Swift is not installed on this Linux box. No Swift compile, check pass or golden match is claimed. Mac mini `sh scripts/test.sh` is pending.
+- No family-visible change: the version stays 0.34.0 / 70. No UI, recording, settings or kiosk change. The OS escape-path inventory remains in `docs/phase-0-kiosk-checklist.md`.
+
 ## 2026-10-26 — Weekly report W3: report text (VisaCore, draft PR source)
 
 - W2 is on main via #37 (`9f1087b`). Branch `feat/weekly-report-W3` starts from that commit. The scope is design §12 W3: the §6 templates, highlights, wins text and game comments, and the §7 recommendations and questions, in Chinese and English (D6 B templates, D7 Cedric, D8 B video titles). ADR 0023 records the choices made where the design left room, including the copy written for gaps.

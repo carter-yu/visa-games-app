@@ -100,3 +100,20 @@ rounds), F7 and A12 from fast wrong taps, and a video title with digits. `expect
 ```sh
 python3 ../weekly-ranking-5.6/reference_text.py . 2026-10-19 2026-10-25T13:00:00.000Z video-titles.json > expected-text.json
 ```
+
+## W4 report HTML of the same records
+
+`expected-report.html` is `WeeklyReportHTML.render` of the W3 text above with `generatedAt`
+`2026-10-25T13:00:00.000Z` and no sample watermark (ADR 0024). `testHTMLGolden`
+(`WeeklyReportHTMLTests.swift`) compares it byte for byte after checking `expected-metrics.json`,
+`expected-analysis.json` and `expected-text.json`. Beyond the §5.6 sample it exercises: 26 game rows, so
+the matrix keeps 21 and folds 5 into 「其他 5 個遊戲（共 5 局）」 and the glossary moves to page 6; nothing
+ranked (W3's status line) with the 數據唔夠 list in two columns; the unknown kinds shown as recorded;
+「約」 video minutes from the play without `video_end`; the partial trend week `2026-10-05` (hollow C3 bars,
+「部分」); C2 rows with one round; two app versions with their days, a setting without an earlier value, the
+`gen` change and the not-counted / still-open rounds on page 5. `expected-metrics.json`,
+`expected-analysis.json` and `expected-text.json` are unchanged by W4. Regenerate it with:
+
+```sh
+python3 ../weekly-ranking-5.6/reference_html.py . 2026-10-25T13:00:00.000Z > expected-report.html
+```
