@@ -17,7 +17,7 @@ struct ParentSettingsView: View {
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.34.0"
+    static let versionLabel = "Visa Games v0.35.0"
 
     /// v0.21.0: 表現 (Review) is the third parent segment (layout L5).
     private enum ParentLibrary { case videos, games, review }
@@ -107,17 +107,25 @@ struct ParentSettingsView: View {
     }
 
     /// `.equatable()`: the 0.5 s clock tick re-renders this view only when the report,
-    /// window or 🧪 switch actually changes.
+    /// window or 🧪 switch actually changes. W5: the 每週報告 block sits above it, with the same rule.
     private var reviewSection: some View {
-        ParentReviewView(
-            state: model.perfReview,
-            window: model.perfReviewWindow,
-            uatOn: model.perfUATOn,
-            onRefresh: { model.perfRefreshReview() },
-            onWindow: { window in model.perfSetReviewWindow(window) },
-            onSetSessionExcluded: { id, excluded in model.perfReviewSetSessionExcluded(id, excluded: excluded) }
-        )
-        .equatable()
+        VStack(alignment: .leading, spacing: 18) {
+            ParentWeeklyReportView(
+                panel: model.weeklyPanel,
+                onMake: { week in model.weeklyMake(weekStart: week) },
+                onShow: { model.weeklyShowInFinder() }
+            )
+            .equatable()
+            ParentReviewView(
+                state: model.perfReview,
+                window: model.perfReviewWindow,
+                uatOn: model.perfUATOn,
+                onRefresh: { model.perfRefreshReview() },
+                onWindow: { window in model.perfSetReviewWindow(window) },
+                onSetSessionExcluded: { id, excluded in model.perfReviewSetSessionExcluded(id, excluded: excluded) }
+            )
+            .equatable()
+        }
     }
 
     private func libraryButton(
@@ -759,9 +767,12 @@ private struct ParentPerformanceRecordsBlock: View {
                 }
             }
             if confirmClear {
-                Text("清除所有表現紀錄？簽證同准許影片唔會變。 / Clear all performance records?")
+                // W5 (design §11): weekly PDFs in stats/ go too; copies already shared stay where they are.
+                Text("清除所有表現紀錄？簽證同准許影片唔會變。" + WeeklyReportUILabels.clearNote.zh
+                     + " / Clear all performance records? " + WeeklyReportUILabels.clearNote.en)
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.ink)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let status = model.perfStatusMessage {
                 Text(status)

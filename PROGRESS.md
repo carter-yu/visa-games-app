@@ -1,5 +1,69 @@
 # Progress
 
+## 2026-10-28 — Weekly report W5 fix loop 1 (Mac mini run at `631aa99`)
+
+- Reported from the Mac mini:
+  - `sh scripts/test.sh` built with one warning (`PerformanceReviewTests.swift:207`, unused `i`).
+  - `testPDFIsA4SixPages` passed.
+  - `testPDFTextContainsKeyStrings` stopped the run (exit 133): 「the PDF text is missing 邊個影子」.
+- Diagnosis (box, Python Unicode data):
+  - 邊個影子 is the first needle with a character whose Kangxi radical twin shares its glyph (子 / ⼦ U+2F26). The three needles before it have none.
+  - macOS's PDF writer finds each glyph's code point by looking it up in the font, so the text layer can say ⼦. All 214 Kangxi radicals fold to their ideographs under NFKC. ADR 0025 has the details.
+- Changes:
+  - `WeeklyReportPDFMacTests` compares PDFKit's text and the needles under NFKC with whitespace dropped; no needle was removed.
+  - A missing needle prints the raw text around it, with any radical code points listed.
+  - Each run prints the radical counts of the A4 PDF, its page 1, and WebKit's own page 1 before the redraw.
+  - `testPDFIsA4SixPages` also makes the 2026-10-19 week as 6 × A4.
+  - `VISA_W5_PDF_OUT=<folder>` keeps `sample-ranking-5.6.pdf` and `weekly-2026-10-19.pdf`, each with a per-page `.txt`.
+  - The unused `i` is now `_`.
+  - The maker is unchanged.
+- Not run: Swift is not installed on this box; the Mac mini re-run is pending.
+
+## 2026-10-28 — v0.35.0 / 71 — Weekly report W5: PDF and the 表現 row (draft PR source)
+
+- W4 is on main via #39 (`6823ad3`). Branch `feat/weekly-report-W5` starts from that commit. The scope is design §12 W5 only: the off-screen WKWebView PDF, the files under `stats/exports/weekly/`, the 每週報告 block in 表現, `stats_marker{weekly_report}` and the clear-dialog sentence (§9.2–§9.5, §10, §11; D1, D2, D3 A, D7, D11). ADR 0025 records the choices made where the design left room, including the copy written for gaps.
+- Not built:
+  - W5b: the D12 B Sunday 21:00 auto-make and the D7 nickname setting. The name is the existing constant `WeeklyReportText.defaultChildName` (Cedric).
+  - W6: an in-app 「分享…」 and the rewrite.
+- New VisaCore files:
+  - Foundation-only: `WeeklyReportExport.swift` and `WeeklyReportRow.swift`.
+  - macOS only: `WeeklyReportPDFMaker.swift`, inside `#if os(macOS) && canImport(WebKit) && canImport(PDFKit) && canImport(AppKit)`.
+- PDF:
+  - One `createPDF` per 794 × 1123 px section. CoreGraphics redraws each page into a 595.28 × 841.89 pt A4 page (scale 0.749679), keeping vectors and text. PDFKit then checks the page count and boxes.
+  - Title 「VisaGames 每週學習報告 yyyy-MM-dd」; Author and Creator VisaGames.
+  - Page scripts off, a non-persistent data store and an `about:blank`-only navigation policy. The web view is never in a window.
+  - 20 s timeout; teardown on every outcome.
+- Files: `VisaGames-weekly-YYYY-MM-DD_to_MM-DD.pdf` and `data/VisaGames-weekly-YYYY-MM-DD.json` (the W1 model JSON). Each is replaced atomically by `rename(2)` from a temporary file in the same folder. 「清除表現紀錄」 deletes them with `stats/`; 「清除簽證及重設儲存」 does not.
+- Week list and row:
+  - This week plus up to 7 earlier weeks with countable play (8 rows at most).
+  - The ready line from Sunday 21:00 HKT.
+  - 13 row labels, the §9.4 copy verbatim, and the row states as one `Equatable` value.
+- Marker: the report path drops its own `stats_marker{weekly_report}` lines, so making a report changes no W1–W4 output.
+- App:
+  - `WeeklyReportCoordinator.swift` (`@MainActor`) and three recorder-queue jobs: the week list, the build and the writes.
+  - The marker helper now takes a payload.
+  - `AppModel` entry points `weeklyMake` and `weeklyShowInFinder`, and a cancel on every way out of parent mode: Return, auto-lock, sleep, test visa, 清除表現紀錄 and quit.
+  - The 每週報告 block sits above the 表現 review, with `.equatable()`.
+  - The clear confirmation gains 「已經分享出去嘅週報唔會被刪除。」 / "Reports you have already shared are not deleted."
+- Version 0.34.0 / 70 → 0.35.0 / 71: `ParentSettingsView.versionLabel`, `Resources/Info.plist` (`CFBundleShortVersionString`, `CFBundleVersion`) and the version check in `PerformanceRecordTests`.
+- Checks:
+  - 12 Linux checks in `WeeklyReportPDFTests.swift`, registered in `VisaCoreChecks` with the PASS banner updated: `testWeeklyFileNamesAndPaths`, `testWeeklyFilesReplaceAtomicallyAndClearWithRecords`, `testWeeklyWeekListOffersThisWeekAndPlayedWeeks`, `testWeeklyReadyLineFromSunday2100`, `testWeeklyPDFMetadataGeometryAndPolicy`, `testWeeklyMarkerPayload`, `testWeeklyMarkerLeavesW1ToW4Unchanged`, `testWeeklyBuildPagesCutoffAndModelJSON`, `testWeeklyRowStates`, `testWeeklyRowLabelsAreDesignCopyAndTraditionalOnly`, `testClearSentenceAndVersionSourceGuards` and `testPDFMakerAndCoordinatorSourceGuards`.
+  - `testReviewViewLayoutSafetySourceGuard` is extended to the new block.
+  - 4 macOS-only checks in `WeeklyReportPDFMacTests.swift`, run last: `testPDFIsA4SixPages`, `testPDFTextContainsKeyStrings`, `testPDFMakerFailsCleanly` and `testWebKitPageOverflow` (WebKit's per-page measurement of both fixtures and the ten synthetic weeks, printed per page). Without a window-server session they print a loud SKIP and the banner says so.
+  - The runner's `main` is now `@MainActor`.
+  - `WeeklyReportHTMLTests` gains one accessor, `reportsForPDF()`; the W1–W4 checks and goldens are unchanged.
+- `docs/phase-0-kiosk-checklist.md`: a W5 UAT row. One escape path is noted: like the CSV export, 製作 PDF and 喺 Finder 顯示 make Finder the active app.
+- Checked on this box, in Python and headless Chrome only (previews kept outside the repo):
+  - The fixtures' Python references, with two app-placed `weekly_report` markers added: all four goldens of both fixtures byte-identical. With stray markers left in (no filter), the W1 and W2 output changes.
+  - A Python replay of the pure expectations (file names, week list, ready line, A4 fit, label table, language scans) passes.
+  - The design's `check_traditional.py` finds no Simplified characters in the new files. In the changed files it reports only the existing 「准許」 copy and the 搵 / 說 variants.
+  - Chrome approximation, not WebKit:
+    - Print: both goldens print as 6 A4 pages (594.96 × 841.92 pt in Chrome's PDF). `pdftotext` finds the key strings and every page's 「第 n 頁，共 6 頁」 line.
+    - Measurement: the macOS check's page-measurement script, run in Chrome over both goldens and the ten synthetic weeks (rebuilt with the Python references), covers 12 reports and 67 pages. It finds nothing clipped, wider than the page, overflowing or outside its chart.
+    - Tallest content per report, of the 1066 px content box: 1026.5 px (§5.6 week, page 3; the W4 figure), 1005.8 (W1 fixture, page 5), 882.3 (fold), 846.5 (caps), 857.1 (baseline and in progress), 809.4 (one earlier), 803.2 (two earlier), 794.1 (low data), 789.3 (videos only), 801.0 (all learning) and 327.9 (the one-page week).
+    - A first run of the script also flagged glyphs a few px over the tight line boxes of the page-1 title and tile values (overflow visible, nothing hidden). The check now counts height overflow only in boxes that clip or have a fixed height.
+- Not run: Swift is not installed on this Linux box. No Swift compile, check pass, PDF or WebKit result is claimed. The Mac mini `sh scripts/test.sh`, the bundle and Carter's UAT (ADR 0025 list) are pending.
+
 ## 2026-10-27 — Weekly report W4: report HTML (VisaCore, draft PR source)
 
 - W3 is on main via #38 (`ef766f1`). Branch `feat/weekly-report-W4` starts from that commit. The scope is design §12 W4: `WeeklyReportHTML.render` with charts C1–C4 and M1 as inline SVG and the CSS ported from `mockups/report.css` (§3, §8, §9.2, §9.5, §9.6; D2, D7, D8, D10, D13). ADR 0024 records the choices made where the design left room, including the copy written for gaps.

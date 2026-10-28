@@ -304,6 +304,12 @@ final class WeeklyReportHTMLTests {
         return out + syntheticWeeks()
     }
 
+    /// W5: the two fixture reports and the ten synthetic weeks above, for WebKit's page measurement
+    /// (`WeeklyReportPDFMacTests`, macOS).
+    func reportsForPDF() throws -> [(name: String, html: String)] {
+        try allReports().map { (name: $0.name, html: $0.html) }
+    }
+
     // MARK: Scanners
 
     private static func count(_ text: String, _ needle: String) -> Int {

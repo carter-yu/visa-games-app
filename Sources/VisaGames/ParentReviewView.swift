@@ -236,6 +236,93 @@ struct ParentReviewView: View, Equatable {
     }
 }
 
+// MARK: - W5 每週報告 / Weekly report (design §9.4, ADR 0025) — parent-only
+
+/// The weekly PDF block above the 表現 review: the weeks, one 製作 PDF button each, the Sunday 21:00 line and the
+/// share note. Same rules as `ParentReviewView`: it draws a finished `WeeklyReportPanel` (no I/O, no report work
+/// in `body`), `Equatable` + `.equatable()` at the call site, plain stacks, no animation. The reading, the PDF and
+/// the files are `WeeklyReportCoordinator`'s work.
+struct ParentWeeklyReportView: View, Equatable {
+    let panel: WeeklyReportPanel
+    let onMake: (String) -> Void
+    let onShow: () -> Void
+
+    /// Nonisolated (Swift 6): compares only the Sendable panel, never the closures.
+    nonisolated static func == (lhs: ParentWeeklyReportView, rhs: ParentWeeklyReportView) -> Bool {
+        lhs.panel == rhs.panel
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 0) {
+                ReviewText(panel.title.zh, size: 17, weight: .heavy)
+                ReviewText(panel.title.en, size: 12, weight: .semibold, color: .inkSoft)
+            }
+            if let banner = panel.banner {
+                ReviewText(banner, size: 14, weight: .bold)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color(hex: DesignTokens.Palette.sunnyPale)))
+            }
+            if let loading = panel.loadingLine {
+                ReviewText(loading, size: 14, weight: .semibold, color: .inkSoft)
+            }
+            ForEach(panel.rows) { row in
+                WeeklyReportWeekRow(row: row, onMake: { onMake(row.weekStart) }, onShow: onShow)
+            }
+            ReviewText(panel.shareNote, size: 13, weight: .regular, color: .inkSoft)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .modifier(ChunkyPanel(fill: .white, cornerRadius: 22, shadowDepth: 5, lineWidth: 3))
+        .transaction { $0.animation = nil }
+    }
+}
+
+/// One week, laid out like a 最近玩過 row: the dates and draft note on the left, the buttons on the right, the
+/// done / failure lines under them.
+private struct WeeklyReportWeekRow: View {
+    let row: WeeklyReportRow
+    let onMake: () -> Void
+    let onShow: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(row.label.zh)
+                        .font(.system(size: 15, weight: .heavy, design: .rounded))
+                        .lineLimit(1)
+                    Text(row.label.en)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.inkSoft)
+                        .lineLimit(1)
+                    if let draft = row.draft {
+                        Text(draft)
+                            .font(.system(size: 12, weight: .regular, design: .rounded))
+                            .foregroundStyle(Color.inkSoft)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 8)
+                if let finderTitle = row.finderTitle {
+                    ReviewChipButton(title: finderTitle, symbol: "folder", selected: false, action: onShow)
+                }
+                ReviewChipButton(title: row.makeTitle, symbol: "doc.richtext", selected: row.isMaking, action: onMake)
+                    .disabled(!row.canMake)
+            }
+            ForEach(row.status, id: \.self) { line in
+                ReviewText(line, size: 13, weight: .semibold, color: .inkSoft)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.ink.opacity(0.3), lineWidth: 1.5))
+    }
+}
+
 // MARK: - Rows and pieces (plain, fixed-size)
 
 private struct ReviewText: View {

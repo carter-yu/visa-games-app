@@ -284,8 +284,11 @@ final class PerformanceRecorder {
              actorOverride: .parent, synchronize: true)
     }
 
-    func marker(_ what: String) {
-        emit(.statsMarker, ["what": .string(what)], actorOverride: .parent, synchronize: true)
+    /// `stats_marker{what}`; W5 `weekly_report` adds its four fields (`WeeklyReportMarker`).
+    func marker(_ what: String, _ extra: [String: PerfValue] = [:]) {
+        var fields = extra
+        fields["what"] = .string(what)
+        emit(.statsMarker, fields, actorOverride: .parent, synchronize: true)
     }
 
     /// Design §7 data continuity: one `stats_marker{variants_v1}` the first time a build with
@@ -381,6 +384,44 @@ final class PerformanceRecorder {
             } catch {
                 result = .failure(error)
             }
+            Task { @MainActor in completion(result) }
+        }
+    }
+
+    // MARK: W5 每週報告 (ADR 0025)
+
+    /// The weeks the 表現 row offers, read on the recorder queue (after any queued writes).
+    func weeklyReportWeeks(completion: @escaping @MainActor @Sendable (WeeklyReportWeekList) -> Void) {
+        let store = self.store
+        queue.async {
+            let list = WeeklyReportSchedule.list(events: store.read().events, now: Date())
+            Task { @MainActor in completion(list) }
+        }
+    }
+
+    /// One week's report text, HTML and model JSON, built on the recorder queue from the records as they are now,
+    /// so a just-tapped 唔計呢段 counts. Nil for a week that cannot be made.
+    func weeklyReportBuild(weekStart: String, childName: String, videoTitles: [String: String],
+                           completion: @escaping @MainActor @Sendable (WeeklyReportBuild?) -> Void) {
+        let store = self.store
+        queue.async {
+            let started = Date()
+            let read = store.read()
+            let build = WeeklyReportBuild.make(events: read.events, rollup: store.loadRollup(), weekStart: weekStart,
+                                               now: Date(), childName: childName, videoTitles: videoTitles)
+            let ms = Int(Date().timeIntervalSince(started) * 1000)
+            VisaGamesLog.append("weekly report — built week=\(weekStart) pages=\(build?.pageCount ?? 0) "
+                                + "from \(read.events.count) events in \(ms) ms")
+            Task { @MainActor in completion(build) }
+        }
+    }
+
+    /// Writes the model JSON, then the PDF, under `stats/exports/weekly/` (atomic replace); reports the PDF on main.
+    func weeklyReportWrite(pdf: Data, build: WeeklyReportBuild,
+                           completion: @escaping @MainActor @Sendable (Result<URL, Error>) -> Void) {
+        let store = self.store
+        queue.async {
+            let result = Result { try WeeklyReportFiles.write(pdf: pdf, build: build, exports: store.exportsDirectory) }
             Task { @MainActor in completion(result) }
         }
     }

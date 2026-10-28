@@ -204,7 +204,7 @@ final class PerformanceReviewTests {
     func testExcludedSessionDropsOut() {
         var events: [PerfEvent] = []
         for i in 0..<5 { events += round(.findTheSame, daysAgo: i, firstTry: true, session: "s1") }
-        for i in 0..<3 { events += round(.findTheSame, daysAgo: 0, firstTry: false, session: "s2") }
+        for _ in 0..<3 { events += round(.findTheSame, daysAgo: 0, firstTry: false, session: "s2") }
         events += round(.findTheSame, daysAgo: 0, firstTry: true, actor: .parentUAT, session: "s3")
         let before = report(events)
         expectEqual(row(before, .findTheSame).answered, 8)
@@ -485,5 +485,45 @@ final class PerformanceReviewTests {
                        "測試模式開緊：而家玩嘅唔會計。", "撳邊個位多", "已扣除估中機會（兩揀一 50%，三揀一 33%）"] {
             expectTrue(review.contains(string) || settings.contains(string), "missing UI string \(string)")
         }
+
+        // W5 每週報告 (ADR 0025): the weekly block is in the same file under the same rules. It draws a finished
+        // `WeeklyReportPanel`; reading, PDFs, files and Finder belong to `WeeklyReportCoordinator`.
+        for banned in ["WeeklyReportPDFMaker", "WeeklyReportFiles", "WeeklyReportBuild", "WeeklyReportSchedule",
+                       "NSWorkspace", "WKWebView", "NSSharingServicePicker", "NSSavePanel", "fileImporter", "fileExporter",
+                       ".sheet(", ".popover(", "confirmationDialog", ".alert(", "Timer", "DispatchQueue", "Task {",
+                       "Task("] {
+            expectFalse(review.contains(banned), "ParentReviewView must not use \(banned)")
+        }
+        expectTrue(review.contains("struct ParentWeeklyReportView: View, Equatable"))
+        expectTrue(review.contains("lhs.panel == rhs.panel"))
+        for needle in ["panel.title", "panel.banner", "panel.loadingLine", "panel.rows", "panel.shareNote", "row.label",
+                       "row.draft", "row.makeTitle", "row.canMake", "row.isMaking", "row.finderTitle", "row.status"] {
+            expectTrue(review.contains(needle), "the weekly row draws \(needle)")
+        }
+        // Call site: both blocks `.equatable()`, actions are model calls only.
+        guard let start = settings.range(of: "private var reviewSection: some View {"),
+              let end = settings.range(of: "private func libraryButton(", range: start.upperBound..<settings.endIndex) else {
+            expectTrue(false, "reviewSection not found")
+            return
+        }
+        let section = settings[start.upperBound..<end.lowerBound]
+        expectEqual(section.components(separatedBy: ".equatable()").count - 1, 2)
+        expectTrue(section.contains("ParentWeeklyReportView("))
+        expectTrue(section.contains("onMake: { week in model.weeklyMake(weekStart: week) }"))
+        expectTrue(section.contains("onShow: { model.weeklyShowInFinder() }"))
+        for banned in ["LazyVGrid", "LazyVStack", "GeometryReader", "DisclosureGroup", "withAnimation", ".animation(",
+                       "onAppear", ".task", "FileManager", "NSWorkspace"] {
+            expectFalse(section.contains(banned), "reviewSection must not use \(banned)")
+        }
+        // The row's words are the design §9.4 table, verbatim (VisaCore `WeeklyReportUILabels`).
+        for (id, zh) in [("review.weekly.title", "每週報告"), ("review.weekly.ready", "今個星期嘅報告可以製作喇"),
+                         ("review.weekly.draft", "星期未完（資料截至而家）"), ("review.weekly.make", "製作 PDF"),
+                         ("review.weekly.making", "製作緊…"), ("review.weekly.done", "已製作，資料夾已開啟。"),
+                         ("review.weekly.show", "喺 Finder 顯示"),
+                         ("review.weekly.failed", "製作唔到報告，請再試。（唔影響小朋友玩）")] {
+            expectEqual(WeeklyReportUILabels.table[id]?.zh, zh, id)
+        }
+        expectEqual(WeeklyReportPanel().shareNote,
+                    "入面有 Cedric 嘅紀錄，只分享俾屋企人。 / Contains Cedric's records — share with family only.")
     }
 }
