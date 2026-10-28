@@ -52,7 +52,16 @@ Choices where the design left room:
 - **A4 scaling: a scaled CoreGraphics redraw.** WebKit makes one PDF page per 794 × 1123 px section (`createPDF(configuration:)` with `rect` set, in document coordinates). Each page is then drawn into its own A4 page of one new PDF: 595.28 × 841.89 pt, scale 0.749679 (841.89 / 1123), centred 0.017 pt from each side. `CGContext.drawPDFPage` replays the page's content stream, so text and vectors stay text and vectors; nothing is rasterised. PDFKit then reads the result back and checks the page count and A4 boxes before anything is written. The alternatives were rejected:
   - `pageZoom = 0.75` gives 595.5 × 842.25 pt pages, not A4. Page offsets become fractional (842.25 pt), and how WebKit rounds them is not documented.
   - Setting the page boundsrect crops the page; it does not scale it.
-- **Fallback.** If PDFKit cannot read the text back after the redraw (`testPDFTextContainsKeyStrings` fails on the Mac), the fallback is `pageZoom = 0.75` with 595.28 × 841.89 pt page rectangles.
+- **Fallback.** If PDFKit cannot read the text back after the redraw, the fallback is `pageZoom = 0.75` with 595.28 × 841.89 pt page rectangles. The same applies if the redraw turns out to be what puts radical code points in the text layer (next bullet).
+- **Text layer: Kangxi radicals (Mac mini run at `631aa99`).**
+  - What the run showed: `testPDFIsA4SixPages` passed: six A4 pages and §9.5 metadata, and one page without countable play. `testPDFTextContainsKeyStrings` then found 每週學習報告, "Weekly learning report" and "Cedric" in PDFKit's text, but not 邊個影子.
+  - What explains it: the PDF draws every character, and its text layer stores each one as a code point. macOS's PDF writer gets glyphs, not text, from WebKit; it finds a code point for each glyph by looking the glyph up in the font. PingFang draws an ideograph and its Kangxi radical twin with one glyph, for example 子 U+5B50 and ⼦ U+2F26. The lookup can then return the radical, so PDFKit reads 「邊個影⼦」.
+  - The evidence: 邊個影子 is the first needle with such a character, and the three that passed have none. In the §5.6 report 36 distinct characters have a twin (一 二 人 子 日 月 比 頁 …), 427 of the 2,968 CJK characters. The same behaviour is widely reported for Safari's and Pages' PDF exports on macOS.
+  - What it means: no text is lost. The page shows the right glyph, the text is selectable, and every Kangxi radical has a Unicode compatibility mapping to its ideograph. Copying or searching the shared PDF can still give the radical code point for those characters.
+  - The check: it now compares PDFKit's text and every needle under NFKC (compatibility normalization) with whitespace dropped. NFKC folds all 214 Kangxi radicals and the CJK compatibility ideographs back to the unified ideographs, and it is applied to both sides. No needle was removed.
+  - Diagnostics: a missing needle prints the raw extracted text around where it should be, with any radical or compatibility code points listed. Every run prints the radical count of the A4 PDF, of its page 1, and of WebKit's own page 1 made in a test-only web view before any redraw. If WebKit's page has none and the A4 page has them, the redraw is the cause, and the maker moves to the `pageZoom` fallback.
+  - Not done in W5: the maker does not rewrite the PDF's ToUnicode maps to restore the unified code points. That needs a PDF object rewriter that cannot be tested on the box; it is a later fix if Carter wants copy and search to return 子 rather than ⼦.
+- **Kept output (opt-in).** With `VISA_W5_PDF_OUT=<folder>`, the macOS checks write `sample-ranking-5.6.pdf` and `weekly-2026-10-19.pdf`, and each PDF's text per page as `.txt`, before their assertions. Unset, nothing is written.
 - **Pages.** The page count is the number of `<section class="page` in the W4 document: six with countable play, one without. The web view frame is 794 × (1123 × pages), so every page rectangle lies inside its bounds.
 - **Metadata.** The new PDF's Info dictionary holds:
   - Title 「VisaGames 每週學習報告 2026-10-19」 (W4's `doc.title` with the week start);
@@ -145,7 +154,11 @@ Choices where the design left room:
 **Checks**
 
 - **Linux.** 12 checks in `WeeklyReportPDFTests.swift`. `testReviewViewLayoutSafetySourceGuard` is extended to the new block: banned symbols, `.equatable()` twice at the call site, model-only actions, and the §9.4 strings.
-- **macOS.** 4 checks in `WeeklyReportPDFMacTests.swift`: `testPDFIsA4SixPages`, `testPDFTextContainsKeyStrings`, `testPDFMakerFailsCleanly` and `testWebKitPageOverflow`. They run last in `sh scripts/test.sh`, under the same platform guard.
+- **macOS.** 4 checks in `WeeklyReportPDFMacTests.swift`, run last in `sh scripts/test.sh` under the same platform guard:
+  - `testPDFIsA4SixPages`: the §5.6 week and the W1 fixture's week, each 6 × A4, plus the one-page week;
+  - `testPDFTextContainsKeyStrings`: compared under NFKC;
+  - `testPDFMakerFailsCleanly`;
+  - `testWebKitPageOverflow`.
 - **Run loop.** The runner's `main` is now `@MainActor` (a no-op for the existing synchronous checks). Each macOS check starts WebKit work and spins `RunLoop.main` until the completion or a deadline (60 s per make, 30 s per load), so a check can neither hang nor deadlock. No `assumeIsolated`, no semaphore.
 - **No window server: a loud SKIP.**
   - The checks first call `CGSessionCopyCurrentDictionary()`. When it is nil (a plain SSH login), WebKit and AppKit are never touched, the line `SKIP weekly report pdf (macOS): no WebKit rendering available — …` is printed, and the PASS banner ends with `+ 0 weekly-report-pdf-macos (SKIPPED: no window server)`.
@@ -190,7 +203,7 @@ Choices where the design left room:
 3. **Make last week's PDF.**
    - The button reads 製作緊… and is off, then 已製作，資料夾已開啟。, the Finder hint and 喺 Finder 顯示 appear.
    - Quit with 「離開程式」: Finder shows `VisaGames-weekly-YYYY-MM-DD_to_MM-DD.pdf` in `~/Library/Application Support/VisaGames/stats/exports/weekly/`, with `data/VisaGames-weekly-YYYY-MM-DD.json` beside it.
-4. **pdfinfo.** Pages 6, page size 595.28 x 841.89 pts (A4), Title 「VisaGames 每週學習報告 YYYY-MM-DD」, Author and Creator VisaGames, no user name. `pdftotext` shows the Chinese and English text.
+4. **pdfinfo.** Pages 6, page size 595.28 x 841.89 pts (A4), Title 「VisaGames 每週學習報告 YYYY-MM-DD」, Author and Creator VisaGames, no user name. `pdftotext` shows the Chinese and English text; some characters may come out as Kangxi radicals (⼦ for 子, see "Text layer" above). To read the PDFs the checks make, run `VISA_W5_PDF_OUT=/tmp/w5 sh scripts/test.sh`.
 5. **Phone.** AirDrop the PDF to the iPhone and read it in Files at 2× zoom: six pages, text selectable, nothing cut at the page edges.
 6. **Ready line.** On Sunday after 21:00, open 表現 (or tap 更新): 今個星期嘅報告可以製作喇 shows. It does not show before 21:00 or on Monday.
 7. **Auto-lock during making.** Start a make with a few seconds left on the auto-lock countdown, or put the Mac to sleep while it says 製作緊…. Expect:

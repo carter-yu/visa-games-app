@@ -1,5 +1,24 @@
 # Progress
 
+## 2026-10-28 — Weekly report W5 fix loop 1 (Mac mini run at `631aa99`)
+
+- Reported from the Mac mini:
+  - `sh scripts/test.sh` built with one warning (`PerformanceReviewTests.swift:207`, unused `i`).
+  - `testPDFIsA4SixPages` passed.
+  - `testPDFTextContainsKeyStrings` stopped the run (exit 133): 「the PDF text is missing 邊個影子」.
+- Diagnosis (box, Python Unicode data):
+  - 邊個影子 is the first needle with a character whose Kangxi radical twin shares its glyph (子 / ⼦ U+2F26). The three needles before it have none.
+  - macOS's PDF writer finds each glyph's code point by looking it up in the font, so the text layer can say ⼦. All 214 Kangxi radicals fold to their ideographs under NFKC. ADR 0025 has the details.
+- Changes:
+  - `WeeklyReportPDFMacTests` compares PDFKit's text and the needles under NFKC with whitespace dropped; no needle was removed.
+  - A missing needle prints the raw text around it, with any radical code points listed.
+  - Each run prints the radical counts of the A4 PDF, its page 1, and WebKit's own page 1 before the redraw.
+  - `testPDFIsA4SixPages` also makes the 2026-10-19 week as 6 × A4.
+  - `VISA_W5_PDF_OUT=<folder>` keeps `sample-ranking-5.6.pdf` and `weekly-2026-10-19.pdf`, each with a per-page `.txt`.
+  - The unused `i` is now `_`.
+  - The maker is unchanged.
+- Not run: Swift is not installed on this box; the Mac mini re-run is pending.
+
 ## 2026-10-28 — v0.35.0 / 71 — Weekly report W5: PDF and the 表現 row (draft PR source)
 
 - W4 is on main via #39 (`6823ad3`). Branch `feat/weekly-report-W5` starts from that commit. The scope is design §12 W5 only: the off-screen WKWebView PDF, the files under `stats/exports/weekly/`, the 每週報告 block in 表現, `stats_marker{weekly_report}` and the clear-dialog sentence (§9.2–§9.5, §10, §11; D1, D2, D3 A, D7, D11). ADR 0025 records the choices made where the design left room, including the copy written for gaps.

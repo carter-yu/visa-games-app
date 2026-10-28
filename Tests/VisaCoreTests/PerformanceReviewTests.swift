@@ -204,7 +204,7 @@ final class PerformanceReviewTests {
     func testExcludedSessionDropsOut() {
         var events: [PerfEvent] = []
         for i in 0..<5 { events += round(.findTheSame, daysAgo: i, firstTry: true, session: "s1") }
-        for i in 0..<3 { events += round(.findTheSame, daysAgo: 0, firstTry: false, session: "s2") }
+        for _ in 0..<3 { events += round(.findTheSame, daysAgo: 0, firstTry: false, session: "s2") }
         events += round(.findTheSame, daysAgo: 0, firstTry: true, actor: .parentUAT, session: "s3")
         let before = report(events)
         expectEqual(row(before, .findTheSame).answered, 8)

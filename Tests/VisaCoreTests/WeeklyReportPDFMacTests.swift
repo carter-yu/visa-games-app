@@ -152,9 +152,73 @@ final class WeeklyReportPDFMacTests {
         }
     }
 
-    /// PDF text extraction places spaces and line breaks by layout: compare without them.
-    private static func squeezed(_ text: String) -> String {
-        text.filter { !$0.isWhitespace }
+    /// Text as the checks compare it. macOS writes a PDF's text layer by looking each drawn glyph up in the font, and
+    /// PingFang draws an ideograph and its Kangxi radical (子 U+5B50, ⼦ U+2F26) with one glyph, so the text layer can
+    /// hold the radical. Unicode compatibility normalization (NFKC) folds every Kangxi radical back to its ideograph, so
+    /// both sides are compared under NFKC; text extraction also places spaces and line breaks by layout, so whitespace
+    /// is dropped (ADR 0025).
+    private static func searchable(_ text: String) -> String {
+        text.precomposedStringWithCompatibilityMapping.filter { !$0.isWhitespace }
+    }
+
+    /// Kangxi Radicals and CJK Radicals Supplement code points (U+2E80–U+2FDF) in `text`, with their NFKC targets.
+    private static func radicalSummary(_ text: String) -> String {
+        var count = 0
+        var seen: [Unicode.Scalar] = []
+        for scalar in text.unicodeScalars where (0x2E80...0x2FDF).contains(scalar.value) {
+            count += 1
+            if !seen.contains(scalar) && seen.count < 8 { seen.append(scalar) }
+        }
+        guard count > 0 else { return "no radical code points" }
+        let examples = seen.map { scalar -> String in
+            let radical = String(Character(scalar))
+            return "U+" + String(scalar.value, radix: 16, uppercase: true) + " " + radical + "→"
+                + radical.precomposedStringWithCompatibilityMapping
+        }
+        return "\(count) radical code points (" + examples.joined(separator: ", ") + ")"
+    }
+
+    /// The extracted text (whitespace runs as one space, not normalized) around where `needle` should be: at the
+    /// longest prefix or suffix of it that is there, else the start. Radical and compatibility code points in the
+    /// window are listed, so a failure shows what the text layer holds.
+    private static func excerpt(_ raw: String, near needle: String) -> String {
+        let text = raw.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+        let probe = needle.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+        var found: Range<String.Index>?
+        var length = probe.count - 1
+        while found == nil && length > 0 {
+            found = text.range(of: String(probe.prefix(length))) ?? text.range(of: String(probe.suffix(length)))
+            length -= 1
+        }
+        var window = String(text.prefix(160))
+        if let found {
+            let start = text.index(found.lowerBound, offsetBy: -40, limitedBy: text.startIndex) ?? text.startIndex
+            let end = text.index(found.upperBound, offsetBy: 60, limitedBy: text.endIndex) ?? text.endIndex
+            window = String(text[start..<end])
+        }
+        let odd = window.unicodeScalars.filter { (0x2E80...0x2FDF).contains($0.value) || (0xF900...0xFAFF).contains($0.value) }
+        let codes = odd.map { "U+" + String($0.value, radix: 16, uppercase: true) }
+        return "«" + window + "»" + (codes.isEmpty ? "" : " holds " + codes.joined(separator: " "))
+    }
+
+    /// Opt-in for a person to read the output: with `VISA_W5_PDF_OUT=<folder>` the check writes `<name>.pdf` and
+    /// `<name>.txt` (PDFKit's text of each page, as extracted) there. Nothing happens when it is unset.
+    private static func keep(_ data: Data, _ document: PDFDocument, as name: String) {
+        guard let folder = ProcessInfo.processInfo.environment["VISA_W5_PDF_OUT"], !folder.isEmpty else { return }
+        let directory = URL(fileURLWithPath: folder, isDirectory: true)
+        var text = ""
+        for index in 0..<document.pageCount {
+            text += "=== page \(index + 1) of \(document.pageCount) ===\n"
+            text += (document.page(at: index)?.string ?? "") + "\n"
+        }
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try data.write(to: directory.appendingPathComponent(name + ".pdf"))
+            try text.write(to: directory.appendingPathComponent(name + ".txt"), atomically: true, encoding: .utf8)
+            print("  weekly report pdf (macOS): kept \(name).pdf and \(name).txt in \(directory.path)")
+        } catch {
+            print("  weekly report pdf (macOS): could not keep \(name) in \(directory.path): \(error)")
+        }
     }
 
     private static func oneDecimal(_ value: Double) -> String {
@@ -169,8 +233,16 @@ final class WeeklyReportPDFMacTests {
         expectEqual(sample.pageCount, 6)
         let made = make(sample, with: WeeklyReportPDFMaker(), label: "§5.6 sample week")
         let document = Self.document(made.data, "§5.6 sample week")
+        // The W1 fixture's week too: the other real-data report. Both are kept first when VISA_W5_PDF_OUT is set.
+        let fixture = try Self.fixtureBuild("weekly-2026-10-19")
+        let fixtureMade = make(fixture, with: WeeklyReportPDFMaker(), label: "week of 2026-10-19")
+        let fixtureDocument = Self.document(fixtureMade.data, "week of 2026-10-19")
+        Self.keep(made.data, document, as: "sample-ranking-5.6")
+        Self.keep(fixtureMade.data, fixtureDocument, as: "weekly-2026-10-19")
         expectEqual(document.pageCount, 6, "the §5.6 week has six pages")
         Self.expectA4(document, "§5.6 sample week")
+        expectEqual(fixtureDocument.pageCount, fixture.pageCount, "the week of 2026-10-19 has \(fixture.pageCount) pages")
+        Self.expectA4(fixtureDocument, "week of 2026-10-19")
         // §9.5 metadata: the title with the week start; the app as author and creator; no user name or path.
         let attributes = document.documentAttributes ?? [:]
         expectEqual(attributes[PDFDocumentAttribute.titleAttribute] as? String, "VisaGames 每週學習報告 2026-10-19")
@@ -193,8 +265,8 @@ final class WeeklyReportPDFMacTests {
         expectEqual(single.pageCount, 1, "a week without countable play has one page")
         Self.expectA4(single, "week without countable play")
         print("  weekly report pdf (macOS): §5.6 week 6 × A4 595.28 × 841.89 pt, \(made.data.count) bytes in "
-              + "\(Self.oneDecimal(made.seconds)) s; empty week 1 × A4 in \(Self.oneDecimal(one.seconds)) s; "
-              + "Title / Author / Creator per §9.5")
+              + "\(Self.oneDecimal(made.seconds)) s; week of 2026-10-19 \(fixtureDocument.pageCount) × A4; empty week "
+              + "1 × A4 in \(Self.oneDecimal(one.seconds)) s; Title / Author / Creator per §9.5")
         ran += 1
     }
 
@@ -205,18 +277,30 @@ final class WeeklyReportPDFMacTests {
         let sample = try Self.fixtureBuild("weekly-ranking-5.6")
         let made = make(sample, with: WeeklyReportPDFMaker(), label: "§5.6 sample week")
         let document = Self.document(made.data, "§5.6 sample week")
-        // Text, not pictures: PDFKit reads the words back.
-        let text = Self.squeezed(document.string ?? "")
+        let raw = document.string ?? ""
+        // Where radical code points come from: page 1 after the A4 redraw, and WebKit's own page 1 before it.
+        let webKitPageOne = webKitPageText(sample.html, pages: sample.pageCount, index: 0)
+        print("  weekly report pdf (macOS): text layer of the A4 PDF: \(Self.radicalSummary(raw)); page 1 after the "
+              + "A4 redraw: \(Self.radicalSummary(document.page(at: 0)?.string ?? "")); WebKit's own page 1: "
+              + (webKitPageOne.map { Self.radicalSummary($0) } ?? "not made") + "; the checks compare NFKC text")
+        // Text, not pictures: PDFKit reads the words back. Compared under NFKC with whitespace dropped (ADR 0025).
+        let text = Self.searchable(raw)
         for needle in ["每週學習報告", "Weekly learning report", "Cedric", "邊個影子", "本週重點", "第 1 頁，共 6 頁",
                        "第 6 頁，共 6 頁", "Page 6 of 6", "數據指紋 " + sample.fingerprint, "想問你哋"] {
-            expectTrue(text.contains(Self.squeezed(needle)), "the PDF text is missing \(needle)")
+            expectTrue(text.contains(Self.searchable(needle)),
+                       "the PDF text is missing \(needle); near it: \(Self.excerpt(raw, near: needle))")
         }
-        // Every page carries its own words in order: its page line and, from page 2, its heading.
+        // Every page carries its own words: its page line and, from page 2, its heading.
         for index in 0..<document.pageCount {
-            let page = Self.squeezed(document.page(at: index)?.string ?? "")
-            expectTrue(page.contains(Self.squeezed("第 \(index + 1) 頁，共 6 頁")), "page \(index + 1) text")
+            let pageRaw = document.page(at: index)?.string ?? ""
+            let page = Self.searchable(pageRaw)
+            let pageLine = "第 \(index + 1) 頁，共 6 頁"
+            expectTrue(page.contains(Self.searchable(pageLine)),
+                       "page \(index + 1) is missing \(pageLine); near it: \(Self.excerpt(pageRaw, near: pageLine))")
             if index >= 1 && index - 1 < Self.headings.count {
-                expectTrue(page.contains(Self.headings[index - 1]), "page \(index + 1) heading \(Self.headings[index - 1])")
+                let heading = Self.headings[index - 1]
+                expectTrue(page.contains(Self.searchable(heading)),
+                           "page \(index + 1) is missing \(heading); near it: \(Self.excerpt(pageRaw, near: heading))")
             }
         }
         print("  weekly report pdf (macOS): text selectable on all 6 pages (title, Cedric, game names, page lines, "
@@ -332,6 +416,17 @@ final class WeeklyReportPDFMacTests {
         })()
         """#
 
+    /// PDFKit's text of WebKit's own PDF of page `index`, before any A4 redraw (test-only web view), or nil.
+    private func webKitPageText(_ html: String, pages: Int, index: Int) -> String? {
+        let meter = WebKitPageMeter()
+        defer { meter.tearDown() }
+        meter.load(html, pages: pages)
+        guard spin(30, until: { meter.loaded || meter.failed }), !meter.failed else { return nil }
+        meter.makePagePDF(index)
+        guard spin(30, until: { meter.pagePDFDone }), let data = meter.pagePDF else { return nil }
+        return PDFDocument(data: data)?.page(at: 0)?.string
+    }
+
     private func measure(_ html: String, pages: Int, label: String) -> [PageMeasure] {
         let meter = WebKitPageMeter()
         defer { meter.tearDown() }
@@ -414,6 +509,8 @@ private final class WebKitPageMeter: NSObject, WKNavigationDelegate {
     private(set) var failed = false
     private(set) var evaluated = false
     private(set) var measured: String?
+    private(set) var pagePDF: Data?
+    private(set) var pagePDFDone = false
 
     func load(_ html: String, pages: Int) {
         let configuration = WKWebViewConfiguration()
@@ -441,6 +538,23 @@ private final class WebKitPageMeter: NSObject, WKNavigationDelegate {
         view.evaluateJavaScript(script) { [weak self] value, _ in
             self?.measured = value as? String
             self?.evaluated = true
+        }
+    }
+
+    /// WebKit's own PDF of one page section, with no A4 redraw, for the text-layer comparison.
+    func makePagePDF(_ index: Int) {
+        pagePDF = nil
+        pagePDFDone = false
+        guard let view = webView else {
+            pagePDFDone = true
+            return
+        }
+        let rect = WeeklyReportPDFGeometry.pageRect(index)
+        let configuration = WKPDFConfiguration()
+        configuration.rect = CGRect(x: rect.x, y: rect.y, width: rect.width, height: rect.height)
+        view.createPDF(configuration: configuration) { [weak self] result in
+            if case .success(let data) = result { self?.pagePDF = data }
+            self?.pagePDFDone = true
         }
     }
 
