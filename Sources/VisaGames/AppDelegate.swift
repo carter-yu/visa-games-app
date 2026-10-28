@@ -292,6 +292,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var perfReview: PerfReviewState = .idle
     @Published private(set) var perfReviewWindow: PerfReportWindow = .days30
     private var perfReviewGeneration = 0
+    /// W5 每週報告 (ADR 0025): the 表現 row's weeks and make state (parent-only).
+    @Published private(set) var weeklyPanel = WeeklyReportPanel()
+    private lazy var weeklyReport = WeeklyReportCoordinator(recorder: perf)
     /// Convoy tap context for the answer being evaluated (step, expected asset, tapped before).
     private var pendingSequenceContext: (step: Int, expected: String?, tappedSoFar: [String])?
 
@@ -322,6 +325,8 @@ final class AppModel: ObservableObject {
             return PerfRecorderContext(mode: self.session.mode, isPlaytest: self.isParentPlaytest)
         }
         perf.onWriteFailed = { [weak self] in self?.perfWriteFailed = true }
+        weeklyReport.onChange = { [weak self] panel in self?.weeklyPanel = panel }
+        weeklyReport.canReveal = { [weak self] in self?.session.mode == .parent }
         perf.launch(
             recoveredPlay: session.mode == .play,
             visaEndsAt: session.snapshot.endsAt,
@@ -517,6 +522,8 @@ final class AppModel: ObservableObject {
         providerBlockedParentHint = nil
         parentFinder = ParentFinderState()
         parentDraftTrialVideoID = nil
+        // W5: a weekly PDF still being made stops here; nothing is revealed over the kiosk.
+        weeklyReport.cancel()
         // Auto-lock, sleep, and Return all come through here. Drop a playtest
         // before leaveParent so it cannot resume as a child round.
         discardPlaytestCover(reason: "leaveParent")
@@ -570,6 +577,7 @@ final class AppModel: ObservableObject {
         guard session.mode == .play else { return }
         if modeBeforeGrant == .parent {
             // 測試一分鐘簽證 leaves parent controls straight into play (no returnToChild).
+            weeklyReport.cancel()
             perf.endPlay(reason: .previewStopped, resumeSaved: false)
             perf.abandonRound(reason: "test_visa")
             perf.parentLeft(reason: "test_visa", toMode: session.mode)
@@ -2056,6 +2064,7 @@ final class AppModel: ObservableObject {
     /// change and after 唔計呢段 / 計返 — never from a view body.
     func perfRefreshReview() {
         guard session.mode == .parent else { return }
+        weeklyReport.refreshWeeks()
         perfReviewGeneration += 1
         let generation = perfReviewGeneration
         perfReview = .computing(previous: perfReview.report)
@@ -2081,8 +2090,24 @@ final class AppModel: ObservableObject {
         perfRefreshReview()
     }
 
+    /// W5 表現 → 每週報告 → 製作 PDF. Parent mode only, and never while a video plays (design §9.3).
+    func weeklyMake(weekStart: String) {
+        guard session.mode == .parent, activePlayVideoID == nil else { return }
+        var titles: [String: String] = [:]
+        for video in allowlist.videos { titles[video.id] = video.parentLabel }
+        weeklyReport.make(weekStart: weekStart, videoTitles: titles)
+    }
+
+    /// W5 喺 Finder 顯示: the weekly PDF made in this parent visit.
+    func weeklyShowInFinder() {
+        guard session.mode == .parent else { return }
+        weeklyReport.reveal()
+    }
+
     func perfClear() {
         guard session.mode == .parent else { return }
+        // W5: no weekly file may be written after the folder is cleared.
+        weeklyReport.reset()
         perf.clearAll { [weak self] ok in
             guard let self else { return }
             if ok { self.perfWriteFailed = false }
@@ -3240,6 +3265,7 @@ final class AppModel: ObservableObject {
     /// Tear down play/voice before NSHostingView/WKWebView die on quit (crash on terminate).
     func prepareForTerminate() {
         discardPlaytestCover(reason: "terminate")
+        weeklyReport.cancel()
         changed = nil
         draftTitleTask?.cancel()
         draftTitleTask = nil
