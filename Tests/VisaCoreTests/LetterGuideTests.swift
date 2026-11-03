@@ -37,7 +37,8 @@ final class LetterGuideTests {
         expectEqual(f.spec.hopSide, .left)
         expectEqual(f.spec.lastStroke?.en, "Last one: across!")
         expectEqual(f.spec.lastStroke?.enSub, "jump across first")
-        expectTrue(f.hopControl(from: 0, to: 1).control.x < 72, "hop stays left of f's stem")
+        let stemX = f.paths[0].end.x
+        expectTrue(f.hopControl(from: 0, to: 1).control.x < stemX, "hop stays left of f's stem")
         expectEqual(h.spec.beats.map(\.line.en), ["Down from the top, stop!", "Back up a bit...", "Over the hill and down!"])
         expectEqual(h.spec.beats.map(\.seconds), [1.3, 0.7, 1.5])
         expectEqual(h.spec.beats[0].until, NumeralGuidePoint(x: 44, y: 270, pass: 1))
