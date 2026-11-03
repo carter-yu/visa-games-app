@@ -1,7 +1,7 @@
 {
   "schema": "visagames.tapLetter.wordBank.v1",
   "version": 1,
-  "updated": "2026-10-22",
+  "updated": "2026-11-03",
   "author": "Opus 5.5 (design only; see ../design.md §7)",
   "notes": [
     "Lowercase only in v1. Child-facing letters and word labels are drawn with the house centerline glyphs (latin:<x>), never with a font.",
@@ -343,9 +343,69 @@
       ]
     },
 
-    "f": { "glyph": "latin:f", "status": "anchor_only", "name": { "say": "ef", "ipa": "ɛf", "voice_key": "letter.f.name" }, "sound": { "ipa": "f", "voice_key": "letter.f.sound", "status": "needs_recording" }, "article": "an", "anchor": "fish", "anchor_gloss_zh": "魚", "confusables": ["t", "l"], "candidates": ["fish", "fan", "fork", "feather", "fox", "fire engine", "finger"] },
-    "g": { "glyph": "latin:g", "status": "anchor_only", "name": { "say": "jee", "ipa": "dʒiː", "voice_key": "letter.g.name" }, "sound": { "ipa": "ɡ", "voice_key": "letter.g.sound", "status": "needs_recording" }, "article": "a", "anchor": "goat", "anchor_gloss_zh": "山羊", "confusables": ["q", "y", "a", "j"], "candidates": ["goat", "gate", "guitar", "goose", "garage"], "note": "Hard g only: no giraffe, gem or ginger." },
-    "h": { "glyph": "latin:h", "status": "anchor_only", "name": { "say": "aitch", "ipa": "eɪtʃ", "voice_key": "letter.h.name" }, "sound": { "ipa": "h", "voice_key": "letter.h.sound", "status": "needs_recording" }, "article": "an", "anchor": "hat", "anchor_gloss_zh": "帽", "confusables": ["n", "b", "k"], "candidates": ["hat", "helicopter", "horse", "house", "hippo", "hand", "hen"] },
+    "f": {
+      "glyph": "latin:f",
+      "status": "full",
+      "name": { "say": "ef", "ipa": "ɛf", "voice_key": "letter.f.name" },
+      "sound": { "ipa": "f", "voice_key": "letter.f.sound", "status": "needs_recording" },
+      "article": "an",
+      "anchor": "fish",
+      "confusables": ["t", "l"],
+      "strokes": { "lwt": 2, "ballstick": 2 },
+      "hint_en": "f goes over the top, down, then across.",
+      "rhyme_en": ["Over the top and down…", "Now cross it!"],
+      "words": [
+        { "id": "f.fish", "word": "fish", "tier": "core", "anchor": true, "image_id": "word.fish", "voice_key": "word.fish", "gloss_zh": "魚", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false },
+        { "id": "f.fox", "word": "fox", "tier": "core", "image_id": "word.fox", "voice_key": "word.fox", "gloss_zh": "狐狸", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false },
+        { "id": "f.frog", "word": "frog", "tier": "extra", "image_id": "word.frog", "voice_key": "word.frog", "gloss_zh": "青蛙", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false },
+        { "id": "f.fan", "word": "fan", "tier": "core", "image_id": "word.fan", "voice_key": "word.fan", "gloss_zh": "風扇", "highlight": [0, 1], "syllables": 1, "theme": "home", "vehicle": false },
+        { "id": "f.fork", "word": "fork", "tier": "core", "image_id": "word.fork", "voice_key": "word.fork", "gloss_zh": "叉", "highlight": [0, 1], "syllables": 1, "theme": "home", "vehicle": false },
+        { "id": "f.flower", "word": "flower", "tier": "extra", "image_id": "word.flower", "voice_key": "word.flower", "gloss_zh": "花", "highlight": [0, 1], "syllables": 2, "theme": "nature", "vehicle": false },
+        { "id": "f.fire_engine", "word": "fire engine", "tier": "extra", "image_id": "word.fire_engine", "voice_key": "word.fire_engine", "gloss_zh": "消防車", "highlight": [0, 1], "syllables": 4, "theme": "vehicle", "vehicle": true },
+        { "id": "f.feather", "word": "feather", "tier": "extra", "image_id": "word.feather", "voice_key": "word.feather", "gloss_zh": "羽毛", "highlight": [0, 1], "syllables": 2, "theme": "nature", "vehicle": false }
+      ]
+    },
+    "g": {
+      "glyph": "latin:g",
+      "status": "full",
+      "name": { "say": "jee", "ipa": "dʒiː", "voice_key": "letter.g.name" },
+      "sound": { "ipa": "ɡ", "voice_key": "letter.g.sound", "status": "needs_recording" },
+      "article": "a",
+      "anchor": "goat",
+      "confusables": ["q", "y", "a", "j"],
+      "strokes": { "lwt": 1, "ballstick": 2 },
+      "hint_en": "g goes round like a c, then curls down low.",
+      "rhyme_en": ["Round like a c…", "Up, stop!", "Down, and curl back!"],
+      "words": [
+        { "id": "g.goat", "word": "goat", "tier": "core", "anchor": true, "image_id": "word.goat", "voice_key": "word.goat", "gloss_zh": "山羊", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false },
+        { "id": "g.girl", "word": "girl", "tier": "core", "image_id": "word.girl", "voice_key": "word.girl", "gloss_zh": "女仔", "highlight": [0, 1], "syllables": 1, "theme": "people", "vehicle": false },
+        { "id": "g.gift", "word": "gift", "tier": "core", "image_id": "word.gift", "voice_key": "word.gift", "gloss_zh": "禮物", "highlight": [0, 1], "syllables": 1, "theme": "thing", "vehicle": false },
+        { "id": "g.grapes", "word": "grapes", "tier": "extra", "image_id": "word.grapes", "voice_key": "word.grapes", "gloss_zh": "提子", "highlight": [0, 1], "syllables": 1, "theme": "food", "vehicle": false },
+        { "id": "g.guitar", "word": "guitar", "tier": "core", "image_id": "word.guitar", "voice_key": "word.guitar", "gloss_zh": "結他", "highlight": [0, 1], "syllables": 2, "theme": "thing", "vehicle": false },
+        { "id": "g.goose", "word": "goose", "tier": "core", "image_id": "word.goose", "voice_key": "word.goose", "gloss_zh": "鵝", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false }
+      ]
+    },
+    "h": {
+      "glyph": "latin:h",
+      "status": "full",
+      "name": { "say": "aitch", "ipa": "eɪtʃ", "voice_key": "letter.h.name" },
+      "sound": { "ipa": "h", "voice_key": "letter.h.sound", "status": "needs_recording" },
+      "article": "an",
+      "anchor": "hat",
+      "confusables": ["n", "b", "k"],
+      "strokes": { "lwt": 1, "ballstick": 2 },
+      "hint_en": "h goes down, back up, over the hill and down.",
+      "rhyme_en": ["Down from the top…", "Back up, stop!", "Over the hill and down!"],
+      "words": [
+        { "id": "h.hat", "word": "hat", "tier": "core", "anchor": true, "image_id": "word.hat", "voice_key": "word.hat", "gloss_zh": "帽", "highlight": [0, 1], "syllables": 1, "theme": "clothes", "vehicle": false },
+        { "id": "h.horse", "word": "horse", "tier": "core", "image_id": "word.horse", "voice_key": "word.horse", "gloss_zh": "馬", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false },
+        { "id": "h.house", "word": "house", "tier": "core", "image_id": "word.house", "voice_key": "word.house", "gloss_zh": "屋", "highlight": [0, 1], "syllables": 1, "theme": "home", "vehicle": false },
+        { "id": "h.hand", "word": "hand", "tier": "core", "image_id": "word.hand", "voice_key": "word.hand", "gloss_zh": "手", "highlight": [0, 1], "syllables": 1, "theme": "body", "vehicle": false },
+        { "id": "h.helicopter", "word": "helicopter", "tier": "extra", "image_id": "word.helicopter", "voice_key": "word.helicopter", "gloss_zh": "直升機", "highlight": [0, 1], "syllables": 4, "theme": "vehicle", "vehicle": true },
+        { "id": "h.hen", "word": "hen", "tier": "core", "image_id": "word.hen", "voice_key": "word.hen", "gloss_zh": "雞乸", "highlight": [0, 1], "syllables": 1, "theme": "animal", "vehicle": false },
+        { "id": "h.hippo", "word": "hippo", "tier": "core", "image_id": "word.hippo", "voice_key": "word.hippo", "gloss_zh": "河馬", "highlight": [0, 1], "syllables": 2, "theme": "animal", "vehicle": false }
+      ]
+    },
     "j": { "glyph": "latin:j", "status": "anchor_only", "name": { "say": "jay", "ipa": "dʒeɪ", "voice_key": "letter.j.name" }, "sound": { "ipa": "dʒ", "voice_key": "letter.j.sound", "status": "needs_recording" }, "article": "a", "anchor": "jelly", "anchor_gloss_zh": "啫喱", "confusables": ["i", "g", "y"], "candidates": ["jelly", "jam", "jet", "jacket", "juice", "jigsaw"], "note": "No jeep (trade mark)." },
     "k": { "glyph": "latin:k", "status": "anchor_only", "name": { "say": "kay", "ipa": "keɪ", "voice_key": "letter.k.name" }, "sound": { "ipa": "k", "voice_key": "letter.k.sound", "status": "needs_recording" }, "article": "a", "anchor": "kite", "anchor_gloss_zh": "風箏", "confusables": ["h", "x"], "candidates": ["kite", "key", "kangaroo", "koala", "kayak", "kettle"], "note": "No knife or knee (silent k)." },
     "l": { "glyph": "latin:l", "status": "anchor_only", "name": { "say": "el", "ipa": "ɛl", "voice_key": "letter.l.name" }, "sound": { "ipa": "l", "voice_key": "letter.l.sound", "status": "needs_recording" }, "article": "an", "anchor": "lion", "anchor_gloss_zh": "獅子", "confusables": ["i", "t"], "candidates": ["lion", "lorry", "leaf", "lemon", "ladybird", "lollipop", "lamp"] },

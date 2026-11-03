@@ -75,6 +75,9 @@ extension TapLetterCopy {
         case "c": return ["Round like a c!"]
         case "d": return ["Round like a c…", "Up high to the top, stop!", "And straight down!"]
         case "e": return ["Across the middle…", "Then round like a c!"]
+        case "f": return ["Over the top and down…", "Now cross it!"]
+        case "g": return ["Round like a c…", "Up, stop!", "Down, and curl back!"]
+        case "h": return ["Down from the top…", "Back up, stop!", "Over the hill and down!"]
         default: return []
         }
     }

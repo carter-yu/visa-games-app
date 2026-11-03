@@ -2,12 +2,13 @@ import Foundation
 import VisaCore
 
 final class LatinGlyphTests {
-    private let letters: [Character] = ["a", "b", "c", "d", "e", "g", "k", "o", "u"]
+    private let letters: [Character] = ["a", "b", "c", "d", "e", "f", "g", "h", "k", "o", "u"]
 
     func testCatalogPathsAndStarts() {
         let starts: [Character: [(Double, Double)]] = [
             "a": [(142, 152)], "b": [(44, 30)], "c": [(146, 154)],
-            "d": [(142, 152)], "e": [(42, 202)], "g": [(142, 152)],
+            "d": [(142, 152)], "e": [(42, 202)], "f": [(150, 52), (40, 130)],
+            "g": [(142, 152)], "h": [(44, 30)],
             "k": [(44, 30), (146, 130)], "o": [(96, 130)], "u": [(44, 130)]
         ]
         for letter in letters {
@@ -27,7 +28,7 @@ final class LatinGlyphTests {
             expectEqual(glyph.strokes.map(\.path), paths)
             expectEqual(glyph.orderStandard, "LWT")
         }
-        expectNil(StrokeGlyph.latin("f"))
+        expectNil(StrokeGlyph.latin("i"))
         expectNil(StrokeGlyph.latin("A"))
     }
 
@@ -52,7 +53,8 @@ final class LatinGlyphTests {
 
     func testTurnsAlternatesAndHouseLines() {
         let cusps: [Character: (Double, Double)] = ["a": (148, 130), "b": (44, 270),
-                                                   "d": (148, 30), "g": (148, 130), "u": (148, 130)]
+                                                   "d": (148, 30), "g": (148, 130),
+                                                   "h": (44, 270), "u": (148, 130)]
         for letter in letters {
             let paths = LatinGlyphs.paths(letter, offset: LineMatchPoint(x: 0, y: 0), scale: 1)
             let allCusps = paths.flatMap(\.cusps)
@@ -89,6 +91,17 @@ final class LatinGlyphTests {
         }
         expectTrue(LatinGlyphs.strokes("b")[0].svg.hasPrefix("M44 30 L44 270"))
         expectEqual(LatinGlyphs.strokes("k")[0].svg, "M44 30 L44 270")
+        expectEqual(LatinGlyphs.strokes("f"), [
+            LatinStroke("M150 52 C140 36 124 30 108 30 C84 30 72 48 72 74 L72 270"),
+            LatinStroke("M40 130 L132 130")
+        ])
+        expectEqual(LatinGlyphs.strokes("h"), [
+            LatinStroke("M44 30 L44 270 L44 186 C54 150 76 130 104 130 C134 130 148 150 148 180 L148 270",
+                        cusps: [LineMatchPoint(x: 44, y: 270)])
+        ])
+        for letter in [Character("f"), "h"] {
+            expectTrue(StrokeGlyph.latin(letter)?.alternates.isEmpty == true, "LWT only for \(letter)")
+        }
     }
 
     func testPathsCompleteAtExistingTolerances() {

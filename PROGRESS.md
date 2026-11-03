@@ -1,5 +1,12 @@
 # Progress
 
+## 2026-11-03 — v0.36.0 / 72 — Letters F1 source (f, h and g words)
+
+- Based on main `05585b7`. Added LWT f and h paths, including h's bottom cusp. The guide spec adds f's two-stroke hop and h's STOP cue; the generator now includes both letters. The existing g guide and i/j data are unchanged. f's hop bows left to stay clear of its vertical stroke. Beat seconds are f 1.5/0.8 and h 1.3/0.7/1.5.
+- Added f, g and h mnemonics, additive f:t and h:nb board confusables, and 21 locked f/g/h words with emoji IDs and Hong Kong Traditional Chinese glosses. `fire engine` uses `f.fire_engine` / `word.fire_engine`; existing multiword entries use joined IDs, but this key follows the F1 instruction. The only additional UI text change is the parent version footer, which matches `Info.plist` and its source check.
+- Updated Latin glyph, guide, word bank, image map and both parent/PDF version source checks. `LetterDealTests.testF1CatalogWordsAndArt` checks a–h catalog coverage and images by reading the SwiftUI source because the private dictionary is unavailable to VisaCoreChecks. `LetterGuideTests.testLetterDataAndGeometry` checks all authored beat/cue points against paths; `testFHopAndHStop` pins the new guide rules.
+- Checks on this Linux box: guide regeneration twice gave identical SHA-256 `6b3a6b1264582e889724367e7727ca0957e4a7caa2cce6a7b7a34479e6373e87`; both JSON files parse; a Python check passed for locked words/glosses, image IDs, g/i/j preservation and sampled f/h bounds; `git diff --check` passed. `swift build`, `swift test` and `sh scripts/test.sh` each stopped because `swift` is not installed. No Swift pass or macOS app result is claimed.
+
 ## 2026-10-28 — Weekly report W5 fix loop 1 (Mac mini run at `631aa99`)
 
 - Reported from the Mac mini:

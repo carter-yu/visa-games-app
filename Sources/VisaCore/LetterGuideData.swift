@@ -29,11 +29,20 @@ public enum LetterGuideData {
                 NumeralGuideBeatSpec(stroke: 0, until: NumeralGuidePoint(x: 40.0, y: 202.0, pass: 2), seconds: 1.3, line: TapCountGuideLine(zh: "", zhSub: "", en: "Up and over the top...", enSub: "")),
                 NumeralGuideBeatSpec(stroke: 0, until: nil, seconds: 1.1, line: TapCountGuideLine(zh: "", zhSub: "", en: "Then round the bottom!", enSub: ""))
             ], merge: TapCountGuideLine(zh: "", zhSub: "", en: "Your turn!", enSub: ""), cues: [NumeralGuideCueSpec(stroke: 0, point: NumeralGuidePoint(x: 154.0, y: 202.0, pass: 1), sign: .stop, signAt: LineMatchPoint(x: 218.0, y: 196.0), line: TapCountGuideLine(zh: "", zhSub: "", en: "Stop! Now up and round!", enSub: "")), NumeralGuideCueSpec(stroke: 0, point: NumeralGuidePoint(x: 40.0, y: 202.0, pass: 2), sign: .ahead, signAt: LineMatchPoint(x: -24.0, y: 206.0), line: TapCountGuideLine(zh: "", zhSub: "", en: "Keep going, round the bottom!", enSub: ""))], hop: nil, hopSide: nil, lastStroke: nil)
+        case "f": return NumeralGuideSpec(numeral: 0, beats: [
+                NumeralGuideBeatSpec(stroke: 0, until: nil, seconds: 1.5, line: TapCountGuideLine(zh: "", zhSub: "", en: "Over the top and down...", enSub: "")),
+                NumeralGuideBeatSpec(stroke: 1, until: nil, seconds: 0.8, line: TapCountGuideLine(zh: "", zhSub: "", en: "Across!", enSub: ""))
+            ], merge: TapCountGuideLine(zh: "", zhSub: "", en: "Your turn!", enSub: ""), cues: [], hop: TapCountGuideLine(zh: "", zhSub: "", en: "Now cross it!", enSub: ""), hopSide: .left, lastStroke: TapCountGuideLine(zh: "", zhSub: "", en: "Last one: across!", enSub: "jump across first"))
         case "g": return NumeralGuideSpec(numeral: 0, beats: [
                 NumeralGuideBeatSpec(stroke: 0, until: NumeralGuidePoint(x: 146.0, y: 226.0, pass: 1), seconds: 1.6, line: TapCountGuideLine(zh: "", zhSub: "", en: "Round like a c...", enSub: "")),
                 NumeralGuideBeatSpec(stroke: 0, until: NumeralGuidePoint(x: 148.0, y: 130.0, pass: 1), seconds: 0.8, line: TapCountGuideLine(zh: "", zhSub: "", en: "Up the side, stop!", enSub: "")),
                 NumeralGuideBeatSpec(stroke: 0, until: nil, seconds: 1.5, line: TapCountGuideLine(zh: "", zhSub: "", en: "Down low, and curl back!", enSub: ""))
             ], merge: TapCountGuideLine(zh: "", zhSub: "", en: "Your turn!", enSub: ""), cues: [NumeralGuideCueSpec(stroke: 0, point: NumeralGuidePoint(x: 148.0, y: 130.0, pass: 1), sign: .stop, signAt: LineMatchPoint(x: 212.0, y: 126.0), line: TapCountGuideLine(zh: "", zhSub: "", en: "Stop! Now straight down!", enSub: ""))], hop: nil, hopSide: nil, lastStroke: nil)
+        case "h": return NumeralGuideSpec(numeral: 0, beats: [
+                NumeralGuideBeatSpec(stroke: 0, until: NumeralGuidePoint(x: 44.0, y: 270.0, pass: 1), seconds: 1.3, line: TapCountGuideLine(zh: "", zhSub: "", en: "Down from the top, stop!", enSub: "")),
+                NumeralGuideBeatSpec(stroke: 0, until: NumeralGuidePoint(x: 44.0, y: 186.0, pass: 2), seconds: 0.7, line: TapCountGuideLine(zh: "", zhSub: "", en: "Back up a bit...", enSub: "")),
+                NumeralGuideBeatSpec(stroke: 0, until: nil, seconds: 1.5, line: TapCountGuideLine(zh: "", zhSub: "", en: "Over the hill and down!", enSub: ""))
+            ], merge: TapCountGuideLine(zh: "", zhSub: "", en: "Your turn!", enSub: ""), cues: [NumeralGuideCueSpec(stroke: 0, point: NumeralGuidePoint(x: 44.0, y: 270.0, pass: 1), sign: .stop, signAt: LineMatchPoint(x: -20.0, y: 262.0), line: TapCountGuideLine(zh: "", zhSub: "", en: "Stop! Back up!", enSub: ""))], hop: nil, hopSide: nil, lastStroke: nil)
         case "k": return NumeralGuideSpec(numeral: 0, beats: [
                 NumeralGuideBeatSpec(stroke: 0, until: nil, seconds: 1.2, line: TapCountGuideLine(zh: "", zhSub: "", en: "Down from the top!", enSub: "")),
                 NumeralGuideBeatSpec(stroke: 1, until: NumeralGuidePoint(x: 52.0, y: 208.0, pass: 1), seconds: 0.8, line: TapCountGuideLine(zh: "", zhSub: "", en: "Kick in, stop!", enSub: "")),

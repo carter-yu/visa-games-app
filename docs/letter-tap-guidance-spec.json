@@ -105,6 +105,19 @@
       "hopArcSide": null,
       "lastStroke": null
     },
+    "f": {
+      "beats": [
+        {"stroke": 0, "until": 1.0, "seconds": 1.5,
+         "zh": "", "zhSub": "", "en": "Over the top and down..."},
+        {"stroke": 1, "until": 1.0, "seconds": 0.8,
+         "zh": "", "zhSub": "", "en": "Across!"}
+      ],
+      "merge": {"zh": "", "zhSub": "", "en": "Your turn!"},
+      "cues": [],
+      "hop": {"zh": "", "zhSub": "", "en": "Now cross it!"},
+      "hopArcSide": "left",
+      "lastStroke": {"zh": "", "zhSub": "", "en": "Last one: across!", "enSub": "jump across first"}
+    },
     "g": {
       "beats": [
         {"stroke": 0, "until": {"point": [146, 226], "pass": 1}, "seconds": 1.6,
@@ -118,6 +131,24 @@
       "cues": [
         {"stroke": 0, "point": [148, 130], "pass": 1, "sign": "stop", "signAt": [212, 126],
          "zh": "", "zhSub": "", "en": "Stop! Now straight down!"}
+      ],
+      "hop": null,
+      "hopArcSide": null,
+      "lastStroke": null
+    },
+    "h": {
+      "beats": [
+        {"stroke": 0, "until": {"point": [44, 270], "pass": 1}, "seconds": 1.3,
+         "zh": "", "zhSub": "", "en": "Down from the top, stop!"},
+        {"stroke": 0, "until": {"point": [44, 186], "pass": 2}, "seconds": 0.7,
+         "zh": "", "zhSub": "", "en": "Back up a bit..."},
+        {"stroke": 0, "until": 1.0, "seconds": 1.5,
+         "zh": "", "zhSub": "", "en": "Over the hill and down!"}
+      ],
+      "merge": {"zh": "", "zhSub": "", "en": "Your turn!"},
+      "cues": [
+        {"stroke": 0, "point": [44, 270], "pass": 1, "sign": "stop", "signAt": [-20, 262],
+         "zh": "", "zhSub": "", "en": "Stop! Back up!"}
       ],
       "hop": null,
       "hopArcSide": null,

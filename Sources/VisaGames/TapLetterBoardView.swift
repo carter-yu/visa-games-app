@@ -294,7 +294,7 @@ private extension Collection {
     subscript(safe index: Index) -> Element? { indices.contains(index) ? self[index] : nil }
 }
 
-/// Each approved a–e word has its own image ID; unknown IDs show a safe picture placeholder.
+/// Each approved a–h word has its own image ID; unknown IDs show a safe picture placeholder.
 struct LetterWordArt: View {
     let imageID: String
     private static let pictures: [String: String] = [
@@ -310,7 +310,13 @@ struct LetterWordArt: View {
         "word.doll":"🪆", "word.dinosaur":"🦕", "word.dolphin":"🐬", "word.dumptruck":"🚚",
         "word.deer":"🦌", "word.donkey":"🫏", "word.dice":"🎲", "word.drum":"🥁",
         "word.egg":"🥚", "word.elephant":"🐘", "word.elbow":"💪", "word.engine":"🚂",
-        "word.envelope":"✉️", "word.excavator":"🚜", "word.escalator":"🛗", "word.elf":"🧝"
+        "word.envelope":"✉️", "word.excavator":"🚜", "word.escalator":"🛗", "word.elf":"🧝",
+        "word.fish":"🐟", "word.fox":"🦊", "word.frog":"🐸", "word.fan":"🪭",
+        "word.fork":"🍴", "word.flower":"🌸", "word.fire_engine":"🚒", "word.feather":"🪶",
+        "word.goat":"🐐", "word.girl":"👧", "word.gift":"🎁", "word.grapes":"🍇",
+        "word.guitar":"🎸", "word.goose":"🪿",
+        "word.hat":"👒", "word.horse":"🐴", "word.house":"🏠", "word.hand":"✋",
+        "word.helicopter":"🚁", "word.hen":"🐔", "word.hippo":"🦛"
     ]
     var body: some View {
         Group {

@@ -18,3 +18,9 @@ The source includes a find-to-write phase test and version assertions. Native Sw
 - Find & flip and Find & write now show the shared Latin smiley-pen stroke reveal on the letter plaque after the two cards are found. The existing parent tap-count stroke-order setting supplies the dosage; missing glyph data or Off uses a 2.4-second fallback. Stamp or writing starts only after the reveal and flash.
 - Find & write uses the Latin stroke timeline for the full car demo and the learned-letter pen glance. The car uses tap-count guide artwork and retains the English mnemonic. A first touch still dismisses either guide without painting or judging a wrong answer.
 - Plaque tap replay is not included in this hotfix. The existing plaque button remains a prompt replay.
+
+## 2026-11-03 F1 addendum — letters f and h, g words
+
+- The LWT catalog and letter guide add f and h. f has two strokes and a hop to its crossbar; h has one retracing stroke with a STOP cue at (44, 270). No ball-stick path was added.
+- The word bank now has full f, g and h decks, with 21 approved words, Hong Kong Traditional Chinese parent glosses and matching emoji IDs. g's existing guide is unchanged; f, g and h have mnemonic copy.
+- The i/j dot completion rule remains deferred to F2. No tracing engine or device policy changed. The macOS escape paths remain in `docs/phase-0-kiosk-checklist.md`.

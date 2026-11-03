@@ -723,7 +723,7 @@ final class WeeklyReportPDFTests {
               + "Traditional only, no banned words")
     }
 
-    // MARK: §11 clear sentence, 0.35.0 / 71
+    // MARK: §11 clear sentence, current app version
 
     func testClearSentenceAndVersionSourceGuards() throws {
         let settings = try Self.source("Sources/VisaGames/ParentSettingsView.swift")
@@ -753,16 +753,16 @@ final class WeeklyReportPDFTests {
             expectFalse(storage.contains(needle), "resetStorage must not use \(needle)")
         }
         expectTrue(storage.contains("perf.marker(\"reset_storage\")"))
-        // Version: Info.plist == the parent footer == 0.35.0 / build 71 (this slice changes the app).
+        // Version: Info.plist == the parent footer == 0.36.0 / build 72.
         func plistValue(_ key: String) -> String? {
             guard let keyRange = plist.range(of: "<key>\(key)</key><string>"),
                   let end = plist.range(of: "</string>", range: keyRange.upperBound..<plist.endIndex) else { return nil }
             return String(plist[keyRange.upperBound..<end.lowerBound])
         }
-        expectEqual(plistValue("CFBundleShortVersionString"), "0.35.0")
-        expectEqual(plistValue("CFBundleVersion"), "71")
-        expectTrue(settings.contains("static let versionLabel = \"Visa Games v0.35.0\""))
-        print("  weekly report pdf: clear dialog sentence, clear order, visa reset untouched, version 0.35.0 / 71")
+        expectEqual(plistValue("CFBundleShortVersionString"), "0.36.0")
+        expectEqual(plistValue("CFBundleVersion"), "72")
+        expectTrue(settings.contains("static let versionLabel = \"Visa Games v0.36.0\""))
+        print("  weekly report pdf: clear dialog sentence, clear order, visa reset untouched, version 0.36.0 / 72")
     }
 
     // MARK: The macOS PDF maker and the app wiring (source guards; the WebKit run is `WeeklyReportPDFMacTests`)
