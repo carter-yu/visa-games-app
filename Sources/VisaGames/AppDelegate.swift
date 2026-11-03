@@ -198,6 +198,14 @@ final class AppModel: ObservableObject {
     @Published private(set) var tapLetterPlaqueNudge = false
     @Published private(set) var tapLetterFuelBefore = 0
     private var tapLetterSettings = TapLetterSettingsStore().load()
+    private var letterSelectionLoad = LetterSelectionSettingsStore().load()
+    private var letterSelectionSchedule = LetterSelectionScheduleStore().load()
+    private var previewLetterSchedule: LetterSelectionSchedule?
+    private var previewLetterProgress: LetterProgress?
+    private var previewLetterDecks: LetterWordDecks?
+    private var previewLetterRoundIndex: Int?
+    private var previewLetterWriteProgress: LetterWriteProgress?
+    private var previewStrokeOrderProgress: StrokeOrderProgress?
     private var tapLetterProgress = LetterProgressStore().load()
     private var tapLetterDecks = LetterWordDecksStore().load()
     private var tapLetterRoundIndex = LetterRoundIndexStore().load()
@@ -527,6 +535,7 @@ final class AppModel: ObservableObject {
         // Auto-lock, sleep, and Return all come through here. Drop a playtest
         // before leaveParent so it cannot resume as a child round.
         discardPlaytestCover(reason: "leaveParent")
+        clearLetterPreview()
         let beforeMode = session.mode
         if beforeMode == .parent {
             // An inline 試播 preview (if any) ends with parent controls.
@@ -576,6 +585,7 @@ final class AppModel: ObservableObject {
         update { $0.grant(seconds: 60, now: Date()) }
         guard session.mode == .play else { return }
         if modeBeforeGrant == .parent {
+            clearLetterPreview()
             // 測試一分鐘簽證 leaves parent controls straight into play (no returnToChild).
             weeklyReport.cancel()
             perf.endPlay(reason: .previewStopped, resumeSaved: false)
@@ -857,13 +867,14 @@ final class AppModel: ObservableObject {
     func selectDifficulty(stars: Int) {
         guard session.mode == .lock, !taskRoundOpen,
               let difficulty = ChildDifficulty(rawValue: stars) else { return }
+        let pool = eligibleLetterTicketPool(gameAssignment.pool(for: difficulty))
+        guard !pool.isEmpty else { return }
         guideVoice.stop()
         resetTaskRound()
         selectedStars = stars
         let seed = UUID().uuidString
         roundCompletionID = seed
         choiceDealSeed = seed
-        let pool = gameAssignment.pool(for: difficulty)
         let kind = ActivityCatalog.kind(forRoundSeed: seed, pool: pool)
         activeActivityKind = kind
         // D1 (v0.22.0): the ticket's stars are also the question tier for generated kinds.
@@ -892,7 +903,7 @@ final class AppModel: ObservableObject {
         shapeTraceNotice = nil
         tapCountBoard = kind.isTapCountFamily ? makeTapCountBoard(
             seed: seed, kind: kind, avoidingItem: lastDealtItem[kind]) : nil
-        tapLetterBoard = kind.isTapLetterFamily ? makeTapLetterBoard(seed: seed) : nil
+        tapLetterBoard = kind.isTapLetterFamily ? makeTapLetterBoard(seed: seed, kind: kind, playtest: false) : nil
         tapLetterWriteRound = kind == .tapLetterWrite ? tapLetterBoard.map { TapLetterWriteRound(deal: $0.deal) } : nil
         tapLetterGuideRun = nil
         tapLetterGuideSpeechGeneration += 1
@@ -2882,7 +2893,7 @@ final class AppModel: ObservableObject {
         shapeTraceNotice = nil
         playtestTapCountBoard = kind.isTapCountFamily
             ? makeTapCountBoard(seed: playtestChoiceDealSeed, kind: kind, avoidingItem: nil) : nil
-        playtestTapLetterBoard = kind.isTapLetterFamily ? makeTapLetterBoard(seed: playtestChoiceDealSeed) : nil
+        playtestTapLetterBoard = kind.isTapLetterFamily ? makeTapLetterBoard(seed: playtestChoiceDealSeed, kind: kind, playtest: true) : nil
         tapLetterWriteRound = kind == .tapLetterWrite ? playtestTapLetterBoard.map { TapLetterWriteRound(deal: $0.deal) } : nil
         tapLetterGuideRun = nil
         tapLetterGuideSpeechGeneration += 1
@@ -3265,6 +3276,7 @@ final class AppModel: ObservableObject {
     /// Tear down play/voice before NSHostingView/WKWebView die on quit (crash on terminate).
     func prepareForTerminate() {
         discardPlaytestCover(reason: "terminate")
+        clearLetterPreview()
         weeklyReport.cancel()
         changed = nil
         draftTitleTask?.cancel()
@@ -3954,8 +3966,67 @@ extension AppModel {
         tapLetterUsesPlaytest ? playtestTapLetterBoard : tapLetterBoard
     }
 
-    private func makeTapLetterBoard(seed: String) -> TapLetterBoard? {
+    private func clearLetterPreview() {
+        previewLetterSchedule = nil; previewLetterProgress = nil; previewLetterDecks = nil
+        previewLetterRoundIndex = nil; previewLetterWriteProgress = nil; previewStrokeOrderProgress = nil
+    }
+
+    private var activeLetterSelection: LetterSelectionSettings? {
+        switch letterSelectionLoad {
+        case .saved(let value): return value
+        case .fresh: return .defaults
+        case .legacy, .repairV1, .corruptV2: return nil
+        }
+    }
+
+    private func eligibleLetterTicketPool(_ pool: [ActivityKind]) -> [ActivityKind] {
+        guard let settings = activeLetterSelection else {
+            return letterSelectionLoad == .corruptV2 ? pool.filter { !$0.isTapLetterFamily } : pool
+        }
+        guard let bank = try? LetterWordBank.loadBundled() else { return pool.filter { !$0.isTapLetterFamily } }
+        return LetterTicketEligibility.eligible(pool, settings: settings, bank: bank,
+            decks: tapLetterDecks, progress: tapLetterProgress)
+    }
+
+    /// The P3 host calls this authenticated boundary after its draft is reviewed.
+    @discardableResult func saveLetterSelection(_ draft: LetterSelectionSettings,
+                                                repairCorruptV2: Bool = false) throws -> LetterSelectionSettings {
+        guard session.mode == .parent else { throw LetterSelectionSettingsStore.StoreError.notParent }
+        guard let bank = try? LetterWordBank.loadBundled() else { throw LetterSelectionSettingsStore.StoreError.writeFailed }
+        let ready = LetterAvailability.resolve(bank: bank, decks: tapLetterDecks)
+        let writingAssigned = !gameAssignment.isHiddenFromMissions(.tapLetterWrite)
+        let history = Set(LetterTargetHistory.practiced(
+            in: PerfEventStore(directory: PerfEventStore.defaultDirectory()).read().events, at: Date()))
+        let saved = try LetterSelectionSettingsStore().save(draft, availability: ready,
+            writingAssigned: writingAssigned, allowedReview: history, at: Date(),
+            repairCorruptV2: repairCorruptV2)
+        letterSelectionLoad = .saved(saved)
+        return saved
+    }
+
+    private func makeTapLetterBoard(seed: String, kind: ActivityKind, playtest: Bool) -> TapLetterBoard? {
         guard let bank = try? LetterWordBank.loadBundled() else { return nil }
+        if let selection = activeLetterSelection {
+            if playtest && previewLetterSchedule == nil {
+                previewLetterSchedule = letterSelectionSchedule
+                previewLetterProgress = tapLetterProgress
+                previewLetterDecks = tapLetterDecks
+                previewLetterRoundIndex = tapLetterRoundIndex
+                previewLetterWriteProgress = letterWriteProgress
+                previewStrokeOrderProgress = strokeOrderProgress
+            }
+            var schedule = playtest ? (previewLetterSchedule ?? letterSelectionSchedule) : letterSelectionSchedule
+            let progress = playtest ? (previewLetterProgress ?? tapLetterProgress) : tapLetterProgress
+            let decks = playtest ? (previewLetterDecks ?? tapLetterDecks) : tapLetterDecks
+            let n = (playtest ? (previewLetterRoundIndex ?? tapLetterRoundIndex) : tapLetterRoundIndex) + 1
+            let result = TapLetterGenerator.makeScoped(seed: seed, kind: kind, n: n,
+                settings: selection, schedule: &schedule, progress: progress, decks: decks, bank: bank, now: Date())
+            guard case .deal(let deal) = result else { return nil }
+            if playtest { previewLetterSchedule = schedule }
+            else { letterSelectionSchedule = schedule; LetterSelectionScheduleStore().save(schedule) }
+            return TapLetterBoard(deal: deal)
+        }
+        guard letterSelectionLoad != .corruptV2 else { return nil }
         let n = tapLetterRoundIndex + 1
         guard let deal = TapLetterGenerator.make(seed: seed, n: n, settings: tapLetterSettings,
                                                  progress: tapLetterProgress, decks: tapLetterDecks,
@@ -3970,9 +4041,9 @@ extension AppModel {
         let item = "tapLetter.\(currentTapLetterKind == .tapLetterWrite ? "write" : "all").\(deal.target).\(deal.board.letters.joined()).\(rows.joined(separator: "-"))"
         var extras: [String: PerfValue] = [
             "target": .string(deal.target), "board_set": .string(deal.board.letters.joined()),
-            "rows": .strings(rows), "targets": .int(2), "path": .string(tapLetterSettings.path.rawValue),
-            "this_week": .strings(tapLetterSettings.validWeek), "lane": .string(deal.lane.rawValue),
-            "guard": .string(tapLetterSettings.mirrorGuard ? "on" : "off"),
+            "rows": .strings(rows), "targets": .int(2), "path": .string(deal.legacySettings?.path.rawValue ?? deal.selection?.legacyPath.rawValue ?? tapLetterSettings.path.rawValue),
+            "this_week": .strings(deal.legacySettings?.validWeek ?? deal.selection?.focusLetters ?? tapLetterSettings.validWeek), "lane": .string(deal.lane.rawValue),
+            "guard": .string((deal.legacySettings?.mirrorGuard ?? deal.selection?.mirrorGuard ?? tapLetterSettings.mirrorGuard) ? "on" : "off"),
             "glyph_scale": .double(deal.glyphScale), "match_mode": .string("test")
         ]
         if currentTapLetterKind == .tapLetterWrite {
@@ -3983,7 +4054,7 @@ extension AppModel {
             extras["tolerance"] = .string("standard")
             extras["guidance"] = .string("standard")
         }
-        return PerfDealFacts(item: item, gen: "letters_v1", level: currentTapLetterKind == .tapLetterWrite ? .l2 : .l1, chance: 1.0 / 45,
+        return PerfDealFacts(item: item, gen: deal.selection == nil ? "letters_v1" : "letters_v2", level: currentTapLetterKind == .tapLetterWrite ? .l2 : .l1, chance: 1.0 / 45,
                              slots: (0..<10).map { "card-\($0)" }, correctChoice: nil,
                              tagsByChoice: [:], assetByChoice: [:], extraDealtFields: extras
         )
@@ -4088,7 +4159,8 @@ extension AppModel {
     }
 
     private func startTapLetterStrokeReveal(letter: String) -> Double {
-        let learned = letterWriteProgress.isLearned(letter)
+        let learned = (tapLetterUsesPlaytest && currentTapLetterBoard?.deal.selection != nil
+            ? previewLetterWriteProgress ?? letterWriteProgress : letterWriteProgress).isLearned(letter)
         guard let character = letter.first,
               let dosage = StrokeOrderPlan.star1(setting: tapCountSettings.strokeOrder, learned: learned),
               let glyph = StrokeGlyph.latin(character) else { return 2.4 }
@@ -4122,13 +4194,16 @@ extension AppModel {
               board.isComplete, var write = tapLetterWriteRound,
               (tapLetterUsesPlaytest ? playtestChoiceDealSeed : choiceDealSeed) == token else { return }
         let letter = board.deal.target
-        let learned = letterWriteProgress.isLearned(letter)
+        let learned = (tapLetterUsesPlaytest && board.deal.selection != nil
+            ? previewLetterWriteProgress ?? letterWriteProgress : letterWriteProgress).isLearned(letter)
         let clock = Date().timeIntervalSinceReferenceDate
         let key = "latin:\(letter)"
         let plan = TapCountGuidePlan(level: tapCountSettings.guidance, learned: learned)
         let reason = StrokeOrderPlan.star2Glance(setting: tapCountSettings.strokeOrder,
             guidance: tapCountSettings.guidance, learned: learned, carDemo: plan.demo,
-            progress: strokeOrderProgress, key: key, today: StrokeOrderProgress.day(clock: clock))
+            progress: tapLetterUsesPlaytest && board.deal.selection != nil
+                ? (previewStrokeOrderProgress ?? strokeOrderProgress) : strokeOrderProgress,
+            key: key, today: StrokeOrderProgress.day(clock: clock))
         tapLetterGlanceReason = reason
         let glyphGuide = letter.first.flatMap { NumeralGuide(letter: $0) }
         let glanceGlyph = letter.first.flatMap { StrokeGlyph.latin($0) }
@@ -4270,11 +4345,20 @@ extension AppModel {
         guard run.noteHelp(key: key, kind: kind) else { return }
         tapLetterGuideRun = run
         if wasClean, let letter = tapLetterWriteRound?.board.deal.target {
-            letterWriteProgress.record(letter, clean: false)
-            LetterWriteProgressStore().save(letterWriteProgress)
-            var strokes = strokeOrderProgress
-            strokes.reset("latin:\(letter)")
-            saveStrokeOrderProgress(strokes)
+            if tapLetterUsesPlaytest && tapLetterWriteRound?.board.deal.selection != nil {
+                var writing = previewLetterWriteProgress ?? letterWriteProgress
+                writing.record(letter, clean: false)
+                previewLetterWriteProgress = writing
+                var strokes = previewStrokeOrderProgress ?? strokeOrderProgress
+                strokes.reset("latin:\(letter)")
+                previewStrokeOrderProgress = strokes
+            } else {
+                letterWriteProgress.record(letter, clean: false)
+                LetterWriteProgressStore().save(letterWriteProgress)
+                var strokes = strokeOrderProgress
+                strokes.reset("latin:\(letter)")
+                saveStrokeOrderProgress(strokes)
+            }
         }
         if kind == "redemo", run.redemos <= Self.tapCountGuideMaxRedemos,
            let round = tapLetterWriteRound, let letter = round.board.deal.target.first {
@@ -4351,18 +4435,31 @@ extension AppModel {
             fields["reverse"] = .int(trace.reverseDirections)
             fields["guide_demo"] = .string(tapLetterWriteGuide)
             let clean = (tapLetterGuideRun?.clean ?? true) && trace.wrongStarts == 0 && trace.reverseDirections == 0 && trace.offPathCount == 0
-            letterWriteProgress.record(board.deal.target, clean: clean)
-            LetterWriteProgressStore().save(letterWriteProgress)
-            var strokes = strokeOrderProgress
             let key = "latin:\(board.deal.target)"
-            if let reason = tapLetterGlanceReason { strokes.consume(key, reason: reason) }
-            strokes.noteTraced(key, today: StrokeOrderProgress.day(clock: Date().timeIntervalSinceReferenceDate))
-            saveStrokeOrderProgress(strokes)
+            if playtest && board.deal.selection != nil {
+                var writing = previewLetterWriteProgress ?? letterWriteProgress
+                writing.record(board.deal.target, clean: clean)
+                previewLetterWriteProgress = writing
+                var strokes = previewStrokeOrderProgress ?? strokeOrderProgress
+                if let reason = tapLetterGlanceReason { strokes.consume(key, reason: reason) }
+                strokes.noteTraced(key, today: StrokeOrderProgress.day(clock: Date().timeIntervalSinceReferenceDate))
+                previewStrokeOrderProgress = strokes
+            } else {
+                letterWriteProgress.record(board.deal.target, clean: clean)
+                LetterWriteProgressStore().save(letterWriteProgress)
+                var strokes = strokeOrderProgress
+                if let reason = tapLetterGlanceReason { strokes.consume(key, reason: reason) }
+                strokes.noteTraced(key, today: StrokeOrderProgress.day(clock: Date().timeIntervalSinceReferenceDate))
+                saveStrokeOrderProgress(strokes)
+            }
         }
         let boxes = tapLetterSaveRound(board)
         fields["box_before"] = .string(boxes.before)
         fields["box_after"] = .string(boxes.after)
         if playtest {
+            if board.deal.selection != nil {
+                previewLetterSchedule?.completedChildRound()
+            }
             perf.playtestResultExtra(fields)
             perf.playtestSolved(earnedMinutes: playtestPendingMinutes, assisted: board.assisted)
             playtestCompleted = true
@@ -4375,6 +4472,10 @@ extension AppModel {
         }
         perf.roundResultExtra(fields)
         guard pendingAwardMinutes > 0 else { returnToDepotOutOfFuel(); return }
+        if board.deal.selection != nil {
+            letterSelectionSchedule.completedChildRound()
+            LetterSelectionScheduleStore().save(letterSelectionSchedule)
+        }
         lastCorrectChoiceID = "tap_letter"
         activityJustCompleted = true
         applyEntrySuccess(assisted: board.assisted)
@@ -4392,6 +4493,17 @@ extension AppModel {
     }
 
     private func tapLetterSaveRound(_ board: TapLetterBoard) -> (before: String, after: String) {
+        if tapLetterUsesPlaytest && board.deal.selection != nil {
+            var progress = previewLetterProgress ?? tapLetterProgress
+            let before = progress.state(for: board.deal.target).box.rawValue
+            let n = (previewLetterRoundIndex ?? tapLetterRoundIndex) + 1
+            progress.record(board.deal.target, clean: board.misses == 0 && !board.assisted,
+                            round: n, at: Date(), lane: board.deal.lane)
+            previewLetterProgress = progress
+            previewLetterRoundIndex = n
+            previewLetterDecks = board.deal.decks
+            return (before, progress.state(for: board.deal.target).box.rawValue)
+        }
         let before = tapLetterProgress.state(for: board.deal.target).box.rawValue
         tapLetterProgress.record(board.deal.target, clean: board.misses == 0 && !board.assisted,
                                  round: tapLetterRoundIndex + 1, at: Date(), lane: board.deal.lane)
