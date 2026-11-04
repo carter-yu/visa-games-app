@@ -14,6 +14,7 @@ struct ParentSettingsView: View {
     @ObservedObject var model: AppModel
     @State private var showAdvanced = false
     @StateObject private var letterState = ParentLetterSettingsState()
+    @StateObject private var scrollTrace = ParentScrollViewTrace("ParentSettingsView")
     /// Remembered for this parent visit only. Default 影片 so today's screen does not jump.
     @State private var library: ParentLibrary = .videos
 
@@ -24,6 +25,7 @@ struct ParentSettingsView: View {
     private enum ParentLibrary { case videos, games, review }
 
     var body: some View {
+        let _ = scrollTrace.body("tab=\(library) mode=\(model.session.mode) draft=\(letterState.draft != nil)")
         ZStack {
             VStack(spacing: 0) {
                 // v0.21.3: pin 返回 / 離開 above the scroll so TV chrome + banners
@@ -56,12 +58,17 @@ struct ParentSettingsView: View {
                         .padding(.bottom, 32)
                         .frame(maxWidth: 940, alignment: .leading)
                         .frame(maxWidth: .infinity)
+                        .background(ParentScrollProbe(parentID: scrollTrace.id, tab: String(describing: library)))
                     }
                     // D13: after the finder closes, scroll to the new (or 睇吓張卡) card.
                     .onChange(of: model.parentFlashRequest) { _ in
+                        scrollTrace.event("TAB from=\(library) to=videos reason=parentFlashRequest")
                         library = .videos
                         letterState.clear()
-                        if let id = model.parentFlashVideoID { proxy.scrollTo(id, anchor: .center) }
+                        if let id = model.parentFlashVideoID {
+                            scrollTrace.event("SCROLL_TO reason=parentFlashRequest anchor=center")
+                            proxy.scrollTo(id, anchor: .center)
+                        }
                     }
                 }
             }
@@ -76,11 +83,17 @@ struct ParentSettingsView: View {
         .background(Color(hex: DesignTokens.Palette.paper).ignoresSafeArea())
         .environment(\.canvasMetrics, CanvasMetrics(scale: 1))
         .foregroundStyle(Color.ink)
-        .onAppear { if library == .games { letterState.open(model: model) } }
+        .onAppear {
+            scrollTrace.event("appear tab=\(library) version=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown") build=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown")")
+            if library == .games { letterState.open(model: model) }
+        }
         .onChange(of: model.gameAssignment) { _ in
             if library == .games { letterState.recheck(model: model) }
         }
-        .onDisappear { letterState.clear() }
+        .onDisappear {
+            scrollTrace.event("disappear tab=\(library)")
+            letterState.clear()
+        }
     }
 
     private var librarySegment: some View {
@@ -109,6 +122,7 @@ struct ParentSettingsView: View {
 
     private func selectLibrary(_ next: ParentLibrary) {
         guard library != next else { return }
+        scrollTrace.event("TAB from=\(library) to=\(next) reason=button")
         if next == .games { letterState.open(model: model) }
         library = next
         if next != .games { letterState.clear() }
@@ -226,7 +240,10 @@ struct ParentSettingsView: View {
                     onStrokeOrder: { model.setTapCountStrokeOrder($0) }
                 )
                 ParentTapLetterSettingsView(model: model, state: letterState,
-                    onShowWriteAssignment: { proxy.scrollTo(ActivityKind.tapLetterWrite, anchor: .center) })
+                    onShowWriteAssignment: {
+                        scrollTrace.event("SCROLL_TO reason=writeAssignment anchor=center")
+                        proxy.scrollTo(ActivityKind.tapLetterWrite, anchor: .center)
+                    })
                 unbuiltRow
             }
         }
@@ -655,7 +672,10 @@ struct ParentSettingsView: View {
         VisaGamesLog.append("parent advanced — 進階 \(showAdvanced ? "open" : "close")")
         guard showAdvanced else { return }
         // Next main-loop turn, after the content exists; no animation.
-        DispatchQueue.main.async { proxy.scrollTo(Self.advancedAnchor, anchor: .top) }
+        DispatchQueue.main.async {
+            scrollTrace.event("SCROLL_TO reason=advanced anchor=top")
+            proxy.scrollTo(Self.advancedAnchor, anchor: .top)
+        }
     }
 
     private var advancedContent: some View {

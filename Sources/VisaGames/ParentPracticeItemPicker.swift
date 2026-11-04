@@ -78,6 +78,12 @@ struct ParentPracticeItemPicker<Symbol: View>: View {
             }
         }
         .foregroundStyle(ink)
+        .onChange(of: previewID) { value in
+            ParentScrollDiagnostics.record("PICKER preview present=\(value != nil)")
+        }
+        .onChange(of: showSecondaryPresets) { value in
+            ParentScrollDiagnostics.record("PICKER schoolDisclosure expanded=\(value)")
+        }
     }
 
     private func names(_ ids: [String]) -> String { ids.isEmpty ? "無" : ids.joined(separator: "、") }
@@ -101,6 +107,7 @@ struct ParentPracticeItemPicker<Symbol: View>: View {
         let badge = capabilityLabel(item, availability)
         let reason = availability?.reason ?? "未開放"
         return Button {
+            ParentScrollDiagnostics.record("PICKER tile action selectedBefore=\(selected)")
             selectedIDs = PracticePickerSelection.reduce(model: model, enabledIDs: selectedIDs,
                 intent: .toggle(item.id))
         } label: {

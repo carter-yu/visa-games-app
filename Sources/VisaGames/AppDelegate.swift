@@ -401,6 +401,9 @@ final class AppModel: ObservableObject {
                   ) else { return nil }
             return IncompletePlayback.make(videoID: id, positionSeconds: position)
         }()
+        if session.mode == .parent || next.mode == .parent {
+            ParentScrollDiagnostics.record("PUBLISH session from=\(session.mode) to=\(next.mode) snapshotChanged=\(next.snapshot != session.snapshot)")
+        }
         session = next
         if let incompleteToSave {
             // Persist cursor before clearing the in-memory player (visa tick expiry bypasses stopScopedPlayback).
@@ -442,6 +445,13 @@ final class AppModel: ObservableObject {
     }
 
     func tick() {
+        let tracingParent = session.mode == .parent
+        if tracingParent {
+            ParentScrollDiagnostics.record("TICK begin publish=now parentRemaining=\(parentAutoLockRemaining ?? 0) playtest=\(playtestKind != nil) browser=\(parentBrowserOpen)")
+        }
+        defer {
+            if tracingParent { ParentScrollDiagnostics.record("TICK end mode=\(session.mode)") }
+        }
         now = Date()
         let current = now
         advanceThinkPauseIfNeeded(now: current)
@@ -506,6 +516,7 @@ final class AppModel: ObservableObject {
 
     /// The LAContext success branch. The debug soak hook is the only other caller (ADR 0011).
     private func enterParentAfterAuthentication() {
+        ParentScrollDiagnostics.record("PARENT enter authenticated")
         parentDeadline = Date().addingTimeInterval(parentAccessSeconds)
         if !storageFailed { message = nil }
         guideVoice.stop()
@@ -528,6 +539,7 @@ final class AppModel: ObservableObject {
     }
 
     func returnToChild(reason: String = "return") {
+        if session.mode == .parent { ParentScrollDiagnostics.record("PARENT leave reason=\(reason)") }
         providerBlockedParentHint = nil
         parentFinder = ParentFinderState()
         parentDraftTrialVideoID = nil
@@ -3318,6 +3330,18 @@ final class AppModel: ObservableObject {
 final class KioskWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    override func makeFirstResponder(_ responder: NSResponder?) -> Bool {
+        let tracing = ParentScrollDiagnostics.isActive
+        if tracing {
+            ParentScrollDiagnostics.record("FOCUS_REQUEST from=\(ParentScrollDiagnostics.responder(firstResponder)) requested=\(ParentScrollDiagnostics.responder(responder))")
+        }
+        let accepted = super.makeFirstResponder(responder)
+        if tracing {
+            ParentScrollDiagnostics.record("FOCUS_RESULT accepted=\(accepted) actual=\(ParentScrollDiagnostics.responder(firstResponder))")
+        }
+        return accepted
+    }
 }
 
 /// Debug soak (ADR 0011). Off unless the process was launched with VISAGAMES_SOAK=1.
@@ -3443,6 +3467,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard !didPrepareTerminate, let window = self.window,
               let screen = window.screen ?? NSScreen.main else { return }
         guard window.frame != screen.frame else { return }
+        if model.session.mode == .parent {
+            ParentScrollDiagnostics.record("WINDOW refit from=\(NSStringFromRect(window.frame)) to=\(NSStringFromRect(screen.frame))")
+        }
         window.setFrame(screen.frame, display: true)
     }
 

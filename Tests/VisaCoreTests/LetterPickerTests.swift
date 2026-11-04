@@ -554,7 +554,8 @@ final class LetterPickerTests {
         expectTrue(page.contains("if library == .games {\n                        ParentLetterSettingsSaveBar"))
         expectFalse(page.contains("library == .games && letterState.draft != nil"))
         expectTrue(page.contains("if library == .games { letterState.open(model: model) }"))
-        expectTrue(page.contains(".onDisappear { letterState.clear() }"))
+        expectTrue(page.range(of: #"\.onDisappear\s*\{[^}]*letterState\.clear\(\)"#,
+                              options: .regularExpression) != nil)
         expectTrue(card.contains("func open(model: AppModel) {\n        guard draft == nil else { return }"))
         expectTrue(card.contains("func clear() {\n        guard draft != nil else { return }"))
         expectTrue(card.contains(".frame(height: 116)"))

@@ -4,6 +4,7 @@ import VisaCore
 /// One parent visit's draft and immutable catalog/history snapshot.
 @MainActor
 final class ParentLetterSettingsState: ObservableObject {
+    private let diagnosticID = UUID()
     @Published private(set) var draft: LetterPickerDraft?
     @Published private(set) var notice: String?
     @Published private(set) var repairCorrupt = false
@@ -33,6 +34,7 @@ final class ParentLetterSettingsState: ObservableObject {
 
     func open(model: AppModel) {
         guard draft == nil else { return }
+        ParentScrollDiagnostics.record("DRAFT open state=\(diagnosticID)")
         let snapshot = model.letterPickerSnapshot()
         basePicker = snapshot?.0
         capabilities = snapshot?.1 ?? [:]
@@ -62,6 +64,7 @@ final class ParentLetterSettingsState: ObservableObject {
 
     func clear() {
         guard draft != nil else { return }
+        ParentScrollDiagnostics.record("DRAFT clear state=\(diagnosticID)")
         draft = nil
         notice = nil
         repairCorrupt = false
@@ -74,25 +77,30 @@ final class ParentLetterSettingsState: ObservableObject {
 
     func change(model: AppModel, _ edit: (inout LetterPickerDraft) -> Void) {
         guard var draft else { return }
+        ParentScrollDiagnostics.record("DRAFT change begin state=\(diagnosticID)")
         edit(&draft)
         self.draft = draft
         notice = nil
         recheck(model: model)
+        ParentScrollDiagnostics.record("DRAFT change end state=\(diagnosticID) selectedCount=\(draft.value.focusLetters.count) reviewCount=\(draft.value.reviewLetters.count) canSave=\(saveCheck.canSave)")
     }
 
     func chooseRepair(model: AppModel) {
+        ParentScrollDiagnostics.record("DRAFT repair state=\(diagnosticID)")
         repairCorrupt = true
         notice = nil
         recheck(model: model)
     }
 
     func cancel(model: AppModel) {
+        ParentScrollDiagnostics.record("DRAFT cancel state=\(diagnosticID)")
         change(model: model) { $0.cancel() }
         repairCorrupt = false
         recheck(model: model)
     }
 
     func revert(model: AppModel) {
+        ParentScrollDiagnostics.record("DRAFT revert state=\(diagnosticID)")
         change(model: model) { $0.revert() }
         repairCorrupt = false
         recheck(model: model)
@@ -108,6 +116,7 @@ final class ParentLetterSettingsState: ObservableObject {
 
     func save(model: AppModel) {
         guard var draft else { return }
+        ParentScrollDiagnostics.record("DRAFT save state=\(diagnosticID)")
         recheck(model: model)
         guard saveCheck.canSave else { notice = saveCheck.reason; return }
         do {
@@ -179,8 +188,10 @@ struct ParentTapLetterSettingsView: View {
     @ObservedObject var state: ParentLetterSettingsState
     let onShowWriteAssignment: () -> Void
     @State private var showMore = false
+    @StateObject private var scrollTrace = ParentScrollViewTrace("ParentTapLetterSettingsView")
 
     var body: some View {
+        let _ = scrollTrace.body("draft=\(state.draft != nil) showMore=\(showMore)")
         VStack(alignment: .leading, spacing: 15) {
             HStack(spacing: 10) {
                 LatinLetterGlyph(letter: "b", ink: .ink, lineWidth: 24)
@@ -251,6 +262,9 @@ struct ParentTapLetterSettingsView: View {
         .padding(16)
         .modifier(ChunkyPanel(fill: Color(hex: DesignTokens.Palette.paper), cornerRadius: 18,
                               shadowDepth: 4, lineWidth: 3))
+        .onAppear { scrollTrace.event("appear") }
+        .onDisappear { scrollTrace.event("disappear") }
+        .onChange(of: showMore) { value in scrollTrace.event("disclosure more=\(value)") }
     }
 
     private var summary: some View {

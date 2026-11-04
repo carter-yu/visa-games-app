@@ -5,6 +5,14 @@ Tracked in git: this README only. Ignore `*.log` and other local dumps via `.git
 
 Do not commit secrets, tokens, or full screen recordings with private data.
 
+## Parent settings scroll diagnostics (0.37.0 / 76+)
+
+`~/Library/Application Support/VisaGames/logs/parent-scroll.log` records native scroll
+offsets, geometry, identities, input types and focus/state changes. It rotates at 1 MiB
+and retains `parent-scroll.log.1`. Unified logging uses subsystem `family.visagames.mac`,
+category `parentScroll`. See [the analysis and capture guide](../docs/parent-scroll-diagnostics.md).
+The existing parent Open logs folder button still opens the older log directory described below.
+
 ## ScopedPlayer log files (v0.3.5+)
 
 The app writes lightweight ScopedPlayer diagnostics (no secrets) to:
