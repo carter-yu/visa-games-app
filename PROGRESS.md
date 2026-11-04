@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-11-04 — v0.37.0 / 73 — Letter picker fix round 1 source
+
+- The five P3/P4 `LetterPickerTests` methods were already called by `TestRunner`; its PASS banner still printed the previous hardcoded count. The banner now reports 13 letter-picker checks.
+- `ParentPracticeItemPicker` now computes locked tile names and reasons before building its text, removing the malformed multiline string interpolation reported by the Mac mini compiler. The new and changed VisaGames app call sites were reviewed for further Swift 6 compile issues; no other source change was made.
+- On this Linux box, `bash scripts/test.sh` and `bash scripts/bundle.sh` both stop at `swift: command not found` (exit 127). `git diff --check` passed. Swift compilation and native tests remain unverified here.
+
 ## 2026-11-04 — v0.37.0 / 73 — Parent letter picker P3/P4 source and P6 release bits
 
 - Based on `feat/letter-picker` at `92e2b4f` (P0–P2, reported PASS by Carter on the Mac mini). Added one reusable parent light-tile picker and the letter host under Games, with draft Save/Cancel, exact per-game lists, explicit 90-day history review pool, simple and collapsed school-sequence preset previews, capability reasons, disabled P5 suggestions and a protected unavailable ticket.

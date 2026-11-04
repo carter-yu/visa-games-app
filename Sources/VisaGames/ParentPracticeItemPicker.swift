@@ -62,9 +62,11 @@ struct ParentPracticeItemPicker<Symbol: View>: View {
             }
             let locked = model.items.filter { $0.role == .target && !model.isSelectable($0.id) }
             if !locked.isEmpty {
-                Text("未開放：\(locked.map(\.label).joined(separator: "、"))。\(Array(Set(locked.compactMap {
+                let lockedNames = locked.map(\.label).joined(separator: "、")
+                let lockedReasons = Array(Set(locked.compactMap {
                     model.availabilityByItem[$0.id]?.reason
-                })).sorted().joined(separator: "；"))")
+                })).sorted().joined(separator: "；")
+                Text("未開放：\(lockedNames)。\(lockedReasons)")
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.inkSoft)
                     .fixedSize(horizontal: false, vertical: true)
