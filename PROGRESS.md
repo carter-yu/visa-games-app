@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-11-04 — v0.37.0 / 75 — Parent Games scroll snap source fix
+
+- Carter reported that 0.37.0/74 snaps to the top when scrolling past the letter card. In the Games page, the save bar depended on `letterState.draft != nil` above the outer ScrollView, while the letter card's own `onDisappear` cleared that draft and its `onAppear` reopened it. The resulting bar insertion/removal changed the scroll viewport during scrolling. The tile rows already use stable IDs and do not mint a scroll identity.
+- The parent page now opens the draft when Games is selected (and on page appear if already in Games), and clears it only on leaving Games or the parent page. The save bar stays mounted at a fixed 102-point height throughout Games, including a loading placeholder. The letter card no longer owns draft appear/disappear hooks or forces its vertical size. Fresh/legacy settings no longer display 「已儲存」 before a v2 save. A VisaCore harness source guard checks these lifecycle and identity rules; the banner now reports 16 letter-picker checks.
+- `CFBundleVersion` is 75; marketing version stays 0.37.0. On this Linux box, `bash scripts/test.sh`, `bash scripts/bundle.sh`, `swift build` and `swift test` all stopped at `swift: command not found` (exit 127). Mac mini compilation and scroll/tile UAT remain pending.
+
 ## 2026-11-04 — v0.37.0 / 74 — Parent letter settings UAT fix source
 
 - Carter reported on the Mac mini that Games could not scroll to the bottom and Save produced no v2 defaults key. The letter action/error row was at the end of the long Games section; the letter view also reloaded the bundled bank and recalculated capability data during redraws. The prior parent shell has one proven outer ScrollView, so the letter picker now uses eager rows with fixed tile widths inside it, and the panel reports its full intrinsic height.

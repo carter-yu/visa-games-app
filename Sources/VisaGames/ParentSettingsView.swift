@@ -30,7 +30,7 @@ struct ParentSettingsView: View {
                 // never push exit off-screen (one outer ScrollView below).
                 if model.playtestKind == nil {
                     bottomBar
-                    if library == .games && letterState.draft != nil {
+                    if library == .games {
                         ParentLetterSettingsSaveBar(model: model, state: letterState)
                     }
                 }
@@ -76,6 +76,11 @@ struct ParentSettingsView: View {
         .background(Color(hex: DesignTokens.Palette.paper).ignoresSafeArea())
         .environment(\.canvasMetrics, CanvasMetrics(scale: 1))
         .foregroundStyle(Color.ink)
+        .onAppear { if library == .games { letterState.open(model: model) } }
+        .onChange(of: model.gameAssignment) { _ in
+            if library == .games { letterState.recheck(model: model) }
+        }
+        .onDisappear { letterState.clear() }
     }
 
     private var librarySegment: some View {
@@ -104,9 +109,9 @@ struct ParentSettingsView: View {
 
     private func selectLibrary(_ next: ParentLibrary) {
         guard library != next else { return }
-        library = next
         if next == .games { letterState.open(model: model) }
-        else { letterState.clear() }
+        library = next
+        if next != .games { letterState.clear() }
         model.stopParentPreview()
         VisaGamesLog.append("parent library — \(next)")
         // 表現: build the report once per open, off-main (never from body / onAppear).

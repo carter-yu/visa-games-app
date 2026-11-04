@@ -24,6 +24,13 @@ final class ParentLetterSettingsState: ObservableObject {
             presets: presets, minimum: base.minimum, maximum: base.maximum)
     }
 
+    func saveStatus(for load: LetterSelectionLoad) -> String {
+        guard let draft else { return "載入中" }
+        if draft.hasChanges { return "未儲存" }
+        if case .saved = load { return "已儲存" }
+        return "未儲存"
+    }
+
     func open(model: AppModel) {
         guard draft == nil else { return }
         let snapshot = model.letterPickerSnapshot()
@@ -54,6 +61,7 @@ final class ParentLetterSettingsState: ObservableObject {
     }
 
     func clear() {
+        guard draft != nil else { return }
         draft = nil
         notice = nil
         repairCorrupt = false
@@ -127,8 +135,7 @@ struct ParentLetterSettingsSaveBar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 12) {
-                ParentLabel("字母設定 · \(state.draft?.hasChanges == true ? "未儲存" : "已儲存")",
-                            size: 15, weight: 900)
+                ParentLabel("字母設定 · \(state.saveStatus(for: model.letterParentLoad))", size: 15, weight: 900)
                 Spacer(minLength: 8)
                 Button("還原") { state.revert(model: model) }
                 Button("取消") { state.cancel(model: model) }
@@ -138,21 +145,26 @@ struct ParentLetterSettingsSaveBar: View {
             }
             .buttonStyle(ChunkyButtonStyle(fill: Color(hex: DesignTokens.Palette.sunny),
                                            cornerRadius: 12, shadowDepth: 2, lineWidth: 2))
+            .frame(height: 44)
             if let message = state.saveCheck.reason ?? state.notice {
                 ParentLabel(message, size: 12, weight: 700, color: .inkSoft)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: 34, alignment: .top)
+                    .accessibilityLabel(message)
             } else {
                 ParentLabel("儲存後，下局開始用。", size: 12, weight: 600, color: .inkSoft)
+                    .frame(height: 34, alignment: .top)
             }
         }
         .padding(.horizontal, 28)
-        .padding(.vertical, 9)
+        .frame(height: 102)
         .background(Color(hex: DesignTokens.Palette.paper)
             .overlay(Rectangle().fill(Color.ink).frame(height: 2), alignment: .bottom))
     }
 }
 
-/// One parent draft for both English letter games. The view is destroyed on leaving Games.
+/// One parent draft for both English letter games. The parent page owns its lifecycle.
 struct ParentTapLetterSettingsView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var state: ParentLetterSettingsState
@@ -171,7 +183,7 @@ struct ParentTapLetterSettingsView: View {
                 }
                 Spacer()
                 if let draft = state.draft {
-                    ParentLabel("\(draft.hasChanges ? "未儲存" : "已儲存") · \(draft.value.focusLetters.count) 個",
+                    ParentLabel("\(state.saveStatus(for: model.letterParentLoad)) · \(draft.value.focusLetters.count) 個",
                                 size: 12, weight: 700, color: .inkSoft)
                 }
             }
@@ -227,13 +239,9 @@ struct ParentTapLetterSettingsView: View {
                 ParentBanner(text: "字母卡未能讀取，暫時儲存唔到。", fill: Color(hex: DesignTokens.Palette.sand))
             }
         }
-        .fixedSize(horizontal: false, vertical: true)
         .padding(16)
         .modifier(ChunkyPanel(fill: Color(hex: DesignTokens.Palette.paper), cornerRadius: 18,
                               shadowDepth: 4, lineWidth: 3))
-        .onAppear { state.open(model: model) }
-        .onChange(of: model.gameAssignment) { _ in state.recheck(model: model) }
-        .onDisappear { state.clear() }
     }
 
     private var summary: some View {

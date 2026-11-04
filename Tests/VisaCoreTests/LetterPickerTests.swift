@@ -546,4 +546,21 @@ final class LetterPickerTests {
         expectTrue(source.contains("guard session.mode == .parent else { throw LetterSelectionSettingsStore.StoreError.notParent }"))
         expectTrue(source.contains("unavailableLetterTicket = true"))
     }
+
+    func testParentLetterDraftLifecycleSourceGuards() throws {
+        let page = try String(contentsOfFile: "Sources/VisaGames/ParentSettingsView.swift", encoding: .utf8)
+        let card = try String(contentsOfFile: "Sources/VisaGames/ParentTapLetterSettingsView.swift", encoding: .utf8)
+        let picker = try String(contentsOfFile: "Sources/VisaGames/ParentPracticeItemPicker.swift", encoding: .utf8)
+        expectTrue(page.contains("if library == .games {\n                        ParentLetterSettingsSaveBar"))
+        expectFalse(page.contains("library == .games && letterState.draft != nil"))
+        expectTrue(page.contains("if library == .games { letterState.open(model: model) }"))
+        expectTrue(page.contains(".onDisappear { letterState.clear() }"))
+        expectTrue(card.contains("func open(model: AppModel) {\n        guard draft == nil else { return }"))
+        expectTrue(card.contains("func clear() {\n        guard draft != nil else { return }"))
+        expectTrue(card.contains(".frame(height: 102)"))
+        expectTrue(card.contains("if case .saved = load { return \"已儲存\" }"))
+        expectFalse(card.contains(".onAppear { state.open(model: model) }"))
+        expectFalse(card.contains(".onDisappear { state.clear() }"))
+        expectTrue(picker.contains("ForEach(Array(targets.dropFirst(row * 7).prefix(7)), id: \\.id)"))
+    }
 }
