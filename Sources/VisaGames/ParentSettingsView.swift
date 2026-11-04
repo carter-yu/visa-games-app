@@ -910,7 +910,7 @@ private struct ParentSection<Content: View>: View {
     }
 }
 
-private struct ParentActionButton: View {
+struct ParentActionButton: View {
     let title: String
     let subtitle: String
     let symbol: String

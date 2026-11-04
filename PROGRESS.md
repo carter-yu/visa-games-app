@@ -1,5 +1,12 @@
 # Progress
 
+## 2026-11-04 — v0.37.0 / 75 — Parent letter save bar TV readability source fix
+
+- The pinned letter bar now reuses `ParentActionButton` for 還原 / Revert, 取消 / Cancel and 儲存 / Save. Its existing outlined shape and bilingual labels replace the undersized plain buttons. Save uses the sunny primary fill; disabled controls are dimmed, and the validation reason is shown in larger ink text below the buttons.
+- The status header uses the same 17-point weight as the action titles. The bar remains mounted at one fixed 116-point height across draft states, preserving the scroll viewport. `ParentActionButton` has module visibility so the letter bar can reuse it; the source guard checks the labels and fixed height.
+- Marketing version and build remain 0.37.0 / 75. No commit was made.
+- `git diff --check` passed and `Info.plist` still reads 0.37.0 / 75. `bash scripts/test.sh` and `bash scripts/bundle.sh` both stopped immediately at `swift: command not found` (exit 127), so Swift compilation and the Mac mini TV appearance remain unverified here.
+
 ## 2026-11-04 — v0.37.0 / 75 — Parent Games scroll snap source fix
 
 - Carter reported that 0.37.0/74 snaps to the top when scrolling past the letter card. In the Games page, the save bar depended on `letterState.draft != nil` above the outer ScrollView, while the letter card's own `onDisappear` cleared that draft and its `onAppear` reopened it. The resulting bar insertion/removal changed the scroll viewport during scrolling. The tile rows already use stable IDs and do not mint a scroll identity.

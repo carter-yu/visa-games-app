@@ -134,31 +134,40 @@ struct ParentLetterSettingsSaveBar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 12) {
-                ParentLabel("字母設定 · \(state.saveStatus(for: model.letterParentLoad))", size: 15, weight: 900)
+            HStack(spacing: 10) {
+                ParentLabel("字母設定 · \(state.saveStatus(for: model.letterParentLoad))", size: 17, weight: 900)
                 Spacer(minLength: 8)
-                Button("還原") { state.revert(model: model) }
-                Button("取消") { state.cancel(model: model) }
-                Button("儲存") { state.save(model: model) }
+                ParentActionButton(title: "還原", subtitle: "Revert", symbol: "arrow.uturn.backward",
+                                   fill: Color(hex: DesignTokens.Palette.paper),
+                                   action: { state.revert(model: model) })
+                    .disabled(state.draft == nil)
+                    .opacity(state.draft == nil ? 0.45 : 1)
+                ParentActionButton(title: "取消", subtitle: "Cancel", symbol: "xmark",
+                                   fill: Color(hex: DesignTokens.Palette.sand),
+                                   action: { state.cancel(model: model) })
+                    .disabled(state.draft == nil)
+                    .opacity(state.draft == nil ? 0.45 : 1)
+                ParentActionButton(title: "儲存", subtitle: "Save", symbol: "checkmark",
+                                   fill: Color(hex: DesignTokens.Palette.sunny),
+                                   action: { state.save(model: model) })
                     .disabled(!state.saveCheck.canSave)
+                    .opacity(state.saveCheck.canSave ? 1 : 0.45)
                     .accessibilityHint(state.saveCheck.reason ?? "儲存後下一局開始用")
             }
-            .buttonStyle(ChunkyButtonStyle(fill: Color(hex: DesignTokens.Palette.sunny),
-                                           cornerRadius: 12, shadowDepth: 2, lineWidth: 2))
-            .frame(height: 44)
+            .frame(height: 60)
             if let message = state.saveCheck.reason ?? state.notice {
-                ParentLabel(message, size: 12, weight: 700, color: .inkSoft)
+                ParentLabel(message, size: 14, weight: 700)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: 34, alignment: .top)
+                    .frame(height: 38, alignment: .top)
                     .accessibilityLabel(message)
             } else {
                 ParentLabel("儲存後，下局開始用。", size: 12, weight: 600, color: .inkSoft)
-                    .frame(height: 34, alignment: .top)
+                    .frame(height: 38, alignment: .top)
             }
         }
         .padding(.horizontal, 28)
-        .frame(height: 102)
+        .frame(height: 116)
         .background(Color(hex: DesignTokens.Palette.paper)
             .overlay(Rectangle().fill(Color.ink).frame(height: 2), alignment: .bottom))
     }
