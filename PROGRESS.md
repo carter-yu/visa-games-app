@@ -1,5 +1,11 @@
 # Progress
 
+## 2026-11-04 — v0.37.0 / 74 — Parent letter settings UAT fix source
+
+- Carter reported on the Mac mini that Games could not scroll to the bottom and Save produced no v2 defaults key. The letter action/error row was at the end of the long Games section; the letter view also reloaded the bundled bank and recalculated capability data during redraws. The prior parent shell has one proven outer ScrollView, so the letter picker now uses eager rows with fixed tile widths inside it, and the panel reports its full intrinsic height.
+- Save, Cancel, Revert and the current validation/store reason are in a pinned parent bar while Games is selected. One parent-visit state owns the draft and caches the bank-derived picker, capabilities and 90-day target history on open. Preflight uses the same validator as persistence and maps every typed validation and store error to HK Traditional Chinese copy. The model tests cover the reason table and pre-save enabled state; all 15 letter-picker checks are registered in the executable harness.
+- `CFBundleVersion` and its source assertions are 74; marketing version remains 0.37.0. On this Linux box `swift build`, `swift test`, `bash scripts/test.sh` and `bash scripts/bundle.sh` all stopped at `swift: command not found` (exit 127). macOS compilation and the 1280×720/1920×1080 TV scroll UAT remain unverified here.
+
 ## 2026-11-04 — v0.37.0 / 73 — Letter picker fix round 1 source
 
 - The five P3/P4 `LetterPickerTests` methods were already called by `TestRunner`; its PASS banner still printed the previous hardcoded count. The banner now reports 13 letter-picker checks.

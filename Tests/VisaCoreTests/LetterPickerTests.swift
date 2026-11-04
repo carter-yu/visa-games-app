@@ -4,6 +4,47 @@ import VisaCore
 final class LetterPickerTests {
     private let all = Array("abcdefghijklmnopqrstuvwxyz").map(String.init)
 
+    func testSaveFeedbackCoversEveryTypedFailure() {
+        let validation: [LetterSelectionSettings.ValidationError] = [
+            .emptyFocus, .tooMany, .invalidLetter, .unavailableFocus, .noWriteTargets,
+            .insufficientBoardLetters, .invalidReview, .invalidOrder, .invalidSchema
+        ]
+        for error in validation {
+            expectFalse(LetterPickerSaveCheck.reason(for: error).isEmpty)
+        }
+        expectEqual(Set(validation.map { LetterPickerSaveCheck.reason(for: $0) }).count, validation.count)
+        let storage: [LetterSelectionSettingsStore.StoreError] = [.notParent, .corruptStored, .writeFailed]
+        for error in storage {
+            expectFalse(LetterPickerSaveCheck.reason(for: error).isEmpty)
+        }
+        expectEqual(Set(storage.map { LetterPickerSaveCheck.reason(for: $0) }).count, storage.count)
+    }
+
+    func testDraftSaveCheckShowsReasonBeforeSave() throws {
+        let bank = try LetterWordBank.load(url: URL(fileURLWithPath: "Resources/LetterTap/starter-bank.json"))
+        let ready = LetterAvailability.resolve(bank: bank, decks: .init())
+        let valid = LetterSelectionSettings.defaults
+        func check(_ value: LetterSelectionSettings, load: LetterSelectionLoad = .fresh,
+                   repair: Bool = false, available: Bool = true) -> LetterPickerSaveCheck {
+            LetterPickerSaveCheck.evaluate(value, availability: ready, writingAssigned: true,
+                allowedReview: [], load: load, repairCorruptV2: repair, bankAvailable: available)
+        }
+        expectTrue(check(valid).canSave)
+        expectFalse(check(valid, load: .corruptV2).canSave)
+        expectTrue(check(valid, load: .corruptV2, repair: true).canSave)
+        expectFalse(check(valid, available: false).canSave)
+        var empty = valid
+        empty.focusLetters = []
+        expectEqual(check(empty).reason, LetterPickerSaveCheck.reason(for: .emptyFocus))
+        var noWrite = valid
+        noWrite.focusLetters = ["a"]
+        var findOnly = ready
+        findOnly["a"] = LetterCapability(canDisplay: true, canFind: true, canWrite: false)
+        let blocked = LetterPickerSaveCheck.evaluate(noWrite, availability: findOnly, writingAssigned: true,
+            allowedReview: [], load: .fresh, repairCorruptV2: false)
+        expectEqual(blocked.reason, LetterPickerSaveCheck.reason(for: .noWriteTargets))
+    }
+
     func testDraftReplaceReviewAndDiscard() {
         let saved = LetterSelectionSettings(focusLetters: ["b", "f", "h"],
             focusOrder: ["b", "f", "h"], reviewEvery: 4, reviewLetters: ["a", "c"])

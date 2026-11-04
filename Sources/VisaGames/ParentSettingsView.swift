@@ -13,6 +13,7 @@ import VisaCore
 struct ParentSettingsView: View {
     @ObservedObject var model: AppModel
     @State private var showAdvanced = false
+    @StateObject private var letterState = ParentLetterSettingsState()
     /// Remembered for this parent visit only. Default 影片 so today's screen does not jump.
     @State private var library: ParentLibrary = .videos
 
@@ -29,6 +30,9 @@ struct ParentSettingsView: View {
                 // never push exit off-screen (one outer ScrollView below).
                 if model.playtestKind == nil {
                     bottomBar
+                    if library == .games && letterState.draft != nil {
+                        ParentLetterSettingsSaveBar(model: model, state: letterState)
+                    }
                 }
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -56,6 +60,7 @@ struct ParentSettingsView: View {
                     // D13: after the finder closes, scroll to the new (or 睇吓張卡) card.
                     .onChange(of: model.parentFlashRequest) { _ in
                         library = .videos
+                        letterState.clear()
                         if let id = model.parentFlashVideoID { proxy.scrollTo(id, anchor: .center) }
                     }
                 }
@@ -100,6 +105,8 @@ struct ParentSettingsView: View {
     private func selectLibrary(_ next: ParentLibrary) {
         guard library != next else { return }
         library = next
+        if next == .games { letterState.open(model: model) }
+        else { letterState.clear() }
         model.stopParentPreview()
         VisaGamesLog.append("parent library — \(next)")
         // 表現: build the report once per open, off-main (never from body / onAppear).
@@ -213,7 +220,7 @@ struct ParentSettingsView: View {
                     onGuidance: { model.setTapCountGuidance($0) },
                     onStrokeOrder: { model.setTapCountStrokeOrder($0) }
                 )
-                ParentTapLetterSettingsView(model: model,
+                ParentTapLetterSettingsView(model: model, state: letterState,
                     onShowWriteAssignment: { proxy.scrollTo(ActivityKind.tapLetterWrite, anchor: .center) })
                 unbuiltRow
             }

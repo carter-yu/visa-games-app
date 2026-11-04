@@ -58,10 +58,15 @@ public enum LetterAvailability {
 
     public static func pickerModel(bank: LetterWordBank, decks: LetterWordDecks,
                                    enabled: Set<String>) -> PracticePickerModel {
-        let letters = Array("abcdefghijklmnopqrstuvwxyz").map(String.init)
         let capabilities = resolve(bank: bank, decks: decks)
+        return pickerModel(capabilities: capabilities, enabled: enabled)
+    }
+
+    public static func pickerModel(capabilities: [String: LetterCapability],
+                                   enabled: Set<String>) -> PracticePickerModel {
+        let letters = Array("abcdefghijklmnopqrstuvwxyz").map(String.init)
         let availability = Dictionary(uniqueKeysWithValues: letters.map { letter in
-            let cap = capabilities[letter]!
+            let cap = capabilities[letter] ?? LetterCapability(canDisplay: false, canFind: false, canWrite: false)
             return (letter, PracticePickerAvailability(consumers: cap.canFind ?
                 (cap.canWrite ? ["find", "write"] : ["find"]) : [],
                 reason: !cap.canFind ? "字母卡未準備好" : !cap.canWrite ? "未有寫字指引" : nil))

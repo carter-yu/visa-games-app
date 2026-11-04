@@ -26,7 +26,7 @@ struct ParentPracticeItemPicker<Symbol: View>: View {
             }
             if model.presets.count > primaryPresetCount {
                 DisclosureGroup(secondaryPresetTitle, isExpanded: $showSecondaryPresets) {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 210), spacing: 8)], spacing: 8) {
+                    VStack(spacing: 8) {
                         ForEach(Array(model.presets.dropFirst(primaryPresetCount)), id: \.id) { preset in
                             presetButton(preset)
                         }
@@ -55,9 +55,14 @@ struct ParentPracticeItemPicker<Symbol: View>: View {
             }
             Text("亮燈：揀咗　○ 暗燈：可揀　□ 鎖住：未開放")
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 72, maximum: 94), spacing: 8)], spacing: 8) {
-                ForEach(model.items.filter { $0.role == .target }, id: \.id) { item in
-                    tile(item)
+            let targets = model.items.filter { $0.role == .target }
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(0..<((targets.count + 6) / 7), id: \.self) { row in
+                    HStack(spacing: 8) {
+                        ForEach(Array(targets.dropFirst(row * 7).prefix(7)), id: \.id) { item in
+                            tile(item).frame(width: 86)
+                        }
+                    }
                 }
             }
             let locked = model.items.filter { $0.role == .target && !model.isSelectable($0.id) }

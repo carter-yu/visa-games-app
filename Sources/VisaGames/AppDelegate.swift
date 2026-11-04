@@ -4002,6 +4002,12 @@ extension AppModel {
 
     var letterParentLoad: LetterSelectionLoad { letterSelectionLoad }
 
+    func letterPickerSnapshot() -> (PracticePickerModel, [String: LetterCapability])? {
+        guard let bank = try? LetterWordBank.loadBundled() else { return nil }
+        let capabilities = LetterAvailability.resolve(bank: bank, decks: tapLetterDecks)
+        return (LetterAvailability.pickerModel(capabilities: capabilities, enabled: []), capabilities)
+    }
+
     func letterPickerModel(enabled: Set<String>) -> PracticePickerModel? {
         guard let bank = try? LetterWordBank.loadBundled() else { return nil }
         return LetterAvailability.pickerModel(bank: bank, decks: tapLetterDecks, enabled: enabled)
