@@ -63,7 +63,8 @@ public enum LetterAvailability {
         let availability = Dictionary(uniqueKeysWithValues: letters.map { letter in
             let cap = capabilities[letter]!
             return (letter, PracticePickerAvailability(consumers: cap.canFind ?
-                (cap.canWrite ? ["find", "write"] : ["find"]) : [], reason: cap.reason))
+                (cap.canWrite ? ["find", "write"] : ["find"]) : [],
+                reason: !cap.canFind ? "字母卡未準備好" : !cap.canWrite ? "未有寫字指引" : nil))
         })
         let presets = [PracticePickerPreset(id: "abcde", label: "a b c d e", itemIDs: Array("abcde").map(String.init)),
                        PracticePickerPreset(id: "fghij", label: "f g h i j", itemIDs: Array("fghij").map(String.init))]

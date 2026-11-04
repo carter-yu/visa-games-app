@@ -333,6 +333,13 @@ final class PerformanceRecorder {
         ], actorOverride: .parent)
     }
 
+    func tapLetterSettingChanged(what: String, value: String, revision: Int) {
+        emit(.configChange, [
+            "what": .string("tapLetter_\(what)"), "kind": .string(ActivityKind.tapLetterAll.rawValue),
+            "value": .string(value), "selection_revision": .int(revision)
+        ], actorOverride: .parent)
+    }
+
     func assignmentChanged(kind: ActivityKind, star: Int, on: Bool) {
         emit(.configChange, [
             "what": .string("assignment"), "kind": .string(kind.rawValue),

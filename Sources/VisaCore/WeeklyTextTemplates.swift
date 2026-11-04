@@ -533,6 +533,11 @@ public enum WeeklyTextCatalog {
         case "guidance": return guidance(value)
         case "scaffold": return scaffold(value)
         case "generation": return generation(value)
+        case "letter_set": return WeeklyWords(value.isEmpty ? "無" : value, value.isEmpty ? "None" : value)
+        case "letter_review": return value == "4" ? WeeklyWords("每 4 局最多 1 局", "At most 1 in 4 rounds")
+            : value == "0" ? WeeklyWords("熄", "Off") : nil
+        case "letter_guard": return value == "on" ? WeeklyWords("開", "On")
+            : value == "off" ? WeeklyWords("熄", "Off") : nil
         default: return nil
         }
     }
@@ -557,6 +562,10 @@ public enum WeeklyTextCatalog {
         case "tapCount_guidance": return (WeeklyWords("描數字提示", "Tracing help"), "guidance")
         case "tapCount_stroke_order": return (WeeklyWords("筆順動畫", "Stroke order"), "")
         case "tapCount_tolerance": return (WeeklyWords("一架一架數寬容度", "Tap & Count tolerance"), "tolerance")
+        case "tapLetter_focus_letters": return (WeeklyWords("主練字母", "Focus letters"), "letter_set")
+        case "tapLetter_review_letters": return (WeeklyWords("溫習字母", "Review letters"), "letter_set")
+        case "tapLetter_review_every": return (WeeklyWords("溫習頻率", "Review frequency"), "letter_review")
+        case "tapLetter_mirror_guard": return (WeeklyWords("新字母護欄", "Letter guard"), "letter_guard")
         default: return nil
         }
     }
@@ -583,6 +592,10 @@ public enum WeeklyTextCatalog {
         case "category_mix": return (WeeklyWords("連一連類別比例", "Line Match category mix"), "")
         case "shape_mix": return (WeeklyWords("畫形狀比例", "Shape mix"), "")
         case "guide_level": return (WeeklyWords("描數字提示", "Tracing help"), "guidance")
+        case "focus_letters", "eligible_focus_letters": return (WeeklyWords("主練字母", "Focus letters"), "letter_set")
+        case "review_letters", "eligible_review_letters": return (WeeklyWords("溫習字母", "Review letters"), "letter_set")
+        case "review_every": return (WeeklyWords("溫習頻率", "Review frequency"), "letter_review")
+        case "guard": return (WeeklyWords("新字母護欄", "Letter guard"), "letter_guard")
         default: return nil
         }
     }
@@ -636,13 +649,19 @@ public enum WeeklyTextCatalog {
         for value in ["fixed_v0", "variants_v1"] {
             if let label = generation(value) { words.append(label) }
         }
+        for (type, values) in [("letter_set", ["b f h", ""]), ("letter_review", ["0", "4"]),
+                               ("letter_guard", ["on", "off"])] {
+            for value in values { if let label = self.label(type, value) { words.append(label) } }
+        }
         for category in LineMatchCategory.allCases {
             if let label = self.category(category.rawValue) { words.append(label) }
         }
         let whats = ["lineMatch_tolerance", "lineMatch_category_weight", "shapeTrace_tolerance", "shapeTrace_shape_weight",
                      "shapeTrace_direction_hint", "shapeTrace_corner_stop", "shapeTrace_slant_lines", "shapeTrace_dot_style",
                      "tapCount_range", "tapCount_count_voice", "tapCount_english", "tapCount_badge_style",
-                     "tapCount_trace_scaffold", "tapCount_guidance", "tapCount_stroke_order", "tapCount_tolerance"]
+                     "tapCount_trace_scaffold", "tapCount_guidance", "tapCount_stroke_order", "tapCount_tolerance",
+                     "tapLetter_focus_letters", "tapLetter_review_letters", "tapLetter_review_every",
+                     "tapLetter_mirror_guard"]
         for what in whats {
             if let name = configName(what) { words.append(name.name) }
         }

@@ -17,7 +17,7 @@ struct ParentSettingsView: View {
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.36.0"
+    static let versionLabel = "Visa Games v0.37.0"
 
     /// v0.21.0: 表現 (Review) is the third parent segment (layout L5).
     private enum ParentLibrary { case videos, games, review }
@@ -41,7 +41,7 @@ struct ParentSettingsView: View {
                             case .videos:
                                 allowlistSection
                             case .games:
-                                gamesSection
+                                gamesSection(proxy: proxy)
                             case .review:
                                 reviewSection
                             }
@@ -153,7 +153,7 @@ struct ParentSettingsView: View {
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
-    private var gamesSection: some View {
+    private func gamesSection(proxy: ScrollViewProxy) -> some View {
         ParentSection(
             title: "遊戲",
             subtitle: "Games · \(ActivityCatalog.playableKinds.count)"
@@ -176,6 +176,7 @@ struct ParentSettingsView: View {
                             onToggleStar: { model.toggleMissionStar(kind: kind, star: $0) },
                             onPlaytest: { model.startPlaytest(kind: kind) }
                         )
+                        .id(kind)
                     }
                 }
                 .padding(.bottom, 6)
@@ -212,6 +213,8 @@ struct ParentSettingsView: View {
                     onGuidance: { model.setTapCountGuidance($0) },
                     onStrokeOrder: { model.setTapCountStrokeOrder($0) }
                 )
+                ParentTapLetterSettingsView(model: model,
+                    onShowWriteAssignment: { proxy.scrollTo(ActivityKind.tapLetterWrite, anchor: .center) })
                 unbuiltRow
             }
         }

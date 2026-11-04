@@ -17,6 +17,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var gameAssignment = MissionGameAssignment.defaults
     /// Shown when the parent tries to turn off the last game on a star.
     @Published private(set) var gameAssignmentBanner: String?
+    @Published private(set) var unavailableLetterTicket = false
     /// Playtest cover. Nil unless a parent is reviewing a game. Never a child round.
     @Published private(set) var playtestKind: ActivityKind?
     /// Card to mark sunny after 返回家長.
@@ -868,7 +869,11 @@ final class AppModel: ObservableObject {
         guard session.mode == .lock, !taskRoundOpen,
               let difficulty = ChildDifficulty(rawValue: stars) else { return }
         let pool = eligibleLetterTicketPool(gameAssignment.pool(for: difficulty))
-        guard !pool.isEmpty else { return }
+        guard !pool.isEmpty else {
+            unavailableLetterTicket = true
+            return
+        }
+        unavailableLetterTicket = false
         guideVoice.stop()
         resetTaskRound()
         selectedStars = stars
@@ -904,6 +909,10 @@ final class AppModel: ObservableObject {
         tapCountBoard = kind.isTapCountFamily ? makeTapCountBoard(
             seed: seed, kind: kind, avoidingItem: lastDealtItem[kind]) : nil
         tapLetterBoard = kind.isTapLetterFamily ? makeTapLetterBoard(seed: seed, kind: kind, playtest: false) : nil
+        if kind.isTapLetterFamily && tapLetterBoard == nil {
+            unavailableLetterTicket = true
+            return
+        }
         tapLetterWriteRound = kind == .tapLetterWrite ? tapLetterBoard.map { TapLetterWriteRound(deal: $0.deal) } : nil
         tapLetterGuideRun = nil
         tapLetterGuideSpeechGeneration += 1
@@ -2829,6 +2838,15 @@ final class AppModel: ObservableObject {
 
     func toggleMissionStar(kind: ActivityKind, star: ChildDifficulty) {
         guard session.mode == .parent else { return }
+        if kind == .tapLetterWrite && !gameAssignment.isEnabled(kind, star: star) {
+            guard let selection = letterSelectionLoad.effective,
+                  let bank = try? LetterWordBank.loadBundled(),
+                  !selection.focus(for: .tapLetterWrite,
+                    availability: LetterAvailability.resolve(bank: bank, decks: tapLetterDecks)).isEmpty else {
+                gameAssignmentBanner = "呢組暫時玩唔到『搵完寫』。請先揀可寫嘅字母。"
+                return
+            }
+        }
         // D11: a shape-trace card gets its first star only after one full 試玩 (turning off is fine).
         if !gameAssignment.isEnabled(kind, star: star), !parentPlaytestLog.allowsStars(for: kind) {
             gameAssignmentBanner = ParentPlaytestLog.needsPlaytestBanner
@@ -3530,7 +3548,7 @@ struct ShellView: View {
         let childMode = isChildMode
         let watching = isWatching
         // Depot has its own parent corner; Watch uses the garage glyph (ADR 0007 §5).
-        let onDepot = model.session.mode == .lock && !model.taskRoundOpen
+        let onDepot = model.session.mode == .lock && !model.taskRoundOpen && !model.unavailableLetterTicket
         let showsParentCorner = childMode && !watching && !onDepot
         return ZStack {
             childOrLegacy
@@ -3564,6 +3582,9 @@ struct ShellView: View {
                 onSpeak: { model.guideSpeakTimesUp() }
             )
             .ignoresSafeArea()
+        } else if model.session.mode == .lock && !model.taskRoundOpen && model.unavailableLetterTicket {
+            LetterUnavailableTicketView()
+                .ignoresSafeArea()
         } else if model.session.mode == .lock && !model.taskRoundOpen {
             DepotHomeView(
                 onSelect: { model.selectDifficulty(stars: $0.rawValue) },
@@ -3979,6 +4000,23 @@ extension AppModel {
         }
     }
 
+    var letterParentLoad: LetterSelectionLoad { letterSelectionLoad }
+
+    func letterPickerModel(enabled: Set<String>) -> PracticePickerModel? {
+        guard let bank = try? LetterWordBank.loadBundled() else { return nil }
+        return LetterAvailability.pickerModel(bank: bank, decks: tapLetterDecks, enabled: enabled)
+    }
+
+    func letterCapabilities() -> [String: LetterCapability] {
+        guard let bank = try? LetterWordBank.loadBundled() else { return [:] }
+        return LetterAvailability.resolve(bank: bank, decks: tapLetterDecks)
+    }
+
+    func practicedLetterTargets() -> [String] {
+        LetterTargetHistory.practiced(in: PerfEventStore(directory: PerfEventStore.defaultDirectory()).read().events,
+                                     at: Date())
+    }
+
     private func eligibleLetterTicketPool(_ pool: [ActivityKind]) -> [ActivityKind] {
         guard let settings = activeLetterSelection else {
             return letterSelectionLoad == .corruptV2 ? pool.filter { !$0.isTapLetterFamily } : pool
@@ -3992,6 +4030,7 @@ extension AppModel {
     @discardableResult func saveLetterSelection(_ draft: LetterSelectionSettings,
                                                 repairCorruptV2: Bool = false) throws -> LetterSelectionSettings {
         guard session.mode == .parent else { throw LetterSelectionSettingsStore.StoreError.notParent }
+        let before = letterSelectionLoad
         guard let bank = try? LetterWordBank.loadBundled() else { throw LetterSelectionSettingsStore.StoreError.writeFailed }
         let ready = LetterAvailability.resolve(bank: bank, decks: tapLetterDecks)
         let writingAssigned = !gameAssignment.isHiddenFromMissions(.tapLetterWrite)
@@ -4001,6 +4040,21 @@ extension AppModel {
             writingAssigned: writingAssigned, allowedReview: history, at: Date(),
             repairCorruptV2: repairCorruptV2)
         letterSelectionLoad = .saved(saved)
+        unavailableLetterTicket = false
+        if before.effective != saved {
+            let old = before.effective
+            let firstSave: Bool
+            if case .saved = before { firstSave = false } else { firstSave = true }
+            let values: [(String, String, String?)] = [
+                ("focus_letters", saved.focusLetters.joined(separator: " "), old?.focusLetters.joined(separator: " ")),
+                ("review_letters", saved.reviewLetters.joined(separator: " "), old?.reviewLetters.joined(separator: " ")),
+                ("review_every", String(saved.reviewEvery), old.map { String($0.reviewEvery) }),
+                ("mirror_guard", saved.mirrorGuard ? "on" : "off", old.map { $0.mirrorGuard ? "on" : "off" })
+            ]
+            for (what, value, previous) in values where firstSave || previous != value {
+                perf.tapLetterSettingChanged(what: what, value: value, revision: saved.revision)
+            }
+        }
         return saved
     }
 
@@ -4046,6 +4100,17 @@ extension AppModel {
             "guard": .string((deal.legacySettings?.mirrorGuard ?? deal.selection?.mirrorGuard ?? tapLetterSettings.mirrorGuard) ? "on" : "off"),
             "glyph_scale": .double(deal.glyphScale), "match_mode": .string("test")
         ]
+        if let selection = deal.selection, let bank = try? LetterWordBank.loadBundled() {
+            let readiness = LetterAvailability.resolve(bank: bank, decks: deal.decks)
+            let kind = currentTapLetterKind ?? .tapLetterAll
+            extras["focus_letters"] = .string(selection.focusLetters.sorted().joined(separator: " "))
+            extras["eligible_focus_letters"] = .string(selection.focus(for: kind, availability: readiness).sorted().joined(separator: " "))
+            extras["review_letters"] = .string(selection.reviewLetters.sorted().joined(separator: " "))
+            extras["eligible_review_letters"] = .string(selection.review(for: kind, availability: readiness).sorted().joined(separator: " "))
+            extras["review_every"] = .int(selection.reviewEvery)
+            extras["selection_revision"] = .int(selection.revision)
+            extras["selection_source"] = .string(selection.source)
+        }
         if currentTapLetterKind == .tapLetterWrite {
             extras["letter_glyph"] = .string("latin:\(deal.target)")
             extras["formation"] = .string("lwt")
@@ -4507,6 +4572,11 @@ extension AppModel {
         let before = tapLetterProgress.state(for: board.deal.target).box.rawValue
         tapLetterProgress.record(board.deal.target, clean: board.misses == 0 && !board.assisted,
                                  round: tapLetterRoundIndex + 1, at: Date(), lane: board.deal.lane)
+        if let dealSelection = board.deal.selection, let current = activeLetterSelection,
+           dealSelection.revision != current.revision,
+           !current.focusLetters.contains(board.deal.target) && !current.reviewLetters.contains(board.deal.target) {
+            tapLetterProgress.retryQueue.removeAll { $0.letter == board.deal.target }
+        }
         tapLetterRoundIndex += 1
         LetterRoundIndexStore().save(tapLetterRoundIndex)
         tapLetterDecks = board.deal.decks

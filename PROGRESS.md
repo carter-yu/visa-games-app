@@ -1,5 +1,12 @@
 # Progress
 
+## 2026-11-04 — v0.37.0 / 73 — Parent letter picker P3/P4 source and P6 release bits
+
+- Based on `feat/letter-picker` at `92e2b4f` (P0–P2, reported PASS by Carter on the Mac mini). Added one reusable parent light-tile picker and the letter host under Games, with draft Save/Cancel, exact per-game lists, explicit 90-day history review pool, simple and collapsed school-sequence preset previews, capability reasons, disabled P5 suggestions and a protected unavailable ticket.
+- The v2 Save remains parent guarded. New letter-setting events carry scalar values and one revision. V2 deals record selected/effective focus and review sets; weekly comparison canonicalises legacy `this_week` arrays and guard encoding. The report shows historical selected scopes and actual child target letters separately, with the find-only first-try caveat.
+- Version and footer are 0.37.0 / build 73. ADR 0026 records the rollback limitation: an old binary reads preserved v1 settings, not the newest v2 selection. No number/Hanzi picker adoption, P5 recommendation engine, install, commit or push was done.
+- Verification on this Linux box: `sh scripts/test.sh` and `sh scripts/bundle.sh` both stopped at `swift: not found` (exit 127). `git diff --check` passed; Python `plistlib` read 0.37.0 / 73; the repository's simplified-only character list found none in the new UI/copy files. Swift compilation, native UI, Mac mini interaction and PDF pagination remain unverified.
+
 ## 2026-11-03 — v0.36.0 / 72 — Letters F1 source (f, h and g words)
 
 - Based on main `05585b7`. Added LWT f and h paths, including h's bottom cusp. The guide spec adds f's two-stroke hop and h's STOP cue; the generator now includes both letters. The existing g guide and i/j data are unchanged. f's hop bows left to stay clear of its vertical stroke. Beat seconds are f 1.5/0.8 and h 1.3/0.7/1.5.

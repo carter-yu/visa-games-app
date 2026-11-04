@@ -1228,7 +1228,7 @@ final class WeeklyReportHTMLTests {
             expectTrue(Self.bannedHits(text).isEmpty, "\(label): banned \(Self.bannedHits(text))")
         }
         // Every W4 label, weekday, month and glossary entry.
-        expectEqual(WeeklyReportLabels.table.count, 177)
+        expectEqual(WeeklyReportLabels.table.count, 182)
         for (id, words) in WeeklyReportLabels.table {
             check(words.zh, id)
             check(words.en, id)

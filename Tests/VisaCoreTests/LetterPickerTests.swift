@@ -4,6 +4,96 @@ import VisaCore
 final class LetterPickerTests {
     private let all = Array("abcdefghijklmnopqrstuvwxyz").map(String.init)
 
+    func testDraftReplaceReviewAndDiscard() {
+        let saved = LetterSelectionSettings(focusLetters: ["b", "f", "h"],
+            focusOrder: ["b", "f", "h"], reviewEvery: 4, reviewLetters: ["a", "c"])
+        var draft = LetterPickerDraft(saved: saved)
+        draft.toggleFocus("a")
+        expectEqual(draft.value.reviewLetters, ["c"])
+        draft.toggleFocus("a")
+        expectEqual(draft.value.reviewLetters, ["c"])
+        draft.replaceFocus(["f", "g", "h"], source: "fghij")
+        expectEqual(draft.value.focusLetters, ["f", "g", "h"])
+        expectEqual(draft.value.source, "fghij")
+        draft.replaceFocus(["s", "a", "t", "i", "p", "n"], source: "school.jolly.1")
+        expectEqual(draft.value.focusOrder, ["s", "a", "t", "i", "p", "n"])
+        draft.toggleFocus("b")
+        expectEqual(draft.value.focusOrder, ["a", "b", "i", "n", "p", "s", "t"])
+        expectEqual(draft.value.source, "custom")
+        draft.cancel()
+        expectEqual(draft.value, saved)
+        draft.toggleFocus("b")
+        draft.revert()
+        expectEqual(draft.value, saved)
+    }
+
+    func testWritingAssignmentNeedsWriteReadyFocusAndLastGameStillProtected() throws {
+        let bank = try LetterWordBank.load(url: URL(fileURLWithPath: "Resources/LetterTap/starter-bank.json"))
+        var ready = LetterAvailability.resolve(bank: bank, decks: .init())
+        ready["a"] = LetterCapability(canDisplay: true, canFind: true, canWrite: false)
+        let onlyFind = LetterSelectionSettings(focusLetters: ["a"], focusOrder: ["a"])
+        expectThrowsError(try onlyFind.validated(availability: ready, writingAssigned: true))
+        expectEqual(try onlyFind.validated(availability: ready, writingAssigned: false).focusLetters, ["a"])
+        let star = ChildDifficulty.easy
+        var stars = Dictionary(uniqueKeysWithValues: ActivityCatalog.playableKinds.map { ($0, Set<ChildDifficulty>()) })
+        stars[.tapLetterAll] = [star]
+        let assignment = MissionGameAssignment(enabledStars: stars)
+        expectEqual(assignment.toggling(.tapLetterAll, star: star), .rejectedLastStar)
+    }
+
+    func testHistoricalLetterScopeCanonicalisation() {
+        expectEqual(WeeklySignature.letterSet(["h", "b", "f", "b"]), "b f h")
+        expectEqual(WeeklySignature.letterSet(["b", "f", "h"]), "b f h")
+        expectEqual(WeeklySignature.guardValue(.string("on")), "on")
+        expectEqual(WeeklySignature.guardValue(.bool(true)), "on")
+        expectEqual(WeeklyComparison.kinds(forConfig: "tapLetter_focus_letters", kind: nil),
+                    [ActivityKind.tapLetterAll.rawValue, ActivityKind.tapLetterWrite.rawValue])
+    }
+
+    func testWeeklySelectedScopeAndAskedTargetsStayHistorical() {
+        let date = Date(timeIntervalSince1970: 100 * 86_400)
+        let window = WeeklyWindow(containing: date)
+        func deal(_ round: String, _ target: String, _ focus: PerfValue, _ actor: PerfActor = .child) -> PerfEvent {
+            PerfEvent(type: .gameDealt, timestamp: date, tz: "+08:00", mono: 1,
+                launch: "L\(round)", seq: 1, app: "0.37.0", actor: actor, mode: "lock", session: "s\(round)",
+                fields: ["round": .string(round), "kind": .string(ActivityKind.tapLetterAll.rawValue),
+                         "target": .string(target), "this_week": focus, "stars": .int(1)])
+        }
+        func result(_ round: String) -> PerfEvent {
+            PerfEvent(type: .roundResult, timestamp: date.addingTimeInterval(30), tz: "+08:00", mono: 2,
+                launch: "L\(round)", seq: 2, app: "0.37.0", actor: .child, mode: "lock", session: "s\(round)",
+                fields: ["round": .string(round), "kind": .string(ActivityKind.tapLetterAll.rawValue),
+                         "outcome": .string("solved"), "answers": .int(1), "first_try": .bool(true),
+                         "misses": .int(0), "hint_used": .bool(false), "assisted": .bool(false),
+                         "total_ms": .int(30_000), "active_ms": .int(4_000), "earned_min": .int(5)])
+        }
+        let events = [deal("a", "f", .strings(["h", "b", "f"])), result("a"),
+                      deal("b", "a", .strings(["f", "b", "h"])), result("b"),
+                      deal("parent", "z", .strings(["z"]), .parentPlaytest)]
+        let report = WeeklyReportTextBuilder.build(events: events, rollup: PerfRollup(), window: window)
+        expectEqual(report.letterFocusScopes, ["b f h"])
+        expectEqual(report.letterTargets, ["a", "f"])
+        let html = WeeklyReportHTML.render(report, options: WeeklyReportHTMLOptions(generatedAt: date))
+        expectTrue(html.contains("題目記錄嘅主練字母"))
+        expectTrue(html.contains("今週實際練過"))
+    }
+
+    func testFirstSavedScopeWithoutDealIsSettingOnly() {
+        let date = Date(timeIntervalSince1970: 100 * 86_400)
+        let event = PerfEvent(type: .configChange, timestamp: date, tz: "+08:00", mono: 1,
+            launch: "Lsettings", seq: 1, app: "0.37.0", actor: .parent, mode: "parent", session: "parent",
+            fields: ["what": .string("tapLetter_focus_letters"), "kind": .string(ActivityKind.tapLetterAll.rawValue),
+                     "value": .string("b f h"), "selection_revision": .int(1)])
+        let report = WeeklyReportTextBuilder.build(events: [event], rollup: PerfRollup(),
+                                                   window: WeeklyWindow(containing: date))
+        expectEqual(report.letterTargets, [])
+        expectEqual(report.analysis.changes.settings.first?.old, nil)
+        let html = WeeklyReportHTML.render(report, options: WeeklyReportHTMLOptions(generatedAt: date))
+        expectTrue(html.contains("字母設定已改"))
+        expectTrue(html.contains("b f h"))
+        expectFalse(html.contains("今週實際練過"))
+    }
+
     func testSharedSelectionContract() {
         let items = [PracticePickerItem(id: "quantity:2", label: "2", role: .target),
                      PracticePickerItem(id: "quantity:10", label: "10", role: .target),
@@ -400,7 +490,7 @@ final class LetterPickerTests {
     func testAppRoutingAndPreviewSourceGuards() throws {
         let source = try String(contentsOfFile: "Sources/VisaGames/AppDelegate.swift", encoding: .utf8)
         guard let pool = source.range(of: "let pool = eligibleLetterTicketPool"),
-              let empty = source.range(of: "guard !pool.isEmpty else { return }", range: pool.upperBound..<source.endIndex),
+              let empty = source.range(of: "guard !pool.isEmpty else {", range: pool.upperBound..<source.endIndex),
               let choose = source.range(of: "ActivityCatalog.kind(forRoundSeed: seed, pool: pool)", range: empty.upperBound..<source.endIndex),
               let preview = source.range(of: "if tapLetterUsesPlaytest && board.deal.selection != nil"),
               let childStore = source.range(of: "LetterProgressStore().save(tapLetterProgress)", range: preview.upperBound..<source.endIndex) else {
@@ -412,5 +502,7 @@ final class LetterPickerTests {
         expectTrue(source.contains("previewLetterWriteProgress = writing"))
         expectTrue(source.contains("previewStrokeOrderProgress = strokes"))
         expectTrue(source.contains("LetterSelectionScheduleStore().save(schedule)"))
+        expectTrue(source.contains("guard session.mode == .parent else { throw LetterSelectionSettingsStore.StoreError.notParent }"))
+        expectTrue(source.contains("unavailableLetterTicket = true"))
     }
 }

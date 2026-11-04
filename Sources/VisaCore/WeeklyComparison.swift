@@ -119,6 +119,8 @@ public struct WeeklyComparison: Sendable, Equatable {
             member = { $0.isShapeTraceFamily }
         } else if what.hasPrefix("tapCount_") {
             member = { $0.isTapCountFamily }
+        } else if what.hasPrefix("tapLetter_") {
+            member = { $0.isTapLetterFamily }
         } else {
             return []
         }
@@ -181,7 +183,8 @@ public struct WeeklySignature: Sendable, Equatable {
     /// The deal fields the design names, in its order.
     public static let dealFields = [
         "gen", "level", "tolerance", "shape_trace_level", "trace_scaffold", "range", "count_voice", "english",
-        "direction_coaching", "stop_coaching", "slant_enabled", "dot_style", "category_mix", "shape_mix"
+        "direction_coaching", "stop_coaching", "slant_enabled", "dot_style", "category_mix", "shape_mix",
+        "focus_letters", "eligible_focus_letters", "review_letters", "eligible_review_letters", "review_every", "guard"
     ]
     /// Read from the round's result instead of its deal.
     public static let resultFields = ["guide_level"]
@@ -199,6 +202,18 @@ public struct WeeklySignature: Sendable, Equatable {
         case .int(let number)?: return String(number)
         case .bool(let flag)?: return flag ? "true" : "false"
         case .double(let number)?: return WeeklyJSON.number(number)
+        default: return nil
+        }
+    }
+
+    public static func letterSet(_ values: [String]) -> String {
+        Array(Set(values.filter(LetterSelectionSettings.isASCII))).sorted().joined(separator: " ")
+    }
+
+    public static func guardValue(_ value: PerfValue?) -> String? {
+        switch value {
+        case .bool(let flag)?: return flag ? "on" : "off"
+        case .string(let text)?: return text == "true" ? "on" : text == "false" ? "off" : text
         default: return nil
         }
     }
@@ -257,7 +272,17 @@ public struct WeeklySignature: Sendable, Equatable {
             let key = Key(kind: entry.kind, type: WeeklyRoundType.of(dealt: dealt))
             var tally = tallies[key] ?? Tally()
             for field in dealFields {
-                let value: String? = field == "gen" ? PerfQuestionGeneration.gen(of: dealt) : text(dealt[field])
+                let value: String?
+                if field == "gen" { value = PerfQuestionGeneration.gen(of: dealt) }
+                else if field == "guard" { value = key.kind == ActivityKind.tapLetterAll.rawValue ||
+                    key.kind == ActivityKind.tapLetterWrite.rawValue ? guardValue(dealt[field]) : nil }
+                else if field == "focus_letters", dealt[field] == nil,
+                        let old = dealt["this_week"]?.arrayValue {
+                    value = letterSet(old.compactMap(\.stringValue))
+                } else if ["focus_letters", "eligible_focus_letters", "review_letters", "eligible_review_letters"].contains(field),
+                          let raw = dealt.string(field) {
+                    value = letterSet(raw.split(separator: " ").map(String.init))
+                } else { value = text(dealt[field]) }
                 if let value { tally.add(field, value, at: position) }
             }
             if let level = dealt.int("level"), level != min(max(dealt.int("stars") ?? 1, 1), 3) {
