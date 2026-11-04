@@ -82,6 +82,12 @@ final class ParentScrollProbeView: NSView {
     private var stopped = false
     private var reportedMissing = false
     private var detector = ParentScrollJumpDetector()
+    private var stackHistory = ParentScrollStackHistory()
+    private var isSampling = false
+    private var lastDocumentHeight: Double?
+    private var lastClipBounds: NSRect?
+    private var lastDocumentFrame: NSRect?
+    private var lastDocumentBounds: NSRect?
     private var lastOffset: Double?
     private var lastGeometry: String?
     private var lastResponderID: ObjectIdentifier?
@@ -134,6 +140,13 @@ final class ParentScrollProbeView: NSView {
         document = next.documentView
         observedWindow = window
         ParentScrollDiagnostics.active = self
+        lastDocumentHeight = next.documentView.map { Double($0.frame.height) }
+        ParentScrollHooks.attach(clip: next.contentView, scroll: next,
+                                 onBoundary: { [weak self] boundary in
+            self?.sampleFromHook(boundary)
+        }, onScrollerTracking: { [weak self] tracking in
+            self?.scrollerTracking(tracking)
+        })
         let center = NotificationCenter.default
         next.contentView.postsBoundsChangedNotifications = true
         center.addObserver(self, selector: #selector(boundsChanged), name: NSView.boundsDidChangeNotification,
@@ -176,13 +189,21 @@ final class ParentScrollProbeView: NSView {
         monitor = nil
         // Don't disable notifications: other observers may still need them. These flags
         // only enable notifications and never control layout, event delivery or focus.
-        if ParentScrollDiagnostics.active === self { ParentScrollDiagnostics.active = nil }
+        if ParentScrollDiagnostics.active === self {
+            ParentScrollHooks.detach()
+            ParentScrollDiagnostics.active = nil
+        }
         scroll = nil
         scrollIdentity = nil
         clip = nil
         document = nil
         observedWindow = nil
         detector = ParentScrollJumpDetector()
+        stackHistory = ParentScrollStackHistory()
+        lastDocumentHeight = nil
+        lastClipBounds = nil
+        lastDocumentFrame = nil
+        lastDocumentBounds = nil
         lastOffset = nil
         lastGeometry = nil
         lastResponderID = nil
@@ -204,18 +225,49 @@ final class ParentScrollProbeView: NSView {
     }
 
     @objc private func boundsChanged(_ notification: Notification) { sample(reason: "bounds") }
-    @objc private func documentChanged(_ notification: Notification) { sample(reason: "document") }
+    @objc private func documentChanged(_ notification: Notification) {
+        sample(reason: "document:\(notification.name.rawValue)")
+    }
     @objc private func windowChanged(_ notification: Notification) {
         ParentScrollDiagnostics.record("WINDOW \(label) event=\(notification.name.rawValue) key=\(observedWindow?.isKeyWindow == true)")
         sample(reason: "window")
     }
 
+    private func sampleFromHook(_ boundary: String) {
+        guard !isSampling, let clip, let document else { return }
+        // Most method entries, constraints and nested setters change nothing.
+        // Compare scalar geometry before formatting or unwinding any stack.
+        guard clip.bounds != lastClipBounds || document.frame != lastDocumentFrame
+                || document.bounds != lastDocumentBounds else { return }
+        sample(reason: "hook:\(boundary)")
+    }
+
+    private func scrollerTracking(_ tracking: Bool) {
+        let now = ProcessInfo.processInfo.systemUptime
+        if tracking { detector.beginScrollerTracking(at: now) }
+        else { detector.endScrollerTracking(at: now) }
+        ParentScrollDiagnostics.record("SCROLLER \(label) tracking=\(tracking ? "begin" : "end")")
+    }
+
     private func sample(reason: String) {
-        guard let scroll, let document = scroll.documentView else { return }
+        guard !isSampling, let scroll, let document = scroll.documentView else { return }
+        isSampling = true
+        defer { isSampling = false }
         // Reconnect if SwiftUI replaced the document or clip within the same NSScrollView.
         guard self.document === document, clip === scroll.contentView else { scheduleAttach(); return }
         let clip = scroll.contentView
         let now = ProcessInfo.processInfo.systemUptime
+        lastClipBounds = clip.bounds
+        lastDocumentFrame = document.frame
+        lastDocumentBounds = document.bounds
+        let height = Double(document.frame.height)
+        if let previousHeight = lastDocumentHeight, previousHeight != height {
+            stackHistory.recordHeightChange(from: previousHeight, to: height, at: now,
+                                            source: "\(label) reason=\(reason) path=[\(ParentScrollHooks.path)]") {
+                Self.stackAddresses()
+            }
+        }
+        lastDocumentHeight = height
         sampleResponder()
         let geometry = "documentHeight=\(document.frame.height) documentFrame=\(NSStringFromRect(document.frame)) documentBounds=\(NSStringFromRect(document.bounds)) viewport=\(NSStringFromSize(clip.bounds.size)) flipped=\(document.isFlipped)"
         if geometry != lastGeometry {
@@ -229,13 +281,33 @@ final class ParentScrollProbeView: NSView {
         let context = detector.observe(offset: offset, at: now)
         lastOffset = offset
         if let context {
-            ParentScrollLog.write("JUMP \(label) from=\(previous ?? offset) to=\(offset) delta=\(offset - (previous ?? offset)) reason=\(reason) \(geometry) responder=\(ParentScrollDiagnostics.responder(observedWindow?.firstResponder)) context=[\(context.joined(separator: " | "))]")
+            let change = "from=\(previous ?? offset) to=\(offset) delta=\(offset - (previous ?? offset)) reason=\(reason)"
+            let stacks = stackHistory.takeJump(at: now, detail: "\(change) path=[\(ParentScrollHooks.path)]") {
+                Self.stackAddresses()
+            }
+            let id = UUID()
+            let stackLink = stacks == nil ? "stack=rateLimited" : "stackID=\(id)"
+            ParentScrollLog.write("JUMP \(label) \(change) \(stackLink) \(geometry) responder=\(ParentScrollDiagnostics.responder(observedWindow?.firstResponder)) context=[\(context.joined(separator: " | "))]")
+            if let stacks {
+                ParentScrollLog.writeStack(id: id, label: label, jump: stacks.jump, heights: stacks.heights)
+            }
         }
         let bigChange = previous.map { abs(offset - $0) > 200 } ?? true
         if bigChange || (offset != previous && now - lastOffsetLog >= 0.1) {
             lastOffsetLog = now
             ParentScrollLog.write("OFFSET \(label) y=\(offset) rawY=\(clip.bounds.origin.y) previous=\(previous ?? offset) reason=\(reason)")
         }
+    }
+
+    private static func stackAddresses() -> [UInt] {
+        // Raw PCs only. Symbolication is deferred until an unexplained jump and
+        // happens on the log queue; capturing there would report the wrong stack.
+        Array(Thread.callStackReturnAddresses.prefix(ParentScrollStackHistory.maximumFrames)).map { $0.uintValue }
+    }
+
+    private func isInVerticalScroller(_ event: NSEvent) -> Bool {
+        guard let scroller = scroll?.verticalScroller, !scroller.isHiddenOrHasHiddenAncestor else { return false }
+        return scroller.bounds.contains(scroller.convert(event.locationInWindow, from: nil))
     }
 
     private func sampleResponder() {
@@ -252,10 +324,17 @@ final class ParentScrollProbeView: NSView {
               event.window === observedWindow || (event.type == .tabletProximity && NSApp.keyWindow === observedWindow)
         else { return }
         let now = ProcessInfo.processInfo.systemUptime
+        let inScroller = isInVerticalScroller(event)
         var wheel = ""
         var subtype = ""
         switch event.type {
-        case .leftMouseDown, .leftMouseUp, .leftMouseDragged, .rightMouseDown,
+        case .leftMouseDown, .leftMouseDragged:
+            if inScroller {
+                if event.type == .leftMouseDown, let scroll { ParentScrollHooks.refreshScroller(in: scroll) }
+                detector.recordScrollerInteraction(at: now)
+            }
+            subtype = " subtype=\(event.subtype.rawValue) scroller=\(inScroller)"
+        case .leftMouseUp, .rightMouseDown,
              .rightMouseUp, .rightMouseDragged, .otherMouseDown, .otherMouseUp, .otherMouseDragged:
             // Pen contacts may arrive as mouse events with tabletPoint subtype.
             subtype = " subtype=\(event.subtype.rawValue)"
@@ -264,10 +343,9 @@ final class ParentScrollProbeView: NSView {
         if event.type == .scrollWheel {
             // AppKit's delivered delta is already in scroll direction; don't invert natural scrolling again.
             let delta = Double(event.scrollingDeltaY)
-            let point = convert(event.locationInWindow, from: nil)
             // A wheel over a pinned sibling bar must not excuse a jump here. Overlays
             // can share this rectangle; TICK logs their browser/playtest state separately.
-            if visibleRect.contains(point) {
+            if let clip, clip.bounds.contains(clip.convert(event.locationInWindow, from: nil)) || inScroller {
                 detector.recordScrollWheel(deltaY: delta, at: now)
             }
             wheel = " deltaY=\(delta) phase=\(event.phase.rawValue) momentum=\(event.momentumPhase.rawValue)"

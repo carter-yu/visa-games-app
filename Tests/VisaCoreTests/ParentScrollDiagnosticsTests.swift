@@ -35,6 +35,101 @@ final class ParentScrollDiagnosticsTests {
         expectNil(detector.observe(offset: 0, at: 1.6))
     }
 
+    func testConfirmedVideosScrollbarDragDoesNotProduceJumps() {
+        var detector = ParentScrollJumpDetector()
+        expectNil(detector.observe(offset: 2_902, at: 1842804.5))
+        // The native scroller tracking loop can consume drag/up events without
+        // sending them through a local NSEvent monitor. Its duration is not a
+        // time-limited wheel gesture; the final two changes exceed that window.
+        detector.beginScrollerTracking(at: 1842804.590)
+        let changes: [(Double, Double)] = [
+            (2_548, 1842804.829), (2_316, 1842804.834),
+            (1_881, 1842804.895), (1_582.7065757174983, 1842804.928),
+            (1_583, 1842804.931), (1_336, 1842804.960),
+            (898, 1842805.054), (644, 1842805.074), (0, 1842805.341)
+        ]
+        for (offset, time) in changes {
+            expectNil(detector.observe(offset: offset, at: time))
+        }
+        detector.endScrollerTracking(at: 1842805.5)
+        expectNil(detector.observe(offset: 1_000, at: 1842806))
+        expectTrue(detector.observe(offset: 0, at: 1842806.1) != nil)
+    }
+
+    func testScrollerInteractionGraceExpiresAndContentClicksDoNotSuppress() {
+        var detector = ParentScrollJumpDetector()
+        expectNil(detector.observe(offset: 1_500, at: 1))
+        detector.recordScrollerInteraction(at: 1.1)
+        expectNil(detector.observe(offset: 1_000, at: 1.4))
+        expectTrue(detector.observe(offset: 500, at: 1.46) != nil)
+        detector.recordEvent("mouseDown in document", at: 1.5)
+        expectTrue(detector.observe(offset: 0, at: 1.6) != nil)
+    }
+
+    func testDownwardWheelSupersedesScrollerGraceButNotActiveTracking() {
+        var detector = ParentScrollJumpDetector()
+        expectNil(detector.observe(offset: 2_000, at: 1))
+        detector.recordScrollerInteraction(at: 1.1)
+        detector.recordScrollWheel(deltaY: -15, at: 1.2)
+        expectTrue(detector.observe(offset: 1_500, at: 1.3) != nil)
+        detector.beginScrollerTracking(at: 1.4)
+        detector.recordScrollWheel(deltaY: -20, at: 1.5)
+        expectNil(detector.observe(offset: 1_000, at: 1.6))
+        detector.endScrollerTracking(at: 1.7)
+        // A zero-delta phase ending does not cancel the scroller's newer input.
+        detector.recordScrollWheel(deltaY: 0, at: 1.8)
+        expectNil(detector.observe(offset: 500, at: 1.9))
+        detector.recordScrollWheel(deltaY: -1, at: 1.95)
+        expectTrue(detector.observe(offset: 0, at: 2) != nil)
+    }
+
+    func testNestedScrollerTrackingEndsOnlyAfterOuterTrackingReturns() {
+        var detector = ParentScrollJumpDetector()
+        expectNil(detector.observe(offset: 2_000, at: 1))
+        detector.beginScrollerTracking(at: 1.1)
+        detector.beginScrollerTracking(at: 1.2)
+        detector.endScrollerTracking(at: 1.3)
+        expectNil(detector.observe(offset: 1_500, at: 2))
+        detector.endScrollerTracking(at: 2.1)
+        expectNil(detector.observe(offset: 1_000, at: 2.4))
+        expectTrue(detector.observe(offset: 500, at: 2.46) != nil)
+        // An unmatched end must not create a new grace period.
+        detector.endScrollerTracking(at: 2.5)
+        expectTrue(detector.observe(offset: 0, at: 2.6) != nil)
+    }
+
+    func testInvalidOrFutureScrollerInputAndClockRegressionDoNotHideJumps() {
+        var detector = ParentScrollJumpDetector()
+        expectNil(detector.observe(offset: 2_000, at: 10))
+        detector.recordScrollerInteraction(at: .nan)
+        detector.beginScrollerTracking(at: .infinity)
+        detector.endScrollerTracking(at: .nan)
+        expectTrue(detector.observe(offset: 1_500, at: 10.1) != nil)
+        detector.recordScrollerInteraction(at: 11)
+        expectTrue(detector.observe(offset: 1_000, at: 10.2) != nil)
+        detector.beginScrollerTracking(at: 12)
+        expectTrue(detector.observe(offset: 500, at: 10.3) != nil)
+        // A regressing observation resets active tracking, grace and history.
+        expectNil(detector.observe(offset: 2_000, at: 1))
+        detector.endScrollerTracking(at: 1.1)
+        expectTrue(detector.observe(offset: 0, at: 1.2) != nil)
+    }
+
+    func testGamesDownwardWheelReversalsRemainJumpsAfterScrollbarUse() {
+        let reversals: [(Double, Double)] = [
+            (6_046, 3_600.724074), (6_181.724074, 3_613.485363),
+            (6_492.485363, 3_909.457674)
+        ]
+        for (before, after) in reversals {
+            var detector = ParentScrollJumpDetector()
+            detector.beginScrollerTracking(at: 1)
+            detector.endScrollerTracking(at: 1.5)
+            expectNil(detector.observe(offset: before, at: 2))
+            detector.recordScrollWheel(deltaY: -24, at: 2.01)
+            expectTrue(detector.observe(offset: after, at: 2.05) != nil)
+        }
+    }
+
     func testInvalidValuesAndClockRegressionDoNotInventJumps() {
         var detector = ParentScrollJumpDetector()
         expectNil(detector.observe(offset: 1_000, at: 10))

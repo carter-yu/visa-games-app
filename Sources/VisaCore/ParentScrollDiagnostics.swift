@@ -5,16 +5,21 @@ import Foundation
 public struct ParentScrollJumpDetector: Sendable {
     private let jumpThreshold: Double
     private let upwardWheelWindow: TimeInterval
+    private let scrollerInputWindow: TimeInterval
     private let contextLimit: Int
     private var previousOffset: Double?
     private var previousObservationTime: TimeInterval?
     private var lastWheel: (deltaY: Double, time: TimeInterval)?
+    private var lastScrollerInteraction: TimeInterval?
+    private var scrollerTrackingStartedAt: TimeInterval?
+    private var scrollerTrackingDepth = 0
     private var context: [String] = []
 
     public init(jumpThreshold: Double = 200, upwardWheelWindow: TimeInterval = 0.35,
-                contextLimit: Int = 10) {
+                contextLimit: Int = 10, scrollerInputWindow: TimeInterval = 0.35) {
         self.jumpThreshold = jumpThreshold.isFinite ? max(0, jumpThreshold) : 200
         self.upwardWheelWindow = upwardWheelWindow.isFinite ? max(0, upwardWheelWindow) : 0.35
+        self.scrollerInputWindow = scrollerInputWindow.isFinite ? max(0, scrollerInputWindow) : 0.35
         self.contextLimit = min(100, max(1, contextLimit))
     }
 
@@ -36,6 +41,37 @@ public struct ParentScrollJumpDetector: Sendable {
         lastWheel = (deltaY, time)
     }
 
+    /// Call only for a mouse-down/drag hit-tested to this scroll view's scroller.
+    /// A mouse event elsewhere in the document does not establish scroll intent.
+    public mutating func recordScrollerInteraction(at time: TimeInterval) {
+        guard time.isFinite, time >= (lastScrollerInteraction ?? -Double.infinity) else { return }
+        lastScrollerInteraction = time
+        recordEvent("scroller interaction", at: time)
+    }
+
+    /// Brackets the actual native scroller tracking call. AppKit can consume
+    /// subsequent drag/up events inside that call without invoking local monitors.
+    /// Nesting supports inherited method hooks that forward to another hooked
+    /// implementation; tracking ends only after the outermost call returns.
+    public mutating func beginScrollerTracking(at time: TimeInterval) {
+        guard time.isFinite, scrollerTrackingDepth < Int.max else { return }
+        if scrollerTrackingDepth == 0 { scrollerTrackingStartedAt = time }
+        scrollerTrackingDepth += 1
+        recordScrollerInteraction(at: time)
+        recordEvent("scroller tracking begin depth=\(scrollerTrackingDepth)", at: time)
+    }
+
+    public mutating func endScrollerTracking(at time: TimeInterval) {
+        guard time.isFinite, scrollerTrackingDepth > 0,
+              time >= (scrollerTrackingStartedAt ?? time) else { return }
+        scrollerTrackingDepth -= 1
+        recordEvent("scroller tracking end depth=\(scrollerTrackingDepth)", at: time)
+        if scrollerTrackingDepth == 0 {
+            scrollerTrackingStartedAt = nil
+            recordScrollerInteraction(at: time)
+        }
+    }
+
     /// Returns the preceding bounded context only for an unexplained decrease
     /// greater than the threshold. The caller logs JUMP with old/new geometry.
     /// Every bounds notification must reach this method, even if normal log lines
@@ -45,13 +81,24 @@ public struct ParentScrollJumpDetector: Sendable {
         if let previousTime = previousObservationTime, time < previousTime {
             previousOffset = nil
             lastWheel = nil
+            lastScrollerInteraction = nil
+            scrollerTrackingStartedAt = nil
+            scrollerTrackingDepth = 0
             context.removeAll(keepingCapacity: true)
         }
         let upwardAge = lastWheel.map { time - $0.time }
         let hasRecentUpwardInput = lastWheel.map { $0.deltaY > 0 } == true
             && upwardAge.map { $0 >= 0 && $0 <= upwardWheelWindow } == true
+        let scrollerAge = lastScrollerInteraction.map { time - $0 }
+        let hasNewerDownwardWheel = lastWheel.map {
+            $0.deltaY < 0 && $0.time <= time && $0.time >= (lastScrollerInteraction ?? .infinity)
+        } == true
+        let hasRecentScrollerInput = scrollerAge.map { $0 >= 0 && $0 <= scrollerInputWindow } == true
+            && !hasNewerDownwardWheel
+        let isTrackingScroller = scrollerTrackingDepth > 0
+            && scrollerTrackingStartedAt.map { time >= $0 } == true
         let jumped = previousOffset.map { $0 - offset > jumpThreshold } == true
-            && !hasRecentUpwardInput
+            && !hasRecentUpwardInput && !hasRecentScrollerInput && !isTrackingScroller
         let precedingContext = jumped ? context : nil
         previousOffset = offset
         previousObservationTime = time
