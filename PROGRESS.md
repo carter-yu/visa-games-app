@@ -1,5 +1,19 @@
 # Progress
 
+## 2026-11-05 — v0.37.0 / 79 — Letter picker UX alignment (style/copy only)
+
+- Written by Claude Code from the UX review of 78 (`ux78/UX-REVIEW.md`), `letter-picker/design.md`, `picker-spec.json` and mockups 01–05, on `feat/letter-picker` @ `c059a6c`. No behaviour change from 78: save, off-main loading, ticket recovery, hooks-off default, eager grids and clock isolation are untouched. No commit, push or branch switch.
+- M1: the picker panel uses the app's chunky controls only. The repair, review, review-letter, choose-again, Find & write link, preview 取消 / 套用 and preset buttons use `ParentSmallButton` (now internal), new `ParentChoiceButton` (count-card choice style) or `ChunkyButtonStyle`. The mirror guard is a 開 / 熄 pill (`ParentOnOffRow`). New file `ParentPickerControls.swift`.
+- M2: 按學校次序 and 更多字母設定 use `ParentDisclosureButton`, the 進階 full-width button with chevron and 打開 / 收埋 hint.
+- M3: `LetterUnavailableTicketView` is built like `ProviderBlockedView`: stage-scaled `CanvasText` and symbol, sky board, Chinese plus English lines (「呢張遊戲票暫時玩唔到」 / "This ticket can't be played right now."; 「叫大人長按右下角，睇吓字母設定。」). It is not hit-testable, so the parent corner hold above it is unaffected.
+- M4: tiles have four states. Lit has lamp + ✓, a 3 pt outline and sunny fill. Dim has a hollow lamp and muted fill. Locked has a dashed outline and lock. 已揀・暫停 / Selected · unavailable has a tomato warning outline and badge and stays tappable for removal. A note under the grid repeats it in English.
+- Minors: m1 nine columns × 84 pt (9 × 84 + 8 × 8 = 820 pt card width); m2 legend 「亮起＝已揀；暗色＝未揀；鎖住＝未開放。」 + English using the tiles' own marks, plus a capability line; m3 睇吓練習建議 is the disabled fourth preset; m4 presets have English sub-lines (`PracticePickerPreset.subtitle`, default "") and name omitted letters (「ABC group · i、j 未開放」); m5 English lines under headings, status words (`LetterPickerStatus.english`), summary, review and notes; m6 「未儲存嘅改動唔會套用。」 in the save bar; m7 save bar content capped to the 940 pt column; m8 下局 throughout; m9 「已揀 N 個 / N selected」 badge plus the 3–5 hint.
+- Nits: spoken HK Cantonese copy (e.g. 「檢查完，揀修復」, 「✓ 揀咗修復」, 「儲存之前要移除」, 「字母卡讀唔到」); one loading wording 「字母卡載入中…」 (`LetterPickerStatus.loadingLetters`); outlined summary panel with letter chips; tiles use radius 12, 2–3 pt outlines and a 3 pt offset shadow; 3 pt save-bar rule; a loading placeholder with the picker's own preset, disclosure, legend and tile sizes.
+- Not done: the save-check reasons in `LetterPickerSaveCheck` (VisaCore) remain Chinese-only, because tests pin them and they are shared with persistence errors. The stock `ticket.fill` symbol stays on the child board (sibling uses a stock symbol too).
+- Version 0.37.0 / 79 (`CFBundleVersion` and both version assertions). Docs: ADR 0026 (build-79 UI section), `docs/parent-scroll-diagnostics.md` (79 keeps the 78 experiment; expected one-time growth at `DRAFT ready`).
+- Tests: three new letter-picker checks (bilingual status + loading wording, preset sub-lines, build-79 UX source guards incl. Traditional-only scan of the four UI files); the 9-column and loading-word expectations updated. Banner: 27 letter-picker + 26 parent-scroll.
+- Verification on this Linux box: `env PATH=/tmp/visa-games-swift/toolchain/usr/bin:/usr/bin:/bin bash scripts/test.sh` passed (exit 0). `swiftc -parse` passed for the five changed SwiftUI files (syntax only; SwiftUI/AppKit are not type-checked here). The Mac mini must run `bash scripts/test.sh` and `bash scripts/bundle.sh` and check the screens on the TV.
+
 ## 2026-11-05 — v0.37.0 / 78 — Review majors + eager-grid snap experiment (HYPOTHESIS)
 
 - Written by Claude Code from `PROMPT-B78.md` items a–g on `feat/letter-picker` @ `2c6524c` (build 77, never installed; Mac mini has 76). Codex astra reviews next. No commit, push or branch switch.

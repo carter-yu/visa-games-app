@@ -970,7 +970,8 @@ struct ParentActionButton: View {
     }
 }
 
-private struct ParentSmallButton: View {
+/// Chunky small action button. Internal from build 79 so the letter picker reuses it (UX M1).
+struct ParentSmallButton: View {
     let title: String
     let symbol: String
     var fill: Color = Color(hex: DesignTokens.Palette.paper)

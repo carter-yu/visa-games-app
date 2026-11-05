@@ -25,9 +25,11 @@ public struct PracticePickerAvailability: Sendable, Equatable {
 public struct PracticePickerPreset: Sendable, Equatable {
     public let id: String
     public let label: String
+    /// Smaller English/source line under the label (presentation only; build 79).
+    public let subtitle: String
     public let itemIDs: [String]
-    public init(id: String, label: String, itemIDs: [String]) {
-        self.id = id; self.label = label; self.itemIDs = itemIDs
+    public init(id: String, label: String, subtitle: String = "", itemIDs: [String]) {
+        self.id = id; self.label = label; self.subtitle = subtitle; self.itemIDs = itemIDs
     }
 }
 

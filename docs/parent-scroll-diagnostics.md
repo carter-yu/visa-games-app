@@ -1,4 +1,21 @@
-# Parent settings scroll investigation — 0.37.0 / 78
+# Parent settings scroll investigation — 0.37.0 / 79
+
+## Build 79: UX/style only — the build-78 experiment is unchanged (2026-11-05)
+
+Build 79 restyles the letter picker panel and the child ticket-unavailable board (UX review
+of 78). It changes no scroll, clock, hook, loading or save behaviour, so the build-78
+hypotheses and the decision table below apply unchanged. When UAT runs on 79, verify
+`VIEW … appear … version=0.37.0 build=79` instead of 78.
+
+Two layout facts help read a 79 log:
+
+- While the letter cards load, the card shows a placeholder with the picker's own preset,
+  disclosure, legend and tile sizes (`ParentPracticeItemPickerPlaceholder`). When `DRAFT ready`
+  arrives, the summary, review and settings sections appear below the grid, so the document
+  grows **once**, in the same turn as `DRAFT ready`. That growth is expected and is not a
+  scroll-only height change.
+- Opening 按學校次序 or 更多字母設定 (now full-width buttons, not disclosure groups) changes
+  height in the same turn as `PICKER schoolDisclosure …` or `VIEW … disclosure more=…`.
 
 ## Build 78: eager-grid experiment — HYPOTHESIS, not a proven fix (2026-11-05)
 

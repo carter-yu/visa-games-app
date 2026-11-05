@@ -24,6 +24,25 @@ From build 78 only `.saved` is active (`LetterSelectionLoad.activeSelection`). `
 says so: 「未儲存之前，小朋友照用舊設定（每 4 局溫 1 局）…」, with status
 「未儲存 · 而家用緊舊設定」.
 
+## Build 79: picker UI aligned with the app and design (UX review of 78)
+
+Presentation only; behaviour is unchanged from build 78.
+
+- Every control in the picker panel uses the parent page's chunky styles: `ParentSmallButton`,
+  count-card choice buttons (`ParentChoiceButton`) and a 開 / 熄 pill for the mirror guard
+  (`ParentOnOffRow`). There are no stock macOS buttons or toggles.
+- 按學校次序 and 更多字母設定 use the v0.20.1 進階 pattern (`ParentDisclosureButton`): a
+  full-width button with a chevron and 打開 / 收埋. A macOS `DisclosureGroup` only opens from
+  its small chevron, so pen or finger taps on the words did nothing.
+- Tiles are nine columns × 84 pt (fills the 820 pt card width) in four states: lit (lamp + ✓),
+  dim (hollow lamp), locked (dashed outline + lock), and 已揀・暫停 / Selected · unavailable
+  (warning outline, tap to remove). The legend reuses the tiles' marks and the specified copy.
+- 睇吓練習建議 is the disabled fourth preset. Presets carry an English sub-line
+  (`PracticePickerPreset.subtitle`) plus any 未開放 letters.
+- The header shows 「已揀 N 個 / N selected」 with the 3–5 hint. The pinned save bar adds
+  English status words, 「未儲存嘅改動唔會套用。」, and keeps to the 940 pt content column.
+- The child 「呢張遊戲票暫時玩唔到」 board scales like `ProviderBlockedView` and adds English.
+
 ## Rollback and validation limit
 
 An older binary reads the preserved v1 settings, **not the latest v2 selection**. Reinstalling an old binary can therefore ask a different letter set until 0.37.0 is restored; no reverse migration is performed. This limitation belongs in family release notes.

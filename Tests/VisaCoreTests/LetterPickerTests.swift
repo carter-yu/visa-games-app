@@ -568,7 +568,8 @@ final class LetterPickerTests {
         expectTrue(card.contains("LetterPickerStatus.text(load: load, hasDraft: draft != nil"))
         expectFalse(card.contains(".onAppear { state.open(model: model) }"))
         expectFalse(card.contains(".onDisappear { state.clear() }"))
-        expectTrue(picker.contains("ForEach(Array(targets.dropFirst(row * 7).prefix(7)), id: \\.id)"))
+        // Build 79 (UX m1): host-supplied columns (letters: 9, design D2), eager rows.
+        expectTrue(picker.contains("ForEach(Array(targets.dropFirst(row * columns).prefix(columns)), id: \\.id)"))
     }
 
     // MARK: Build 78
@@ -842,7 +843,7 @@ extension LetterPickerTests {
     /// Review finding 4: a corrupt v2 says letter games are suspended and need repair.
     func testLetterStatusTextNamesCorruptRepair() {
         let saved = LetterSelectionSettings.defaults
-        expectEqual(LetterPickerStatus.text(load: .fresh, hasDraft: false, hasChanges: false), "載入中")
+        expectEqual(LetterPickerStatus.text(load: .fresh, hasDraft: false, hasChanges: false), "載入中…")
         expectEqual(LetterPickerStatus.text(load: .fresh, hasDraft: true, hasChanges: false), "未儲存 · 而家用緊舊設定")
         expectEqual(LetterPickerStatus.text(load: .legacy(saved, 4), hasDraft: true, hasChanges: false), "未儲存 · 而家用緊舊設定")
         expectEqual(LetterPickerStatus.text(load: .repairV1, hasDraft: true, hasChanges: false), "未儲存 · 而家用緊舊設定")
@@ -854,6 +855,102 @@ extension LetterPickerTests {
             expectTrue(corrupt.contains("暫停") && corrupt.contains("修復"), corrupt)
             expectFalse(corrupt.contains("舊設定"), "corrupt v2 never claims the old settings are in use")
             expectTrue(isTraditionalChineseOnly(corrupt) && perfTraditionalOnly(corrupt))
+        }
+    }
+}
+
+// MARK: Build 79 — UX review (style/copy only; behaviour unchanged from 78)
+
+extension LetterPickerTests {
+    /// UX m5/n2: bilingual status words and one loading wording.
+    func testLetterStatusEnglishAndLoadingWording() {
+        let saved = LetterSelectionSettings.defaults
+        func both(_ load: LetterSelectionLoad, _ draft: Bool, _ changes: Bool) -> (String, String) {
+            (LetterPickerStatus.text(load: load, hasDraft: draft, hasChanges: changes),
+             LetterPickerStatus.english(load: load, hasDraft: draft, hasChanges: changes))
+        }
+        expectTrue(both(.fresh, false, false) == ("載入中…", "Loading…"))
+        expectTrue(both(.fresh, true, false) == ("未儲存 · 而家用緊舊設定", "Unsaved · using the previous settings"))
+        expectTrue(both(.saved(saved), true, false) == ("已儲存", "Saved"))
+        expectTrue(both(.saved(saved), true, true) == ("未儲存", "Unsaved"))
+        expectTrue(both(.corruptV2, true, false).1.contains("repair needed"))
+        expectTrue(both(.corruptV2, true, true).1.contains("paused"))
+        expectEqual(LetterPickerStatus.loadingLetters, "字母卡載入中…")
+        expectTrue(LetterPickerStatus.loadingLetters.hasSuffix("…") && LetterPickerStatus.loadingLettersEnglish.hasSuffix("…"))
+        let card = (try? String(contentsOfFile: "Sources/VisaGames/ParentTapLetterSettingsView.swift", encoding: .utf8)) ?? ""
+        expectFalse(card.contains("載入中。"), "one loading punctuation")
+        expectFalse(card.contains("\"字母卡載入中"), "the card uses LetterPickerStatus.loadingLetters")
+    }
+
+    /// UX m4: presets carry an English sub-line; the shared preset type stays source-compatible.
+    func testPresetSubtitles() throws {
+        let bank = try LetterWordBank.load(url: URL(fileURLWithPath: "Resources/LetterTap/starter-bank.json"))
+        let picker = LetterAvailability.pickerModel(bank: bank, decks: .init(), enabled: [])
+        expectEqual(picker.presets.map(\.subtitle), ["ABC group", "ABC group"])
+        expectEqual(picker.presets.map(\.label), ["a b c d e", "f g h i j"])
+        expectEqual(PracticePickerPreset(id: "x", label: "X", itemIDs: ["a"]).subtitle, "")
+        // The fghij sub-line names its omitted letters from the same preview the apply step uses.
+        expectEqual(picker.previewPreset("fghij")?.omittedIDs, ["i", "j"])
+    }
+
+    /// UX m1/M4/m2/m3/m6/m7/m8/m9/M1/M2/M3/n1–n4: app-target guards (SwiftUI is not compiled offline).
+    func testBuild79PickerUXSourceGuards() throws {
+        func source(_ path: String) throws -> String { try String(contentsOfFile: path, encoding: .utf8) }
+        let card = try source("Sources/VisaGames/ParentTapLetterSettingsView.swift")
+        let picker = try source("Sources/VisaGames/ParentPracticeItemPicker.swift")
+        let controls = try source("Sources/VisaGames/ParentPickerControls.swift")
+        let ticket = try source("Sources/VisaGames/LetterUnavailableTicketView.swift")
+        // M1 / M2: no stock macOS buttons, toggles or disclosure groups in the picker panel.
+        for (name, text) in [("card", card), ("picker", picker)] {
+            for banned in [".bordered", "DisclosureGroup", "Toggle(", "Button(\"", "Button(state."] {
+                expectFalse(text.contains(banned), "\(name) must not use \(banned)")
+            }
+        }
+        expectTrue(controls.contains("struct ParentDisclosureButton") && controls.contains("打開 / Show")
+                   && controls.contains("收埋 / Hide") && controls.contains(".contentShape(Rectangle())"))
+        expectTrue(controls.contains("開 On") && controls.contains("熄 Off"))
+        expectTrue(picker.contains("ParentDisclosureButton(title: secondaryPresetTitle"))
+        expectTrue(card.contains("ParentDisclosureButton(title: \"更多字母設定\""))
+        expectTrue(card.contains("ParentOnOffRow("))
+        expectTrue(card.contains("ParentChoiceButton(title: \"熄 · 只練揀咗嘅\""))
+        expectTrue(picker.contains("ChunkyButtonStyle(fill: state.fill"))
+        // M4: lamp + ✓ when lit, and the selected-but-unavailable warning state.
+        expectTrue(picker.contains("Image(systemName: \"lightbulb.fill\")\n                Image(systemName: \"checkmark\")"))
+        expectTrue(picker.contains("case selectedUnavailable") && picker.contains("\"已揀・暫停\"")
+                   && picker.contains("Selected · unavailable") && picker.contains("Palette.tomato"))
+        // m1: nine columns of 84 pt fill the card's 820 pt inner width exactly (8 pt gaps).
+        expectTrue(card.contains("private static let columns = 9"))
+        expectTrue(picker.contains("static let tileWidth: CGFloat = 84") && picker.contains("static let tileSpacing: CGFloat = 8"))
+        expectEqual(9 * 84 + 8 * 8, Int(ParentGridColumns.parentContentWidth(viewportWidth: 1905)) - 2 * 16)
+        // m2: the legend uses the specified copy and the tiles' own marks.
+        for text in ["亮起＝已揀", "暗色＝未揀", "鎖住＝未開放", "Lit = enabled; dim = off; locked = not ready.",
+                     "ParentPickerLamp(state: state, size: 10)"] {
+            expectTrue(picker.contains(text), text)
+        }
+        // m3: 睇吓練習建議 is the disabled fourth preset, not a stray button.
+        expectTrue(card.contains("placeholderAction: ParentPickerPlaceholderAction(") && card.contains("title: \"睇吓練習建議\""))
+        expectTrue(picker.contains(".disabled(true)"))
+        // m6 / m7: unsaved note and the 940 pt bar column.
+        expectTrue(card.contains("未儲存嘅改動唔會套用。") && card.contains("Unsaved changes will not apply."))
+        expectTrue(card.contains(".frame(maxWidth: 940)") && card.contains(".frame(height: 116)"))
+        // m8 / m9 / n1: 下局, the count badge with the 3–5 hint, spoken HK Cantonese.
+        for banned in ["下一題", "下一局", "請檢查後選擇修復", "已選擇修復", "尚未提供", "儲存前必須移除", "未能讀取"] {
+            expectFalse(card.contains(banned) || picker.contains(banned), "copy: \(banned)")
+        }
+        expectTrue(card.contains("ParentPill(text: \"已揀 \\(count) 個 / \\(count) selected\""))
+        expectTrue(card.contains("想集中練習，可以先揀 3–5 個"))
+        // n2 / n4: reserved loading layout; outlined summary panel.
+        expectTrue(card.contains("ParentPracticeItemPickerPlaceholder(") && picker.contains("struct ParentPracticeItemPickerPlaceholder"))
+        expectTrue(card.contains(".modifier(ChunkyPanel(fill: .white, cornerRadius: 12, shadowDepth: 3, lineWidth: 2))"))
+        expectFalse(card.contains("Color.white.opacity(0.7)"))
+        // M3: the child board scales with the stage and pairs HK Cantonese with English.
+        expectTrue(ticket.contains("DesignTokens.stageLayout(") && ticket.contains("CanvasText(\"呢張遊戲票暫時玩唔到\""))
+        expectTrue(ticket.contains("This ticket can't be played right now."))
+        expectTrue(ticket.contains(".allowsHitTesting(false)"))
+        expectFalse(ticket.contains(".font(.system(size: 64))") || ticket.contains("CanvasFont.font(size: 34"))
+        // HK Traditional only, never Simplified.
+        for (name, text) in [("card", card), ("picker", picker), ("controls", controls), ("ticket", ticket)] {
+            expectTrue(isTraditionalChineseOnly(text) && perfTraditionalOnly(text), "\(name) is Traditional only")
         }
     }
 }

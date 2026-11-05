@@ -71,8 +71,10 @@ public enum LetterAvailability {
                 (cap.canWrite ? ["find", "write"] : ["find"]) : [],
                 reason: !cap.canFind ? "字母卡未準備好" : !cap.canWrite ? "未有寫字指引" : nil))
         })
-        let presets = [PracticePickerPreset(id: "abcde", label: "a b c d e", itemIDs: Array("abcde").map(String.init)),
-                       PracticePickerPreset(id: "fghij", label: "f g h i j", itemIDs: Array("fghij").map(String.init))]
+        let presets = [PracticePickerPreset(id: "abcde", label: "a b c d e", subtitle: "ABC group",
+                                            itemIDs: Array("abcde").map(String.init)),
+                       PracticePickerPreset(id: "fghij", label: "f g h i j", subtitle: "ABC group",
+                                            itemIDs: Array("fghij").map(String.init))]
         return PracticePickerModel(catalogID: "letters.en.lowercase", catalogRevision: "1",
             items: letters.map { PracticePickerItem(id: $0, label: $0, role: .target) },
             availabilityByItem: availability, enabledIDs: enabled, presets: presets, minimum: 1, maximum: 26)

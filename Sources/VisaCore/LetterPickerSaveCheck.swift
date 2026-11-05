@@ -3,8 +3,12 @@ import Foundation
 /// The letter card / save bar status word (build 78). A corrupt v2 never claims the child
 /// plays the previous settings: letter games are suspended until the parent repairs.
 public enum LetterPickerStatus {
+    /// Build 79: one loading wording (and one ellipsis) for the card, the save check and the bar.
+    public static let loadingLetters = "字母卡載入中…"
+    public static let loadingLettersEnglish = "Loading letter cards…"
+
     public static func text(load: LetterSelectionLoad, hasDraft: Bool, hasChanges: Bool) -> String {
-        guard hasDraft else { return "載入中" }
+        guard hasDraft else { return "載入中…" }
         if load == .corruptV2 {
             return hasChanges ? "未儲存 · 字母遊戲暫停，要修復" : "讀唔到 · 字母遊戲暫停，要修復"
         }
@@ -12,6 +16,18 @@ public enum LetterPickerStatus {
         if load.activeSelection != nil { return "已儲存" }
         // Nothing saved yet: the child still plays the previous letter settings.
         return "未儲存 · 而家用緊舊設定"
+    }
+
+    /// The English line under `text` (same states, build 79).
+    public static func english(load: LetterSelectionLoad, hasDraft: Bool, hasChanges: Bool) -> String {
+        guard hasDraft else { return "Loading…" }
+        if load == .corruptV2 {
+            return hasChanges ? "Unsaved · letter games paused, repair needed"
+                : "Can't read · letter games paused, repair needed"
+        }
+        if hasChanges { return "Unsaved" }
+        if load.activeSelection != nil { return "Saved" }
+        return "Unsaved · using the previous settings"
     }
 }
 
