@@ -90,6 +90,11 @@ public struct WeeklyReportText: Sendable, Equatable {
     public var videos: WeeklySentence?
     /// Page 5: 「今個星期冇改設定」 when nothing changed.
     public var changes: [WeeklySentence]
+    /// Countable historical child target letters in this window; never inferred from current settings.
+    public var letterTargets: [String]
+    /// Distinct deal-time scopes in chronological order; legacy arrays are canonicalised.
+    public var letterFocusScopes: [String]
+    public var letterReviewScopes: [String]
     public var family: [WeeklyFamilyItem]
     /// F8, the closing line when there is a win.
     public var praise: WeeklySentence?
@@ -157,7 +162,30 @@ public enum WeeklyReportTextBuilder {
         let name = childName.trimmingCharacters(in: .whitespacesAndNewlines)
         let context = WeeklyTextContext(analysis: analysis, facts: facts,
                                         childName: name.isEmpty ? WeeklyReportText.defaultChildName : name)
-        return context.text()
+        var report = context.text()
+        var targets = Set<String>()
+        var focusScopes: [String] = []
+        var reviewScopes: [String] = []
+        for entry in index.dealt where entry.countable && window.contains(entry.event.timestamp) &&
+            (entry.kind == ActivityKind.tapLetterAll.rawValue || entry.kind == ActivityKind.tapLetterWrite.rawValue) {
+            let deal = entry.event
+            let focus = deal.string("focus_letters") ?? deal["this_week"]?.stringArray.joined(separator: " ")
+            if let focus {
+                let scope = WeeklySignature.letterSet(focus.split(separator: " ").map(String.init))
+                if !focusScopes.contains(scope) { focusScopes.append(scope) }
+            }
+            if let review = deal.string("review_letters") {
+                let scope = WeeklySignature.letterSet(review.split(separator: " ").map(String.init))
+                if !reviewScopes.contains(scope) { reviewScopes.append(scope) }
+            }
+            if let target = entry.event.string("target"), LetterSelectionSettings.isASCII(target) {
+                targets.insert(target)
+            }
+        }
+        report.letterTargets = targets.sorted()
+        report.letterFocusScopes = focusScopes
+        report.letterReviewScopes = reviewScopes
+        return report
     }
 }
 
@@ -250,7 +278,8 @@ struct WeeklyTextContext {
         return WeeklyReportText(
             analysis: analysis, childName: childName, empty: countable ? nil : say("wr.empty"),
             highlights: highlights(), winCandidates: candidates, games: games, ranking: rankingText(),
-            videos: videosSentence(), changes: changesLines(), family: familyPart.items, praise: familyPart.praise,
+            videos: videosSentence(), changes: changesLines(), letterTargets: [], letterFocusScopes: [],
+            letterReviewScopes: [], family: familyPart.items, praise: familyPart.praise,
             familyNone: familyPart.none, app: appPart.items, appNone: appPart.none, questions: questions(),
             facts: factsJSON()
         )
@@ -1425,6 +1454,9 @@ extension WeeklyReportText {
         o["ranking"] = ranking.json
         o["videos"] = videos?.json ?? .null
         o["changes"] = .array(changes.map(\.json))
+        if !letterTargets.isEmpty { o["letter_targets"] = .strings(letterTargets) }
+        if !letterFocusScopes.isEmpty { o["letter_focus_scopes"] = .strings(letterFocusScopes) }
+        if !letterReviewScopes.isEmpty { o["letter_review_scopes"] = .strings(letterReviewScopes) }
         var recommendations: [String: PerfValue] = [:]
         recommendations["family"] = .array(family.map(\.json))
         recommendations["praise"] = praise?.json ?? .null

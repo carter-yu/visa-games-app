@@ -270,7 +270,8 @@ final class StrokeOrderTests {
         for simplified in ["笔", "顺", "画", "动", "数", "认", "识", "练", "习", "边", "时", "这", "们", "写", "关", "开"] {
             expectFalse(copy.joined().contains(simplified), "simplified \(simplified)")
         }
-        expectEqual(StrokeOrderCopy.short(.teach) + StrokeOrderCopy.short(.remind) + StrokeOrderCopy.short(.off), "教提熄")
+        // Build 80: Carter's 開／關 wording for every parent "off" (was 熄).
+        expectEqual(StrokeOrderCopy.short(.teach) + StrokeOrderCopy.short(.remind) + StrokeOrderCopy.short(.off), "教提關")
         expectTrue(model.contains("strokeOrderProgressStore.save"))
         expectTrue(model.contains("setTapCountStrokeOrder"))
         expectTrue(model.contains("guard !tapCountUsesPlaytest else { return }"), "playtests never use up glances")

@@ -333,6 +333,13 @@ final class PerformanceRecorder {
         ], actorOverride: .parent)
     }
 
+    func tapLetterSettingChanged(what: String, value: String, revision: Int) {
+        emit(.configChange, [
+            "what": .string("tapLetter_\(what)"), "kind": .string(ActivityKind.tapLetterAll.rawValue),
+            "value": .string(value), "selection_revision": .int(revision)
+        ], actorOverride: .parent)
+    }
+
     func assignmentChanged(kind: ActivityKind, star: Int, on: Bool) {
         emit(.configChange, [
             "what": .string("assignment"), "kind": .string(kind.rawValue),
@@ -385,6 +392,24 @@ final class PerformanceRecorder {
                 result = .failure(error)
             }
             Task { @MainActor in completion(result) }
+        }
+    }
+
+    /// Build 78: the parent letter editor's bank + 90-day child history, read on the recorder
+    /// queue (after queued writes), then handed to main. Never parses or reads on main.
+    func letterPickerResources(decks: LetterWordDecks, bankCache: LetterWordBankCache,
+                               completion: @escaping @MainActor @Sendable (LetterPickerResources) -> Void) {
+        let store = self.store
+        queue.async {
+            let started = Date()
+            let bank = try? bankCache.load()
+            let read = store.read()
+            let history = LetterTargetHistory.practiced(in: read.events, at: Date())
+            let resources = LetterPickerResources(bank: bank, decks: decks, history: history)
+            let ms = Int(Date().timeIntervalSince(started) * 1000)
+            VisaGamesLog.append("parent letters — resources bank=\(bank != nil) history=\(history.count) "
+                                + "from \(read.events.count) events in \(ms) ms")
+            Task { @MainActor in completion(resources) }
         }
     }
 

@@ -110,10 +110,12 @@ final class LetterDealTests {
         let completion = source[start.lowerBound..<end.lowerBound]
         guard let save = completion.range(of: "tapLetterSaveRound(board)"),
               let writeProgress = completion.range(of: "letterWriteProgress.record(board.deal.target"),
-              let playtest = completion.range(of: "if playtest {\n            perf.playtestResultExtra(fields)") else {
+              let playtest = completion.range(of: "perf.playtestResultExtra(fields)"),
+              let isolated = completion.range(of: "previewLetterWriteProgress = writing") else {
             expectTrue(false, "Letter completion saves and handles playtest")
             return
         }
+        expectTrue(isolated.lowerBound < writeProgress.lowerBound, "V2 preview uses a copy")
         expectTrue(writeProgress.lowerBound < playtest.lowerBound, "Playtest write progress is saved")
         expectTrue(save.lowerBound < playtest.lowerBound, "Playtest saves before completion returns")
     }
@@ -187,7 +189,6 @@ final class LetterDealTests {
         let bank = try LetterWordBank.load(url: root.appendingPathComponent("Resources/LetterTap/starter-bank.json"))
         let raw = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         let letters = raw["letters"] as! [String: [String: Any]]
-        let pictures = try String(contentsOf: root.appendingPathComponent("Sources/VisaGames/TapLetterBoardView.swift"), encoding: .utf8)
         let locked: [String: [String]] = [
             "f": ["fish", "fox", "frog", "fan", "fork", "flower", "fire engine", "feather"],
             "g": ["goat", "girl", "gift", "grapes", "guitar", "goose"],
@@ -204,7 +205,7 @@ final class LetterDealTests {
             expectEqual(entry.status, "full")
             expectTrue((entry.words?.count ?? 0) >= 5, "word count for \(letter)")
             for word in entry.words ?? [] {
-                expectTrue(pictures.contains("\"\(word.imageID)\":"), "emoji for \(word.imageID)")
+                expectTrue(LetterWordArtCatalog.contains(word.imageID), "emoji for \(word.imageID)")
             }
         }
         for (letter, words) in locked {

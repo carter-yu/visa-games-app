@@ -598,6 +598,17 @@ extension WeeklyReportHTML {
         if let videos = report.videos {
             out += pair(videos.zh, videos.en)
         }
+        if c.empty {
+            let letterSettings = c.changes.settings.filter { $0.what.hasPrefix("tapLetter_") }
+            if !letterSettings.isEmpty {
+                let note = label("letters.savedNoDeal")
+                out += pair(note.zh, note.en)
+                for setting in letterSettings {
+                    let line = settingLine(c, setting)
+                    out += pair(line.zh, line.en)
+                }
+            }
+        }
         out += "</div>\n"
         if !c.empty {
             out += tiles(c)
@@ -1225,6 +1236,18 @@ extension WeeklyReportHTML {
         }
         for sentence in c.report.changes {
             out += li(words(sentence))
+        }
+        if !c.report.letterFocusScopes.isEmpty {
+            out += li(label("letters.focus", ["list": same(c.report.letterFocusScopes.joined(separator: " → "))]))
+        }
+        if !c.report.letterReviewScopes.isEmpty {
+            let zh = c.report.letterReviewScopes.map { $0.isEmpty ? ParentToggleCopy.off : $0 }.joined(separator: " → ")
+            let en = c.report.letterReviewScopes.map { $0.isEmpty ? "Off" : $0 }.joined(separator: " → ")
+            out += li(label("letters.review", ["list": WeeklyWords(zh, en)]))
+        }
+        if !c.report.letterTargets.isEmpty {
+            out += li(label("letters.practised", ["list": same(c.report.letterTargets.joined(separator: "、"))]))
+            out += li(label("letters.findOnly"))
         }
         var lines: [WeeklyWords] = []
         for setting in changes.settings {

@@ -27,7 +27,8 @@ public struct Snapshot: Codable, Equatable, Sendable {
 
 public enum Mode: Sendable, Equatable { case setup, lock, parent, play }
 
-public struct Session: Sendable {
+/// Equatable (build 78) so the host skips republishing an unchanged session every tick.
+public struct Session: Equatable, Sendable {
     public private(set) var snapshot: Snapshot
     public private(set) var mode: Mode
     public var allowsExit: Bool { mode == .parent }

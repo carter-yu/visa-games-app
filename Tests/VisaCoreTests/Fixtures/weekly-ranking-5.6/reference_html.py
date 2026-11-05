@@ -245,7 +245,7 @@ L = {
     "set.plain": ("{date}改咗{name}{affects}。", "{date}: {name} changed{affects}."),
     "set.affects": ("（影響 {n} 個遊戲）", " (affects {n} games)"),
     "assign.on": ("{date}開咗「{game}」{stars}。", "{date}: turned on {stars} for \"{game}\"."),
-    "assign.off": ("{date}熄咗「{game}」{stars}。", "{date}: turned off {stars} for \"{game}\"."),
+    "assign.off": ("{date}關咗「{game}」{stars}。", "{date}: turned off {stars} for \"{game}\"."),
     "gen.change": ("「{game}」題目來源：{old} → {new}。", "\"{game}\" question source: {old} → {new}."),
     "changes.more": ("仲有 {n} 項改動冇列出。", "{n} more changes not listed."),
     "changes.moreOne": ("仲有 {n} 項改動冇列出。", "{n} more change not listed."),

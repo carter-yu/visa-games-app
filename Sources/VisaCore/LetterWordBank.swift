@@ -40,16 +40,34 @@ public struct LetterWordBank: Codable, Sendable {
 
     public enum BankError: Error { case invalidSchema, missingResource }
 
+    public func usableWords(letter: String, box: LetterBox, decks: LetterWordDecks) -> [LetterWord] {
+        guard let entry = letters[letter], entry.status == "full", let words = entry.words else { return [] }
+        let hidden = Set(decks.hiddenIDs[letter] ?? [])
+        var seenIDs = Set<String>()
+        var seenWords = Set<String>()
+        return words.filter { word in
+            guard !hidden.contains(word.id), (word.tier == "core" || (word.tier == "extra" && box >= .practising)),
+                  !word.id.isEmpty, !word.word.isEmpty, !word.voiceKey.isEmpty,
+                  LetterWordArtCatalog.contains(word.imageID),
+                  word.highlight.count == 2,
+                  word.highlight[0] >= 0, word.highlight[0] < word.word.count,
+                  String(Array(word.word)[word.highlight[0]]) == letter,
+                  seenIDs.insert(word.id).inserted, seenWords.insert(word.word).inserted else { return false }
+            return true
+        }
+    }
+
     /// A nil result means this letter has only an approved anchor and no two-word deck yet.
     public func deal(letter: String, box: LetterBox, seed: String, decks: inout LetterWordDecks,
                      now: Date) -> [LetterWord] {
-        guard let entry = letters[letter], let all = entry.words else { return [] }
-        let hidden = Set(decks.hiddenIDs[letter] ?? [])
-        let pool = all.filter { !hidden.contains($0.id) && ($0.tier == "core" || box >= .practising) }
+        let pool = usableWords(letter: letter, box: box, decks: decks)
         guard pool.count >= 2 else { return [] }
         var deck = decks.letters[letter] ?? LetterWordDeck()
         let ids = Set(pool.map(\.id))
         deck.remaining = deck.remaining.filter { ids.contains($0) }
+        deck.seenIDs = deck.seenIDs.filter { ids.contains($0) }
+        if let last = deck.lastID, !ids.contains(last) { deck.lastID = nil }
+        decks.schoolWords[letter] = (decks.schoolWords[letter] ?? []).filter { ids.contains($0.id) }
         var result: [LetterWord] = []
         if !deck.hasDealtAnchor, let anchor = pool.first(where: { $0.anchor == true }) {
             result.append(anchor)
@@ -116,7 +134,7 @@ public struct LetterWordDecks: Codable, Equatable, Sendable {
     @discardableResult public mutating func hide(_ id: String, for letter: String, bank: LetterWordBank) -> Bool {
         guard let words = bank.letters[letter]?.words,
               words.contains(where: { $0.id == id }) else { return false }
-        let remaining = words.filter { $0.id != id && !(hiddenIDs[letter] ?? []).contains($0.id) }
+        let remaining = bank.usableWords(letter: letter, box: .learning, decks: self).filter { $0.id != id }
         guard remaining.count >= 2, remaining.filter({ $0.tier == "core" }).count >= 2 else { return false }
         var hidden = hiddenIDs[letter] ?? []
         if !hidden.contains(id) { hidden.append(id) }
@@ -154,6 +172,21 @@ public struct TapLetterDeal: Sendable {
     public let words: [LetterWord]
     public let glyphScale: Double
     public let decks: LetterWordDecks
+    public let selection: LetterSelectionSettings?
+    public let legacySettings: TapLetterSettings?
+}
+
+public enum LetterNoDealReason: Equatable, Sendable {
+    case noEligibleFocus, insufficientBoardLetters, insufficientWords
+}
+
+public enum LetterDealResult: Sendable {
+    case deal(TapLetterDeal)
+    case unavailable(LetterNoDealReason)
+    public var reason: LetterNoDealReason? {
+        if case .unavailable(let value) = self { return value }
+        return nil
+    }
 }
 
 public enum TapLetterGenerator {
@@ -167,6 +200,40 @@ public enum TapLetterGenerator {
         guard words.count == 2 else { return nil }
         return TapLetterDeal(target: choice.target, lane: choice.lane, board: board, words: words,
                              glyphScale: board.letters.contains(where: { "gjpqy".contains($0) }) ? 0.5 : 0.55,
-                             decks: nextDecks)
+                             decks: nextDecks, selection: nil, legacySettings: settings)
+    }
+
+    public static func makeScoped(seed: String, kind: ActivityKind, n: Int,
+                                  settings: LetterSelectionSettings, schedule: inout LetterSelectionSchedule,
+                                  progress: LetterProgress, decks: LetterWordDecks,
+                                  bank: LetterWordBank, now: Date) -> LetterDealResult {
+        var availability = LetterAvailability.resolve(bank: bank, decks: decks)
+        let legal = availability.filter { $0.value.canFind }.map(\.key)
+        for letter in legal where LetterBoardBuilder.makeScoped(seed: seed, target: letter,
+            mirrorGuard: settings.mirrorGuard, progress: progress, legalLetters: legal) == nil {
+            let prior = availability[letter]!
+            availability[letter] = LetterCapability(canDisplay: prior.canDisplay, canFind: false, canWrite: false)
+        }
+        guard !settings.focus(for: kind, availability: availability).isEmpty else {
+            return .unavailable(settings.focus(for: kind, availability: LetterAvailability.resolve(bank: bank, decks: decks)).isEmpty
+                ? .noEligibleFocus : .insufficientBoardLetters)
+        }
+        var nextSchedule = schedule
+        guard let choice = nextSchedule.next(seed: seed, kind: kind, n: n,
+            settings: settings, availability: availability, progress: progress, now: now) else {
+            return .unavailable(.noEligibleFocus)
+        }
+        guard let board = LetterBoardBuilder.makeScoped(seed: seed, target: choice.target,
+            mirrorGuard: settings.mirrorGuard, progress: progress, legalLetters: legal) else {
+            return .unavailable(.insufficientBoardLetters)
+        }
+        var nextDecks = decks
+        let words = bank.deal(letter: choice.target, box: progress.state(for: choice.target).box,
+                              seed: seed, decks: &nextDecks, now: now)
+        guard words.count == 2 else { return .unavailable(.insufficientWords) }
+        schedule = nextSchedule
+        return .deal(TapLetterDeal(target: choice.target, lane: choice.lane, board: board, words: words,
+            glyphScale: board.letters.contains(where: { "gjpqy".contains($0) }) ? 0.5 : 0.55,
+            decks: nextDecks, selection: settings, legacySettings: nil))
     }
 }

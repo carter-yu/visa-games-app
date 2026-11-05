@@ -406,7 +406,7 @@ struct ParentYouTubeBrowserView: View {
             }
             VStack(alignment: .leading, spacing: 6) {
                 ParentLabel("可以試：", size: 15, weight: 900)
-                botTip("1", "試吓熄 VPN，或者換另一個伺服器", "Turn the VPN off, or switch server")
+                botTip("1", "試吓關 VPN，或者換另一個伺服器", "Turn the VPN off, or switch server")
                 botTip("2", "等幾分鐘，再撳「重新載入」", "Wait a few minutes, then Reload")
                 botTip("3", "用手機複製條連結，貼喺左邊", "Copy the link on your phone, paste it on the left")
             }
@@ -523,7 +523,7 @@ struct ParentYouTubeBrowserView: View {
                 HStack(spacing: 8) {
                     ParentPill(text: "片編號已攞到，照樣加得 / ID found — can still add",
                                fill: Color(hex: DesignTokens.Palette.mint).opacity(0.45))
-                    ParentLabel("小朋友嗰邊可能都播唔到，直至 VPN 熄咗 · may not play for your child until then",
+                    ParentLabel("小朋友嗰邊可能都播唔到，直至 VPN 關咗 · may not play for your child until then",
                                 size: 11, weight: 600, color: .inkSoft)
                 }
             case .ready:

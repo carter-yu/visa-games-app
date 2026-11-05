@@ -363,7 +363,7 @@ public struct TapCountSettings: Equatable, Sendable {
     public var tolerance: LineMatchTolerance?
     /// v0.30.0 描數字提示: 多啲 / 標準 / 少啲 (both card languages).
     public var guidance: TapCountGuidanceLevel
-    /// v0.31.0 筆順動畫 for digits: 教 / 提 / 熄 (default 提; stroke-order design D4).
+    /// v0.31.0 筆順動畫 for digits: 教 / 提 / 關 (default 提; stroke-order design D4; 關 since build 80).
     public var strokeOrder: StrokeOrderSetting
 
     public init(range: TapCountRange = .upTo10, countVoice: Bool = true, english: Bool = true,
@@ -740,8 +740,8 @@ public enum TapCountCopy {
     public static let toleranceTitle = "畫線寬容度"
     public static let toleranceEnglish = "Tolerance"
     public static let toleranceFollow = "跟畫形狀"
-    public static let on = "開"
-    public static let off = "關"
+    public static let on = ParentToggleCopy.on
+    public static let off = ParentToggleCopy.off
     public static let parentTip = "小貼士：玩完用真嘅玩具車再玩：「攞 3 架車俾我！」"
     public static let parentTipEnglish = "Tip: play it with real toy cars too — \"Give me 3 cars!\""
 

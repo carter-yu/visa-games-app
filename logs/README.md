@@ -5,6 +5,20 @@ Tracked in git: this README only. Ignore `*.log` and other local dumps via `.git
 
 Do not commit secrets, tokens, or full screen recordings with private data.
 
+## Parent settings scroll diagnostics (0.37.0 / 76+)
+
+`~/Library/Application Support/VisaGames/logs/parent-scroll.log` records native scroll
+offsets, geometry, identities, input types and focus/state changes. It rotates at 1 MiB
+and retains `parent-scroll.log.1`. Unified logging uses subsystem `family.visagames.mac`,
+category `parentScroll`. See [the analysis and capture guide](../docs/parent-scroll-diagnostics.md).
+The existing parent Open logs folder button still opens the older log directory described below.
+
+From build 78 the native AppKit stack hooks are off unless
+`defaults write family.visagames.mac ParentScrollStackHooks -bool true` (relaunch). Letter Save
+taps write `DRAFT save … result=…` lines to the same log. The visa-games log also records
+`letter ticket unavailable — 遊戲票暫時玩唔到 …` / `… cleared — <reason>` and
+`parent letters — resources … in N ms`.
+
 ## ScopedPlayer log files (v0.3.5+)
 
 The app writes lightweight ScopedPlayer diagnostics (no secrets) to:

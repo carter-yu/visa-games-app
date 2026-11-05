@@ -13,22 +13,28 @@ import VisaCore
 struct ParentSettingsView: View {
     @ObservedObject var model: AppModel
     @State private var showAdvanced = false
+    @StateObject private var letterState = ParentLetterSettingsState()
+    @StateObject private var scrollTrace = ParentScrollViewTrace("ParentSettingsView")
     /// Remembered for this parent visit only. Default 影片 so today's screen does not jump.
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.36.0"
+    static let versionLabel = "Visa Games v0.37.0"
 
     /// v0.21.0: 表現 (Review) is the third parent segment (layout L5).
     private enum ParentLibrary { case videos, games, review }
 
     var body: some View {
+        let _ = scrollTrace.body("tab=\(library) mode=\(model.session.mode) draft=\(letterState.draft != nil)")
         ZStack {
             VStack(spacing: 0) {
                 // v0.21.3: pin 返回 / 離開 above the scroll so TV chrome + banners
                 // never push exit off-screen (one outer ScrollView below).
                 if model.playtestKind == nil {
                     bottomBar
+                    if library == .games {
+                        ParentLetterSettingsSaveBar(model: model, state: letterState)
+                    }
                 }
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -41,7 +47,7 @@ struct ParentSettingsView: View {
                             case .videos:
                                 allowlistSection
                             case .games:
-                                gamesSection
+                                gamesSection(proxy: proxy)
                             case .review:
                                 reviewSection
                             }
@@ -52,11 +58,17 @@ struct ParentSettingsView: View {
                         .padding(.bottom, 32)
                         .frame(maxWidth: 940, alignment: .leading)
                         .frame(maxWidth: .infinity)
+                        .background(ParentScrollProbe(parentID: scrollTrace.id, tab: String(describing: library)))
                     }
                     // D13: after the finder closes, scroll to the new (or 睇吓張卡) card.
                     .onChange(of: model.parentFlashRequest) { _ in
+                        scrollTrace.event("TAB from=\(library) to=videos reason=parentFlashRequest")
                         library = .videos
-                        if let id = model.parentFlashVideoID { proxy.scrollTo(id, anchor: .center) }
+                        letterState.clear()
+                        if let id = model.parentFlashVideoID {
+                            scrollTrace.event("SCROLL_TO reason=parentFlashRequest anchor=center")
+                            proxy.scrollTo(id, anchor: .center)
+                        }
                     }
                 }
             }
@@ -71,6 +83,21 @@ struct ParentSettingsView: View {
         .background(Color(hex: DesignTokens.Palette.paper).ignoresSafeArea())
         .environment(\.canvasMetrics, CanvasMetrics(scale: 1))
         .foregroundStyle(Color.ink)
+        .onAppear {
+            scrollTrace.event("appear tab=\(library) version=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown") build=\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown")")
+            if library == .games { letterState.open(model: model) }
+        }
+        .onChange(of: model.gameAssignment) { _ in
+            if library == .games { letterState.recheck(model: model) }
+        }
+        // Build 78: records cleared or a session (un)excluded — refresh the 90-day history.
+        .onChange(of: model.letterResourcesRevision) { _ in
+            if library == .games { letterState.reloadResources(model: model) }
+        }
+        .onDisappear {
+            scrollTrace.event("disappear tab=\(library)")
+            letterState.clear()
+        }
     }
 
     private var librarySegment: some View {
@@ -99,7 +126,10 @@ struct ParentSettingsView: View {
 
     private func selectLibrary(_ next: ParentLibrary) {
         guard library != next else { return }
+        scrollTrace.event("TAB from=\(library) to=\(next) reason=button")
+        if next == .games { letterState.open(model: model) }
         library = next
+        if next != .games { letterState.clear() }
         model.stopParentPreview()
         VisaGamesLog.append("parent library — \(next)")
         // 表現: build the report once per open, off-main (never from body / onAppear).
@@ -153,7 +183,13 @@ struct ParentSettingsView: View {
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
-    private var gamesSection: some View {
+    /// Build 78: inner card width for the eager rows. The kiosk window is always full screen
+    /// (≥ 1280 pt) and the page content is capped at 940 pt, so this is a constant 852 pt; no
+    /// geometry reader or measured row feeds back into the scroll document.
+    private static let cardWidth = ParentGridColumns.parentContentWidth(
+        viewportWidth: ParentGridColumns.kioskMinimumViewportWidth)
+
+    private func gamesSection(proxy: ScrollViewProxy) -> some View {
         ParentSection(
             title: "遊戲",
             subtitle: "Games · \(ActivityCatalog.playableKinds.count)"
@@ -162,21 +198,23 @@ struct ParentSettingsView: View {
                 if let banner = model.gameAssignmentBanner {
                     ParentBanner(text: banner, fill: Color(hex: DesignTokens.Palette.taxiTicket))
                 }
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 230, maximum: 320), spacing: 18)],
-                    alignment: .leading,
-                    spacing: 22
-                ) {
-                    ForEach(ActivityCatalog.playableKinds, id: \.self) { kind in
-                        ParentGameCard(
-                            kind: kind,
-                            assignment: model.gameAssignment,
-                            isHighlighted: model.playtestHighlightedKind == kind,
-                            playtestedOn: model.parentPlaytestLog.playtestedOn(kind),
-                            onToggleStar: { model.toggleMissionStar(kind: kind, star: $0) },
-                            onPlaytest: { model.startPlaytest(kind: kind) }
-                        )
-                    }
+                // Build 78 (HYPOTHESIS): eager rows replace the adaptive lazy grid
+                // (minimum 230, maximum 320, spacing 18, row spacing 22).
+                ParentEagerRows(
+                    items: ActivityCatalog.playableKinds,
+                    columns: ParentGridColumns(width: Self.cardWidth, minimum: 230, maximum: 320, spacing: 18),
+                    spacing: 18,
+                    rowSpacing: 22
+                ) { kind in
+                    ParentGameCard(
+                        kind: kind,
+                        assignment: model.gameAssignment,
+                        isHighlighted: model.playtestHighlightedKind == kind,
+                        playtestedOn: model.parentPlaytestLog.playtestedOn(kind),
+                        onToggleStar: { model.toggleMissionStar(kind: kind, star: $0) },
+                        onPlaytest: { model.startPlaytest(kind: kind) }
+                    )
+                    .id(kind)
                 }
                 .padding(.bottom, 6)
                 ParentLineMatchSettingsView(
@@ -212,6 +250,11 @@ struct ParentSettingsView: View {
                     onGuidance: { model.setTapCountGuidance($0) },
                     onStrokeOrder: { model.setTapCountStrokeOrder($0) }
                 )
+                ParentTapLetterSettingsView(model: model, state: letterState,
+                    onShowWriteAssignment: {
+                        scrollTrace.event("SCROLL_TO reason=writeAssignment anchor=center")
+                        proxy.scrollTo(ActivityKind.tapLetterWrite, anchor: .center)
+                    })
                 unbuiltRow
             }
         }
@@ -309,14 +352,18 @@ struct ParentSettingsView: View {
                         action: { model.perfToggleUAT() }
                     )
                 }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 12)], alignment: .leading, spacing: 12) {
-                    ForEach(ThemePaletteID.allCases, id: \.self) { palette in
-                        ThemeChip(
-                            pack: ThemePack.forID(palette),
-                            selected: model.themePaletteID == palette,
-                            action: { model.selectTheme(palette) }
-                        )
-                    }
+                // Build 78 (HYPOTHESIS): eager rows replace the adaptive lazy grid (minimum 190, spacing 12).
+                ParentEagerRows(
+                    items: ThemePaletteID.allCases,
+                    columns: ParentGridColumns(width: Self.cardWidth, minimum: 190, spacing: 12),
+                    spacing: 12,
+                    rowSpacing: 12
+                ) { palette in
+                    ThemeChip(
+                        pack: ThemePack.forID(palette),
+                        selected: model.themePaletteID == palette,
+                        action: { model.selectTheme(palette) }
+                    )
                 }
             }
         }
@@ -640,7 +687,10 @@ struct ParentSettingsView: View {
         VisaGamesLog.append("parent advanced — 進階 \(showAdvanced ? "open" : "close")")
         guard showAdvanced else { return }
         // Next main-loop turn, after the content exists; no animation.
-        DispatchQueue.main.async { proxy.scrollTo(Self.advancedAnchor, anchor: .top) }
+        DispatchQueue.main.async {
+            scrollTrace.event("SCROLL_TO reason=advanced anchor=top")
+            proxy.scrollTo(Self.advancedAnchor, anchor: .top)
+        }
     }
 
     private var advancedContent: some View {
@@ -895,7 +945,7 @@ private struct ParentSection<Content: View>: View {
     }
 }
 
-private struct ParentActionButton: View {
+struct ParentActionButton: View {
     let title: String
     let subtitle: String
     let symbol: String
@@ -920,7 +970,8 @@ private struct ParentActionButton: View {
     }
 }
 
-private struct ParentSmallButton: View {
+/// Chunky small action button. Internal from build 79 so the letter picker reuses it (UX M1).
+struct ParentSmallButton: View {
     let title: String
     let symbol: String
     var fill: Color = Color(hex: DesignTokens.Palette.paper)

@@ -199,7 +199,7 @@ TEMPLATES = {
     "setting.value": ("{name}：{new}", "{name}: {new}", ["name", "new"]),
     "setting.name": ("{name}", "{name}", ["name"]),
     "setting.on": ("開咗「{game}」{stars}", "turned on {stars} for \"{game}\"", ["game", "stars"]),
-    "setting.off": ("熄咗「{game}」{stars}", "turned off {stars} for \"{game}\"", ["game", "stars"]),
+    "setting.off": ("關咗「{game}」{stars}", "turned off {stars} for \"{game}\"", ["game", "stars"]),
     "ev.game": ("「{game}」{fact}", "\"{game}\" {fact}", ["game", "fact"]),
     "ev.fuel": ("「{game}」有 {z} 次油用晒", "\"{game}\" ran out of fuel {z} times", ["game", "z"]),
     "ev.fast": ("「{game}」好多次未聽完題目就撳（{f}/{w} 次）",

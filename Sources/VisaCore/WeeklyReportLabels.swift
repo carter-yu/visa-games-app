@@ -22,6 +22,13 @@ public struct WeeklyGlossaryEntry: Sendable, Equatable {
 public enum WeeklyReportLabels {
     /// Label id -> words; `{name}` slots are filled by `text(_:_:)` with the W3 fill rule.
     public static let table: [String: WeeklyWords] = [
+        "letters.focus": WeeklyWords("題目記錄嘅主練字母：{list}。", "Focus letters recorded on deals: {list}."),
+        "letters.review": WeeklyWords("題目記錄嘅溫習字母：{list}。", "Review letters recorded on deals: {list}."),
+        "letters.practised": WeeklyWords("今週實際練過：{list}。", "Actually asked this week: {list}."),
+        "letters.findOnly": WeeklyWords("字母首次答啱只計搵字部分，唔代表寫字熟練度。",
+                                         "Letters right first time counts finding only, not writing mastery."),
+        "letters.savedNoDeal": WeeklyWords("字母設定已改，今週未有新字母題目。",
+                                           "Letter settings changed; no new letter round this week."),
         "head.title": WeeklyWords("VisaGames 每週學習報告",
                         "Weekly report"),
         "head.family": WeeklyWords("家長版，只供家人參考",
@@ -336,7 +343,7 @@ public enum WeeklyReportLabels {
                         " (affects {n} games)"),
         "assign.on": WeeklyWords("{date}開咗「{game}」{stars}。",
                         "{date}: turned on {stars} for \"{game}\"."),
-        "assign.off": WeeklyWords("{date}熄咗「{game}」{stars}。",
+        "assign.off": WeeklyWords("{date}關咗「{game}」{stars}。",
                         "{date}: turned off {stars} for \"{game}\"."),
         "gen.change": WeeklyWords("「{game}」題目來源：{old} → {new}。",
                         "\"{game}\" question source: {old} → {new}."),

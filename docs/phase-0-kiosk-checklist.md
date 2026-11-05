@@ -64,6 +64,7 @@ recorded unless noted.
 | Storage failure | With app closed, back up then corrupt state; relaunch must lock with an error. Parent reset clears the visa. Repeat with unwritable storage. | Store decoding passes; GUI recovery not tested |
 | Display change | Disconnect/reconnect TV and change resolution; window resizes to its screen. | Not tested |
 | Parent corner (v0.9.0) | On lock and play, a tap on the faint bottom-right corner does nothing; a 3-second hold opens the macOS authentication prompt. A visible Parent button appears only in setup or after a storage error. The corner is not cut off by TV overscan. | Pending Mac mini UAT |
+| 字母設定 picker (v0.37.0) | In authenticated Games, edit and cancel, save, then leave/auto-lock and relaunch; check the next new deal uses the saved set and an old paused deal keeps its target. With no eligible letter ticket, the child sees the unavailable ticket and only the three-second corner hold can open parent authentication. Check pen, finger, keyboard, screen reader, 720p scrolling, Reduce Motion and the PDF's long letter lists. | Pending Mac mini UAT; source prepared without Swift |
 | Pen glow monitor (v0.9.0) | The pointer monitor only observes: Escape, Cmd-Q, Cmd-W and Cmd-Tab stay blocked in every child state; taps still reach buttons; the glow never blocks a tap. | Pending Mac mini UAT |
 | Performance export (v0.20.0) | Parent controls → Advanced → 匯出表現 (CSV): files are written to `~/Library/Application Support/VisaGames/stats/exports/…`. Since v0.21.5 (ADR 0011) Finder opens behind the kiosk window; quit with 「離開程式」 to see it. No Finder window is reachable from child screens. | Pending Mac mini UAT |
 | 每週報告 weekly PDF (v0.35.0) | Parent controls → 表現 → 每週報告 → 製作 PDF on last week, then on this week. Then start a make and let the 10-minute auto-lock (or sleep) end parent mode while it says 製作緊…. Expected: the button reads 製作緊… and is off while making; the PDF lands in `stats/exports/weekly/` and Finder is asked to show it, under the kiosk window as for the CSV export (quit with 「離開程式」 to see it); no window, panel or sheet appears over the kiosk at any point, including after the auto-lock (the make is cancelled and `logs/` shows `weekly report — cancelled`); nothing about it is reachable from child screens. | Pending Mac mini UAT |
@@ -82,6 +83,8 @@ recorded unless noted.
 This is an app-level kiosk, not a managed-device security boundary. Presentation
 options and local event filtering are requests to macOS. Their actual effect
 must be measured with the table above.
+
+The letter picker's unavailable ticket uses the same app-level corner authentication. It adds no OS-level lock; the escape paths below apply while that ticket is shown.
 
 - Mission Control, Spaces, Stage Manager, hot corners, system shortcuts,
   Spotlight, Siri, accessibility shortcuts, notification/system overlays,

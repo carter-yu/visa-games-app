@@ -15,7 +15,7 @@ struct ParentTapCountSettingsView: View {
     /// v0.30.0 描數字提示 (多啲 / 標準 / 少啲) and the numerals the child has 識咗 (2 clean traces in a row).
     var learnedNumerals: [Int] = []
     var onGuidance: (TapCountGuidanceLevel) -> Void = { _ in }
-    /// v0.31.0 筆順動畫 (教 / 提 / 熄) for digits.
+    /// v0.31.0 筆順動畫 (教 / 提 / 關) for digits.
     var onStrokeOrder: (StrokeOrderSetting) -> Void = { _ in }
 
     var body: some View {

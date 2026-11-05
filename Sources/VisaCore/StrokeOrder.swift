@@ -32,7 +32,7 @@ public enum StrokeOrderCopy {
         switch setting {
         case .teach: return "教"
         case .remind: return "提"
-        case .off: return "熄"
+        case .off: return ParentToggleCopy.off // Carter's 開／關 wording (build 80)
         }
     }
     public static func detail(_ setting: StrokeOrderSetting) -> String {
@@ -42,7 +42,7 @@ public enum StrokeOrderCopy {
         case .remind:
             return "提（預設）：數字亮起時筆仔寫一次（約 2 秒，靜音）；識咗嘅快啲；描之前閃 3 次就收 · Remind (default): the pen writes the number as it lights up (about 2 s, silent); quicker once learned; 3 quick glances before tracing, then none"
         case .off:
-            return "熄：唔用筆仔，同 v0.30 一樣 · Off: no pen, as in v0.30"
+            return "關：唔用筆仔，同 v0.30 一樣 · Off: no pen, as in v0.30"
         }
     }
 }

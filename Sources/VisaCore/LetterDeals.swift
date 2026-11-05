@@ -221,4 +221,29 @@ public enum LetterBoardBuilder {
         }
         return LetterBoard(target: target, letters: letters, rows: [first, [first[1], first[2], first[3], first[4], first[0]]])
     }
+
+    public static func makeScoped(seed: String, target: String, mirrorGuard: Bool,
+                                  progress: LetterProgress, legalLetters: [String]) -> LetterBoard? {
+        guard legalLetters.contains(target) else { return nil }
+        let blocked = mirrorGuard && progress.state(for: target).cleanRounds == 0
+            ? Set((partners[target] ?? "").map(String.init)) : []
+        let confusables = ["b":"dpqa", "d":"bpqac", "c":"oeadb", "n":"umhr", "u":"nv", "f":"t", "h":"nb"]
+        let candidates = (confusables[target] ?? "").map(String.init) + legalLetters.sorted()
+        var letters = [target]
+        for letter in candidates where letters.count < 5 && letter != target && !blocked.contains(letter) &&
+            legalLetters.contains(letter) && !letters.contains(letter) { letters.append(letter) }
+        guard letters.count == 5 else { return nil }
+        var rng = QuestionRNG(seed: seed, salt: "letter-board-v2-\(target)")
+        for _ in 0..<50 {
+            let rows = [rng.shuffled(letters), rng.shuffled(letters)]
+            if rows[0] != rows[1], rows[0].firstIndex(of: target) != rows[1].firstIndex(of: target),
+               !rows.contains(Array("abcde").map(String.init)), !rows.contains(Array("edcba").map(String.init)),
+               !rows.contains(letters), !rows.contains(Array(letters.reversed())) {
+                return LetterBoard(target: target, letters: letters, rows: rows)
+            }
+        }
+        let first = [letters[2], letters[4], letters[0], letters[3], letters[1]]
+        let second = [first[1], first[2], first[3], first[4], first[0]]
+        return LetterBoard(target: target, letters: letters, rows: [first, second])
+    }
 }

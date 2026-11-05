@@ -22,6 +22,13 @@ public enum LatinGlyphs {
     public static let laneInkWidth: Double = 46
     public static let supported: [Character] = ["a", "b", "c", "d", "e", "f", "g", "h", "k", "o", "u"]
 
+    /// True when `letter` (one character) has authored centre lines. Parent screens use this
+    /// to show a rounded-font placeholder for the other letters (build 80); child rendering
+    /// and readiness never consult it.
+    public static func hasPaths(_ letter: String) -> Bool {
+        letter.count == 1 && letter.first.map { supported.contains($0) } == true
+    }
+
     private static func p(_ x: Double, _ y: Double) -> LineMatchPoint { LineMatchPoint(x: x, y: y) }
 
     /// Learning Without Tears default order. Unsupported characters have no strokes.
