@@ -25,11 +25,30 @@ public struct PracticePickerAvailability: Sendable, Equatable {
 public struct PracticePickerPreset: Sendable, Equatable {
     public let id: String
     public let label: String
-    /// Smaller English/source line under the label (presentation only; build 79).
+    /// Smaller English/source line under the label, e.g. "ABC group · 5 letters"
+    /// (presentation only; build 79, counts since 80).
     public let subtitle: String
+    /// The label is the item list itself ("f g h i j"), so the button headline shows only
+    /// the ready items (mockup 01: "f g h"). Presentation only (build 80); IDs and the
+    /// apply step are unchanged.
+    public let listsItems: Bool
     public let itemIDs: [String]
-    public init(id: String, label: String, subtitle: String = "", itemIDs: [String]) {
-        self.id = id; self.label = label; self.subtitle = subtitle; self.itemIDs = itemIDs
+    public init(id: String, label: String, subtitle: String = "", listsItems: Bool = false, itemIDs: [String]) {
+        self.id = id; self.label = label; self.subtitle = subtitle; self.listsItems = listsItems
+        self.itemIDs = itemIDs
+    }
+}
+
+/// What a preset button says (build 80, UX m4 / review nit): the ready items for list-style
+/// presets, the source group/count line, and the group's items that are not ready.
+public struct PracticePickerPresetLabel: Sendable, Equatable {
+    public let headline: String
+    public let source: String
+    /// Not-ready item labels joined with 「、」, empty when the whole group is ready.
+    public let omitted: String
+
+    public init(headline: String, source: String, omitted: String) {
+        self.headline = headline; self.source = source; self.omitted = omitted
     }
 }
 
@@ -61,6 +80,20 @@ public struct PracticePickerModel: Sendable {
     public func isSelectable(_ id: String) -> Bool {
         items.contains { $0.id == id && $0.role == .target } &&
             !(availabilityByItem[id]?.consumers.isEmpty ?? true)
+    }
+
+    /// The button wording for one preset. Uses the same preview as the apply step, so the
+    /// headline never shows an item that applying would drop. A list-style preset with no
+    /// ready item keeps its full label (the button is disabled anyway).
+    public func label(forPreset id: String) -> PracticePickerPresetLabel? {
+        guard let preset = presets.first(where: { $0.id == id }), let preview = previewPreset(id) else { return nil }
+        func labels(_ ids: [String]) -> [String] {
+            ids.map { id in items.first(where: { $0.id == id })?.label ?? id }
+        }
+        let headline = preset.listsItems && !preview.includedIDs.isEmpty
+            ? labels(preview.includedIDs).joined(separator: " ") : preset.label
+        return PracticePickerPresetLabel(headline: headline, source: preset.subtitle,
+                                         omitted: labels(preview.omittedIDs).joined(separator: "、"))
     }
 
     public func previewPreset(_ id: String) -> PracticePickerPresetPreview? {

@@ -6,9 +6,10 @@ import VisaCore
 final class ParentLetterSettingsState: ObservableObject {
     private let diagnosticID = UUID()
     @Published private(set) var draft: LetterPickerDraft?
-    @Published private(set) var notice: String?
+    /// Save feedback in HK Chinese + English (build 80); set by the same paths as before.
+    @Published private(set) var notice: LetterPickerMessage?
     @Published private(set) var repairCorrupt = false
-    @Published private(set) var saveCheck = LetterPickerSaveCheck(reason: LetterPickerStatus.loadingLetters)
+    @Published private(set) var saveCheck = LetterPickerSaveCheck(message: LetterPickerSaveCheck.loading)
     /// True while the bank/history snapshot is built off the main thread (build 78).
     @Published private(set) var isLoading = false
     private(set) var history: [String] = []
@@ -62,7 +63,7 @@ final class ParentLetterSettingsState: ObservableObject {
         let generation = loadGeneration
         isLoading = true
         resources = nil
-        saveCheck = LetterPickerSaveCheck(reason: LetterPickerStatus.loadingLetters)
+        saveCheck = LetterPickerSaveCheck(message: LetterPickerSaveCheck.loading)
         model.withLetterPickerResources { [weak self, weak model] resources in
             guard let self, let model, generation == self.loadGeneration, self.isLoading else { return }
             self.isLoading = false
@@ -88,7 +89,9 @@ final class ParentLetterSettingsState: ObservableObject {
                 }
                 return path.groups.enumerated().map { index, letters in
                     PracticePickerPreset(id: "school.\(path.rawValue).\(index + 1)",
-                        label: letters.joined(separator: " "), subtitle: "\(title) \(index + 1)", itemIDs: letters)
+                        label: letters.joined(separator: " "),
+                        subtitle: "\(title) \(index + 1) · \(letters.count) letters", listsItems: true,
+                        itemIDs: letters)
                 }
             }
             presets = basePicker.presets + [PracticePickerPreset(id: "practised90",
@@ -117,7 +120,7 @@ final class ParentLetterSettingsState: ObservableObject {
         capabilities = [:]
         basePicker = nil
         presets = []
-        saveCheck = LetterPickerSaveCheck(reason: LetterPickerStatus.loadingLetters)
+        saveCheck = LetterPickerSaveCheck(message: LetterPickerSaveCheck.loading)
     }
 
     func change(model: AppModel, _ edit: (inout LetterPickerDraft) -> Void) {
@@ -154,7 +157,7 @@ final class ParentLetterSettingsState: ObservableObject {
     func recheck(model: AppModel) {
         guard let draft else { return }
         guard !isLoading else {
-            saveCheck = LetterPickerSaveCheck(reason: LetterPickerStatus.loadingLetters)
+            saveCheck = LetterPickerSaveCheck(message: LetterPickerSaveCheck.loading)
             return
         }
         saveCheck = LetterPickerSaveCheck.evaluate(draft.value, availability: capabilities,
@@ -174,7 +177,7 @@ final class ParentLetterSettingsState: ObservableObject {
         }
         recheck(model: model)
         guard saveCheck.canSave else {
-            notice = saveCheck.reason
+            notice = saveCheck.message
             ParentScrollDiagnostics.record("DRAFT save result=blocked state=\(diagnosticID) reason=\(saveCheck.reason ?? "none")")
             return
         }
@@ -182,18 +185,18 @@ final class ParentLetterSettingsState: ObservableObject {
             let saved = try model.saveLetterSelection(draft.value, resources: resources, repairCorruptV2: repairCorrupt)
             draft.acceptSaved(saved)
             self.draft = draft
-            notice = "儲存咗，下局開始用。"
+            notice = LetterPickerSaveCheck.saved
             repairCorrupt = false
             recheck(model: model)
             ParentScrollDiagnostics.record("DRAFT save result=saved state=\(diagnosticID) revision=\(saved.revision) focusCount=\(saved.focusLetters.count) reviewEvery=\(saved.reviewEvery)")
         } catch let error as LetterSelectionSettings.ValidationError {
-            notice = LetterPickerSaveCheck.reason(for: error)
+            notice = LetterPickerSaveCheck.message(for: error)
             ParentScrollDiagnostics.record("DRAFT save result=invalid state=\(diagnosticID) error=\(error)")
         } catch let error as LetterSelectionSettingsStore.StoreError {
-            notice = LetterPickerSaveCheck.reason(for: error)
+            notice = LetterPickerSaveCheck.message(for: error)
             ParentScrollDiagnostics.record("DRAFT save result=storeError state=\(diagnosticID) error=\(error)")
         } catch {
-            notice = "儲存失敗，請再試吓。"
+            notice = LetterPickerSaveCheck.saveFailed
             ParentScrollDiagnostics.record("DRAFT save result=error state=\(diagnosticID) error=\(String(describing: type(of: error)))")
         }
     }
@@ -230,15 +233,22 @@ struct ParentLetterSettingsSaveBar: View {
                                    action: { state.save(model: model) })
                     .disabled(!state.saveCheck.canSave)
                     .opacity(state.saveCheck.canSave ? 1 : 0.45)
-                    .accessibilityHint(state.saveCheck.reason ?? "儲存後下局開始用 / Applies next round")
+                    .accessibilityHint(state.saveCheck.message.map { "\($0.zh) / \($0.en)" }
+                        ?? "儲存後下局開始用 / Applies next round")
             }
             .frame(height: 60)
-            if let message = state.saveCheck.reason ?? state.notice {
-                ParentLabel(message, size: 14, weight: 700)
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: 38, alignment: .top)
-                    .accessibilityLabel(message)
+            // UX m5 (build 80): block reasons, storage errors and save notices in both languages.
+            if let message = state.saveCheck.message ?? state.notice {
+                VStack(alignment: .leading, spacing: 1) {
+                    ParentLabel(message.zh, size: 14, weight: 700)
+                    ParentLabel(message.en, size: 11, weight: 600, color: .inkSoft)
+                }
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 38, alignment: .top)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(message.zh) / \(message.en)")
             } else {
                 // design D11: 「未儲存嘅改動唔會套用。」 near the action row (UX m6).
                 VStack(alignment: .leading, spacing: 1) {
@@ -283,7 +293,7 @@ struct ParentTapLetterSettingsView: View {
                 ParentLabel("Practice letters", size: 12, weight: 700, color: .inkSoft)
             }
             VStack(alignment: .leading, spacing: 2) {
-                ParentLabel("撳一下亮燈，再撳一下熄燈。最少揀 1 個；想集中練習，可以先揀 3–5 個。",
+                ParentLabel("撳一下亮燈，再撳一下關燈。最少揀 1 個；想集中練習，可以先揀 3–5 個。",
                             size: 13, weight: 800)
                     .fixedSize(horizontal: false, vertical: true)
                 ParentLabel("Tap a tile to light it up; tap again to switch it off. Choose at least 1; to focus, start with 3–5.",
@@ -315,40 +325,32 @@ struct ParentTapLetterSettingsView: View {
                     state.chooseRepair(model: model)
                 }
             }
-            if let picker = state.picker, state.draft != nil {
+            if let picker = state.picker, let sections = loadedSections {
                 ParentPracticeItemPicker(model: picker, selectedIDs: Binding(
                     get: { state.selected }, set: { newValue in
                         guard let id = state.selected.symmetricDifference(newValue).first else { return }
                         state.change(model: model) { $0.toggleFocus(id) }
                     }), symbol: { item in
-                        LatinLetterGlyph(letter: item.label, ink: .ink, lineWidth: 24)
+                        ParentLetterSymbol(letter: item.label, fallbackSize: 34)
                     }, capability: { _, availability in
                         Self.badge(for: availability)
                     }, capabilityLegend: [Self.findAndWriteBadge, Self.findOnlyBadge],
                     columns: Self.columns,
                     primaryPresetCount: 3, secondaryPresetTitle: "按學校次序", secondaryPresetEnglish: "School sequence",
                     placeholderAction: ParentPickerPlaceholderAction(
-                        title: "睇吓練習建議", subtitle: "Review suggestions · 未開放",
-                        help: "練習建議未開放：要等有足夠嘅練習紀錄先會開放。/ Review suggestions aren't available yet; they need enough practice records."),
+                        title: "睇吓練習建議", subtitle: "Review suggestions", note: "呢個版本未有 · Not in this build",
+                        help: "呢個版本未有練習建議。/ Review suggestions aren't available in this build."),
                     onReplace: { preview, id in
                         state.change(model: model) { $0.replaceFocus(preview.includedIDs, source: id) }
                     })
-                VStack(alignment: .leading, spacing: 1) {
-                    ParentLabel("有玩過，唔代表已經熟晒。", size: 12, weight: 700, color: .inkSoft)
-                    ParentLabel("Played before doesn't mean mastered.", size: 11, weight: 600, color: .inkSoft)
-                }
-                summary
-                reviewControls
-                moreSettings
-                VStack(alignment: .leading, spacing: 1) {
-                    ParentLabel("儲存、取消同還原喺頁頂。", size: 12, weight: 600, color: .inkSoft)
-                    ParentLabel("Save, Cancel and Revert are pinned at the top.", size: 11, weight: 600, color: .inkSoft)
-                }
+                belowGrid(sections, interactive: true)
             } else if state.isLoading {
-                // UX n2: same preset / legend / tile sizes as the picker, so the page doesn't jump.
+                // Build 80 (UX n2): the whole loaded card structure, drawn from the saved settings
+                // the draft will start from, so loading → loaded keeps one height.
                 ParentPracticeItemPickerPlaceholder(itemCount: Self.letterCount, columns: Self.columns, presetCount: 4,
                                                     message: LetterPickerStatus.loadingLetters,
                                                     english: LetterPickerStatus.loadingLettersEnglish)
+                belowGrid(provisionalSections, interactive: false)
             } else {
                 ParentBanner(text: "字母卡讀唔到，暫時儲存唔到。\nThe letter cards couldn't be read, so Save isn't available.",
                              fill: Color(hex: DesignTokens.Palette.sand))
@@ -381,12 +383,65 @@ struct ParentTapLetterSettingsView: View {
         }
     }
 
-    /// Outlined panel with letter chips per game (UX n4, mockup 01).
-    private var summary: some View {
-        let find = state.draft?.value.focusLetters.filter { state.capabilities[$0]?.canFind == true } ?? []
-        let write = state.draft?.value.focusLetters.filter { state.capabilities[$0]?.canWrite == true } ?? []
-        let unavailable = state.draft?.value.focusLetters.filter { state.capabilities[$0]?.canFind != true } ?? []
-        let findOnly = find.filter { !write.contains($0) }
+    // MARK: Sections below the grid (build 80: one layout while loading and when loaded)
+
+    /// What the sections below the grid show. Loaded: the draft and the loaded capabilities.
+    /// Loading: the saved settings the draft will start from (known before the off-main load,
+    /// same source as `ParentLetterSettingsState.install`), letters not resolved per game yet.
+    /// The per-game split and its warnings are VisaCore `LetterSelectionSummary`.
+    private struct Sections {
+        var summary: LetterSelectionSummary
+        var reviewOn: Bool
+        var reviewLetters: [String]
+        var reviewFind: [String]
+        var reviewWrite: [String]
+        var mirrorGuard: Bool
+        var resolved: Bool { summary.resolved }
+        var focus: [String] { summary.focus }
+    }
+
+    private var loadedSections: Sections? {
+        guard let value = state.draft?.value else { return nil }
+        return Sections(summary: LetterSelectionSummary(focus: value.focusLetters, capabilities: state.capabilities),
+                        reviewOn: value.reviewEvery == 4, reviewLetters: value.reviewLetters,
+                        reviewFind: review(for: .tapLetterAll), reviewWrite: review(for: .tapLetterWrite),
+                        mirrorGuard: value.mirrorGuard)
+    }
+
+    private var provisionalSections: Sections {
+        let value = model.letterParentLoad.effective ?? .defaults
+        return Sections(summary: .loading(focus: value.focusLetters),
+                        reviewOn: value.reviewEvery == 4, reviewLetters: value.reviewLetters,
+                        reviewFind: [], reviewWrite: [], mirrorGuard: value.mirrorGuard)
+    }
+
+    /// Footnote, summary, review, more settings and footer, in that order, for both states.
+    /// While loading they are dimmed and inactive; only their content differs, not their layout.
+    @ViewBuilder
+    private func belowGrid(_ sections: Sections, interactive: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            ParentLabel("有玩過，唔代表已經熟晒。", size: 12, weight: 700, color: .inkSoft)
+            ParentLabel("Played before doesn't mean mastered.", size: 11, weight: 600, color: .inkSoft)
+        }
+        summary(sections)
+            .opacity(interactive ? 1 : 0.55)
+        reviewControls(sections)
+            .disabled(!interactive)
+            .opacity(interactive ? 1 : 0.55)
+        moreSettings(sections)
+            .disabled(!interactive)
+            .opacity(interactive ? 1 : 0.55)
+        VStack(alignment: .leading, spacing: 1) {
+            ParentLabel("儲存、取消同還原喺頁頂。", size: 12, weight: 600, color: .inkSoft)
+            ParentLabel("Save, Cancel and Revert are pinned at the top.", size: 11, weight: 600, color: .inkSoft)
+        }
+    }
+
+    /// Outlined panel with letter chips per game (UX n4, mockup 01). Each row reserves chip
+    /// rows for the whole focus set, and every capability warning shares one fixed status row
+    /// (fix round 1), so loading and loaded panels are the same height for any selection.
+    private func summary(_ sections: Sections) -> some View {
+        let summary = sections.summary
         let writeAssigned = !model.gameAssignment.isHiddenFromMissions(.tapLetterWrite)
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
@@ -397,39 +452,52 @@ struct ParentTapLetterSettingsView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
             summaryDivider
-            summaryRow(title: "翻字卡", english: "Find & flip", letters: find)
+            summaryRow(title: "翻字卡", english: "Find & flip", letters: summary.find,
+                       resolved: summary.resolved, chipRows: summary.chipRows)
             summaryDivider
-            summaryRow(title: "搵完寫", english: "Find & write", letters: write)
-            if !findOnly.isEmpty || !unavailable.isEmpty || write.isEmpty {
-                summaryDivider
-                VStack(alignment: .leading, spacing: 4) {
-                    if !findOnly.isEmpty {
-                        ParentLabel("\(list(findOnly)) 暫時只可以搵，未可以寫。", size: 12, weight: 800)
-                        ParentLabel("\(list(findOnly)): find only for now.", size: 11, weight: 600, color: .inkSoft)
-                    }
-                    if !unavailable.isEmpty {
-                        ParentLabel("已揀・暫停：\(list(unavailable))。儲存之前要移除。", size: 12, weight: 800)
-                        ParentLabel("Selected · unavailable: remove before saving.", size: 11, weight: 600,
-                                    color: .inkSoft)
-                    }
-                    if write.isEmpty {
-                        ParentLabel("呢組暫時玩唔到『搵完寫』。", size: 12, weight: 800)
-                        ParentLabel("This set can't play Find & write yet.", size: 11, weight: 600, color: .inkSoft)
-                        if writeAssigned {
-                            ParentSmallButton(title: "返去搵完寫遊戲卡 / Go to the Find & write card",
-                                              symbol: "arrow.up") {
-                                onShowWriteAssignment()
-                            }
-                            .padding(.top, 2)
-                        }
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-            }
+            summaryRow(title: "搵完寫", english: "Find & write", letters: summary.write,
+                       resolved: summary.resolved, chipRows: summary.chipRows)
+            summaryDivider
+            summaryStatus(summary, showRecovery: summary.writeEmpty && writeAssigned)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .modifier(ChunkyPanel(fill: .white, cornerRadius: 12, shadowDepth: 3, lineWidth: 2))
+    }
+
+    /// Fits two text lines and the chunky recovery button.
+    private static let statusRowHeight: CGFloat = 44
+
+    /// Always present: loading, every warning joined (已揀・暫停 / find only / nothing to
+    /// write), or all clear. The 搵完寫 recovery button sits on the right of the same row.
+    private func summaryStatus(_ summary: LetterSelectionSummary, showRecovery: Bool) -> some View {
+        let status = summary.status
+        let icon = !summary.resolved ? "hourglass"
+            : summary.hasWarning ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
+        let tint = summary.hasWarning ? Color(hex: DesignTokens.Palette.tomato) : Color.inkSoft
+        return HStack(alignment: .center, spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(tint)
+                .frame(width: 18)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                ParentLabel(status.zh, size: 12, weight: 800, color: summary.hasWarning ? .ink : .inkSoft)
+                ParentLabel(status.en, size: 11, weight: 600, color: .inkSoft)
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(status.zh) / \(status.en)")
+            Spacer(minLength: 8)
+            if showRecovery {
+                ParentSmallButton(title: "返去搵完寫遊戲卡 / Go to the Find & write card", symbol: "arrow.up") {
+                    onShowWriteAssignment()
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: Self.statusRowHeight)
     }
 
     private var summaryDivider: some View {
@@ -438,8 +506,14 @@ struct ParentTapLetterSettingsView: View {
             .frame(height: 1.5)
     }
 
-    private func summaryRow(title: String, english: String, letters: [String]) -> some View {
-        HStack(alignment: .center, spacing: 10) {
+    private static let chipSize = CGSize(width: 26, height: 28)
+    private static let chipSpacing: CGFloat = 4
+
+    private func summaryRow(title: String, english: String, letters: [String], resolved: Bool,
+                            chipRows: Int) -> some View {
+        let reserved = CGFloat(chipRows) * Self.chipSize.height + CGFloat(chipRows - 1) * Self.chipSpacing
+        let perRow = LetterSelectionSummary.chipsPerRow
+        return HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 0) {
                 ParentLabel(title, size: 14, weight: 900)
                 ParentLabel("\(english) · focus targets", size: 11, weight: 700, color: .inkSoft)
@@ -448,37 +522,47 @@ struct ParentTapLetterSettingsView: View {
             if letters.isEmpty {
                 ParentLabel("無 / None", size: 13, weight: 800, color: .inkSoft)
             } else {
-                VStack(alignment: .trailing, spacing: 4) {
-                    ForEach(0..<((letters.count + 12) / 13), id: \.self) { row in
-                        HStack(spacing: 4) {
-                            ForEach(Array(letters.dropFirst(row * 13).prefix(13)), id: \.self) { letter in
-                                letterChip(letter)
+                VStack(alignment: .trailing, spacing: Self.chipSpacing) {
+                    ForEach(0..<((letters.count + perRow - 1) / perRow), id: \.self) { row in
+                        HStack(spacing: Self.chipSpacing) {
+                            ForEach(Array(letters.dropFirst(row * perRow).prefix(perRow)), id: \.self) { letter in
+                                letterChip(resolved ? letter : nil)
                             }
                         }
                     }
                 }
-                ParentLabel("\(letters.count) 個", size: 11, weight: 700, color: .inkSoft)
+                ParentLabel(resolved ? "\(letters.count) 個" : "…", size: 11, weight: 700, color: .inkSoft)
             }
         }
+        .frame(minHeight: reserved)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title) / \(english)：\(list(letters))")
+        .accessibilityLabel(resolved ? "\(title) / \(english)：\(list(letters))"
+            : "\(title) / \(english)：\(LetterPickerStatus.loadingLetters)")
     }
 
-    private func letterChip(_ letter: String) -> some View {
-        LatinLetterGlyph(letter: letter, ink: .ink, lineWidth: 24)
-            .frame(width: 16, height: 20)
-            .frame(width: 26, height: 28)
-            .background(RoundedRectangle(cornerRadius: 7).fill(Color(hex: DesignTokens.Palette.sunnyPale)))
-            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color.ink, lineWidth: 2))
-            .accessibilityHidden(true)
+    /// A blank chip (no letter) while the cards load.
+    private func letterChip(_ letter: String?) -> some View {
+        ZStack {
+            if let letter {
+                ParentLetterSymbol(letter: letter, fallbackSize: 16)
+                    .frame(width: 16, height: 20)
+            }
+        }
+        .frame(width: Self.chipSize.width, height: Self.chipSize.height)
+        .background(RoundedRectangle(cornerRadius: 7).fill(Color(hex: DesignTokens.Palette.sunnyPale)))
+        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color.ink, lineWidth: 2))
+        .accessibilityHidden(true)
     }
 
-    private var reviewControls: some View {
-        let on = state.draft?.value.reviewEvery == 4
-        let canTurnOn = !(state.candidates.isEmpty && (state.draft?.value.reviewLetters.isEmpty ?? true))
-        let reviewLetters = state.draft?.value.reviewLetters ?? []
+    private func reviewControls(_ sections: Sections) -> some View {
+        let on = sections.reviewOn
+        let canTurnOn = sections.resolved
+            && !(state.candidates.isEmpty && (state.draft?.value.reviewLetters.isEmpty ?? true))
+        let reviewLetters = sections.reviewLetters
+        let findReview = sections.resolved ? list(sections.reviewFind) : LetterPickerStatus.loadingLetters
+        let writeReview = sections.resolved ? list(sections.reviewWrite) : LetterPickerStatus.loadingLetters
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center, spacing: 10) {
                 VStack(alignment: .leading, spacing: 0) {
@@ -486,25 +570,29 @@ struct ParentTapLetterSettingsView: View {
                     ParentLabel("Review other letters", size: 11, weight: 700, color: .inkSoft)
                 }
                 Spacer(minLength: 8)
-                ParentChoiceButton(title: "熄 · 只練揀咗嘅", subtitle: "Off · selected only", selected: !on) {
+                ParentChoiceButton(title: "\(ParentToggleCopy.off) · 只練揀咗嘅", subtitle: "Off · selected only",
+                                   selected: !on) {
                     state.change(model: model) { $0.setReviewEvery(0, candidates: []) }
                 }
                 ParentChoiceButton(title: "每 4 局最多 1 局", subtitle: "Up to 1 in 4 rounds", selected: on) {
                     state.change(model: model) { $0.setReviewEvery(4, candidates: state.candidates) }
                 }
                 .disabled(!canTurnOn)
-                .opacity(canTurnOn ? 1 : 0.45)
+                .opacity(canTurnOn || !sections.resolved ? 1 : 0.45)
             }
             if on {
-                ParentLabel("題目會包括：主練 \(list(state.draft?.value.focusLetters ?? []))；每 4 局最多 1 局溫 \(list(reviewLetters))。",
+                ParentLabel("題目會包括：主練 \(list(sections.focus))；每 4 局最多 1 局溫 \(list(reviewLetters))。",
                             size: 12, weight: 800)
                     .fixedSize(horizontal: false, vertical: true)
-                ParentLabel("翻字卡溫習：\(list(review(for: .tapLetterAll)))；搵完寫溫習：\(list(review(for: .tapLetterWrite)))。",
+                // One line each in both states (loading shows 「字母卡載入中…」 here).
+                ParentLabel("翻字卡溫習：\(findReview)；搵完寫溫習：\(writeReview)。",
                             size: 12, weight: 600, color: .inkSoft)
-                    .fixedSize(horizontal: false, vertical: true)
-                ParentLabel("Review in Find & flip: \(list(review(for: .tapLetterAll))); in Find & write: \(list(review(for: .tapLetterWrite))).",
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                ParentLabel("Review in Find & flip: \(sections.resolved ? list(sections.reviewFind) : "…"); in Find & write: \(sections.resolved ? list(sections.reviewWrite) : "…").",
                             size: 11, weight: 600, color: .inkSoft)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(0..<((reviewLetters.count + 9) / 10), id: \.self) { row in
                         HStack(spacing: 8) {
@@ -531,8 +619,9 @@ struct ParentTapLetterSettingsView: View {
         }
     }
 
-    /// UX M2: the 進階 full-width button pattern (no stock disclosure); mirror guard as a 開 / 熄 pill (M1).
-    private var moreSettings: some View {
+    /// UX M2: the 進階 full-width button pattern (no stock disclosure); mirror guard as a
+    /// 開／關 pill (M1; Carter's wording, build 80).
+    private func moreSettings(_ sections: Sections) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             ParentDisclosureButton(title: "更多字母設定", english: "More letter settings", isOpen: showMore) {
                 showMore.toggle()
@@ -542,7 +631,7 @@ struct ParentTapLetterSettingsView: View {
                     title: "鏡像字母保護：新字母先避開易混淆嘅卡",
                     english: "Mirror guard: ease in with fewer lookalikes",
                     detail: "b 同 d 都可以揀。個字母要有一局唔使幫又搵啱晒，先會同易混淆嘅卡放埋一版；之後點錯或者用提示，就開返保護。\nb and d can both be chosen. A letter meets its lookalikes only after one clean find with no help; a miss or hint turns the guard back on.",
-                    on: state.draft?.value.mirrorGuard ?? true) { value in
+                    on: sections.mirrorGuard) { value in
                     state.change(model: model) { $0.setMirrorGuard(value) }
                 }
             }
@@ -565,4 +654,28 @@ struct ParentTapLetterSettingsView: View {
         state.draft?.value.review(for: kind, availability: state.capabilities) ?? []
     }
     private func list(_ letters: [String]) -> String { letters.isEmpty ? "無" : letters.joined(separator: "、") }
+}
+
+/// Parent-only letter symbol (build 80). Letters with authored centre lines use the same
+/// `LatinLetterGlyph` as before. The 15 letters without paths (i j l m n p q r s t v w x y z)
+/// would draw nothing, so parent tiles and chips show them in the app's rounded font instead.
+/// Child boards keep `LatinLetterGlyph`; readiness never looks at this view.
+struct ParentLetterSymbol: View {
+    let letter: String
+    /// Point size of the text fallback (tiles 34, summary chips 16).
+    let fallbackSize: CGFloat
+
+    var body: some View {
+        if LatinGlyphs.hasPaths(letter) {
+            LatinLetterGlyph(letter: letter, ink: .ink, lineWidth: 24)
+        } else {
+            Text(letter)
+                .font(CanvasFont.font(size: fallbackSize, weight: 700))
+                .foregroundStyle(Color.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityLabel(letter)
+        }
+    }
 }

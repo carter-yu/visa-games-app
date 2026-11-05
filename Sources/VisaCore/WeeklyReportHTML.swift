@@ -1241,7 +1241,7 @@ extension WeeklyReportHTML {
             out += li(label("letters.focus", ["list": same(c.report.letterFocusScopes.joined(separator: " → "))]))
         }
         if !c.report.letterReviewScopes.isEmpty {
-            let zh = c.report.letterReviewScopes.map { $0.isEmpty ? "熄" : $0 }.joined(separator: " → ")
+            let zh = c.report.letterReviewScopes.map { $0.isEmpty ? ParentToggleCopy.off : $0 }.joined(separator: " → ")
             let en = c.report.letterReviewScopes.map { $0.isEmpty ? "Off" : $0 }.joined(separator: " → ")
             out += li(label("letters.review", ["list": WeeklyWords(zh, en)]))
         }

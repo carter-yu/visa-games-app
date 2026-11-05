@@ -5,15 +5,25 @@ import VisaCore
 /// so the grid area keeps one height while the cards load. Nine columns per design D2 /
 /// picker-spec `preferredColumns`: 9 × 84 pt + 8 × 8 pt = 820 pt, the letter card's inner
 /// width (852 pt section − 2 × 16 pt panel padding). 84 × 92 pt stays above the 64 pt target.
+/// Build 80: every block the loaded picker draws has a fixed height (presets, disclosure,
+/// legend, tiles, the grid-note slot), so the loading placeholder can match it exactly.
 enum ParentPickerMetrics {
     static let tileWidth: CGFloat = 84
     static let tileHeight: CGFloat = 92
     static let tileSpacing: CGFloat = 8
     static let tileCorner: CGFloat = 12
-    static let presetHeight: CGFloat = 54
+    /// Three lines: headline, source / count, and the not-ready note (mockup 01).
+    static let presetHeight: CGFloat = 62
     static let presetSpacing: CGFloat = 10
     static let disclosureHeight: CGFloat = 44
     static let legendHeight: CGFloat = 60
+    /// One two-line note (HK Chinese + English) under the grid.
+    static let noteSlotHeight: CGFloat = 38
+    /// Fix round 1: both notes (已揀・暫停 and 未開放) are always reserved under the grid.
+    static let noteSlotCount = 2
+    static var notesHeight: CGFloat {
+        CGFloat(noteSlotCount) * noteSlotHeight + CGFloat(noteSlotCount - 1) * tileSpacing
+    }
     static let sectionSpacing: CGFloat = 12
 }
 
@@ -30,6 +40,8 @@ struct ParentPickerBadge {
 struct ParentPickerPlaceholderAction {
     let title: String
     let subtitle: String
+    /// Third line, e.g. 「呢個版本未有 · Not in this build」.
+    let note: String
     let help: String
 }
 
@@ -243,49 +255,56 @@ struct ParentPracticeItemPicker<Symbol: View>: View {
         }
     }
 
+    /// Mockup 01: ready items prominent ("f g h"), then the source group / count, then the
+    /// group's not-ready items. Wording from `PracticePickerModel.label(forPreset:)` (build 80).
     private func presetButton(_ preset: PracticePickerPreset) -> some View {
-        let preview = model.previewPreset(preset.id)
-        let canApply = preview?.canApply == true
-        let omitted = preview?.omittedIDs ?? []
-        let note = omitted.isEmpty ? preset.subtitle
-            : [preset.subtitle, "\(names(omitted)) 未開放"].filter { !$0.isEmpty }.joined(separator: " · ")
+        let canApply = model.previewPreset(preset.id)?.canApply == true
+        let wording = model.label(forPreset: preset.id)
+            ?? PracticePickerPresetLabel(headline: preset.label, source: preset.subtitle, omitted: "")
+        let note = wording.omitted.isEmpty ? "" : "\(wording.omitted) 未開放 · not ready"
+        let spoken = [wording.headline, wording.source, note].filter { !$0.isEmpty }.joined(separator: " / ")
         return Button { previewID = preset.id } label: {
-            presetLabel(title: preset.label, subtitle: note)
+            presetLabel(title: wording.headline, subtitle: wording.source, note: note)
         }
         .buttonStyle(ChunkyButtonStyle(
             fill: previewID == preset.id ? Color(hex: DesignTokens.Palette.sunnyPale) : Color(hex: DesignTokens.Palette.paper),
             cornerRadius: 12, shadowDepth: 3, lineWidth: 2))
         .disabled(!canApply)
         .opacity(canApply ? 1 : 0.5)
-        .accessibilityLabel(note.isEmpty ? preset.label : "\(preset.label) / \(note)")
+        .accessibilityLabel(spoken)
         .accessibilityHint("預覽之後可以換走今次選擇 / Preview, then replace this selection")
         .help(canApply ? "預覽呢組 / Preview this group" : "呢組暫時冇可以揀嘅 / Nothing in this group is ready yet")
     }
 
     private func placeholderButton(_ action: ParentPickerPlaceholderAction) -> some View {
         Button(action: {}) {
-            presetLabel(title: action.title, subtitle: action.subtitle)
+            presetLabel(title: action.title, subtitle: action.subtitle, note: action.note)
         }
         .buttonStyle(ChunkyButtonStyle(fill: Color(hex: DesignTokens.Palette.paper),
                                        cornerRadius: 12, shadowDepth: 3, lineWidth: 2))
         .disabled(true)
         .opacity(0.5)
         .help(action.help)
-        .accessibilityLabel("\(action.title) / \(action.subtitle)")
+        .accessibilityLabel("\(action.title) / \(action.subtitle) / \(action.note)")
         .accessibilityHint(action.help)
     }
 
-    private func presetLabel(title: String, subtitle: String) -> some View {
+    /// Fixed height so every preset row (and the loading placeholder) is the same size.
+    private func presetLabel(title: String, subtitle: String, note: String) -> some View {
         VStack(spacing: 1) {
             ParentLabel(title, size: 15, weight: 900)
             if !subtitle.isEmpty {
                 ParentLabel(subtitle, size: 11, weight: 700, color: .inkSoft)
             }
+            if !note.isEmpty {
+                ParentLabel(note, size: 10, weight: 700, color: .inkSoft)
+            }
         }
         .lineLimit(1)
-        .minimumScaleFactor(0.75)
+        .minimumScaleFactor(0.7)
         .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity, minHeight: ParentPickerMetrics.presetHeight)
+        .frame(maxWidth: .infinity)
+        .frame(height: ParentPickerMetrics.presetHeight)
     }
 
     private func previewPanel(preset: PracticePickerPreset, preview: PracticePickerPresetPreview) -> some View {
@@ -370,7 +389,7 @@ struct ParentPracticeItemPicker<Symbol: View>: View {
             .help(ready ? "\(badge.zh) / \(badge.en)" : reason)
             .accessibilityLabel(spoken)
             .accessibilityHint(paused ? "撳一下就移除；儲存之前要移除 / Tap to remove before saving"
-                : "撳一下開或者熄 / Tap to switch on or off")
+                : "撳一下開或者關 / Tap to switch on or off")
             .accessibilityAddTraits(selected ? .isSelected : [])
         }
     }
@@ -405,31 +424,26 @@ struct ParentPracticeItemPicker<Symbol: View>: View {
         }
     }
 
-    @ViewBuilder
+    /// Build 80 (fix round 1): both note slots are always reserved (`ParentPickerNotes`), so the
+    /// 已揀・暫停 warning, which only the loaded capabilities can show, never changes the height.
     private var gridNotes: some View {
         let targets = model.items.filter { $0.role == .target }
         let paused = targets.filter { selectedIDs.contains($0.id) && !model.isSelectable($0.id) }
         let locked = targets.filter { !selectedIDs.contains($0.id) && !model.isSelectable($0.id) }
+        let reasons = Array(Set(locked.compactMap { model.availabilityByItem[$0.id]?.reason })).sorted()
+            .joined(separator: "；")
+        var notes: [ParentPickerNoteText] = []
         if !paused.isEmpty {
-            VStack(alignment: .leading, spacing: 1) {
-                ParentLabel("已揀・暫停：\(paused.map(\.label).joined(separator: "、"))。撳一下就移除；儲存之前要移除。",
-                            size: 12, weight: 800)
-                    .fixedSize(horizontal: false, vertical: true)
-                ParentLabel("Selected · unavailable: tap to remove before saving.", size: 11, weight: 600,
-                            color: .inkSoft)
-            }
+            notes.append(ParentPickerNoteText(
+                zh: "已揀・暫停：\(paused.map(\.label).joined(separator: "、"))。撳一下就移除；儲存之前要移除。",
+                en: "Selected · unavailable: tap to remove before saving.", strong: true))
         }
         if !locked.isEmpty {
-            let reasons = Array(Set(locked.compactMap { model.availabilityByItem[$0.id]?.reason })).sorted()
-                .joined(separator: "；")
-            VStack(alignment: .leading, spacing: 1) {
-                ParentLabel("未開放：\(locked.map(\.label).joined(separator: "、"))。\(reasons)",
-                            size: 11, weight: 700, color: .inkSoft)
-                    .fixedSize(horizontal: false, vertical: true)
-                ParentLabel("Locked items are shown for parents; they can't be chosen yet.", size: 11,
-                            weight: 600, color: .inkSoft)
-            }
+            notes.append(ParentPickerNoteText(
+                zh: "未開放：\(locked.map(\.label).joined(separator: "、"))。\(reasons)",
+                en: "Locked items are shown for parents; they can't be chosen yet."))
         }
+        return ParentPickerNotes(notes: notes)
     }
 
     private func names(_ ids: [String]) -> String {
@@ -438,8 +452,50 @@ struct ParentPracticeItemPicker<Symbol: View>: View {
     }
 }
 
-/// Loading stand-in built from the picker's own preset, disclosure, legend and tile sizes
-/// (build 79, UX nit n2), so the page does not collapse to one line and then jump.
+struct ParentPickerNoteText {
+    let zh: String
+    let en: String
+    var strong = false
+}
+
+/// The notes under the grid in a container that always reserves both slots
+/// (`ParentPickerMetrics.notesHeight`). Notes stack from the top; the picker and its loading
+/// placeholder are therefore the same height whatever the loaded capabilities show.
+struct ParentPickerNotes: View {
+    let notes: [ParentPickerNoteText]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ParentPickerMetrics.tileSpacing) {
+            ForEach(Array(notes.prefix(ParentPickerMetrics.noteSlotCount).enumerated()), id: \.offset) { _, note in
+                ParentPickerNote(zh: note.zh, en: note.en, strong: note.strong)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(height: ParentPickerMetrics.notesHeight, alignment: .topLeading)
+    }
+}
+
+/// One fixed-height two-line note under the grid (HK Chinese + English).
+struct ParentPickerNote: View {
+    let zh: String
+    let en: String
+    var strong = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            ParentLabel(zh, size: strong ? 12 : 11, weight: strong ? 800 : 700, color: strong ? .ink : .inkSoft)
+            ParentLabel(en, size: 11, weight: 600, color: .inkSoft)
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: ParentPickerMetrics.noteSlotHeight, alignment: .topLeading)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Loading stand-in built from the picker's own preset, disclosure, legend, tile and note
+/// sizes (build 79; note slot since 80), so the grid area keeps one height while loading.
 struct ParentPracticeItemPickerPlaceholder: View {
     let itemCount: Int
     let columns: Int
@@ -476,6 +532,8 @@ struct ParentPracticeItemPickerPlaceholder: View {
                     }
                 }
             }
+            // The loaded picker's two reserved note slots (fix round 1).
+            ParentPickerNotes(notes: [])
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(message) / \(english)")

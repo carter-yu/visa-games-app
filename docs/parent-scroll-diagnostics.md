@@ -1,20 +1,27 @@
-# Parent settings scroll investigation — 0.37.0 / 79
+# Parent settings scroll investigation — 0.37.0 / 80
 
-## Build 79: UX/style only — the build-78 experiment is unchanged (2026-11-05)
+## Builds 79–80: UX/copy only — the build-78 experiment is unchanged (2026-11-05)
 
-Build 79 restyles the letter picker panel and the child ticket-unavailable board (UX review
-of 78). It changes no scroll, clock, hook, loading or save behaviour, so the build-78
-hypotheses and the decision table below apply unchanged. When UAT runs on 79, verify
-`VIEW … appear … version=0.37.0 build=79` instead of 78.
+Builds 79 and 80 restyle the letter picker panel and the child ticket-unavailable board.
+They change no scroll, clock, hook, loading or save behaviour, so the build-78 hypotheses and
+the decision table below apply unchanged. When UAT runs, verify
+`VIEW … appear … version=0.37.0 build=80` (or the build actually installed).
 
-Two layout facts help read a 79 log:
+Layout facts for reading an 80 log:
 
-- While the letter cards load, the card shows a placeholder with the picker's own preset,
-  disclosure, legend and tile sizes (`ParentPracticeItemPickerPlaceholder`). When `DRAFT ready`
-  arrives, the summary, review and settings sections appear below the grid, so the document
-  grows **once**, in the same turn as `DRAFT ready`. That growth is expected and is not a
-  scroll-only height change.
-- Opening 按學校次序 or 更多字母設定 (now full-width buttons, not disclosure groups) changes
+- **Loading keeps the card's height (build 80).** While the letter cards load off the main
+  thread, the card draws its whole loaded structure: the picker's preset, disclosure, legend,
+  tile and note blocks (fixed heights), then the footnote, summary, review, more-settings and
+  footer sections. These come from the saved settings the draft will start from, dimmed and
+  inactive. Since fix round 1 the warnings that only the loaded capabilities can show also
+  have reserved space. The grid's 已揀・暫停 and 未開放 notes share two always-present slots.
+  The summary's warnings (已揀・暫停, find-only, nothing to write, and the 搵完寫 recovery
+  button) share one fixed status row. So `DRAFT ready` should **not** change
+  `documentHeight` for default or unavailable selections (e.g. a legacy f–j week with i/j
+  not ready). Expected height changes come only from parent actions: 按學校次序, 更多字母設定,
+  a preset preview, turning review on or off, and edits that cross a 13-letter chip row.
+  (Build 79 grew once at `DRAFT ready` in every case.)
+- Opening 按學校次序 or 更多字母設定 (full-width buttons, not disclosure groups) changes
   height in the same turn as `PICKER schoolDisclosure …` or `VIEW … disclosure more=…`.
 
 ## Build 78: eager-grid experiment — HYPOTHESIS, not a proven fix (2026-11-05)

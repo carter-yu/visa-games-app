@@ -36,7 +36,7 @@ struct ParentShapeTraceSettingsView: View {
             toleranceSection
             VStack(alignment: .leading, spacing: 8) {
                 toggleRow(title: "方向提示 / Direction hint",
-                          detail: "開：只可以跟箭嘴方向畫；熄：由紅色嗰頭開始都得 / On: arrow direction only; off: either end",
+                          detail: "開：只可以跟箭嘴方向畫；關：由紅色嗰頭開始都得 / On: arrow direction only; off: either end",
                           on: settings.directionHint, action: onDirectionHint)
                 toggleRow(title: "到角位停一停 / Stop at corners",
                           detail: "開：轉角有「停」牌同提示；架車無論點都會喺角位等 / On: stop sign and voice; the car always waits",
@@ -122,14 +122,14 @@ struct ParentShapeTraceSettingsView: View {
     private func toggleRow(title: String, detail: String, on: Bool, action: @escaping (Bool) -> Void) -> some View {
         HStack(spacing: 10) {
             Button(action: { action(!on) }) {
-                ParentLabel(on ? "開 On" : "熄 Off", size: 14, weight: 900)
+                ParentLabel(ParentToggleCopy.pill(on), size: 14, weight: 900)
                     .frame(width: 70)
                     .padding(.vertical, 5)
             }
             .buttonStyle(ChunkyButtonStyle(
                 fill: on ? Color(hex: DesignTokens.Palette.sunny) : Color(hex: DesignTokens.Palette.paper),
                 cornerRadius: 12, shadowDepth: on ? 2 : 3, lineWidth: 2))
-            .accessibilityLabel("\(title) \(on ? "開" : "熄")")
+            .accessibilityLabel("\(title) \(on ? ParentToggleCopy.on : ParentToggleCopy.off)")
             VStack(alignment: .leading, spacing: 0) {
                 ParentLabel(title, size: 14, weight: 800)
                 ParentLabel(detail, size: 11, weight: 600, color: .inkSoft)

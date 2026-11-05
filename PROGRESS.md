@@ -1,5 +1,32 @@
 # Progress
 
+## 2026-11-05 — v0.37.0 / 80 fix round 1 — reserved warning slots; 開／關 in reports
+
+- From `b80/ASTRA-REVIEW-r0.md` (two minors). Same build 80; copy/layout only; loading stays off-main. No commit, push, stash or checkout.
+- Loading height:
+  - The grid notes are a fixed two-slot container (`ParentPickerNotes`, `notesHeight` = 2 × 38 pt + 8 pt) in both the picker and its loading placeholder. The 已揀・暫停 warning no longer adds a slot.
+  - The summary's conditional warnings block is replaced by one always-present 44 pt status row: loading, the joined warnings (已揀・暫停 / find-only / nothing to write) with the 搵完寫 recovery button, or an all-clear line. Its source is the new pure `VisaCore/LetterSelectionSummary`, which also gives the reserved chip rows for both states.
+  - The recovery button condition is unchanged (nothing to write and 搵完寫 assigned).
+  - New check covers the default abcde, a real legacy f–j week (i/j not ready), i/j only, and find-only, plus loading/loaded layout parity.
+- 開／關 in reports:
+  - The weekly report review and mirror-guard "off" values are now `ParentToggleCopy.off` (關), as is the report HTML review scope. The `setting.off` and `assign.off` sentences say 關咗「…」, and the CSV note says 關片.
+  - Both Python reference generators (`reference_text.py`, `reference_html.py`) changed with them. Regenerating all four text/HTML goldens with the generators before and after the change reproduces the committed files byte for byte (the fixture weeks never turn anything off), so the golden files are unchanged.
+  - New check: the templates and labels say 關咗, the generators match, and no 熄 remains in Sources, the generators or the goldens.
+- Verification: `env PATH=/tmp/visa-games-swift/toolchain/usr/bin:/usr/bin:/bin bash scripts/test.sh` passed (`b80/test-box-fix1.log`; all golden byte-match lines present; banner 35 letter-picker + 26 parent-scroll). `swiftc -parse` passed for the two changed SwiftUI files; SwiftUI is not type-checked here.
+
+## 2026-11-05 — v0.37.0 / 80 — Letter picker minors/nits (Carter decision 18:58 HKT; copy/layout only)
+
+- Written by Claude Code on `feat/letter-picker` @ `f9a58d8` (0.37.0/79) from the b79 Astra review, the 78 UX review, `letter-picker/design.md` and mockups 01–05. Save, off-main loading, ticket recovery, hooks-off default, eager grids and clock isolation are unchanged. No commit, push, stash or checkout.
+- Toggle wording 開／關 (Carter): new `VisaCore/ParentToggleCopy` (`開 On` / `關 Off`). The count card's `TapCountCopy.on/off` alias it; the shape-trace and letter cards' pills use it (both said 熄). Stroke-order "off" is 關. The letter instruction (關燈), review button (關 · 只練揀咗嘅), tile hint, review save reason and YouTube-finder VPN tips say 關. The weekly-report/CSV narrative was left at 熄 in this pass and changed in fix round 1 (above).
+- Presets: `PracticePickerPreset.listsItems` + `PracticePickerModel.label(forPreset:)`. The headline is the ready letters (`f g h`), then `ABC group · 5 letters` (school groups: `Jolly Phonics 1 · 6 letters` etc.), then `i、j 未開放 · not ready`. IDs, item lists and apply are unchanged.
+- Save feedback: `LetterPickerMessage` (zh + en) for every validation reason, storage error, loading/bank/check message and the saved / save-failed notices. `reason(for:)` still returns the HK Chinese text, so which reason applies is unchanged. The save bar shows both lines in the same 38 pt area. The 搵完寫 star banner is bilingual.
+- Stable loading height: every picker block has a fixed height (presets 62 pt, disclosure, legend, tiles, a 38 pt note slot that is always present). While loading, the card draws the whole loaded structure — placeholder picker + footnote, summary, review, more settings, footer — from the saved settings the draft starts from, dimmed and inactive. Residual: a loaded-only note can still appear at `DRAFT ready` (已揀・暫停, find-only, or no writable letter), because only the loaded capabilities show it.
+- Glyphs: no glyph paths exist for i j l m n p q r s t v w x y z (`LatinGlyphs.supported` = a–h, k, o, u). So parent tiles and summary chips use `ParentLetterSymbol`: the authored glyph when `LatinGlyphs.hasPaths`, else the letter in the app font (`CanvasFont`, Baloo 2 / system rounded fallback). Child boards and readiness are untouched.
+- 睇吓練習建議: 「呢個版本未有練習建議。」 / "Review suggestions aren't available in this build." (no unlock implied).
+- `ticket.fill` on the child unavailable-ticket board matches the existing ticket icon on the Time's-up 「再揀車票 / New mission」 button (`StampWatchTimesUpViews.swift:467`); no change.
+- Version 0.37.0 / 80 (`CFBundleVersion` + both version assertions). Docs: ADR 0026 (build-80 section), `docs/parent-scroll-diagnostics.md` (loading height). Tests: six new letter-picker checks (toggle wording, preset headlines/sources/omissions, bilingual save messages, whole-card loading structure, glyph fallback, suggestion copy); 79 guards, the preset sub-line test and the stroke-order copy test updated. Banner: 33 letter-picker + 26 parent-scroll.
+- Verification on this Linux box: `env PATH=/tmp/visa-games-swift/toolchain/usr/bin:/usr/bin:/bin bash scripts/test.sh` passed (output in `visa-games-sessions/b80/test-box.log`). `swiftc -parse` passed for the seven changed app files (syntax only; SwiftUI/AppKit are not type-checked here). Mac mini: `scripts/test.sh` + `scripts/bundle.sh`, then check presets, glyph fallback and loading height on the TV.
+
 ## 2026-11-05 — v0.37.0 / 79 — Letter picker UX alignment (style/copy only)
 
 - Written by Claude Code from the UX review of 78 (`ux78/UX-REVIEW.md`), `letter-picker/design.md`, `picker-spec.json` and mockups 01–05, on `feat/letter-picker` @ `c059a6c`. No behaviour change from 78: save, off-main loading, ticket recovery, hooks-off default, eager grids and clock isolation are untouched. No commit, push or branch switch.

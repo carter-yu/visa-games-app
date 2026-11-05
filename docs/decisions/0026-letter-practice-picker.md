@@ -43,6 +43,35 @@ Presentation only; behaviour is unchanged from build 78.
   English status words, 「未儲存嘅改動唔會套用。」, and keeps to the 940 pt content column.
 - The child 「呢張遊戲票暫時玩唔到」 board scales like `ProviderBlockedView` and adds English.
 
+## Build 80: remaining minors and nits (Carter, 2026-11-05 18:58 HKT)
+
+Copy and layout only; behaviour is unchanged from build 79.
+
+- **Toggle wording is 開／關** (Carter's choice). One source, `ParentToggleCopy`, feeds the
+  letter, shape-trace and count cards (`開 On` / `關 Off`). The stroke-order "off" option
+  and the letter, review and VPN copy now say 關 instead of 熄. Fix round 1 also changed
+  the weekly report, report HTML and CSV notes: review and mirror-guard "off" values are 關,
+  assignment sentences say 關咗「…」, and the CSV note says 關片. The Python reference
+  generators changed with them. Regenerating every text/HTML golden reproduces the
+  committed files byte for byte, because the fixture weeks never switch anything off.
+- **Presets** follow mockup 01. A list-style preset shows only its ready letters (`f g h`),
+  then its group and count (`ABC group · 5 letters`, `Jolly Phonics 1 · 6 letters`), then
+  any not-ready letters (`i、j 未開放 · not ready`). This is
+  `PracticePickerModel.label(forPreset:)`. Preset IDs, item lists and the apply step are
+  unchanged.
+- **Save feedback is bilingual.** Every block reason, storage error and save notice has an
+  English line (`LetterPickerMessage`), as does the 搵完寫 star banner. Which reason applies
+  is unchanged.
+- **Loading keeps the card's height.** The loading state draws the full card structure from
+  the saved settings. Since fix round 1, capability warnings use always-reserved slots
+  (`ParentPickerNotes`, the summary status row from `LetterSelectionSummary`); see
+  `docs/parent-scroll-diagnostics.md`.
+- **Letters without glyph paths** (i j l m n p q r s t v w x y z) show the letter in the app's
+  rounded font on parent tiles and chips (`ParentLetterSymbol`). Child boards and readiness
+  are unchanged.
+- **睇吓練習建議** says it isn't in this build. It no longer implies that more practice
+  records will turn it on.
+
 ## Rollback and validation limit
 
 An older binary reads the preserved v1 settings, **not the latest v2 selection**. Reinstalling an old binary can therefore ask a different letter set until 0.37.0 is restored; no reverse migration is performed. This limitation belongs in family release notes.

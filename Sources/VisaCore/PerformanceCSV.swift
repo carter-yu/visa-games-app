@@ -408,7 +408,7 @@ public enum PerfCSVExport {
                         preview_stopped 試播停止 · allowlist_removed 片被移除 ·
                         storage_reset 重設儲存 · storage_failure 儲存失敗 · app_terminate 離開程式 ·
                         superseded / unknown 後備（唔應該出現）· interrupted 冇結束紀錄（例如斷電）
-                        小朋友冇辦法中途熄片；時間到停咗只係資料，唔代表唔鍾意。
+                        小朋友冇辦法中途關片；時間到停咗只係資料，唔代表唔鍾意。
                         A child cannot close a video; a time-up stop is information, not dislike.
       completed         睇完成條片 / reached the end
       time_up_stop      簽證或者觀看時間用完而停 / stopped because time ran out

@@ -886,7 +886,7 @@ extension LetterPickerTests {
     func testPresetSubtitles() throws {
         let bank = try LetterWordBank.load(url: URL(fileURLWithPath: "Resources/LetterTap/starter-bank.json"))
         let picker = LetterAvailability.pickerModel(bank: bank, decks: .init(), enabled: [])
-        expectEqual(picker.presets.map(\.subtitle), ["ABC group", "ABC group"])
+        expectEqual(picker.presets.map(\.subtitle), ["ABC group · 5 letters", "ABC group · 5 letters"])
         expectEqual(picker.presets.map(\.label), ["a b c d e", "f g h i j"])
         expectEqual(PracticePickerPreset(id: "x", label: "X", itemIDs: ["a"]).subtitle, "")
         // The fghij sub-line names its omitted letters from the same preview the apply step uses.
@@ -908,11 +908,12 @@ extension LetterPickerTests {
         }
         expectTrue(controls.contains("struct ParentDisclosureButton") && controls.contains("打開 / Show")
                    && controls.contains("收埋 / Hide") && controls.contains(".contentShape(Rectangle())"))
-        expectTrue(controls.contains("開 On") && controls.contains("熄 Off"))
+        // Build 80: Carter's 開／關 via the shared ParentToggleCopy (was 開 / 熄 in 79).
+        expectTrue(controls.contains("ParentToggleCopy.pill(on)"))
         expectTrue(picker.contains("ParentDisclosureButton(title: secondaryPresetTitle"))
         expectTrue(card.contains("ParentDisclosureButton(title: \"更多字母設定\""))
         expectTrue(card.contains("ParentOnOffRow("))
-        expectTrue(card.contains("ParentChoiceButton(title: \"熄 · 只練揀咗嘅\""))
+        expectTrue(card.contains("ParentChoiceButton(title: \"\\(ParentToggleCopy.off) · 只練揀咗嘅\""))
         expectTrue(picker.contains("ChunkyButtonStyle(fill: state.fill"))
         // M4: lamp + ✓ when lit, and the selected-but-unavailable warning state.
         expectTrue(picker.contains("Image(systemName: \"lightbulb.fill\")\n                Image(systemName: \"checkmark\")"))
@@ -952,6 +953,275 @@ extension LetterPickerTests {
         for (name, text) in [("card", card), ("picker", picker), ("controls", controls), ("ticket", ticket)] {
             expectTrue(isTraditionalChineseOnly(text) && perfTraditionalOnly(text), "\(name) is Traditional only")
         }
+    }
+}
+
+// MARK: Build 80 — remaining picker minors/nits (Carter 2026-11-05 18:58 HKT); copy/layout only
+
+extension LetterPickerTests {
+    private func appSource(_ path: String) -> String {
+        (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+    }
+
+    /// Item 1: one 開／關 wording for every parent toggle; no 熄 left in parent UI sources.
+    func testParentToggleWordingIsOpenClose() {
+        expectEqual(ParentToggleCopy.on, "開")
+        expectEqual(ParentToggleCopy.off, "關")
+        expectEqual(ParentToggleCopy.pill(true), "開 On")
+        expectEqual(ParentToggleCopy.pill(false), "關 Off")
+        expectEqual(TapCountCopy.on, ParentToggleCopy.on)
+        expectEqual(TapCountCopy.off, ParentToggleCopy.off)
+        expectEqual(StrokeOrderCopy.short(.off), "關")
+        expectTrue(StrokeOrderCopy.detail(.off).hasPrefix("關："))
+        let parentUI = ["Sources/VisaGames/ParentTapLetterSettingsView.swift", "Sources/VisaGames/ParentPracticeItemPicker.swift",
+                        "Sources/VisaGames/ParentPickerControls.swift", "Sources/VisaGames/ParentShapeTraceSettingsView.swift",
+                        "Sources/VisaGames/ParentTapCountSettingsView.swift", "Sources/VisaGames/ParentYouTubeBrowserView.swift",
+                        "Sources/VisaGames/ParentSettingsView.swift", "Sources/VisaCore/LetterPickerSaveCheck.swift",
+                        "Sources/VisaCore/StrokeOrder.swift"]
+        for path in parentUI {
+            let text = appSource(path)
+            expectFalse(text.isEmpty, path)
+            expectFalse(text.contains("熄"), "\(path) uses 開／關, not 熄")
+        }
+        for path in ["Sources/VisaGames/ParentPickerControls.swift", "Sources/VisaGames/ParentShapeTraceSettingsView.swift"] {
+            expectTrue(appSource(path).contains("ParentLabel(ParentToggleCopy.pill(on)"), path)
+        }
+        expectTrue(appSource("Sources/VisaGames/ParentTapCountSettingsView.swift").contains("TapCountCopy.off) Off"))
+    }
+
+    /// Items 2 and 7: group/count sub-lines on every preset; a partial group's headline shows
+    /// only its ready letters (mockup 01 「f g h」), while IDs, items and applying are unchanged.
+    func testPresetHeadlinesSourcesAndOmissions() throws {
+        let bank = try LetterWordBank.load(url: URL(fileURLWithPath: "Resources/LetterTap/starter-bank.json"))
+        let picker = LetterAvailability.pickerModel(bank: bank, decks: .init(), enabled: [])
+        expectEqual(picker.presets.map(\.id), ["abcde", "fghij"])
+        expectEqual(picker.presets.map(\.itemIDs), [Array("abcde").map(String.init), Array("fghij").map(String.init)])
+        expectEqual(picker.label(forPreset: "abcde"),
+                    PracticePickerPresetLabel(headline: "a b c d e", source: "ABC group · 5 letters", omitted: ""))
+        expectEqual(picker.label(forPreset: "fghij"),
+                    PracticePickerPresetLabel(headline: "f g h", source: "ABC group · 5 letters", omitted: "i、j"))
+        expectEqual(picker.previewPreset("fghij")?.includedIDs, ["f", "g", "h"], "applying is unchanged")
+        expectTrue(picker.label(forPreset: "missing") == nil)
+        // A named (not list-style) preset keeps its name; a fully locked list keeps its label.
+        let named = PracticePickerModel(catalogID: "t", catalogRevision: "1",
+            items: ["a", "i"].map { PracticePickerItem(id: $0, label: $0, role: .target) },
+            availabilityByItem: ["a": PracticePickerAvailability(consumers: ["find"]),
+                                 "i": PracticePickerAvailability(consumers: [])],
+            enabledIDs: [],
+            presets: [PracticePickerPreset(id: "p90", label: "近 90 日練過", subtitle: "Practised in 90 days", itemIDs: ["a", "i"]),
+                      PracticePickerPreset(id: "locked", label: "i", subtitle: "x", listsItems: true, itemIDs: ["i"])],
+            minimum: 1, maximum: 26)
+        expectEqual(named.label(forPreset: "p90"),
+                    PracticePickerPresetLabel(headline: "近 90 日練過", source: "Practised in 90 days", omitted: "i"))
+        expectEqual(named.label(forPreset: "locked")?.headline, "i")
+        let card = appSource("Sources/VisaGames/ParentTapLetterSettingsView.swift")
+        expectTrue(card.contains("subtitle: \"\\(title) \\(index + 1) · \\(letters.count) letters\", listsItems: true"))
+        expectTrue(card.contains("label: \"近 90 日練過\", subtitle: \"Practised in 90 days\""))
+        let pickerView = appSource("Sources/VisaGames/ParentPracticeItemPicker.swift")
+        expectTrue(pickerView.contains("model.label(forPreset: preset.id)"))
+        expectTrue(pickerView.contains("presetLabel(title: wording.headline, subtitle: wording.source, note: note)"))
+    }
+
+    /// Item 3: every block reason, storage error and save notice has an English line; which
+    /// reason applies (and its HK Chinese text) is unchanged.
+    func testSaveMessagesAreBilingual() throws {
+        let validation: [LetterSelectionSettings.ValidationError] = [
+            .emptyFocus, .tooMany, .invalidLetter, .unavailableFocus, .noWriteTargets,
+            .insufficientBoardLetters, .invalidReview, .invalidOrder, .invalidSchema
+        ]
+        let storage: [LetterSelectionSettingsStore.StoreError] = [.notParent, .corruptStored, .writeFailed]
+        var messages = validation.map { LetterPickerSaveCheck.message(for: $0) } + storage.map { LetterPickerSaveCheck.message(for: $0) }
+        for error in validation { expectEqual(LetterPickerSaveCheck.message(for: error).zh, LetterPickerSaveCheck.reason(for: error)) }
+        for error in storage { expectEqual(LetterPickerSaveCheck.message(for: error).zh, LetterPickerSaveCheck.reason(for: error)) }
+        messages += [LetterPickerSaveCheck.loading, LetterPickerSaveCheck.bankUnavailable, LetterPickerSaveCheck.checkFailed,
+                     LetterPickerSaveCheck.saved, LetterPickerSaveCheck.saveFailed]
+        for message in messages {
+            expectFalse(message.zh.isEmpty || message.en.isEmpty, message.zh)
+            expectTrue(isTraditionalChineseOnly(message.zh) && perfTraditionalOnly(message.zh), message.zh)
+            expectFalse(message.zh.contains("熄"), message.zh)
+        }
+        expectEqual(Set(messages.map(\.en)).count, messages.count, "one English line per message")
+        expectEqual(LetterPickerSaveCheck.saved, LetterPickerMessage(zh: "儲存咗，下局開始用。", en: "Saved. Applies next round."))
+        // evaluate carries the English line with the same reason.
+        let bank = try LetterWordBank.load(url: URL(fileURLWithPath: "Resources/LetterTap/starter-bank.json"))
+        let ready = LetterAvailability.resolve(bank: bank, decks: .init())
+        var empty = LetterSelectionSettings.defaults
+        empty.focusLetters = []
+        let blocked = LetterPickerSaveCheck.evaluate(empty, availability: ready, writingAssigned: true,
+                                                     allowedReview: [], load: .fresh, repairCorruptV2: false)
+        expectEqual(blocked.reason, LetterPickerSaveCheck.reason(for: .emptyFocus))
+        expectEqual(blocked.message, LetterPickerSaveCheck.message(for: .emptyFocus))
+        expectEqual(LetterPickerSaveCheck.evaluate(.defaults, availability: ready, writingAssigned: true, allowedReview: [],
+                                                   load: .fresh, repairCorruptV2: false, bankAvailable: false).message,
+                    LetterPickerSaveCheck.bankUnavailable)
+        expectTrue(LetterPickerSaveCheck.evaluate(.defaults, availability: ready, writingAssigned: true, allowedReview: [],
+                                                  load: .fresh, repairCorruptV2: false).message == nil)
+        let card = appSource("Sources/VisaGames/ParentTapLetterSettingsView.swift")
+        for text in ["@Published private(set) var notice: LetterPickerMessage?", "notice = saveCheck.message",
+                     "notice = LetterPickerSaveCheck.saved", "notice = LetterPickerSaveCheck.saveFailed",
+                     "if let message = state.saveCheck.message ?? state.notice", "ParentLabel(message.en, size: 11"] {
+            expectTrue(card.contains(text), text)
+        }
+        expectTrue(appSource("Sources/VisaGames/AppDelegate.swift")
+            .contains("請先揀可寫嘅字母。 / Find & write can't play with these letters yet."))
+    }
+
+    /// Item 4: loading draws the whole loaded card structure (picker blocks, note slot, footnote,
+    /// summary, review, more settings, footer) from the settings the draft will start from.
+    func testLoadingReservesTheWholeLoadedCard() {
+        let card = appSource("Sources/VisaGames/ParentTapLetterSettingsView.swift")
+        let picker = appSource("Sources/VisaGames/ParentPracticeItemPicker.swift")
+        expectTrue(card.contains("belowGrid(sections, interactive: true)"))
+        expectTrue(card.contains("belowGrid(provisionalSections, interactive: false)"))
+        // Provisional sections come from the same source the state's draft uses.
+        expectTrue(card.contains("let value = model.letterParentLoad.effective ?? .defaults"))
+        expectTrue(card.contains("draft = LetterPickerDraft(saved: model.letterParentLoad.effective ?? .defaults)"))
+        guard let below = card.range(of: "private func belowGrid("),
+              let end = card.range(of: "private func summary(", range: below.upperBound..<card.endIndex) else {
+            expectTrue(false, "belowGrid"); return
+        }
+        let section = card[below.lowerBound..<end.lowerBound]
+        for part in ["有玩過，唔代表已經熟晒。", "summary(sections)", "reviewControls(sections)", "moreSettings(sections)",
+                     "儲存、取消同還原喺頁頂。"] {
+            expectTrue(section.contains(part), part)
+        }
+        expectTrue(card.contains(".frame(minHeight: reserved)"))
+        // Picker blocks have fixed heights and the placeholder reserves the same note slot.
+        expectTrue(picker.contains(".frame(height: ParentPickerMetrics.presetHeight)"))
+        expectTrue(picker.contains("static let noteSlotHeight: CGFloat = 38"))
+        expectTrue(picker.contains(".frame(height: ParentPickerMetrics.noteSlotHeight, alignment: .topLeading)"))
+        // Fix round 1: both note slots and the summary status row are always reserved.
+        expectTrue(picker.contains("ParentPickerNotes(notes: [])"))
+        expectTrue(picker.contains("return ParentPickerNotes(notes: notes)"))
+        expectTrue(picker.contains("static let noteSlotCount = 2"))
+        expectTrue(picker.contains(".frame(height: ParentPickerMetrics.notesHeight, alignment: .topLeading)"))
+        expectTrue(card.contains("summaryStatus(summary, showRecovery: summary.writeEmpty && writeAssigned)"))
+        expectTrue(card.contains(".frame(height: Self.statusRowHeight)"))
+        expectTrue(card.contains("Sections(summary: LetterSelectionSummary(focus: value.focusLetters, capabilities: state.capabilities)"))
+        expectTrue(card.contains("Sections(summary: .loading(focus: value.focusLetters)"))
+        expectFalse(card.contains("if !sections.findOnly.isEmpty"), "no conditional warnings block")
+        expectFalse(card.contains("if sections.write.isEmpty"), "no conditional recovery block")
+        // Loading stays off the main thread (unchanged from 78).
+        expectTrue(card.contains("model.withLetterPickerResources"))
+    }
+
+    /// Item 5: the 15 letters without authored paths get a parent-only rounded-font fallback;
+    /// child rendering and readiness are untouched.
+    func testParentLetterSymbolFallback() {
+        let missing = Array("abcdefghijklmnopqrstuvwxyz").filter { letter in
+            LatinGlyphs.paths(letter, offset: LineMatchPoint(x: 0, y: 0), scale: 1).isEmpty
+        }
+        expectEqual(String(missing), "ijlmnpqrstvwxyz")
+        for letter in "abcdefghijklmnopqrstuvwxyz" {
+            expectEqual(LatinGlyphs.hasPaths(String(letter)), !missing.contains(letter), String(letter))
+        }
+        expectFalse(LatinGlyphs.hasPaths("ab") || LatinGlyphs.hasPaths(""))
+        let card = appSource("Sources/VisaGames/ParentTapLetterSettingsView.swift")
+        expectTrue(card.contains("struct ParentLetterSymbol: View") && card.contains("if LatinGlyphs.hasPaths(letter) {"))
+        expectTrue(card.contains("Text(letter)\n                .font(CanvasFont.font(size: fallbackSize, weight: 700))"))
+        expectTrue(card.contains("ParentLetterSymbol(letter: item.label, fallbackSize: 34)"))
+        expectTrue(card.contains("ParentLetterSymbol(letter: letter, fallbackSize: 16)"))
+        for child in ["Sources/VisaGames/TapLetterBoardView.swift", "Sources/VisaGames/CanvasActivityHost.swift"] {
+            let text = appSource(child)
+            expectFalse(text.contains("ParentLetterSymbol") || text.contains("hasPaths"), "\(child) unchanged")
+        }
+    }
+
+    /// Item 6: the suggestion button says it isn't in this build; it never implies unlocking.
+    func testSuggestionCopySaysNotInThisBuild() {
+        let card = appSource("Sources/VisaGames/ParentTapLetterSettingsView.swift")
+        expectTrue(card.contains("呢個版本未有練習建議。/ Review suggestions aren't available in this build."))
+        expectTrue(card.contains("note: \"呢個版本未有 · Not in this build\""))
+        for banned in ["要等有足夠", "need enough practice records", "Review suggestions · 未開放"] {
+            expectFalse(card.contains(banned), banned)
+        }
+        expectTrue(appSource("Sources/VisaGames/ParentPracticeItemPicker.swift").contains(".disabled(true)"))
+    }
+}
+
+// MARK: Build 80 fix round 1
+
+extension LetterPickerTests {
+    /// Fix 1: one summary layout for any selection. The rows reserve the whole focus set and
+    /// every warning shares one status line, so default and unavailable selections (e.g. a
+    /// legacy f–j week with i/j not ready) keep the loading card's height.
+    func testLetterSummaryKeepsOneLayoutForAnySelection() throws {
+        let bank = try LetterWordBank.load(url: URL(fileURLWithPath: "Resources/LetterTap/starter-bank.json"))
+        let ready = LetterAvailability.resolve(bank: bank, decks: .init())
+        let abcde = Array("abcde").map(String.init)
+        let defaults = LetterSelectionSummary(focus: abcde, capabilities: ready)
+        expectEqual(defaults.find, abcde)
+        expectEqual(defaults.write, abcde)
+        expectFalse(defaults.hasWarning || defaults.writeEmpty)
+        expectEqual(defaults.status, LetterPickerMessage(zh: "兩個遊戲都可以用呢組字母。", en: "Both letter games can use these letters."))
+        // Astra's example through the real legacy path: v1 week f–j, i and j not ready.
+        let suite = UserDefaults(suiteName: UUID().uuidString)!
+        suite.set(try JSONEncoder().encode(TapLetterSettings(thisWeek: Array("fghij").map(String.init))),
+                  forKey: TapLetterSettingsStore.key)
+        guard case .legacy(let legacyDraft, _) = LetterSelectionSettingsStore(defaults: suite).load() else {
+            expectTrue(false, "legacy load"); return
+        }
+        let legacy = LetterSelectionSummary(focus: legacyDraft.focusLetters, capabilities: ready)
+        expectEqual(legacy.focus, Array("fghij").map(String.init))
+        expectEqual(legacy.unavailable, ["i", "j"])
+        expectEqual(legacy.find, ["f", "g", "h"])
+        expectEqual(legacy.write, ["f", "g", "h"])
+        expectEqual(legacy.status, LetterPickerMessage(zh: "已揀・暫停：i、j，儲存之前要移除。",
+                                                       en: "Selected · unavailable: i, j — remove before saving."))
+        // Nothing writable, and find-only letters: still one status line.
+        let ij = LetterSelectionSummary(focus: ["i", "j"], capabilities: ready)
+        expectTrue(ij.writeEmpty)
+        expectEqual(ij.status.zh, "已揀・暫停：i、j，儲存之前要移除；呢組暫時玩唔到『搵完寫』。")
+        expectEqual(ij.status.en, "Selected · unavailable: i, j — remove before saving. This set can't play Find & write yet.")
+        var findOnlyReady = ready
+        findOnlyReady["a"] = LetterCapability(canDisplay: true, canFind: true, canWrite: false)
+        let a = LetterSelectionSummary(focus: ["a"], capabilities: findOnlyReady)
+        expectEqual(a.findOnly, ["a"])
+        expectEqual(a.status.zh, "a 暫時只可以搵，未可以寫；呢組暫時玩唔到『搵完寫』。")
+        // The loading stand-in has the same layout inputs as every loaded outcome.
+        let all = Array("abcdefghijklmnopqrstuvwxyz").map(String.init)
+        for focus in [abcde, legacyDraft.focusLetters, ["i", "j"], ["a"], all] {
+            let loading = LetterSelectionSummary.loading(focus: focus)
+            expectFalse(loading.resolved || loading.hasWarning || loading.writeEmpty)
+            expectEqual(loading.status, LetterPickerSaveCheck.loading)
+            for capabilities in [ready, findOnlyReady, [:]] {
+                let loaded = LetterSelectionSummary(focus: focus, capabilities: capabilities)
+                expectEqual(loading.chipRows, loaded.chipRows)
+                expectTrue(loaded.find.count <= focus.count && loaded.write.count <= focus.count)
+            }
+        }
+        expectEqual(LetterSelectionSummary.loading(focus: all).chipRows, 2)
+        for summary in [defaults, legacy, ij, a] {
+            expectTrue(isTraditionalChineseOnly(summary.status.zh) && perfTraditionalOnly(summary.status.zh))
+        }
+    }
+
+    /// Fix 2: Carter's 開／關 in the weekly report, report HTML and CSV notes too; the Python
+    /// reference generators say the same, and the goldens (which never turn anything off) still
+    /// match byte for byte in the golden checks.
+    func testReportOffWordingIsOpenClose() {
+        expectEqual(WeeklyTemplates.byID["setting.off"]?.zh, "關咗「{game}」{stars}")
+        expectEqual(WeeklyTemplates.byID["setting.on"]?.zh, "開咗「{game}」{stars}")
+        expectEqual(WeeklyReportLabels.table["assign.off"]?.zh, "{date}關咗「{game}」{stars}。")
+        expectEqual(WeeklyReportLabels.table["assign.on"]?.zh, "{date}開咗「{game}」{stars}。")
+        let fixtures = "Tests/VisaCoreTests/Fixtures/weekly-ranking-5.6"
+        expectTrue(appSource("\(fixtures)/reference_text.py").contains("\"setting.off\": (\"關咗「{game}」{stars}\""))
+        expectTrue(appSource("\(fixtures)/reference_html.py").contains("\"assign.off\": (\"{date}關咗「{game}」{stars}。\""))
+        let templates = appSource("Sources/VisaCore/WeeklyTextTemplates.swift")
+        expectEqual(templates.components(separatedBy: "WeeklyWords(ParentToggleCopy.off, \"Off\")").count - 1, 2)
+        expectTrue(appSource("Sources/VisaCore/WeeklyReportHTML.swift").contains("$0.isEmpty ? ParentToggleCopy.off : $0"))
+        expectTrue(appSource("Sources/VisaCore/PerformanceCSV.swift").contains("小朋友冇辦法中途關片"))
+        // No 熄 anywhere in the sources, the reference generators or the goldens.
+        var scanned = 0
+        for root in ["Sources", "Tests/VisaCoreTests/Fixtures"] {
+            guard let walker = FileManager.default.enumerator(atPath: root) else { expectTrue(false, root); continue }
+            for case let path as String in walker
+            where [".swift", ".py", ".json", ".html", ".md"].contains(where: { path.hasSuffix($0) }) {
+                scanned += 1
+                expectFalse(appSource("\(root)/\(path)").contains("熄"), "\(root)/\(path)")
+            }
+        }
+        expectTrue(scanned > 50, "scanned \(scanned) files")
     }
 }
 

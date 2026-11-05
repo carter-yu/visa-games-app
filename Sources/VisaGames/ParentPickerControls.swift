@@ -65,7 +65,8 @@ struct ParentChoiceButton: View {
     }
 }
 
-/// The count card's on/off pill (`ParentTapCountSettingsView.toggleRow`) with 開 / 熄 wording.
+/// The count card's on/off pill (`ParentTapCountSettingsView.toggleRow`), 開／關 wording
+/// from `ParentToggleCopy` (Carter, build 80).
 struct ParentOnOffRow: View {
     let title: String
     let english: String
@@ -76,14 +77,14 @@ struct ParentOnOffRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Button(action: { action(!on) }) {
-                ParentLabel(on ? "開 On" : "熄 Off", size: 14, weight: 900)
+                ParentLabel(ParentToggleCopy.pill(on), size: 14, weight: 900)
                     .frame(width: 70)
                     .padding(.vertical, 5)
             }
             .buttonStyle(ChunkyButtonStyle(
                 fill: on ? Color(hex: DesignTokens.Palette.sunny) : Color(hex: DesignTokens.Palette.paper),
                 cornerRadius: 12, shadowDepth: on ? 2 : 3, lineWidth: 2))
-            .accessibilityLabel("\(title) \(on ? "開" : "熄") / \(english) \(on ? "on" : "off")")
+            .accessibilityLabel("\(title) \(on ? ParentToggleCopy.on : ParentToggleCopy.off) / \(english) \(on ? "on" : "off")")
             VStack(alignment: .leading, spacing: 1) {
                 ParentLabel(title, size: 14, weight: 800)
                 ParentLabel(english, size: 11, weight: 700, color: .inkSoft)

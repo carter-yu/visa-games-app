@@ -2905,7 +2905,7 @@ final class AppModel: ObservableObject {
                   let bank = try? LetterWordBankCache.bundled.load(),
                   !selection.focus(for: .tapLetterWrite,
                     availability: LetterAvailability.resolve(bank: bank, decks: tapLetterDecks)).isEmpty else {
-                gameAssignmentBanner = "呢組暫時玩唔到『搵完寫』。請先揀可寫嘅字母。"
+                gameAssignmentBanner = "呢組暫時玩唔到『搵完寫』。請先揀可寫嘅字母。 / Find & write can't play with these letters yet. Choose a letter that can be written first."
                 return
             }
         }
@@ -5310,7 +5310,7 @@ extension AppModel {
         saveTapCountSettings(next, what: "guidance", value: level.rawValue)
     }
 
-    /// 筆順動畫 for digits: 教 / 提 / 熄 (★ reveal and the ★★ glance; both card languages).
+    /// 筆順動畫 for digits: 教 / 提 / 關 (★ reveal and the ★★ glance; both card languages).
     func setTapCountStrokeOrder(_ setting: StrokeOrderSetting) {
         guard session.mode == .parent, setting != tapCountSettings.strokeOrder else { return }
         var next = tapCountSettings

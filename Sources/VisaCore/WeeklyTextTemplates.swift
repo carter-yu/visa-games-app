@@ -92,7 +92,7 @@ public enum WeeklyTemplates {
         entry("setting.name", "{name}", "{name}", [("name", .words)], when: "⚙ without labels"),
         entry("setting.on", "開咗「{game}」{stars}", "turned on {stars} for \"{game}\"",
               [("game", .gameName), ("stars", .words)], when: "⚙ star assignment on"),
-        entry("setting.off", "熄咗「{game}」{stars}", "turned off {stars} for \"{game}\"",
+        entry("setting.off", "關咗「{game}」{stars}", "turned off {stars} for \"{game}\"",
               [("game", .gameName), ("stars", .words)], when: "⚙ star assignment off"),
         entry("ev.game", "「{game}」{fact}", "\"{game}\" {fact}", [("game", .gameName), ("fact", .text)],
               when: "evidence for one game"),
@@ -535,9 +535,9 @@ public enum WeeklyTextCatalog {
         case "generation": return generation(value)
         case "letter_set": return WeeklyWords(value.isEmpty ? "無" : value, value.isEmpty ? "None" : value)
         case "letter_review": return value == "4" ? WeeklyWords("每 4 局最多 1 局", "At most 1 in 4 rounds")
-            : value == "0" ? WeeklyWords("熄", "Off") : nil
-        case "letter_guard": return value == "on" ? WeeklyWords("開", "On")
-            : value == "off" ? WeeklyWords("熄", "Off") : nil
+            : value == "0" ? WeeklyWords(ParentToggleCopy.off, "Off") : nil
+        case "letter_guard": return value == "on" ? WeeklyWords(ParentToggleCopy.on, "On")
+            : value == "off" ? WeeklyWords(ParentToggleCopy.off, "Off") : nil
         default: return nil
         }
     }

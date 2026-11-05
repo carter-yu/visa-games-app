@@ -343,7 +343,7 @@ public enum WeeklyReportLabels {
                         " (affects {n} games)"),
         "assign.on": WeeklyWords("{date}開咗「{game}」{stars}。",
                         "{date}: turned on {stars} for \"{game}\"."),
-        "assign.off": WeeklyWords("{date}熄咗「{game}」{stars}。",
+        "assign.off": WeeklyWords("{date}關咗「{game}」{stars}。",
                         "{date}: turned off {stars} for \"{game}\"."),
         "gen.change": WeeklyWords("「{game}」題目來源：{old} → {new}。",
                         "\"{game}\" question source: {old} → {new}."),
