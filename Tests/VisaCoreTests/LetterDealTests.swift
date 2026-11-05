@@ -147,7 +147,7 @@ final class LetterDealTests {
         var expired = LetterWordDecks()
         expired.feature("d.duck", for: "d", at: day)
         expectFalse(expired.schoolWords["d"]!.contains { $0.expiresAt > day.addingTimeInterval(8 * 86_400) })
-        expectTrue(bank.deal(letter: "f", box: .learning, seed: "anchor-only", decks: &fresh, now: day).isEmpty)
+        expectEqual(bank.deal(letter: "f", box: .learning, seed: "f", decks: &fresh, now: day).first?.word, "fish")
         let generated = TapLetterGenerator.make(seed: "deal", n: 1, settings: .defaults,
                                                progress: LetterProgress(), decks: LetterWordDecks(),
                                                bank: bank, now: day)
@@ -179,5 +179,53 @@ final class LetterDealTests {
                 expectEqual(String(chars[word.highlight[0]]), letter)
             }
         }
+    }
+
+    func testF1CatalogWordsAndArt() throws {
+        let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let data = try Data(contentsOf: root.appendingPathComponent("Resources/LetterTap/starter-bank.json"))
+        let bank = try LetterWordBank.load(url: root.appendingPathComponent("Resources/LetterTap/starter-bank.json"))
+        let raw = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let letters = raw["letters"] as! [String: [String: Any]]
+        let pictures = try String(contentsOf: root.appendingPathComponent("Sources/VisaGames/TapLetterBoardView.swift"), encoding: .utf8)
+        let locked: [String: [String]] = [
+            "f": ["fish", "fox", "frog", "fan", "fork", "flower", "fire engine", "feather"],
+            "g": ["goat", "girl", "gift", "grapes", "guitar", "goose"],
+            "h": ["hat", "horse", "house", "hand", "helicopter", "hen", "hippo"]
+        ]
+        let banned = Set("鱼风叶马鸡门礼吉机")
+        expectEqual(raw["updated"] as? String, "2026-11-03")
+        for letter in "abcdefgh" {
+            let key = String(letter)
+            expectTrue(StrokeGlyph.latin(letter) != nil, "glyph for \(letter)")
+            expectTrue(LetterGuideData.letter(letter) != nil, "guide for \(letter)")
+            expectFalse(TapLetterCopy.mnemonic(key).isEmpty, "mnemonic for \(letter)")
+            let entry = bank.letters[key]!
+            expectEqual(entry.status, "full")
+            expectTrue((entry.words?.count ?? 0) >= 5, "word count for \(letter)")
+            for word in entry.words ?? [] {
+                expectTrue(pictures.contains("\"\(word.imageID)\":"), "emoji for \(word.imageID)")
+            }
+        }
+        for (letter, words) in locked {
+            let entry = letters[letter]!
+            let bankWords = bank.letters[letter]!.words!
+            expectEqual(bankWords.map(\.word), words, "locked words for \(letter)")
+            expectEqual(bankWords.filter { $0.anchor == true }.map(\.word), [words[0]])
+            expectEqual(entry["status"] as? String, "full")
+            expectTrue(entry["candidates"] == nil && entry["anchor_gloss_zh"] == nil)
+            expectEqual((entry["strokes"] as! [String: Int])["lwt"], letter == "f" ? 2 : 1)
+            expectEqual(entry["rhyme_en"] as? [String], TapLetterCopy.mnemonic(letter))
+            expectTrue(!(entry["hint_en"] as! String).isEmpty)
+            for word in bankWords {
+                expectTrue(word.glossZH.unicodeScalars.allSatisfy { (0x3400...0x9FFF).contains($0.value) }, "CJK gloss \(word.id)")
+                expectTrue(word.glossZH.allSatisfy { !banned.contains($0) }, "HK Traditional gloss \(word.id)")
+            }
+        }
+        expectEqual(bank.letters["f"]!.words!.first { $0.word == "fire engine" }?.id, "f.fire_engine")
+        expectEqual(bank.letters["f"]!.words!.first { $0.word == "fire engine" }?.imageID, "word.fire_engine")
+        expectEqual(bank.letters["f"]!.words!.first { $0.word == "fire engine" }?.voiceKey, "word.fire_engine")
+        let deals = try String(contentsOf: root.appendingPathComponent("Sources/VisaCore/LetterDeals.swift"), encoding: .utf8)
+        expectTrue(deals.contains("\"f\":\"t\", \"h\":\"nb\""), "additive f/h confusables")
     }
 }

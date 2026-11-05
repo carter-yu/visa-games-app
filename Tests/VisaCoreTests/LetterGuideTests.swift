@@ -23,7 +23,33 @@ final class LetterGuideTests {
                 expectTrue((440...840).contains(cue.signPoint.x) && (126...534).contains(cue.signPoint.y), "sign on board \(letter)")
             }
         }
-        expectTrue(LetterGuideData.letter("f") == nil, "unsupported letter")
+        expectTrue(LetterGuideData.letter("i") == nil, "unsupported letter")
+    }
+
+    func testFHopAndHStop() {
+        guard let f = NumeralGuide(letter: "f"), let h = NumeralGuide(letter: "h") else {
+            expectTrue(false, "f and h guides"); return
+        }
+        expectEqual(f.spec.beats.map(\.line.en), ["Over the top and down...", "Across!"])
+        expectEqual(f.spec.beats.map(\.seconds), [1.5, 0.8])
+        expectTrue(f.spec.cues.isEmpty)
+        expectEqual(f.spec.hop?.en, "Now cross it!")
+        expectEqual(f.spec.hopSide, .left)
+        expectEqual(f.spec.lastStroke?.en, "Last one: across!")
+        expectEqual(f.spec.lastStroke?.enSub, "jump across first")
+        let stemX = f.paths[0].end.x
+        expectTrue(f.hopControl(from: 0, to: 1).control.x < stemX, "hop stays left of f's stem")
+        expectEqual(h.spec.beats.map(\.line.en), ["Down from the top, stop!", "Back up a bit...", "Over the hill and down!"])
+        expectEqual(h.spec.beats.map(\.seconds), [1.3, 0.7, 1.5])
+        expectEqual(h.spec.beats[0].until, NumeralGuidePoint(x: 44, y: 270, pass: 1))
+        expectEqual(h.spec.beats[1].until, NumeralGuidePoint(x: 44, y: 186, pass: 2))
+        expectTrue(h.spec.beats[2].until == nil)
+        expectEqual(h.spec.cues.count, 1)
+        expectEqual(h.spec.cues[0].sign, .stop)
+        expectEqual(h.spec.cues[0].point, NumeralGuidePoint(x: 44, y: 270, pass: 1))
+        expectEqual(h.spec.cues[0].signAt, LineMatchPoint(x: -20, y: 262))
+        expectEqual(h.spec.cues[0].line.en, "Stop! Back up!")
+        expectTrue(h.spec.hop == nil && h.spec.lastStroke == nil)
     }
 
 

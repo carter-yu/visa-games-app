@@ -20,7 +20,7 @@ public enum LatinGlyphs {
     public static let boxSize = (width: 190.0, height: 380.0)
     public static let laneWidth: Double = 36
     public static let laneInkWidth: Double = 46
-    public static let supported: [Character] = ["a", "b", "c", "d", "e", "g", "k", "o", "u"]
+    public static let supported: [Character] = ["a", "b", "c", "d", "e", "f", "g", "h", "k", "o", "u"]
 
     private static func p(_ x: Double, _ y: Double) -> LineMatchPoint { LineMatchPoint(x: x, y: y) }
 
@@ -32,7 +32,9 @@ public enum LatinGlyphs {
         case "c": return [LatinStroke("M146 154 C134 138 116 130 96 130 C62 130 40 162 40 200 C40 240 64 270 96 270 C118 270 136 260 148 242")]
         case "d": return [LatinStroke("M142 152 C132 138 116 130 96 130 C62 130 40 162 40 200 C40 240 64 270 96 270 C122 270 140 252 146 226 L148 30 L148 270", cusps: [p(148, 30)])]
         case "e": return [LatinStroke("M42 202 L154 202 C154 160 130 130 96 130 C62 130 40 162 40 202 C40 242 66 270 98 270 C122 270 140 260 152 244")]
+        case "f": return [LatinStroke("M150 52 C140 36 124 30 108 30 C84 30 72 48 72 74 L72 270"), LatinStroke("M40 130 L132 130")]
         case "g": return [LatinStroke("M142 152 C132 138 116 130 96 130 C62 130 40 162 40 200 C40 240 64 270 96 270 C122 270 140 252 146 226 L148 130 L148 296 C148 334 126 350 96 350 C72 350 56 342 46 330", cusps: [p(148, 130)])]
+        case "h": return [LatinStroke("M44 30 L44 270 L44 186 C54 150 76 130 104 130 C134 130 148 150 148 180 L148 270", cusps: [p(44, 270)])]
         case "k": return [LatinStroke("M44 30 L44 270"), LatinStroke("M146 130 L52 208 L150 270", corners: [p(52, 208)])]
         case "o": return [LatinStroke("M96 130 C62 130 40 162 40 200 C40 240 62 270 96 270 C130 270 152 240 152 200 C152 162 130 130 96 130", closed: true)]
         case "u": return [LatinStroke("M44 130 L44 216 C44 250 66 270 96 270 C126 270 148 250 148 216 L148 130 L148 270", cusps: [p(148, 130)])]

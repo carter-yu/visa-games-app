@@ -187,7 +187,7 @@ public enum LetterBoardBuilder {
             }
         }
         let week = settings.validWeek
-        let confusables = ["b":"dpqa", "d":"bpqac", "c":"oeadb", "n":"umhr", "u":"nv"]
+        let confusables = ["b":"dpqa", "d":"bpqac", "c":"oeadb", "n":"umhr", "u":"nv", "f":"t", "h":"nb"]
         if !week.contains(target) {
             let previous = progress.letters.filter { !week.contains($0.key) && $0.value.hasTargetRound }
                 .sorted { ($0.value.lastSeen ?? .distantPast) > ($1.value.lastSeen ?? .distantPast) }.map(\.key)

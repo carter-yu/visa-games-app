@@ -5,7 +5,7 @@ import json
 import os
 from guidance_spec_to_swift import ROOT, COPY_LINES, PARENT, fail, lit, num, colour, point
 
-LETTERS = "abcdegkou"
+LETTERS = "abcdefghkou"
 
 
 def line(d, where):
