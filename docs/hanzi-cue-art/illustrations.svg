@@ -1,0 +1,205 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true">
+  <!-- Inline this sprite once. Link illustration-style.css in the host document. -->
+  <defs>
+    <g id="scene-car" class="ill">
+      <ellipse class="ground-shadow" cx="60" cy="72" rx="53" ry="7"/>
+      <path class="yellow outline" d="M14 43 L22 22 Q25 13 36 13 H70 Q80 13 86 24 L96 42 Q108 44 108 55 V63 H12 V53 Q12 47 14 43Z"/>
+      <path class="sky outline" d="M34 23 H49 V40 H25Z"/>
+      <path class="sky outline" d="M59 23 H70 Q76 23 80 31 L85 40 H59Z"/>
+      <path class="yellow-shade" d="M16 52 H104 V62 H16Z"/>
+      <path class="detail" d="M15 63 H105"/>
+      <circle class="ink" cx="31" cy="64" r="12"/><circle class="ink" cx="88" cy="64" r="12"/>
+      <circle class="cream" cx="31" cy="64" r="5"/><circle class="cream" cx="88" cy="64" r="5"/>
+      <rect class="cream" x="97" y="46" width="10" height="8" rx="4"/>
+      <rect class="red" x="13" y="46" width="7" height="8" rx="3"/>
+      <path class="detail" d="M59 47 H66"/>
+    </g>
+    <g id="bridge" class="ill">
+      <path class="sky outline" d="M29 28 H211 V110 H169 V83 Q169 46 120 46 Q71 46 71 83 V110 H29Z"/>
+      <path class="outline cream" d="M20 13 H220 V34 H20Z"/>
+      <path class="teal" d="M32 39 H65 V106 H32Z"/>
+      <path class="teal" d="M175 39 H208 V106 H175Z"/>
+      <path class="detail" d="M29 71 H65 M175 71 H211"/>
+      <path class="detail" d="M48 18 V29 M80 18 V29 M112 18 V29 M144 18 V29 M176 18 V29 M208 18 V29"/>
+    </g>
+    <g id="child-head" class="ill">
+      <path class="ink outline" d="M76 57 Q75 23 113 22 Q149 19 160 47 L160 70 H77Z"/>
+      <circle class="skin outline" cx="78" cy="70" r="9"/>
+      <circle class="skin outline" cx="158" cy="70" r="9"/>
+      <path class="skin outline" d="M81 52 Q98 53 110 39 Q130 57 155 51 V78 Q151 103 118 105 Q85 101 81 78Z"/>
+      <ellipse class="blush" cx="92" cy="80" rx="7" ry="4"/>
+      <ellipse class="blush" cx="144" cy="80" rx="7" ry="4"/>
+      <circle class="eye" cx="102" cy="68" r="4.5"/><circle class="eye" cx="134" cy="68" r="4.5"/>
+      <circle class="eye-shine" cx="103.3" cy="66.8" r="1.5"/><circle class="eye-shine" cx="135.3" cy="66.8" r="1.5"/>
+      <path class="detail" d="M109 83 Q118 91 128 83"/>
+      <path class="shine" d="M91 35 Q101 29 111 30"/>
+    </g>
+    <g id="left-hand-shape" class="ill">
+      <!-- First-person left hand. Four long fingers plus the medial thumb on the right. -->
+      <path class="skin outline" d="M78 175 V152 Q57 137 57 114 V78 Q57 66 67 66 Q77 66 77 78 V104 V51 Q77 39 87 39 Q97 39 97 51 V97 V34 Q97 22 108 22 Q119 22 119 34 V96 V46 Q119 34 130 34 Q141 34 141 46 V115 L160 96 Q168 88 176 94 Q185 101 179 111 L157 145 Q149 157 147 175Z"/>
+      <path class="skin-shade" d="M66 125 Q73 146 88 151 V174 H143 V157 Q126 165 110 162 Q81 158 66 125Z"/>
+      <path class="detail" d="M78 175 V152 M147 175 V162"/>
+      <path class="detail" d="M78 107 V119 M98 102 V115 M120 101 V114"/>
+      <path class="detail" d="M143 118 L151 128"/>
+      <path class="cream" d="M63 78 Q67 73 71 78 V86 H63Z M83 51 Q87 46 91 51 V59 H83Z M104 34 Q108 29 112 34 V42 H104Z M126 46 Q130 41 134 46 V54 H126Z" opacity=".65"/>
+    </g>
+  </defs>
+
+  <symbol id="person-standing" viewBox="0 0 240 200">
+    <g class="ill">
+      <ellipse class="ground-shadow" cx="120" cy="186" rx="63" ry="8"/>
+      <path class="skin outline" d="M91 109 Q76 114 65 138 Q61 148 70 152 Q79 155 84 145 L99 127Z"/>
+      <path class="skin outline" d="M146 109 Q161 114 172 138 Q176 148 167 152 Q158 155 153 145 L138 127Z"/>
+      <path class="teal outline" d="M90 105 Q118 98 147 105 L153 143 Q119 153 84 143Z"/>
+      <path class="teal-shade" d="M91 133 Q118 140 146 133 L148 142 Q120 149 89 142Z"/>
+      <path class="lavender outline" d="M89 146 H148 L143 178 H122 L119 155 L115 178 H93Z"/>
+      <path class="cream outline" d="M91 175 H113 V185 H79 Q77 177 91 175Z"/>
+      <path class="cream outline" d="M124 175 H146 Q158 177 158 185 H124Z"/>
+      <use href="#child-head"/>
+      <circle class="yellow outline" cx="119" cy="121" r="8"/>
+    </g>
+  </symbol>
+
+  <symbol id="person-walking" viewBox="0 0 240 200">
+    <g class="ill">
+      <ellipse class="ground-shadow" cx="121" cy="186" rx="70" ry="8"/>
+      <path class="skin outline" d="M92 110 L68 126 Q61 132 67 139 Q72 146 81 140 L103 127Z"/>
+      <path class="skin outline" d="M143 110 L165 96 Q172 91 179 98 Q185 105 176 112 L150 131Z"/>
+      <path class="teal outline" d="M92 105 Q120 97 147 105 L151 145 Q118 151 86 142Z"/>
+      <path class="teal-shade" d="M92 132 Q117 139 145 134 L147 143 Q117 149 91 141Z"/>
+      <path class="lavender outline" d="M92 146 L144 145 L161 170 L144 179 L122 157 L105 178 L84 170Z"/>
+      <path class="cream outline" d="M84 167 L106 176 L102 186 H69 Q68 176 84 167Z"/>
+      <path class="cream outline" d="M145 173 L161 166 Q179 175 173 183 L162 190Z"/>
+      <use href="#child-head"/>
+      <circle class="yellow outline" cx="119" cy="121" r="8"/>
+    </g>
+  </symbol>
+
+  <symbol id="above-bridge" viewBox="0 0 240 200">
+    <g class="ill">
+      <ellipse class="ground-shadow" cx="120" cy="184" rx="104" ry="8"/>
+      <use href="#bridge" transform="translate(0 72)"/>
+      <use href="#scene-car" transform="translate(62 13) scale(.95)"/>
+      <path class="cloud" d="M23 40 Q23 31 31 31 Q34 20 46 22 Q54 23 57 32 Q69 33 68 43 Q67 50 56 50 H34 Q23 50 23 40Z"/>
+    </g>
+  </symbol>
+
+  <symbol id="above-bridge-2" viewBox="0 0 240 200">
+    <g class="ill">
+      <ellipse class="ground-shadow" cx="120" cy="184" rx="104" ry="8"/>
+      <use href="#bridge" transform="translate(0 72)"/>
+      <use href="#scene-car" transform="translate(44 13) scale(.95)"/>
+      <path class="cloud" d="M166 40 Q166 31 174 31 Q177 20 189 22 Q197 23 200 32 Q212 33 211 43 Q210 50 199 50 H177 Q166 50 166 40Z"/>
+    </g>
+  </symbol>
+
+  <symbol id="below-bridge" viewBox="0 0 240 200">
+    <g class="ill">
+      <ellipse class="ground-shadow" cx="120" cy="184" rx="104" ry="8"/>
+      <use href="#bridge" transform="translate(0 28) scale(1 1.4)"/>
+      <path class="road-line" d="M81 183 H95 M110 183 H125 M140 183 H155"/>
+      <use href="#scene-car" transform="translate(70 111) scale(.84)"/>
+    </g>
+  </symbol>
+
+  <symbol id="below-bridge-2" viewBox="0 0 240 200">
+    <g class="ill">
+      <ellipse class="ground-shadow" cx="120" cy="184" rx="104" ry="8"/>
+      <use href="#bridge" transform="translate(0 28) scale(1 1.4)"/>
+      <path class="road-line" d="M81 183 H95 M110 183 H125 M140 183 H155"/>
+      <use href="#scene-car" transform="translate(64 111) scale(.84)"/>
+      <path class="cloud" d="M168 18 Q168 11 175 11 Q178 3 187 5 Q195 6 198 13 Q208 14 207 23 H176 Q168 23 168 18Z"/>
+    </g>
+  </symbol>
+
+  <symbol id="left-hand" viewBox="0 0 240 200">
+    <g class="ill">
+      <g transform="translate(26 0)"><ellipse class="ground-shadow" cx="117" cy="187" rx="61" ry="7"/>
+      <use href="#left-hand-shape"/></g>
+      <!-- D7 (locked 2026-11-03): direction arrow, same ink/outline tokens; mirrored automatically for 右 -->
+      <g class="dir-arrow"><path class="red outline" d="M8 96 L38 68 V83 H70 V109 H38 V124 Z"/><path class="red-shade" d="M38 113 H66 V105 H38Z"/></g>
+      <path class="teal outline" d="M74 170 H151 V191 H74Z" transform="translate(26 0)"/>
+      <path class="teal-shade" d="M78 184 H147 V188 H78Z" transform="translate(26 0)"/>
+    </g>
+  </symbol>
+
+  <symbol id="left-hand-2" viewBox="0 0 240 200">
+    <g class="ill" style="--skin:#e9b37e;--skin-shade:#d69a65">
+      <g transform="translate(26 0)"><ellipse class="ground-shadow" cx="117" cy="187" rx="61" ry="7"/>
+      <use href="#left-hand-shape"/></g>
+      <!-- D7 (locked 2026-11-03): direction arrow, same ink/outline tokens; mirrored automatically for 右 -->
+      <g class="dir-arrow"><path class="red outline" d="M8 96 L38 68 V83 H70 V109 H38 V124 Z"/><path class="red-shade" d="M38 113 H66 V105 H38Z"/></g>
+      <path class="yellow outline" d="M74 170 H151 V191 H74Z" transform="translate(26 0)"/>
+      <path class="yellow-shade" d="M78 184 H147 V188 H78Z" transform="translate(26 0)"/>
+    </g>
+  </symbol>
+
+  <symbol id="right-hand" viewBox="0 0 240 200">
+    <g transform="translate(240 0) scale(-1 1)"><use href="#left-hand"/></g>
+  </symbol>
+
+  <symbol id="right-hand-2" viewBox="0 0 240 200">
+    <g transform="translate(240 0) scale(-1 1)"><use href="#left-hand-2"/></g>
+  </symbol>
+
+  <!-- 木 · 一棵樹 (six-target addendum 2026-11-06, D8). Shared tokens only: teal canopy with one flat
+       teal-shade band, skin-shade trunk, plum outlines, cream shine, one oval ground shadow. -->
+  <symbol id="tree" viewBox="0 0 240 200">
+    <g class="ill">
+      <ellipse class="ground-shadow" cx="120" cy="186" rx="66" ry="8"/>
+      <path class="skin-shade outline" d="M102 184 Q110 160 109 120 H131 Q130 160 138 184Z"/>
+      <path class="detail" d="M115 146 Q119 158 116 170"/>
+      <path class="teal outline" d="M120 24 Q150 20 164 42 Q196 46 198 78 Q206 106 180 120 Q160 136 136 126 Q120 134 104 126 Q80 136 60 120 Q34 106 42 78 Q44 46 76 42 Q90 20 120 24Z"/>
+      <path class="teal-shade" d="M52 102 Q62 114 84 116 Q104 122 120 118 Q138 122 156 116 Q178 114 188 102 Q188 112 174 116 Q156 128 136 121 Q120 128 104 121 Q84 128 66 116 Q56 110 52 102Z"/>
+      <path class="shine" d="M60 80 Q64 62 82 56"/>
+    </g>
+  </symbol>
+
+  <symbol id="tree-2" viewBox="0 0 240 200">
+    <g class="ill">
+      <ellipse class="ground-shadow" cx="120" cy="186" rx="66" ry="8"/>
+      <path class="skin-shade outline" d="M102 184 Q110 160 109 120 H131 Q130 160 138 184Z"/>
+      <path class="detail" d="M115 146 Q119 158 116 170"/>
+      <path class="teal outline" d="M120 24 Q150 20 164 42 Q196 46 198 78 Q206 106 180 120 Q160 136 136 126 Q120 134 104 126 Q80 136 60 120 Q34 106 42 78 Q44 46 76 42 Q90 20 120 24Z"/>
+      <path class="teal-shade" d="M52 102 Q62 114 84 116 Q104 122 120 118 Q138 122 156 116 Q178 114 188 102 Q188 112 174 116 Q156 128 136 121 Q120 128 104 121 Q84 128 66 116 Q56 110 52 102Z"/>
+      <path class="shine" d="M60 80 Q64 62 82 56"/>
+      <circle class="red outline" cx="84" cy="90" r="9"/><circle class="red outline" cx="146" cy="62" r="9"/><circle class="red outline" cx="166" cy="98" r="9"/>
+      <circle class="cream" cx="81" cy="87" r="2.5"/><circle class="cream" cx="143" cy="59" r="2.5"/><circle class="cream" cx="163" cy="95" r="2.5"/>
+      <path class="cloud" d="M12 26 Q12 18 20 18 Q23 7 35 9 Q43 10 46 19 Q58 20 57 29 Q56 36 45 36 H23 Q12 36 12 26Z"/>
+    </g>
+  </symbol>
+
+  <symbol id="robot" viewBox="0 0 240 200">
+    <g class="ill">
+      <ellipse class="ground-shadow" cx="120" cy="181" rx="76" ry="8"/>
+      <path class="skin-shade outline" d="M110 56 H132 V95 H110Z"/>
+      <path class="skin-shade outline" d="M100 49 Q100 25 122 25 Q145 25 145 49 Q145 60 135 64 H110 Q100 61 100 49Z"/>
+      <path class="red outline" d="M65 91 Q65 79 77 79 H163 Q175 79 175 91 L183 161 H57Z"/>
+      <path class="red-shade" d="M61 145 H179 L181 158 H59Z"/>
+      <rect class="red-shade outline" x="49" y="159" width="141" height="22" rx="9"/>
+      <circle class="eye" cx="95" cy="111" r="7"/><circle class="eye" cx="146" cy="111" r="7"/>
+      <circle class="eye-shine" cx="97" cy="109" r="2.5"/><circle class="eye-shine" cx="148" cy="109" r="2.5"/>
+      <ellipse class="blush" cx="79" cy="126" rx="9" ry="5"/><ellipse class="blush" cx="162" cy="126" rx="9" ry="5"/>
+      <path class="detail" d="M104 130 Q121 144 137 130"/>
+      <path class="detail" d="M199 99 Q208 116 199 132 M213 88 Q229 115 214 143"/>
+    </g>
+  </symbol>
+
+  <symbol id="car-top" viewBox="0 0 80 100">
+    <g class="ill" style="--outline:4;--detail-outline:3">
+      <!-- Heading is toward the top of the viewBox. Rotate around (40,50). -->
+      <rect class="ink" x="9" y="23" width="12" height="19" rx="4"/>
+      <rect class="ink" x="59" y="23" width="12" height="19" rx="4"/>
+      <rect class="ink" x="9" y="65" width="12" height="19" rx="4"/>
+      <rect class="ink" x="59" y="65" width="12" height="19" rx="4"/>
+      <rect class="yellow outline" x="17" y="9" width="46" height="80" rx="17"/>
+      <path class="yellow-shade" d="M22 66 Q40 72 58 66 V77 Q58 85 49 85 H31 Q22 85 22 77Z"/>
+      <rect class="cream outline" x="24" y="30" width="32" height="30" rx="9"/>
+      <path class="sky outline" d="M25 65 Q40 72 55 65 Q54 77 40 78 Q26 77 25 65Z"/>
+      <circle class="cream" cx="28" cy="18" r="5"/><circle class="cream" cx="52" cy="18" r="5"/>
+      <circle class="eye" cx="28" cy="17" r="2.5"/><circle class="eye" cx="52" cy="17" r="2.5"/>
+      <path class="detail" d="M35 23 Q40 27 45 23"/>
+      <rect class="teal outline" x="15" y="85" width="50" height="8" rx="3"/>
+    </g>
+  </symbol>
+</svg>

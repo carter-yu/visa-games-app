@@ -1,0 +1,1274 @@
+{
+  "schema": "visagames.hanziPack.v1",
+  "status": "H0 data pack, 0.38.0 / 81. No game, board or setting reads it yet (H1+).",
+  "provenance": {
+    "design": "visa-games-design/hanzi-tap/v2/hanzi-spec.json (LOCKED 2026-11-03 22:54 HKT, D1-D12)",
+    "addendum": "visa-games-sessions/hanzi/ADDENDUM-six-targets.md (2026-11-06): six targets 人上下左右木; 本／未 find-only for 木 once MOE-checked",
+    "sourceLock": "Taiwan MOE 教育部《國字標準字體筆順學習網》 (D5)",
+    "sourceCompare": "visa-games-sessions/hanzi/h0/SOURCE-COMPARE.md",
+    "geometry": "人上下左右: run-1 centrelines verbatim. 木 and find-only 本／未: authored from the MOE tracks (uniform map, level 橫, straight 豎, one cubic per 撇／捺). Find-only 入／八: authored from the MOE tracks in H0 fix round 1, with two added fitting cases (SOURCE-COMPARE.md §3).",
+    "copyReview": "Child lines, cue lines and meanings are authored HK Cantonese and stay subject to Carter's naturalness check. Parent labels are H4 and are not in this pack."
+  },
+  "coordinateSystem": {
+    "width": 300,
+    "height": 300,
+    "origin": "top-left",
+    "unit": "author-drawn centreline"
+  },
+  "startMarkerPolicy": {
+    "directionArrow": true,
+    "inputEligibleWhen": "current stroke only",
+    "review": "all ordered starts and direction arrows visible in review; completed/future labels subdued; only current ordered start accepts input"
+  },
+  "signPolicy": {
+    "ahead": "only a junction/crossing with a completed stroke where the current pen-down path continues",
+    "stop": "only an actual within-stroke turn; in this set 右 stroke 4 橫折",
+    "aheadDirection": "outgoing tangent at cue distance +24"
+  },
+  "cueArt": {
+    "sprite": "docs/hanzi-cue-art/illustrations.svg",
+    "stylesheet": "docs/hanzi-cue-art/illustration-style.css",
+    "viewBox": "0 0 240 200"
+  },
+  "defaults": {
+    "week": ["人", "上", "下", "左", "右", "木"],
+    "findEnabled": false,
+    "writeEnabled": false,
+    "audioEnabled": false,
+    "jyutpingEnabled": false,
+    "reviewEveryRounds": 4,
+    "confusableGuard": true,
+    "grid": "tianzi",
+    "miziGridEnabled": false,
+    "guideLevel": "standard",
+    "strokeOrder": "inheritExisting",
+    "unlockStarsAfterOwnPlaytest": true
+  },
+  "board": {
+    "rows": 2,
+    "columns": 5,
+    "targetCards": 2,
+    "oneTargetPerRow": true,
+    "symbolsPerRow": 5,
+    "distinctRows": true,
+    "distinctTargetColumns": true,
+    "targetWeek": ["人", "上", "下", "左", "右", "木"],
+    "approvedFindOnlyPool": ["入", "八", "本", "未"],
+    "confusablePairs": [["上", "下"], ["左", "右"], ["人", "入"], ["人", "八"], ["木", "本"], ["木", "未"]],
+    "rowSetRule": "each row shows five distinct glyphs: a subset of targetWeek + approvedFindOnlyPool that always includes the deal's target; both rows permute the same five-glyph set; a week glyph outside the five is not shown that deal (addendum 2026-11-06)",
+    "guardMode": "exclude paired distractor before first clean target round; never change target count or per-row distinctness; refuse deal if find-only glyphs unapproved",
+    "findOnlyDealRule": "a deal may show a find-only glyph only when it is in approvedFindOnlyPool and its displayFormVerified is true (design: display forms pass H0 review before a guarded deal uses them). With six week targets the guard never needs a filler: each target pairs with at most one week glyph, leaving at least four week distractors.",
+    "scheduler": {
+      "cycleTargetsOnceBeforeShuffle": true,
+      "noImmediateTargetRepeat": true,
+      "retryAfterInterveningRounds": 2,
+      "reviewEveryRounds": 4,
+      "balancedSet": "both rows permute the same five-glyph display set, not the full six-glyph week"
+    }
+  },
+  "characters": {
+    "人": {
+      "id": "hanzi:人",
+      "jyutping": "jan4",
+      "voiceKey": "hanzi.char.ren",
+      "meaning": {
+        "zhHK": "一個人",
+        "en": "a person"
+      },
+      "cuePictures": ["person-standing", "person-walking"],
+      "sourceStatus": "LOCKED 2026-11-03: matches Taiwan MOE order (2 strokes)",
+      "strokes": [
+        {
+          "n": 1,
+          "type": "撇",
+          "typeEn": "left-falling",
+          "svg": "M158 54 C147 102 120 174 72 246",
+          "start": [158, 54],
+          "end": [72, 246],
+          "marker": {
+            "label": "1",
+            "anchor": [158, 54]
+          }
+        },
+        {
+          "n": 2,
+          "type": "捺",
+          "typeEn": "right-falling",
+          "svg": "M151 112 C180 170 208 217 255 250",
+          "start": [151, 112],
+          "end": [255, 250],
+          "marker": {
+            "label": "2",
+            "anchor": [151, 112],
+            "reviewLabelOffset": [27, -18],
+            "leaderToActualStart": true
+          }
+        }
+      ],
+      "guide": {
+        "beats": [
+          {
+            "stroke": 0,
+            "until": "end",
+            "seconds": 1.4,
+            "line": {
+              "zhHK": "撇落嚟！",
+              "en": "Sweep down left!"
+            }
+          },
+          {
+            "stroke": 1,
+            "until": "end",
+            "seconds": 1.4,
+            "line": {
+              "zhHK": "捺出去！",
+              "en": "Sweep down right!"
+            }
+          }
+        ],
+        "merge": {
+          "zhHK": "到你喇！",
+          "en": "Your turn!"
+        },
+        "cues": [],
+        "lastStroke": {
+          "zhHK": "最後一筆：捺出去！",
+          "en": "Last stroke: sweep down right!"
+        },
+        "hop": {
+          "zhHK": "提起筆，去下一個起點。",
+          "en": "Lift, then go to the next start."
+        }
+      },
+      "moeSource": {
+        "page": "https://stroke-order.learningweb.moe.edu.tw/dictView.jsp?ID=20154&la=0",
+        "strokeData": "https://stroke-order.learningweb.moe.edu.tw/provideStrokeInfo.do?ucs=4EBA&useAlt=0",
+        "strokeCount": 2,
+        "retrieved": "2026-11-03 HKT",
+        "checked": ["count", "order"],
+        "note": "visa-games-design/hanzi-tap/v2/source-audit.md §MOE lock (2026-11-03): count and order from the page's stroke XML; centrelines are run-1 authored geometry, not MOE proportions; not re-retrieved in H0"
+      }
+    },
+    "上": {
+      "id": "hanzi:上",
+      "jyutping": "soeng6",
+      "voiceKey": "hanzi.char.shang.location",
+      "meaning": {
+        "zhHK": "上面",
+        "en": "above"
+      },
+      "cuePictures": ["above-bridge", "above-bridge-2"],
+      "sourceStatus": "LOCKED 2026-11-03: matches Taiwan MOE order (3 strokes)",
+      "strokes": [
+        {
+          "n": 1,
+          "type": "豎",
+          "typeEn": "vertical",
+          "svg": "M137 43 L137 237",
+          "start": [137, 43],
+          "end": [137, 237],
+          "marker": {
+            "label": "1",
+            "anchor": [137, 43]
+          }
+        },
+        {
+          "n": 2,
+          "type": "橫",
+          "typeEn": "horizontal-short",
+          "svg": "M137 119 L231 119",
+          "start": [137, 119],
+          "end": [231, 119],
+          "marker": {
+            "label": "2",
+            "anchor": [137, 119]
+          }
+        },
+        {
+          "n": 3,
+          "type": "橫",
+          "typeEn": "horizontal-long",
+          "svg": "M62 237 L253 237",
+          "start": [62, 237],
+          "end": [253, 237],
+          "marker": {
+            "label": "3",
+            "anchor": [62, 237]
+          }
+        }
+      ],
+      "guide": {
+        "beats": [
+          {
+            "stroke": 0,
+            "until": "end",
+            "seconds": 1.2,
+            "line": {
+              "zhHK": "直落！",
+              "en": "Straight down!"
+            }
+          },
+          {
+            "stroke": 1,
+            "until": "end",
+            "seconds": 0.9,
+            "line": {
+              "zhHK": "短橫過去！",
+              "en": "Short line across!"
+            }
+          },
+          {
+            "stroke": 2,
+            "until": "end",
+            "seconds": 1.2,
+            "line": {
+              "zhHK": "長橫托住！",
+              "en": "Long line underneath!"
+            }
+          }
+        ],
+        "merge": {
+          "zhHK": "到你喇！",
+          "en": "Your turn!"
+        },
+        "cues": [
+          {
+            "stroke": 2,
+            "point": [137, 237],
+            "pass": 1,
+            "sign": "ahead",
+            "signAt": [137, 282],
+            "line": {
+              "zhHK": "長橫繼續行！",
+              "en": "Keep going across the base!"
+            },
+            "status": "PROPOSED Hanzi cue; geometry/clearance validation required in H3"
+          }
+        ],
+        "lastStroke": {
+          "zhHK": "最後一筆：長橫托住！",
+          "en": "Last stroke: long line underneath!"
+        },
+        "hop": {
+          "zhHK": "提起筆，去下一個起點。",
+          "en": "Lift, then go to the next start."
+        }
+      },
+      "moeSource": {
+        "page": "https://stroke-order.learningweb.moe.edu.tw/dictView.jsp?ID=19978&la=0",
+        "strokeData": "https://stroke-order.learningweb.moe.edu.tw/provideStrokeInfo.do?ucs=4E0A&useAlt=0",
+        "strokeCount": 3,
+        "retrieved": "2026-11-03 HKT",
+        "checked": ["count", "order"],
+        "note": "visa-games-design/hanzi-tap/v2/source-audit.md §MOE lock (2026-11-03): count and order from the page's stroke XML; centrelines are run-1 authored geometry, not MOE proportions; not re-retrieved in H0"
+      }
+    },
+    "下": {
+      "id": "hanzi:下",
+      "jyutping": "haa6",
+      "voiceKey": "hanzi.char.xia.location",
+      "meaning": {
+        "zhHK": "下面",
+        "en": "below"
+      },
+      "cuePictures": ["below-bridge", "below-bridge-2"],
+      "sourceStatus": "LOCKED 2026-11-03: matches Taiwan MOE order (3 strokes)",
+      "strokes": [
+        {
+          "n": 1,
+          "type": "橫",
+          "typeEn": "horizontal",
+          "svg": "M62 65 L252 65",
+          "start": [62, 65],
+          "end": [252, 65],
+          "marker": {
+            "label": "1",
+            "anchor": [62, 65]
+          }
+        },
+        {
+          "n": 2,
+          "type": "豎",
+          "typeEn": "vertical",
+          "svg": "M142 65 L142 254",
+          "start": [142, 65],
+          "end": [142, 254],
+          "marker": {
+            "label": "2",
+            "anchor": [142, 65],
+            "reviewLabelOffset": [20, -32],
+            "leaderToActualStart": true
+          }
+        },
+        {
+          "n": 3,
+          "type": "點",
+          "typeEn": "long-right-dot",
+          "svg": "M145 148 L196 181",
+          "start": [145, 148],
+          "end": [196, 181],
+          "marker": {
+            "label": "3",
+            "anchor": [145, 148],
+            "reviewLabelOffset": [40, -25],
+            "leaderToActualStart": true
+          }
+        }
+      ],
+      "guide": {
+        "beats": [
+          {
+            "stroke": 0,
+            "until": "end",
+            "seconds": 1.1,
+            "line": {
+              "zhHK": "橫過去！",
+              "en": "Across!"
+            }
+          },
+          {
+            "stroke": 1,
+            "until": "end",
+            "seconds": 1.2,
+            "line": {
+              "zhHK": "直落！",
+              "en": "Straight down!"
+            }
+          },
+          {
+            "stroke": 2,
+            "until": "end",
+            "seconds": 0.7,
+            "line": {
+              "zhHK": "點一下！",
+              "en": "Add the dot!"
+            }
+          }
+        ],
+        "merge": {
+          "zhHK": "到你喇！",
+          "en": "Your turn!"
+        },
+        "cues": [],
+        "lastStroke": {
+          "zhHK": "最後一筆：點一下！",
+          "en": "Last stroke: add the dot!"
+        },
+        "hop": {
+          "zhHK": "提起筆，去下一個起點。",
+          "en": "Lift, then go to the next start."
+        }
+      },
+      "moeSource": {
+        "page": "https://stroke-order.learningweb.moe.edu.tw/dictView.jsp?ID=19979&la=0",
+        "strokeData": "https://stroke-order.learningweb.moe.edu.tw/provideStrokeInfo.do?ucs=4E0B&useAlt=0",
+        "strokeCount": 3,
+        "retrieved": "2026-11-03 HKT",
+        "checked": ["count", "order"],
+        "note": "visa-games-design/hanzi-tap/v2/source-audit.md §MOE lock (2026-11-03): count and order from the page's stroke XML; centrelines are run-1 authored geometry, not MOE proportions; not re-retrieved in H0"
+      }
+    },
+    "左": {
+      "id": "hanzi:左",
+      "jyutping": "zo2",
+      "voiceKey": "hanzi.char.zuo",
+      "meaning": {
+        "zhHK": "左邊",
+        "en": "left"
+      },
+      "meaningCue": {
+        "zhHK": "我隻左手",
+        "referenceFrame": "child body, first-person hands",
+        "directionArrow": "left"
+      },
+      "cuePictures": ["left-hand", "left-hand-2"],
+      "sourceStatus": "LOCKED 2026-11-03: matches Taiwan MOE order (5 strokes)",
+      "strokes": [
+        {
+          "n": 1,
+          "type": "橫",
+          "typeEn": "horizontal",
+          "svg": "M90 75 L225 75",
+          "start": [90, 75],
+          "end": [225, 75],
+          "marker": {
+            "label": "1",
+            "anchor": [90, 75]
+          }
+        },
+        {
+          "n": 2,
+          "type": "撇",
+          "typeEn": "left-falling",
+          "svg": "M154 46 C143 91 112 145 67 184",
+          "start": [154, 46],
+          "end": [67, 184],
+          "marker": {
+            "label": "2",
+            "anchor": [154, 46]
+          }
+        },
+        {
+          "n": 3,
+          "type": "橫",
+          "typeEn": "work-top-horizontal",
+          "svg": "M112 158 L229 158",
+          "start": [112, 158],
+          "end": [229, 158],
+          "marker": {
+            "label": "3",
+            "anchor": [112, 158]
+          }
+        },
+        {
+          "n": 4,
+          "type": "豎",
+          "typeEn": "work-vertical",
+          "svg": "M171 158 L171 242",
+          "start": [171, 158],
+          "end": [171, 242],
+          "marker": {
+            "label": "4",
+            "anchor": [171, 158]
+          }
+        },
+        {
+          "n": 5,
+          "type": "橫",
+          "typeEn": "work-bottom-horizontal",
+          "svg": "M96 242 L247 242",
+          "start": [96, 242],
+          "end": [247, 242],
+          "marker": {
+            "label": "5",
+            "anchor": [96, 242]
+          }
+        }
+      ],
+      "guide": {
+        "beats": [
+          {
+            "stroke": 0,
+            "until": "end",
+            "seconds": 0.9,
+            "line": {
+              "zhHK": "一先行！",
+              "en": "Line first!"
+            }
+          },
+          {
+            "stroke": 1,
+            "until": "end",
+            "seconds": 1.0,
+            "line": {
+              "zhHK": "撇落去！",
+              "en": "Sweep down left!"
+            }
+          },
+          {
+            "stroke": 2,
+            "until": "end",
+            "seconds": 0.9,
+            "line": {
+              "zhHK": "工字第一橫！",
+              "en": "Top line of 工!"
+            }
+          },
+          {
+            "stroke": 3,
+            "until": "end",
+            "seconds": 0.8,
+            "line": {
+              "zhHK": "工字直落！",
+              "en": "Down through 工!"
+            }
+          },
+          {
+            "stroke": 4,
+            "until": "end",
+            "seconds": 1.0,
+            "line": {
+              "zhHK": "工字下面一橫！",
+              "en": "Bottom line of 工!"
+            }
+          }
+        ],
+        "merge": {
+          "zhHK": "到你喇！",
+          "en": "Your turn!"
+        },
+        "cues": [
+          {
+            "stroke": 4,
+            "point": [171, 242],
+            "pass": 1,
+            "sign": "ahead",
+            "signAt": [171, 282],
+            "line": {
+              "zhHK": "下面一橫，繼續行！",
+              "en": "Keep going across the bottom!"
+            },
+            "status": "PROPOSED Hanzi cue; geometry/clearance validation required in H3"
+          }
+        ],
+        "lastStroke": {
+          "zhHK": "最後一筆：下面一橫！",
+          "en": "Last stroke: bottom line!"
+        },
+        "hop": {
+          "zhHK": "提起筆，去下一個起點。",
+          "en": "Lift, then go to the next start."
+        }
+      },
+      "moeSource": {
+        "page": "https://stroke-order.learningweb.moe.edu.tw/dictView.jsp?ID=24038&la=0",
+        "strokeData": "https://stroke-order.learningweb.moe.edu.tw/provideStrokeInfo.do?ucs=5DE6&useAlt=0",
+        "strokeCount": 5,
+        "retrieved": "2026-11-03 HKT",
+        "checked": ["count", "order"],
+        "note": "visa-games-design/hanzi-tap/v2/source-audit.md §MOE lock (2026-11-03): count and order from the page's stroke XML; centrelines are run-1 authored geometry, not MOE proportions; not re-retrieved in H0"
+      }
+    },
+    "右": {
+      "id": "hanzi:右",
+      "jyutping": "jau6",
+      "voiceKey": "hanzi.char.you",
+      "meaning": {
+        "zhHK": "右邊",
+        "en": "right"
+      },
+      "meaningCue": {
+        "zhHK": "我隻右手",
+        "referenceFrame": "child body, first-person hands",
+        "directionArrow": "right"
+      },
+      "cuePictures": ["right-hand", "right-hand-2"],
+      "sourceStatus": "LOCKED 2026-11-03 to Taiwan MOE 國字標準字體筆順學習網: 橫, 撇, 豎, 橫折, 橫 (5). CHANGED from run-1/2 proposal which had 撇 first (Hong Kong common order).",
+      "strokes": [
+        {
+          "n": 1,
+          "type": "橫",
+          "typeEn": "horizontal-long",
+          "svg": "M90 80 L253 80",
+          "start": [90, 80],
+          "end": [253, 80],
+          "marker": {
+            "label": "1",
+            "anchor": [90, 80]
+          }
+        },
+        {
+          "n": 2,
+          "type": "撇",
+          "typeEn": "left-falling-short",
+          "svg": "M155 47 C146 90 115 139 76 169",
+          "start": [155, 47],
+          "end": [76, 169],
+          "marker": {
+            "label": "2",
+            "anchor": [155, 47]
+          }
+        },
+        {
+          "n": 3,
+          "type": "豎",
+          "typeEn": "mouth-left-vertical",
+          "svg": "M118 160 L118 244",
+          "start": [118, 160],
+          "end": [118, 244],
+          "marker": {
+            "label": "3",
+            "anchor": [118, 160],
+            "reviewLabelOffset": [-30, 40],
+            "leaderToActualStart": true
+          }
+        },
+        {
+          "n": 4,
+          "type": "橫折",
+          "typeEn": "mouth-top-horizontal-turn-down",
+          "svg": "M118 160 L226 160 L226 244",
+          "start": [118, 160],
+          "end": [226, 244],
+          "corners": [[226, 160]],
+          "marker": {
+            "label": "4",
+            "anchor": [118, 160],
+            "reviewLabelOffset": [40, -35],
+            "leaderToActualStart": true
+          }
+        },
+        {
+          "n": 5,
+          "type": "橫",
+          "typeEn": "mouth-bottom-horizontal",
+          "svg": "M118 244 L226 244",
+          "start": [118, 244],
+          "end": [226, 244],
+          "marker": {
+            "label": "5",
+            "anchor": [118, 244],
+            "reviewLabelOffset": [-24, 16],
+            "leaderToActualStart": true
+          }
+        }
+      ],
+      "guide": {
+        "beats": [
+          {
+            "stroke": 0,
+            "until": "end",
+            "seconds": 1.0,
+            "line": {
+              "zhHK": "橫先行！",
+              "en": "Line across first!"
+            }
+          },
+          {
+            "stroke": 1,
+            "until": "end",
+            "seconds": 1.0,
+            "line": {
+              "zhHK": "撇落去！",
+              "en": "Sweep down!"
+            }
+          },
+          {
+            "stroke": 2,
+            "until": "end",
+            "seconds": 0.8,
+            "line": {
+              "zhHK": "口字左邊直落！",
+              "en": "Down the left of 口!"
+            }
+          },
+          {
+            "stroke": 3,
+            "until": {
+              "point": [226, 160],
+              "pass": 1
+            },
+            "seconds": 0.8,
+            "line": {
+              "zhHK": "口字上面橫過去！",
+              "en": "Across the top of 口!"
+            }
+          },
+          {
+            "stroke": 3,
+            "until": "end",
+            "seconds": 0.8,
+            "line": {
+              "zhHK": "轉彎直落！",
+              "en": "Turn and go down!"
+            }
+          },
+          {
+            "stroke": 4,
+            "until": "end",
+            "seconds": 0.9,
+            "line": {
+              "zhHK": "口字下面一橫！",
+              "en": "Close 口 across the bottom!"
+            }
+          }
+        ],
+        "merge": {
+          "zhHK": "到你喇！",
+          "en": "Your turn!"
+        },
+        "cues": [
+          {
+            "stroke": 1,
+            "point": [144.337, 80],
+            "pass": 1,
+            "sign": "ahead",
+            "signAt": [95, 30],
+            "line": {
+              "zhHK": "撇過橫線，唔使停！",
+              "en": "Sweep through the line, keep going!"
+            },
+            "status": "LOCKED order (MOE); signAt geometry/clearance validation required in H3"
+          },
+          {
+            "stroke": 3,
+            "point": [226, 160],
+            "pass": 1,
+            "sign": "stop",
+            "signAt": [271, 125],
+            "line": {
+              "zhHK": "停一停，轉彎直落！",
+              "en": "Pause, turn, then straight down!"
+            },
+            "status": "PROPOSED Hanzi cue; geometry/clearance validation required in H3"
+          }
+        ],
+        "lastStroke": {
+          "zhHK": "最後一筆：下面一橫！",
+          "en": "Last stroke: close the bottom!"
+        },
+        "hop": {
+          "zhHK": "提起筆，去下一個起點。",
+          "en": "Lift, then go to the next start."
+        },
+        "cornerContract": {
+          "strokeOneBased": 4,
+          "point": [226, 160],
+          "penDownContinuous": true,
+          "newStartAtCorner": false,
+          "demoPauseSeconds": 0.3,
+          "pauseExactlyOnce": true,
+          "aheadMustNotPause": true
+        }
+      },
+      "mouthInset": {
+        "strokesOneBased": [3, 4, 5],
+        "stepLabels": ["③ 直落", "④ 橫過，轉彎落", "⑤ 下面一橫"],
+        "directions": ["down", "right then down", "right"],
+        "sharedStart": [118, 160],
+        "sharedStartStrokes": [3, 4],
+        "sharedStartLabels": ["③↓", "④→"],
+        "separateLabelLeaders": true,
+        "stopCorner": [226, 160],
+        "noLiftAtCorner": true
+      },
+      "moeSource": {
+        "page": "https://stroke-order.learningweb.moe.edu.tw/dictView.jsp?ID=21491&la=0",
+        "strokeData": "https://stroke-order.learningweb.moe.edu.tw/provideStrokeInfo.do?ucs=53F3&useAlt=0",
+        "strokeCount": 5,
+        "retrieved": "2026-11-03 HKT",
+        "checked": ["count", "order"],
+        "note": "visa-games-design/hanzi-tap/v2/source-audit.md §MOE lock (2026-11-03): count and order from the page's stroke XML; centrelines are run-1 authored geometry, not MOE proportions; not re-retrieved in H0"
+      }
+    },
+    "木": {
+      "id": "hanzi:木",
+      "jyutping": "muk6",
+      "voiceKey": "hanzi.char.mu",
+      "meaning": {
+        "zhHK": "一棵樹",
+        "en": "a tree"
+      },
+      "cuePictures": ["tree", "tree-2"],
+      "sourceStatus": "H0 2026-11-06 (six-target addendum): Taiwan MOE order 橫, 豎, 撇, 捺 (4 strokes) from the embedded stroke XML; centrelines authored from the MOE tracks; bubble and cue lines new in H0",
+      "strokes": [
+        {
+          "n": 1,
+          "type": "橫",
+          "typeEn": "horizontal",
+          "svg": "M81 118 L207 118",
+          "start": [81, 118],
+          "end": [207, 118],
+          "marker": {
+            "label": "1",
+            "anchor": [81, 118]
+          }
+        },
+        {
+          "n": 2,
+          "type": "豎",
+          "typeEn": "vertical",
+          "svg": "M142 56 L142 244",
+          "start": [142, 56],
+          "end": [142, 244],
+          "marker": {
+            "label": "2",
+            "anchor": [142, 56]
+          }
+        },
+        {
+          "n": 3,
+          "type": "撇",
+          "typeEn": "left-falling",
+          "svg": "M138 122 C131 167 84 190 51 213",
+          "start": [138, 122],
+          "end": [51, 213],
+          "marker": {
+            "label": "3",
+            "anchor": [138, 122],
+            "reviewLabelOffset": [-34, 22],
+            "leaderToActualStart": true
+          }
+        },
+        {
+          "n": 4,
+          "type": "捺",
+          "typeEn": "right-falling",
+          "svg": "M149 132 C176 162 198 211 249 201",
+          "start": [149, 132],
+          "end": [249, 201],
+          "marker": {
+            "label": "4",
+            "anchor": [149, 132],
+            "reviewLabelOffset": [32, 10],
+            "leaderToActualStart": true
+          }
+        }
+      ],
+      "guide": {
+        "beats": [
+          {
+            "stroke": 0,
+            "until": "end",
+            "seconds": 0.9,
+            "line": {
+              "zhHK": "橫先行！",
+              "en": "Line across first!"
+            }
+          },
+          {
+            "stroke": 1,
+            "until": "end",
+            "seconds": 1.2,
+            "line": {
+              "zhHK": "直落！",
+              "en": "Straight down!"
+            }
+          },
+          {
+            "stroke": 2,
+            "until": "end",
+            "seconds": 1.0,
+            "line": {
+              "zhHK": "撇落去！",
+              "en": "Sweep down left!"
+            }
+          },
+          {
+            "stroke": 3,
+            "until": "end",
+            "seconds": 1.1,
+            "line": {
+              "zhHK": "捺出去！",
+              "en": "Sweep down right!"
+            }
+          }
+        ],
+        "merge": {
+          "zhHK": "到你喇！",
+          "en": "Your turn!"
+        },
+        "cues": [
+          {
+            "stroke": 1,
+            "point": [142, 118],
+            "pass": 1,
+            "sign": "ahead",
+            "signAt": [95, 72],
+            "line": {
+              "zhHK": "直落過橫線，唔使停！",
+              "en": "Straight down through the line, keep going!"
+            },
+            "status": "PROPOSED H0 cue (the 豎 crosses the finished 橫); geometry/clearance validation required in H3"
+          }
+        ],
+        "lastStroke": {
+          "zhHK": "最後一筆：捺出去！",
+          "en": "Last stroke: sweep down right!"
+        },
+        "hop": {
+          "zhHK": "提起筆，去下一個起點。",
+          "en": "Lift, then go to the next start."
+        }
+      },
+      "moeSource": {
+        "page": "https://stroke-order.learningweb.moe.edu.tw/dictView.jsp?ID=26408&la=0",
+        "strokeData": "https://stroke-order.learningweb.moe.edu.tw/provideStrokeInfo.do?ucs=6728&useAlt=0",
+        "strokeCount": 4,
+        "retrieved": "2026-11-06 00:48 HKT",
+        "checked": ["count", "order", "shape"],
+        "note": "provideStrokeInfo.do returned HTTP 404 on 2026-11-06; the stroke XML is the embedded xml[26408] in dictView.jsp (the payload the MOE player uses); raw files in visa-games-sessions/hanzi/moe/",
+        "track": {
+          "map": {
+            "scale": 0.11,
+            "from": [1024.0, 1024.0],
+            "to": [150.0, 150.0]
+          },
+          "ends": [
+            [[393.0, 810.0], [1545.0, 661.0]],
+            [[960.0, 171.0], [935.0, 1880.0]],
+            [[917.0, 767.0], [123.0, 1600.0]],
+            [[1016.0, 863.0], [1923.0, 1487.0]]
+          ]
+        }
+      }
+    }
+  },
+  "findOnly": {
+    "入": {
+      "id": "hanzi:入",
+      "jyutping": "jap6",
+      "voiceKey": "hanzi.char.ru.findOnly",
+      "meaning": {
+        "zhHK": "入去",
+        "en": "enter"
+      },
+      "confusableWith": ["人"],
+      "approval": "Carter D2, 2026-11-03",
+      "sourceStatus": "RUN 1: Cantonese reading verified. H0 fix round 1 (2026-11-06): display form checked against Taiwan MOE (D5): count 2 and order 撇, 捺 from the page's embedded stroke XML; display paths authored from the MOE tracks (see SOURCE-COMPARE.md)",
+      "displayFormVerified": true,
+      "displayFormNote": "H0 fix round 1 (2026-11-06): re-authored from the MOE stroke XML (dictView ID=20837, embedded xml[20837]); count, order and track ends checked (every authored start and end within 10 units of the mapped track ends). MOE form: the 捺 starts above and left of the 撇, and the 撇 starts on the 捺, the reverse of 人. This replaces the run-1 path, which put the 撇 on top like 人.",
+      "strokes": [
+        {
+          "n": 1,
+          "type": "撇",
+          "typeEn": "left-falling",
+          "svg": "M138 111 C125 156 96 189 51 210",
+          "start": [138, 111],
+          "end": [51, 210]
+        },
+        {
+          "n": 2,
+          "type": "捺",
+          "typeEn": "right-falling",
+          "svg": "M107 91 C167 109 174 215 251 209",
+          "start": [107, 91],
+          "end": [251, 209]
+        }
+      ],
+      "moeSource": {
+        "page": "https://stroke-order.learningweb.moe.edu.tw/dictView.jsp?ID=20837&la=0",
+        "strokeData": "https://stroke-order.learningweb.moe.edu.tw/provideStrokeInfo.do?ucs=5165&useAlt=0",
+        "strokeCount": 2,
+        "retrieved": "2026-11-06 05:06 HKT",
+        "checked": ["count", "order", "shape"],
+        "note": "provideStrokeInfo.do returned HTTP 404 on 2026-11-06 (fix round 1); the stroke XML is the embedded xml[20837] in dictView.jsp (the payload the MOE player uses); raw files in visa-games-sessions/hanzi/moe/",
+        "track": {
+          "map": {
+            "scale": 0.11,
+            "from": [1024.0, 1024.0],
+            "to": [150.0, 150.0]
+          },
+          "ends": [[[918.0, 672.0], [124.0, 1570.0]], [[635.0, 485.0], [1940.0, 1564.0]]]
+        }
+      }
+    },
+    "八": {
+      "id": "hanzi:八",
+      "jyutping": "baat3",
+      "voiceKey": "hanzi.char.ba.findOnly",
+      "meaning": {
+        "zhHK": "八個",
+        "en": "eight"
+      },
+      "confusableWith": ["人"],
+      "approval": "Carter D2, 2026-11-03",
+      "sourceStatus": "RUN 1: Cantonese reading verified. H0 fix round 1 (2026-11-06): display form checked against Taiwan MOE (D5): count 2 and order 撇, 捺 from the page's embedded stroke XML; display paths authored from the MOE tracks (see SOURCE-COMPARE.md)",
+      "displayFormVerified": true,
+      "displayFormNote": "H0 fix round 1 (2026-11-06): re-authored from the MOE stroke XML (dictView ID=20843, embedded xml[20843]); count, order and track ends checked (every authored start and end within 10 units of the mapped track ends). MOE form: the 捺 head sits above the 撇 start at about the same x, and the two strokes do not meet. The 2026-11-03 audit row matches this XML; the run-1 path, with both strokes starting at one height, is replaced.",
+      "strokes": [
+        {
+          "n": 1,
+          "type": "撇",
+          "typeEn": "left-falling",
+          "svg": "M117 137 C102 167 79 193 50 210",
+          "start": [117, 137],
+          "end": [50, 210]
+        },
+        {
+          "n": 2,
+          "type": "捺",
+          "typeEn": "right-falling",
+          "svg": "M117 92 C175 107 177 213 250 206",
+          "start": [117, 92],
+          "end": [250, 206]
+        }
+      ],
+      "moeSource": {
+        "page": "https://stroke-order.learningweb.moe.edu.tw/dictView.jsp?ID=20843&la=0",
+        "strokeData": "https://stroke-order.learningweb.moe.edu.tw/provideStrokeInfo.do?ucs=516B&useAlt=0",
+        "strokeCount": 2,
+        "retrieved": "2026-11-06 05:06 HKT",
+        "checked": ["count", "order", "shape"],
+        "note": "provideStrokeInfo.do returned HTTP 404 on 2026-11-06 (fix round 1); the stroke XML is the embedded xml[20843] in dictView.jsp (the payload the MOE player uses); raw files in visa-games-sessions/hanzi/moe/",
+        "track": {
+          "map": {
+            "scale": 0.11,
+            "from": [1024.0, 1024.0],
+            "to": [150.0, 150.0]
+          },
+          "ends": [[[728.0, 902.0], [114.0, 1566.0]], [[725.0, 500.0], [1932.0, 1530.0]]]
+        }
+      }
+    },
+    "本": {
+      "id": "hanzi:本",
+      "jyutping": "bun2",
+      "voiceKey": "hanzi.char.ben.findOnly",
+      "meaning": {
+        "zhHK": "一本書",
+        "en": "a book"
+      },
+      "confusableWith": ["木"],
+      "approval": "six-target addendum 2026-11-06, after the H0 MOE check",
+      "displayFormVerified": true,
+      "displayFormNote": "H0 2026-11-06: count, order and track ends checked against the cached MOE stroke XML (every authored start and end within 10 units of the mapped track ends)",
+      "sourceStatus": "H0 2026-11-06: MOE count 5 and order 橫, 豎, 撇, 捺, 橫 from the cached page's stroke XML; display paths authored from the MOE tracks; reading and meaning authored, not checked against words.hk in H0",
+      "strokes": [
+        {
+          "n": 1,
+          "type": "橫",
+          "typeEn": "horizontal",
+          "svg": "M83 115 L199 115",
+          "start": [83, 115],
+          "end": [199, 115]
+        },
+        {
+          "n": 2,
+          "type": "豎",
+          "typeEn": "vertical",
+          "svg": "M140 57 L140 245",
+          "start": [140, 57],
+          "end": [140, 245]
+        },
+        {
+          "n": 3,
+          "type": "撇",
+          "typeEn": "left-falling",
+          "svg": "M138 124 C117 161 88 188 51 206",
+          "start": [138, 124],
+          "end": [51, 206]
+        },
+        {
+          "n": 4,
+          "type": "捺",
+          "typeEn": "right-falling",
+          "svg": "M146 124 C168 171 202 194 250 193",
+          "start": [146, 124],
+          "end": [250, 193]
+        },
+        {
+          "n": 5,
+          "type": "橫",
+          "typeEn": "horizontal-short",
+          "svg": "M100 194 L176 194",
+          "start": [100, 194],
+          "end": [176, 194]
+        }
+      ],
+      "moeSource": {
+        "page": "https://stroke-order.learningweb.moe.edu.tw/dictView.jsp?ID=26412&la=0",
+        "strokeData": "https://stroke-order.learningweb.moe.edu.tw/provideStrokeInfo.do?ucs=672C&useAlt=0",
+        "strokeCount": 5,
+        "retrieved": "2026-11-06 00:49 HKT",
+        "checked": ["count", "order", "shape"],
+        "note": "cached dictView page visa-games-sessions/hanzi/moe/search-ben.html with embedded xml[26412]; provideStrokeInfo.do was not fetched in H0",
+        "track": {
+          "map": {
+            "scale": 0.11,
+            "from": [1024.0, 1024.0],
+            "to": [150.0, 150.0]
+          },
+          "ends": [
+            [[415.0, 765.0], [1468.0, 639.0]],
+            [[940.0, 174.0], [900.0, 1890.0]],
+            [[915.0, 788.0], [120.0, 1536.0]],
+            [[986.0, 783.0], [1929.0, 1417.0]],
+            [[571.0, 1459.0], [1264.0, 1387.0]]
+          ]
+        }
+      }
+    },
+    "未": {
+      "id": "hanzi:未",
+      "jyutping": "mei6",
+      "voiceKey": "hanzi.char.wei.findOnly",
+      "meaning": {
+        "zhHK": "仲未",
+        "en": "not yet"
+      },
+      "confusableWith": ["木"],
+      "approval": "six-target addendum 2026-11-06, after the H0 MOE check",
+      "displayFormVerified": true,
+      "displayFormNote": "H0 2026-11-06: count, order and track ends checked against the cached MOE stroke XML (every authored start and end within 10 units of the mapped track ends)",
+      "sourceStatus": "H0 2026-11-06: MOE count 5 and order 橫 (short, upper), 橫 (long, lower), 豎, 撇, 捺 from the cached page's stroke XML; display paths authored from the MOE tracks; reading and meaning authored, not checked against words.hk in H0",
+      "strokes": [
+        {
+          "n": 1,
+          "type": "橫",
+          "typeEn": "horizontal-short",
+          "svg": "M98 105 L178 105",
+          "start": [98, 105],
+          "end": [178, 105]
+        },
+        {
+          "n": 2,
+          "type": "橫",
+          "typeEn": "horizontal-long",
+          "svg": "M74 143 L208 143",
+          "start": [74, 143],
+          "end": [208, 143]
+        },
+        {
+          "n": 3,
+          "type": "豎",
+          "typeEn": "vertical",
+          "svg": "M139 55 L139 244",
+          "start": [139, 55],
+          "end": [139, 244]
+        },
+        {
+          "n": 4,
+          "type": "撇",
+          "typeEn": "left-falling",
+          "svg": "M137 148 C120 182 87 204 53 219",
+          "start": [137, 148],
+          "end": [53, 219]
+        },
+        {
+          "n": 5,
+          "type": "捺",
+          "typeEn": "right-falling",
+          "svg": "M147 152 C175 179 200 222 247 210",
+          "start": [147, 152],
+          "end": [247, 210]
+        }
+      ],
+      "moeSource": {
+        "page": "https://stroke-order.learningweb.moe.edu.tw/dictView.jsp?ID=26410&la=0",
+        "strokeData": "https://stroke-order.learningweb.moe.edu.tw/provideStrokeInfo.do?ucs=672A&useAlt=0",
+        "strokeCount": 5,
+        "retrieved": "2026-11-06 00:49 HKT",
+        "checked": ["count", "order", "shape"],
+        "note": "cached dictView page visa-games-sessions/hanzi/moe/search-wei.html with embedded xml[26410]; provideStrokeInfo.do was not fetched in H0",
+        "track": {
+          "map": {
+            "scale": 0.11,
+            "from": [1024.0, 1024.0],
+            "to": [150.0, 150.0]
+          },
+          "ends": [
+            [[553.0, 673.0], [1282.0, 556.0]],
+            [[330.0, 1036.0], [1553.0, 885.0]],
+            [[942.0, 160.0], [905.0, 1875.0]],
+            [[901.0, 1006.0], [143.0, 1649.0]],
+            [[996.0, 1040.0], [1903.0, 1570.0]]
+          ]
+        }
+      }
+    }
+  },
+  "copy": {
+    "prompt": {
+      "zhHK": "搵晒『{H}』！點晒兩張。",
+      "en": "Find every {H}! Tap both cards."
+    },
+    "header": {
+      "zhHK": "搵晒『{H}』！",
+      "en": "Find every {H}!"
+    },
+    "findSubline": {
+      "zhHK": "點晒兩張。",
+      "en": "Tap both matching cards."
+    },
+    "findAgain": {
+      "zhHK": "再搵『{H}』！",
+      "en": "Find {H} again!"
+    },
+    "idle": {
+      "zhHK": "搵『{H}』！",
+      "en": "Find {H}!"
+    },
+    "remainingOne": {
+      "zhHK": "仲有一張",
+      "en": "One more to find"
+    },
+    "allFound": {
+      "zhHK": "搵晒喇！",
+      "en": "All found!"
+    },
+    "wrong": {
+      "zhHK": "嗰個係『{Y}』。",
+      "en": "That's {Y}."
+    },
+    "hint": {
+      "zhHK": "呢張係『{H}』！",
+      "en": "Here's {H}!"
+    },
+    "foundPair": {
+      "zhHK": "『{H}』，{MEANING_ZH}！",
+      "en": "{H} means {MEANING_EN}!"
+    },
+    "writeHeader": {
+      "zhHK": "而家寫『{H}』！",
+      "en": "Now write {H}!"
+    },
+    "writeSubline": {
+      "zhHK": "由綠色起點，跟住箭嘴寫。",
+      "en": "Start at the green dot and follow the arrows."
+    },
+    "writeWatch": {
+      "zhHK": "而家寫『{H}』！先睇車仔。",
+      "en": "Now write {H}! Watch the car first."
+    },
+    "writeTurn": {
+      "zhHK": "到你喇！跟住箭嘴寫『{H}』。",
+      "en": "Your turn! Follow the arrows and write {H}."
+    },
+    "writeReprompt": {
+      "zhHK": "喺綠色箭嘴開始，寫『{H}』！",
+      "en": "Start at the green arrow. Write {H}!"
+    },
+    "writeDone": {
+      "zhHK": "你寫咗『{H}』！",
+      "en": "You wrote {H}!"
+    },
+    "hop": {
+      "zhHK": "提起筆，去下一個起點。",
+      "en": "Lift, then go to the next start."
+    },
+    "redemo": {
+      "zhHK": "再睇車仔行一次！",
+      "en": "Let's watch the car again!"
+    },
+    "stopSign": {
+      "zhHK": "停",
+      "en": "STOP"
+    },
+    "aheadSign": {
+      "zhHK": "繼續",
+      "en": "Keep going"
+    },
+    "trayDemo": {
+      "zhHK": "先睇車仔",
+      "en": "Watch the car first"
+    },
+    "trayTrace": {
+      "zhHK": "跟住白色箭嘴行",
+      "en": "Follow the white arrows"
+    },
+    "trayStall": {
+      "zhHK": "睇吓車仔點行",
+      "en": "See where the car goes",
+      "zhHKSub": "再由你架車繼續",
+      "enSub": "then continue from your car"
+    },
+    "aheadLine": {
+      "zhHK": "繼續行，唔使停！",
+      "en": "Keep going along this stroke!"
+    },
+    "cornerLine": {
+      "zhHK": "停一停，轉彎直落！",
+      "en": "Pause, turn, then straight down!"
+    },
+    "cornerPenRule": {
+      "zhHK": "轉彎唔提筆。",
+      "en": "Keep the pen down through the turn."
+    },
+    "legendHeadlights": {
+      "zhHK": "頭燈",
+      "en": "Headlights",
+      "zhHKSub": "睇下一段"
+    },
+    "legendAhead": {
+      "zhHK": "繼續",
+      "en": "Keep going",
+      "zhHKSub": "經過交接位"
+    },
+    "legendStop": {
+      "zhHK": "停",
+      "en": "Stop",
+      "zhHKSub": "停一停，再轉彎"
+    }
+  }
+}

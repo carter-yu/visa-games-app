@@ -1,5 +1,77 @@
 # Progress
 
+## 2026-11-06 — v0.38.0 / 81 fix round 1 — 入／八 MOE display forms; cue-art README
+
+- From `visa-games-sessions/hanzi/h0/ASTRA-REVIEW.md` (NOT READY: 0 blockers, 1 major, 1 nit). Same build 81; data, tests and docs only. No Swift source changed. No commit, push, stash or checkout.
+- MOE retrieval (2026-11-06 05:06 HKT, curl):
+  - `dictView.jsp?ID=20837&la=0` is 入 (`入,2 畫,入部`) and `?ID=20843&la=0` is 八 (`八,2 畫,八部`), both HTTP 200;
+  - `provideStrokeInfo.do?ucs=5165` / `?ucs=516B` returned HTTP 404, as for 木, so the stroke XML is the pages' embedded `xml[20837]` / `xml[20843]`;
+  - raw files are in `visa-games-sessions/hanzi/moe/`.
+- MOE forms:
+  - 入: the 捺 starts above and left, and the 撇 starts on the 捺 (the reverse of 人);
+  - 八: the 捺 head is directly above a short, separate 撇.
+  - Both match the 2026-11-03 audit rows exactly, so the run-1 paths were wrong, not the audit.
+- Pack:
+  - 入 and 八 are re-authored from the MOE tracks with the H0 method (`h0/moe_extract.py` → `fit_centrelines.py` → `build_pack.py`). Two cases were added: outline mid-width points for 八's two-point 撇 track, and a polyline fit for the headed 捺 of both.
+  - Paths: 入 `M138 111 C125 156 96 189 51 210` / `M107 91 C167 109 174 215 251 209`; 八 `M117 137 C102 167 79 193 50 210` / `M117 92 C175 107 177 213 250 206`.
+  - Every start and end is within 0.61 of its MOE track end.
+  - `displayFormVerified` is true for both, `moeSource.checked` is count/order/shape with the track ends, and `dealableFindOnly` is 入, 八, 本, 未.
+  - Both stay find-only (D2): never targets, no starts, no writing progress.
+  - The rest of the pack is byte-identical, apart from the provenance `geometry` line.
+- Tests (`HanziGlyphTests`, still 9 checks):
+  - the find-only check pins the raw 入／八 MOE track ends, checks the 人／入／八 start relations and requires all four forms verified;
+  - the MOE-track check now covers 木 入 八 本 未;
+  - the board check expects four dealable find-only glyphs.
+  - Mutation runs with the built binary: the pre-fix pack and 人-like 入 paths both fail.
+- `docs/hanzi-cue-art/README.md`: "no inline colours" now applies only to the trees, and the `left-hand-2` palette override (inherited by `right-hand-2`) is documented.
+- Comparison: `visa-games-sessions/hanzi/h0/SOURCE-COMPARE.md` §1, §3, §4 and §9.
+- Verification on this Linux box: `env PATH=/tmp/visa-games-swift/toolchain/usr/bin:/usr/bin:/bin bash scripts/test.sh` passed (`visa-games-sessions/hanzi/h0-fix1/test-box.log`, EXIT=0; the banner includes `9 hanzi-glyph`). No Mac mini run, no UAT, and no Chrome render.
+
+## 2026-11-06 — v0.38.0 / 81 — Hanzi H0 data pack (人上下左右木)
+
+- Written by Claude Code on `feat/hanzi-tap` from `main` @ `cd232f5` (0.37.0/80), from `visa-games-sessions/hanzi/h0/HANDOFF.md`, the six-target addendum (2026-11-06) and `visa-games-design/hanzi-tap/v2` (LOCKED D1–D12). H0 only: data and source contract. No activity kind, deal, scheduler, store, find/write UI, parent card or report was added. No commit, push, stash or checkout.
+- `Resources/HanziTap/hanzi-pack.json` (`visagames.hanziPack.v1`) contains:
+  - six targets 人 上 下 左 右 木, with ordered 300 × 300 centre lines (2 / 3 / 3 / 5 / 5 / 4 strokes), numbered starts with review-label leaders, guide beats and cues, two cue pictures each, meanings, jyutping and voice keys, and MOE provenance;
+  - find-only glyphs 入 八 本 未;
+  - the 2×5 board with the six-glyph week, five distinct glyphs per row, and confusable pairs including 木–本 and 木–未;
+  - defaults with both games, audio and jyutping OFF;
+  - 29 child copy lines. Parent labels are not in the pack (H4).
+- 人上下左右: the LOCKED spec's centre lines, markers, beats, cues and copy are carried verbatim (右 in MOE order after D5).
+- 木:
+  - Taiwan MOE order 橫 → 豎 → 撇 → 捺 (4 strokes), from the `xml[26408]` embedded in the cached dictView page. `provideStrokeInfo.do` returned 404 on 2026-11-06.
+  - Centre lines are authored from the MOE tracks: one uniform map (scale 0.11 about the box centre), level 橫, straight 豎, and one cubic per 撇／捺. Every start and end lies within 8.51 units of its MOE track end.
+  - New beats 「橫先行！」「直落！」「撇落去！」「捺出去！」, one AHEAD cue where the 豎 crosses the 橫, and no STOP. Cue pictures are `tree` / `tree-2`.
+- Find-only:
+  - 本 (橫豎撇捺橫) and 未 (橫橫豎撇捺) were checked against the cached MOE pages (count, order, track ends) and added to `approvedFindOnlyPool`.
+  - 入 and 八 stay in the pool (D2) but are held back from deals. The run-1 入 display path puts the 撇 on top like 人, which contradicts the 2026-11-03 MOE audit. 八 has no cached MOE page, and its audit row conflicts with its path. (Settled in fix round 1, above.)
+  - This is recorded as `board.findOnlyDealRule` plus a per-glyph `displayFormVerified`; `HanziPack.dealableFindOnly` is 本, 未 (入, 八, 本, 未 since fix round 1). With six targets the guard never needs a filler.
+- `VisaCore/HanziGlyphs.swift`:
+  - `HanziPack` decoder (`load(url:)`, `load(data:)`, `loadBundled()`). It fails closed on a wrong schema, a decoding error or any of its `problems`: reference integrity, stroke numbering and kinds, single-subpath SVG, declared start/end vs the path, corners at path joins, box bounds, marker anchors, beat coverage, and STOP only at a true turn.
+  - `HanziGlyphs.paths` returns `TracePath`s. Unknown glyphs have no strokes.
+- Cue art: `tree` / `tree-2` were added to the design sprite (`hanzi-tap/v2/assets/illustrations.svg`, shared tokens only) and copied with the token sheet to `docs/hanzi-cue-art/`. The app does not draw them yet (H2).
+- `scripts/bundle.sh` copies the pack to `Contents/Resources/HanziTap/`.
+- Tests: `HanziGlyphTests` adds 9 checks, registered in the runner; the banner reads `9 hanzi-glyph`. They cover:
+  - pack, board and defaults;
+  - counts, orders, bounds, corners and the verbatim paths;
+  - 木 / 本 / 未 against their MOE tracks, with the order pinned;
+  - find-only forms and review status;
+  - guide and sign policy (AHEAD only at junctions, exactly one STOP);
+  - HK Traditional copy against the OpenCC fixture, with 托 exempted as an OpenCC false positive (托住 is standard Traditional);
+  - cue IDs against the sprite, and token-only trees;
+  - tracing every target at narrow, standard and wide tolerance, one pen-down per stroke;
+  - fail-closed loading over 16 mutated packs, plus a `bundle.sh` source guard.
+- Version 0.38.0 / 81 (`Info.plist`, parent footer label, both version assertions).
+- Source comparison, MOE citations and open items are in `visa-games-sessions/hanzi/h0/SOURCE-COMPARE.md`. Still open:
+  - the 入／八 display forms (MOE XML for dictView ID 20837 / 20843) — settled in fix round 1, above;
+  - Carter's naturalness check of the new 木 lines and the 本／未 meanings and readings (not checked against words.hk);
+  - the D9 熄 label vs the build-80 開／關 rule (H4);
+  - H1–H5.
+- Verification on this Linux box:
+  - `env PATH=/tmp/visa-games-swift/toolchain/usr/bin:/usr/bin:/bin bash scripts/test.sh` passed with exit 0 in `visa-games-sessions/hanzi/h0/test-box-run3.log` (01:20 HKT; the banner includes `9 hanzi-glyph`) and in the orchestrator's re-run `test-box-orch1.log` (02:02 HKT). The final redirect to `h0/test-box.log` was cut off when the session limit hit, and holds only the build lines (corrected in fix round 1). The unchanged baseline also passed before any H0 edit (`test-box-baseline.log`).
+  - The first H0 run stopped at the 托 fixture hit; that was fixed in the test, not in the copy.
+  - `swiftc -parse` passed for `ParentSettingsView.swift` (version string only). SwiftUI/AppKit are not type-checked here, and `bundle.sh` was not run (no AppKit on Linux).
+  - No Mac mini run, no UAT, and no Chrome render.
+
 ## 2026-11-05 — v0.37.0 / 80 fix round 1 — reserved warning slots; 開／關 in reports
 
 - From `b80/ASTRA-REVIEW-r0.md` (two minors). Same build 80; copy/layout only; loading stays off-main. No commit, push, stash or checkout.

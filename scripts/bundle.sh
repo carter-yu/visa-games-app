@@ -9,6 +9,9 @@ cp .build/release/VisaGames "$bundle/Contents/MacOS/VisaGames"
 cp Resources/Info.plist "$bundle/Contents/Info.plist"
 mkdir -p "$bundle/Contents/Resources/LetterTap"
 cp Resources/LetterTap/starter-bank.json "$bundle/Contents/Resources/LetterTap/starter-bank.json"
+# Hanzi H0 data pack (HanziPack.loadBundled; no game reads it before H1).
+mkdir -p "$bundle/Contents/Resources/HanziTap"
+cp Resources/HanziTap/hanzi-pack.json "$bundle/Contents/Resources/HanziTap/hanzi-pack.json"
 # Stampy app icon (CFBundleIconFile = AppIcon).
 if [ -f Resources/AppIcon.icns ]; then
   cp Resources/AppIcon.icns "$bundle/Contents/Resources/AppIcon.icns"
