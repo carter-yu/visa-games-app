@@ -13,6 +13,17 @@ Each v2 deal records its selected and effective scope, review policy, revision, 
 
 ABC/Jolly/Letters and Sounds groups stay in a collapsed school-sequence preset browser; applying one replaces the draft and preserves its teaching order. Manual tile edits restore alphabetical first-pass order. `睇吓練習建議` is disabled with an explanation. The evidence-based P5 workflow and number/Hanzi adoption are later work.
 
+## Build 78: first-Save rule made explicit
+
+`VisaGames.tapLetterSettings.v1` was never written by any build (it had no parent writer), so
+on real installs `load()` returns `.fresh`, not `.legacy`. Builds 73–77 treated `.fresh` as an
+active v2 selection (abcde, review off) without a Save, silently dropping the v1 review round.
+From build 78 only `.saved` is active (`LetterSelectionLoad.activeSelection`). `.fresh`,
+`.legacy` and `.repairV1` keep the v1 generator and its settings (default abcde, review every
+4) until the parent's first Save. The editor still proposes review off for that Save and
+says so: 「未儲存之前，小朋友照用舊設定（每 4 局溫 1 局）…」, with status
+「未儲存 · 而家用緊舊設定」.
+
 ## Rollback and validation limit
 
 An older binary reads the preserved v1 settings, **not the latest v2 selection**. Reinstalling an old binary can therefore ask a different letter set until 0.37.0 is restored; no reverse migration is performed. This limitation belongs in family release notes.

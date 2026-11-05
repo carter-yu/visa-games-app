@@ -624,7 +624,19 @@ struct TestRunner {
         letterPicker.testChildTargetHistoryFiltersActorsAndExclusions()
         try letterPicker.testAppRoutingAndPreviewSourceGuards()
         try letterPicker.testParentLetterDraftLifecycleSourceGuards()
+        try letterPicker.testFreshAndLegacyKeepV1UntilFirstSave()
+        try letterPicker.testDefaultDraftSavesAgainstRealBundledBank()
+        try letterPicker.testReviewTurnsOffWhenItsLastLetterBecomesFocus()
+        try letterPicker.testLetterWordBankCacheParsesOnceAndRetriesFailures()
+        try letterPicker.testBuild78AppSourceGuards()
+        letterPicker.testTicketDeskFailedDealKeepsRoundAndRecoveryClears()
+        letterPicker.testLetterHistorySnapshotInvalidatesAfterRecordChanges()
+        letterPicker.testLetterStatusTextNamesCorruptRepair()
         let parentScroll = ParentScrollDiagnosticsTests()
+        parentScroll.testClockRedrawPublishesOnceWhenTheFlashEnds()
+        parentScroll.testStackHooksAreOptInOnly()
+        parentScroll.testScrollerPressFallbackOnlyWhileAScrollerPressIsHeld()
+        parentScroll.testEagerGridColumnsMatchTheAdaptiveGrids()
         parentScroll.testJumpRequiresOneDecreaseOverTwoHundredPoints()
         parentScroll.testRecentUpwardWheelExplainsDecreaseButOldInputDoesNot()
         parentScroll.testLatestWheelDirectionWinsAndZeroDeltaKeepsIntent()
@@ -736,6 +748,6 @@ struct TestRunner {
         let macPDF = ""
         #endif
 
-        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 6 weekly-metrics + 9 weekly-ranking + 8 weekly-text + 9 weekly-report-html + 12 weekly-report-pdf + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match + 12 guided-line-match + 20 shape-trace + 25 tap-count + 8 tap-count-guide + 7 stroke-order + 5 latin-glyph + 6 letter-deal + 16 letter-picker + 22 parent-scroll + 3 tap-letter-board + 12 parent-youtube" + macPDF + " checks")
+        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 6 weekly-metrics + 9 weekly-ranking + 8 weekly-text + 9 weekly-report-html + 12 weekly-report-pdf + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match + 12 guided-line-match + 20 shape-trace + 25 tap-count + 8 tap-count-guide + 7 stroke-order + 5 latin-glyph + 6 letter-deal + 24 letter-picker + 26 parent-scroll + 3 tap-letter-board + 12 parent-youtube" + macPDF + " checks")
     }
 }

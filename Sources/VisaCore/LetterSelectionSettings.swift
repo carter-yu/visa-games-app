@@ -97,13 +97,43 @@ public struct LetterSelectionSettings: Codable, Equatable, Sendable {
     }
 }
 
-public enum LetterSelectionLoad: Equatable {
+public enum LetterSelectionLoad: Equatable, Sendable {
     case fresh
     case legacy(LetterSelectionSettings, Int)
     case repairV1
     case saved(LetterSelectionSettings)
     case corruptV2
 
+    /// The child's scoped v2 policy. Only a parent-saved v2 value opts in (ADR 0026).
+    /// `.fresh`, `.legacy` and `.repairV1` keep the v1 generator and its settings
+    /// (default: abcde with review every 4 rounds) until the first explicit Save.
+    public var activeSelection: LetterSelectionSettings? {
+        guard case .saved(let value) = self else { return nil }
+        return value
+    }
+
+    /// The v1 review cadence the child keeps until the first v2 Save, for the parent note.
+    /// Nil once v2 is saved or corrupt.
+    public var previousReviewEvery: Int? {
+        switch self {
+        case .fresh, .repairV1: return TapLetterSettings.defaults.reviewEvery
+        case .legacy(_, let every): return every
+        case .saved, .corruptV2: return nil
+        }
+    }
+
+    /// Stable diagnostic name (no letters or user content).
+    public var logName: String {
+        switch self {
+        case .fresh: return "fresh"
+        case .legacy: return "legacy"
+        case .repairV1: return "repairV1"
+        case .saved: return "saved"
+        case .corruptV2: return "corruptV2"
+        }
+    }
+
+    /// The parent editor's starting draft, not the child's policy (see `activeSelection`).
     public var effective: LetterSelectionSettings? {
         switch self {
         case .fresh: return .defaults

@@ -530,21 +530,22 @@ final class LetterPickerTests {
 
     func testAppRoutingAndPreviewSourceGuards() throws {
         let source = try String(contentsOfFile: "Sources/VisaGames/AppDelegate.swift", encoding: .utf8)
+        // Build 78: the empty-pool / kind choice moved into `LetterTicketDesk.prepare`
+        // (executable tests: testTicketDeskFailedDealKeepsRoundAndRecoveryClears).
         guard let pool = source.range(of: "let pool = eligibleLetterTicketPool"),
-              let empty = source.range(of: "guard !pool.isEmpty else {", range: pool.upperBound..<source.endIndex),
-              let choose = source.range(of: "ActivityCatalog.kind(forRoundSeed: seed, pool: pool)", range: empty.upperBound..<source.endIndex),
+              let choose = source.range(of: "desk.prepare(pool: pool", range: pool.upperBound..<source.endIndex),
               let preview = source.range(of: "if tapLetterUsesPlaytest && board.deal.selection != nil"),
               let childStore = source.range(of: "LetterProgressStore().save(tapLetterProgress)", range: preview.upperBound..<source.endIndex) else {
             expectTrue(false, "Scoped ticket routing and preview branches exist")
             return
         }
-        expectTrue(pool.lowerBound < empty.lowerBound && empty.lowerBound < choose.lowerBound)
+        expectTrue(pool.lowerBound < choose.lowerBound)
         expectTrue(preview.lowerBound < childStore.lowerBound)
         expectTrue(source.contains("previewLetterWriteProgress = writing"))
         expectTrue(source.contains("previewStrokeOrderProgress = strokes"))
         expectTrue(source.contains("LetterSelectionScheduleStore().save(schedule)"))
         expectTrue(source.contains("guard session.mode == .parent else { throw LetterSelectionSettingsStore.StoreError.notParent }"))
-        expectTrue(source.contains("unavailableLetterTicket = true"))
+        expectTrue(source.contains("var unavailableLetterTicket: Bool { letterTicketDesk.unavailable }"))
     }
 
     func testParentLetterDraftLifecycleSourceGuards() throws {
@@ -556,16 +557,310 @@ final class LetterPickerTests {
         expectTrue(page.contains("if library == .games { letterState.open(model: model) }"))
         expectTrue(page.range(of: #"\.onDisappear\s*\{[^}]*letterState\.clear\(\)"#,
                               options: .regularExpression) != nil)
-        expectTrue(card.contains("func open(model: AppModel) {\n        guard draft == nil else { return }"))
-        expectTrue(card.contains("func clear() {\n        guard draft != nil else { return }"))
+        expectTrue(card.contains("func open(model: AppModel) {\n        guard draft == nil, !isLoading else { return }"))
+        expectTrue(card.contains("func clear() {\n        guard draft != nil || isLoading else { return }"))
         expectTrue(card.contains(".frame(height: 116)"))
         expectTrue(card.contains("ParentActionButton(title: \"還原\", subtitle: \"Revert\""))
         expectTrue(card.contains("ParentActionButton(title: \"取消\", subtitle: \"Cancel\""))
         expectTrue(card.contains("ParentActionButton(title: \"儲存\", subtitle: \"Save\""))
         expectTrue(card.contains(".disabled(!state.saveCheck.canSave)"))
-        expectTrue(card.contains("if case .saved = load { return \"已儲存\" }"))
+        // Status words are VisaCore `LetterPickerStatus` (executed in testLetterStatusText…).
+        expectTrue(card.contains("LetterPickerStatus.text(load: load, hasDraft: draft != nil"))
         expectFalse(card.contains(".onAppear { state.open(model: model) }"))
         expectFalse(card.contains(".onDisappear { state.clear() }"))
         expectTrue(picker.contains("ForEach(Array(targets.dropFirst(row * 7).prefix(7)), id: \\.id)"))
     }
+
+    // MARK: Build 78
+
+    /// (a) With neither key the child keeps the v1 generator (abcde, review every 4) until the
+    /// first explicit v2 Save; the editor still proposes review-off for that Save (ADR 0026).
+    func testFreshAndLegacyKeepV1UntilFirstSave() throws {
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        let store = LetterSelectionSettingsStore(defaults: defaults)
+        let fresh = store.load()
+        expectEqual(fresh, .fresh)
+        expectTrue(fresh.activeSelection == nil)
+        expectEqual(fresh.previousReviewEvery, 4)
+        expectEqual(fresh.effective?.reviewEvery, 0)
+        let v1 = TapLetterSettingsStore(defaults: defaults).load()
+        expectEqual(v1, TapLetterSettings.defaults)
+        expectEqual(v1.reviewEvery, 4)
+        expectEqual(v1.validWeek, Array("abcde").map(String.init))
+        let bank = try LetterWordBank.load(url: URL(fileURLWithPath: "Resources/LetterTap/starter-bank.json"))
+        let v1Deal = TapLetterGenerator.make(seed: "fresh-v1", n: 1, settings: v1, progress: .init(),
+                                             decks: .init(), bank: bank, now: Date())
+        expectTrue(v1Deal != nil)
+        expectTrue(v1Deal?.selection == nil, "before a v2 Save the child deal is a v1 deal")
+        expectEqual(LetterSelectionLoad.repairV1.previousReviewEvery, 4)
+        expectTrue(LetterSelectionLoad.repairV1.activeSelection == nil)
+        expectTrue(LetterSelectionLoad.corruptV2.activeSelection == nil)
+        expectTrue(LetterSelectionLoad.corruptV2.previousReviewEvery == nil)
+        defaults.set(try JSONEncoder().encode(TapLetterSettings(reviewEvery: 3)), forKey: TapLetterSettingsStore.key)
+        let legacy = store.load()
+        expectTrue(legacy.activeSelection == nil)
+        expectEqual(legacy.previousReviewEvery, 3)
+        let ready = LetterAvailability.resolve(bank: bank, decks: .init())
+        let saved = try store.save(legacy.effective!, availability: ready, writingAssigned: true, at: Date(timeIntervalSince1970: 10))
+        expectEqual(store.load().activeSelection, saved)
+        expectTrue(store.load().previousReviewEvery == nil)
+        expectEqual(["fresh", "legacy", "repairV1", "saved", "corruptV2"],
+                    [LetterSelectionLoad.fresh, legacy, .repairV1, .saved(saved), .corruptV2].map(\.logName))
+        let app = try String(contentsOfFile: "Sources/VisaGames/AppDelegate.swift", encoding: .utf8)
+        expectTrue(app.contains("private var activeLetterSelection: LetterSelectionSettings? { letterSelectionLoad.activeSelection }"))
+        expectFalse(app.contains("case .fresh: return .defaults"))
+    }
+
+    /// (b) The unchanged default draft saves against the REAL bundled bank from `.fresh`, writes
+    /// the v2 key and reads back; a missing bank never offers Save.
+    func testDefaultDraftSavesAgainstRealBundledBank() throws {
+        let bank = try LetterWordBank.load(url: URL(fileURLWithPath: "Resources/LetterTap/starter-bank.json"))
+        let resources = LetterPickerResources(bank: bank, decks: .init(), history: [])
+        expectTrue(resources.bankAvailable)
+        expectFalse(LetterPickerResources(bank: nil, decks: .init(), history: ["a"]).bankAvailable)
+        for writingAssigned in [true, false] {
+            let defaults = UserDefaults(suiteName: UUID().uuidString)!
+            let store = LetterSelectionSettingsStore(defaults: defaults)
+            let load = store.load()
+            let draft = LetterPickerDraft(saved: load.effective!)
+            expectFalse(draft.hasChanges)
+            let check = LetterPickerSaveCheck.evaluate(draft.value, availability: resources.capabilities,
+                writingAssigned: writingAssigned, allowedReview: Set(resources.history), load: load,
+                repairCorruptV2: false, bankAvailable: resources.bankAvailable)
+            expectTrue(check.canSave, "defaults must be savable: \(check.reason ?? "")")
+            let saved = try store.save(draft.value, availability: resources.capabilities,
+                writingAssigned: writingAssigned, allowedReview: Set(resources.history), at: Date(timeIntervalSince1970: 20))
+            expectTrue(defaults.data(forKey: LetterSelectionSettingsStore.key) != nil, "v2 key written")
+            expectEqual(store.load(), .saved(saved))
+            expectEqual(saved.revision, 1)
+            expectEqual(saved.focusLetters, Array("abcde").map(String.init))
+            expectEqual(saved.reviewEvery, 0)
+        }
+    }
+
+    /// (b) Review can never stay on with no letters, so Save is never blocked by a review reason
+    /// the parent did not choose.
+    func testReviewTurnsOffWhenItsLastLetterBecomesFocus() throws {
+        let bank = try LetterWordBank.load(url: URL(fileURLWithPath: "Resources/LetterTap/starter-bank.json"))
+        let ready = LetterAvailability.resolve(bank: bank, decks: .init())
+        let saved = LetterSelectionSettings(focusLetters: Array("abcde").map(String.init),
+            focusOrder: Array("abcde").map(String.init), reviewEvery: 4, reviewLetters: ["f"])
+        func canSave(_ draft: LetterPickerDraft) -> Bool {
+            LetterPickerSaveCheck.evaluate(draft.value, availability: ready, writingAssigned: true,
+                allowedReview: ["f"], load: .saved(saved), repairCorruptV2: false).canSave
+        }
+        var toggled = LetterPickerDraft(saved: saved)
+        expectTrue(canSave(toggled))
+        toggled.toggleFocus("f")
+        expectEqual(toggled.value.reviewLetters, [])
+        expectEqual(toggled.value.reviewEvery, 0)
+        expectTrue(canSave(toggled))
+        toggled.toggleFocus("f")
+        expectTrue(toggled.hasChanges, "review stays off after f leaves focus again")
+        var replaced = LetterPickerDraft(saved: saved)
+        replaced.replaceFocus(["f", "g", "h"], source: "fghij")
+        expectEqual(replaced.value.reviewEvery, 0)
+        expectTrue(canSave(replaced))
+        var refreshed = LetterPickerDraft(saved: saved)
+        refreshed.refreshReview(["a", "b"])
+        expectEqual(refreshed.value.reviewEvery, 0)
+        var enabled = LetterPickerDraft(saved: LetterSelectionSettings.defaults)
+        enabled.setReviewEvery(4, candidates: ["a"])
+        expectEqual(enabled.value.reviewEvery, 0)
+        enabled.setReviewEvery(4, candidates: ["f"])
+        expectEqual(enabled.value.reviewEvery, 4)
+        expectEqual(enabled.value.reviewLetters, ["f"])
+    }
+
+    /// (c) One shared parse; failures are retried, not cached.
+    func testLetterWordBankCacheParsesOnceAndRetriesFailures() throws {
+        let bank = try LetterWordBank.load(url: URL(fileURLWithPath: "Resources/LetterTap/starter-bank.json"))
+        let counter = LetterBankLoadCounter()
+        let cache = LetterWordBankCache(loader: {
+            counter.loads += 1
+            if counter.failNext { counter.failNext = false; throw LetterBankLoadFailure() }
+            return bank
+        })
+        expectThrowsError(try cache.load())
+        _ = try cache.load()
+        _ = try cache.load()
+        expectEqual(counter.loads, 2)
+    }
+
+    /// (c)(d)(e)(f) App-target guards: AppKit/SwiftUI code is not compiled on Linux.
+    func testBuild78AppSourceGuards() throws {
+        let app = try String(contentsOfFile: "Sources/VisaGames/AppDelegate.swift", encoding: .utf8)
+        let card = try String(contentsOfFile: "Sources/VisaGames/ParentTapLetterSettingsView.swift", encoding: .utf8)
+        let page = try String(contentsOfFile: "Sources/VisaGames/ParentSettingsView.swift", encoding: .utf8)
+        let hooks = try String(contentsOfFile: "Sources/VisaGames/ParentScrollHooks.swift", encoding: .utf8)
+        let recorder = try String(contentsOfFile: "Sources/VisaGames/PerformanceRecorder.swift", encoding: .utf8)
+        func body(_ source: String, from start: String, to end: String) -> Substring? {
+            guard let lower = source.range(of: start),
+                  let upper = source.range(of: end, range: lower.upperBound..<source.endIndex) else { return nil }
+            return source[lower.lowerBound..<upper.lowerBound]
+        }
+        // (c) No bank parse or event-store read on main for the parent editor or Save.
+        expectFalse(app.contains("LetterWordBank.loadBundled()"))
+        expectFalse(app.contains("PerfEventStore(directory"))
+        expectFalse(card.contains("practicedLetterTargets"))
+        expectTrue(card.contains("model.withLetterPickerResources"))
+        expectTrue(card.contains("model.saveLetterSelection(draft.value, resources: resources"))
+        expectTrue(recorder.contains("func letterPickerResources(decks: LetterWordDecks, bankCache: LetterWordBankCache"))
+        // (b) Save outcome is always logged.
+        for result in ["result=notReady", "result=blocked", "result=saved", "result=invalid", "result=storeError", "result=error"] {
+            expectTrue(card.contains("DRAFT save \(result)"), result)
+        }
+        expectTrue(app.contains("DRAFT save stored key="))
+        // (d) Wiring only: the transition itself is executed in testTicketDesk… (VisaCore).
+        for (start, end, route) in [("private func enterParentAfterAuthentication()", "func soakEnterParent()", ".parentEntered"),
+                                    ("func returnToChild(reason: String", "providerBlockedParentHint = nil", ".returnedToChild"),
+                                    ("case .updated(let next):", "case .rejectedLastStar:", ".assignmentChanged"),
+                                    ("@discardableResult func saveLetterSelection(", "private func makeTapLetterBoard(", ".lettersSaved")] {
+            guard let section = body(app, from: start, to: end) else { expectTrue(false, start); continue }
+            expectTrue(section.contains("recoverLetterTicket(\(route))"), start)
+        }
+        guard let select = body(app, from: "func selectDifficulty(stars: Int)", to: "tapLetterWriteRound = kind ==") else {
+            expectTrue(false, "selectDifficulty"); return
+        }
+        guard let prepare = select.range(of: "desk.prepare(pool: pool"),
+              let ready = select.range(of: "guard case .ready(let seed, let kind, let preparedLetterBoard) = outcome else {"),
+              let reset = select.range(of: "resetTaskRound()") else {
+            expectTrue(false, "selectDifficulty order markers"); return
+        }
+        expectTrue(prepare.lowerBound < ready.lowerBound && ready.lowerBound < reset.lowerBound)
+        expectTrue(select.contains("tapLetterBoard = preparedLetterBoard"))
+        // (e) Hooks are opt-in and nil-safe.
+        expectTrue(hooks.contains("static let isEnabled = ParentScrollOptions.stackHooksEnabled()"))
+        expectTrue(hooks.contains("guard isEnabled else {"))
+        expectTrue(hooks.contains("(AnyObject, Selector, AnyObject?) -> Void"))
+        expectFalse(hooks.contains("(AnyObject, Selector, AnyObject) -> Void"))
+        // (f) No lazy grid above the Games letter card; the clock no longer publishes the page.
+        guard let quick = body(page, from: "private var quickActions: some View {", to: "private var allowlistSection"),
+              let games = body(page, from: "private func gamesSection(proxy: ScrollViewProxy)", to: "private var unbuiltRow") else {
+            expectTrue(false, "page sections"); return
+        }
+        expectFalse(quick.contains("LazyVGrid("), "no lazy grid code in quickActions")
+        expectFalse(games.contains("LazyVGrid("), "no lazy grid code in gamesSection")
+        expectTrue(quick.contains("ParentEagerRows("))
+        expectTrue(games.contains("ParentEagerRows("))
+        expectFalse(page.contains("GeometryReader"))
+        expectFalse(app.contains("@Published private(set) var now"))
+        expectTrue(app.contains("if publishClock { objectWillChange.send() }"))
+        expectTrue(app.contains("if next != session {"))
+    }
 }
+
+extension LetterPickerTests {
+    /// Review finding 2: executable ticket transition. A failed deal leaves the round as it
+    /// was, and every recovery route clears the unavailable state without a letter Save.
+    func testTicketDeskFailedDealKeepsRoundAndRecoveryClears() {
+        // The caller's contract (AppModel.selectDifficulty): only `.ready` touches the round.
+        struct Round: Equatable { var stars: Int?; var seed: String?; var kind: ActivityKind?; var board: String? }
+        func select(_ desk: inout LetterTicketDesk, _ round: inout Round, pool: [ActivityKind],
+                    seed: String, board: String?, dealt: inout [ActivityKind]) {
+            let outcome: LetterTicketDesk.Outcome<String> = desk.prepare(pool: pool, seed: seed) { kind in
+                dealt.append(kind)
+                return board
+            }
+            guard case .ready(let seed, let kind, let letterBoard) = outcome else { return }
+            round = Round(stars: 2, seed: seed, kind: kind, board: letterBoard)
+        }
+        let before = Round(stars: nil, seed: nil, kind: nil, board: nil)
+        var desk = LetterTicketDesk()
+        var round = before
+        var dealt: [ActivityKind] = []
+        select(&desk, &round, pool: [], seed: "empty", board: "b", dealt: &dealt)
+        expectTrue(desk.unavailable)
+        expectEqual(round, before)
+        expectEqual(dealt, [])
+        desk = LetterTicketDesk()
+        select(&desk, &round, pool: [.tapLetterAll], seed: "nodeal", board: nil, dealt: &dealt)
+        expectTrue(desk.unavailable, "failed letter deal")
+        expectEqual(round, before, "round state untouched by a failed deal")
+        expectEqual(dealt, [.tapLetterAll])
+        // Recovery without a letter Save, per route; recovering twice changes nothing.
+        for route in LetterTicketDesk.Recovery.allCases where route != .lettersSaved {
+            var blocked = desk
+            expectTrue(blocked.recover(route), route.rawValue)
+            expectFalse(blocked.unavailable, route.rawValue)
+            expectFalse(blocked.recover(route), route.rawValue)
+        }
+        // After an assignment change the pool has no letter kind: the next ticket deals.
+        var recovered = desk
+        recovered.recover(.assignmentChanged)
+        dealt = []
+        select(&recovered, &round, pool: [.twoPictureChoose], seed: "pictures", board: nil, dealt: &dealt)
+        expectFalse(recovered.unavailable)
+        expectEqual(round.kind, ActivityKind.twoPictureChoose)
+        expectTrue(round.board == nil)
+        expectEqual(dealt, [], "the letter dealer runs only for letter kinds")
+        // A successful letter deal clears the state too and hands over the board.
+        select(&desk, &round, pool: [.tapLetterWrite], seed: "write", board: "w", dealt: &dealt)
+        expectFalse(desk.unavailable)
+        expectEqual(round, Round(stars: 2, seed: "write", kind: .tapLetterWrite, board: "w"))
+    }
+
+    /// Review finding 3: clearing records or (un)excluding a session invalidates the editor's
+    /// history snapshot; an in-flight load is dropped and pending waiters get a fresh load.
+    func testLetterHistorySnapshotInvalidatesAfterRecordChanges() {
+        var cache = VersionedLoadCache<[String], String>()
+        guard case .startLoad(let first) = cache.request("open") else { expectTrue(false, "first load"); return }
+        guard case .queued = cache.request("second") else { expectTrue(false, "queued"); return }
+        guard let restart = cache.invalidate() else { expectTrue(false, "pending waiters restart"); return }
+        expectTrue(cache.deliver(["a", "c"], token: first) == nil, "in-flight pre-change result dropped")
+        expectTrue(cache.value == nil)
+        expectEqual(cache.deliver(["a"], token: restart) ?? [], ["open", "second"])
+        guard case .cached(let cached) = cache.request("reopen") else { expectTrue(false, "cached"); return }
+        expectEqual(cached, ["a"])
+        expectTrue(cache.invalidate() == nil, "no waiters: nothing to restart")
+        expectTrue(cache.value == nil, "cached snapshot dropped")
+        guard case .startLoad(let late) = cache.request("editor") else { expectTrue(false, "reload"); return }
+        cache.reset()
+        expectTrue(cache.deliver(["x"], token: late) == nil, "leaving parent drops everything")
+        // The real history changes under those operations.
+        let cutoff = Date(timeIntervalSince1970: 100 * 86_400)
+        func dealt(_ letter: String, session: String) -> PerfEvent {
+            PerfEvent(type: .gameDealt, timestamp: cutoff.addingTimeInterval(-3600), tz: "+08:00", mono: 1,
+                      launch: "L", seq: 1, app: "test", actor: .child, mode: "lock", session: session,
+                      fields: ["kind": .string(ActivityKind.tapLetterAll.rawValue),
+                               "target": .string(letter), "round": .string("r-\(letter)")])
+        }
+        var events = [dealt("a", session: "keep"), dealt("c", session: "drop")]
+        let before = LetterPickerResources(bank: nil, decks: .init(),
+            history: LetterTargetHistory.practiced(in: events, at: cutoff))
+        expectEqual(before.history, ["a", "c"])
+        events.append(PerfEvent(type: .statsExclude, timestamp: cutoff, tz: "+08:00", mono: 2, launch: "L", seq: 2,
+            app: "test", actor: .parent, mode: "parent", session: "parent",
+            fields: ["target_session": .string("drop")]))
+        expectEqual(LetterTargetHistory.practiced(in: events, at: cutoff), ["a"], "excluded session leaves the pool")
+        expectEqual(LetterTargetHistory.practiced(in: [], at: cutoff), [], "cleared records leave no history")
+        let app = try? String(contentsOfFile: "Sources/VisaGames/AppDelegate.swift", encoding: .utf8)
+        expectTrue(app?.contains("invalidateParentLetterResources(reason: excluded ? \"sessionExcluded\" : \"sessionIncluded\")") == true)
+        expectTrue(app?.contains("self.invalidateParentLetterResources(reason: ok ? \"recordsCleared\" : \"recordsClearFailed\")") == true)
+    }
+
+    /// Review finding 4: a corrupt v2 says letter games are suspended and need repair.
+    func testLetterStatusTextNamesCorruptRepair() {
+        let saved = LetterSelectionSettings.defaults
+        expectEqual(LetterPickerStatus.text(load: .fresh, hasDraft: false, hasChanges: false), "載入中")
+        expectEqual(LetterPickerStatus.text(load: .fresh, hasDraft: true, hasChanges: false), "未儲存 · 而家用緊舊設定")
+        expectEqual(LetterPickerStatus.text(load: .legacy(saved, 4), hasDraft: true, hasChanges: false), "未儲存 · 而家用緊舊設定")
+        expectEqual(LetterPickerStatus.text(load: .repairV1, hasDraft: true, hasChanges: false), "未儲存 · 而家用緊舊設定")
+        expectEqual(LetterPickerStatus.text(load: .fresh, hasDraft: true, hasChanges: true), "未儲存")
+        expectEqual(LetterPickerStatus.text(load: .saved(saved), hasDraft: true, hasChanges: false), "已儲存")
+        expectEqual(LetterPickerStatus.text(load: .saved(saved), hasDraft: true, hasChanges: true), "未儲存")
+        for changes in [false, true] {
+            let corrupt = LetterPickerStatus.text(load: .corruptV2, hasDraft: true, hasChanges: changes)
+            expectTrue(corrupt.contains("暫停") && corrupt.contains("修復"), corrupt)
+            expectFalse(corrupt.contains("舊設定"), "corrupt v2 never claims the old settings are in use")
+            expectTrue(isTraditionalChineseOnly(corrupt) && perfTraditionalOnly(corrupt))
+        }
+    }
+}
+
+private final class LetterBankLoadCounter: @unchecked Sendable {
+    var loads = 0
+    var failNext = true
+}
+
+private struct LetterBankLoadFailure: Error {}

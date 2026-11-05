@@ -7,7 +7,10 @@ import VisaCore
 @MainActor
 final class AppModel: ObservableObject {
     @Published private(set) var session: Session
-    @Published private(set) var now = Date()
+    /// Not @Published (build 78): `tick()` decides whether a clock change must redraw.
+    /// The child path redraws every tick as before; the plain parent settings page does
+    /// not, so the whole page is no longer re-evaluated twice a second (snap HYPOTHESIS 2).
+    private(set) var now = Date()
     @Published private(set) var message: String?
     @Published private(set) var authenticating = false
     @Published private(set) var themePaletteID: ThemePaletteID
@@ -17,7 +20,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var gameAssignment = MissionGameAssignment.defaults
     /// Shown when the parent tries to turn off the last game on a star.
     @Published private(set) var gameAssignmentBanner: String?
-    @Published private(set) var unavailableLetterTicket = false
+    /// Build 78: the protected 「呢張遊戲票暫時玩唔到」 state (VisaCore `LetterTicketDesk`).
+    @Published private(set) var letterTicketDesk = LetterTicketDesk()
+    var unavailableLetterTicket: Bool { letterTicketDesk.unavailable }
     /// Playtest cover. Nil unless a parent is reviewing a game. Never a child round.
     @Published private(set) var playtestKind: ActivityKind?
     /// Card to mark sunny after 返回家長.
@@ -199,7 +204,13 @@ final class AppModel: ObservableObject {
     @Published private(set) var tapLetterPlaqueNudge = false
     @Published private(set) var tapLetterFuelBefore = 0
     private var tapLetterSettings = TapLetterSettingsStore().load()
-    private var letterSelectionLoad = LetterSelectionSettingsStore().load()
+    @Published private var letterSelectionLoad = LetterSelectionSettingsStore().load()
+    /// One parent visit's letter editor inputs (bank + history), built off main. Reset on
+    /// parent entry/exit so a later visit sees new child history.
+    private var parentLetterResources = VersionedLoadCache<LetterPickerResources, @MainActor (LetterPickerResources) -> Void>()
+    /// Bumped when performance records change under an open letter editor (clear / 唔計呢段 /
+    /// 計返); the editor reloads its history snapshot and keeps the draft.
+    @Published private(set) var letterResourcesRevision = 0
     private var letterSelectionSchedule = LetterSelectionScheduleStore().load()
     private var previewLetterSchedule: LetterSelectionSchedule?
     private var previewLetterProgress: LetterProgress?
@@ -334,6 +345,8 @@ final class AppModel: ObservableObject {
             return PerfRecorderContext(mode: self.session.mode, isPlaytest: self.isParentPlaytest)
         }
         perf.onWriteFailed = { [weak self] in self?.perfWriteFailed = true }
+        // Build 78: parse the bundled letter bank once, off main, before the first deal or parent visit.
+        DispatchQueue.global(qos: .utility).async { _ = try? LetterWordBankCache.bundled.load() }
         weeklyReport.onChange = { [weak self] panel in self?.weeklyPanel = panel }
         weeklyReport.canReveal = { [weak self] in self?.session.mode == .parent }
         perf.launch(
@@ -401,10 +414,14 @@ final class AppModel: ObservableObject {
                   ) else { return nil }
             return IncompletePlayback.make(videoID: id, positionSeconds: position)
         }()
-        if session.mode == .parent || next.mode == .parent {
-            ParentScrollDiagnostics.record("PUBLISH session from=\(session.mode) to=\(next.mode) snapshotChanged=\(next.snapshot != session.snapshot)")
+        // Build 78: an unchanged session is not reassigned, so an idle tick does not
+        // publish (the 76 log showed `PUBLISH session from=parent to=parent` every 0.5 s).
+        if next != session {
+            if session.mode == .parent || next.mode == .parent {
+                ParentScrollDiagnostics.record("PUBLISH session from=\(session.mode) to=\(next.mode) snapshotChanged=\(next.snapshot != session.snapshot)")
+            }
+            session = next
         }
-        session = next
         if let incompleteToSave {
             // Persist cursor before clearing the in-memory player (visa tick expiry bypasses stopScopedPlayback).
             var stamped = session
@@ -446,14 +463,17 @@ final class AppModel: ObservableObject {
 
     func tick() {
         let tracingParent = session.mode == .parent
+        let current = Date()
+        let uatBefore = (on: perfUATOn, minutes: perfUATMinutesLeft)
+        let publishClock = clockTickNeedsRedraw(at: current)
         if tracingParent {
-            ParentScrollDiagnostics.record("TICK begin publish=now parentRemaining=\(parentAutoLockRemaining ?? 0) playtest=\(playtestKind != nil) browser=\(parentBrowserOpen)")
+            ParentScrollDiagnostics.record("TICK begin publish=\(publishClock ? "now" : "none") parentRemaining=\(parentAutoLockRemaining ?? 0) playtest=\(playtestKind != nil) browser=\(parentBrowserOpen)")
         }
         defer {
             if tracingParent { ParentScrollDiagnostics.record("TICK end mode=\(session.mode)") }
         }
-        now = Date()
-        let current = now
+        if publishClock { objectWillChange.send() }
+        now = current
         advanceThinkPauseIfNeeded(now: current)
         advancePlaytestThinkPauseIfNeeded(now: current)
         tapCountIdleCheck(now: current.timeIntervalSinceReferenceDate)
@@ -469,6 +489,10 @@ final class AppModel: ObservableObject {
         }
         if let parentDeadline, current >= parentDeadline { returnToChild(reason: "auto_lock") }
         perf.tick(now: current)
+        // The 🧪 badge/button read the clock: redraw once when it expires or its minute changes.
+        if !publishClock, perfUATOn != uatBefore.on || perfUATMinutesLeft != uatBefore.minutes {
+            objectWillChange.send()
+        }
         if session.mode == .play, !awaitingDeparture, let endsAt = session.snapshot.endsAt {
             let progress = RoadTimerProgress.from(endsAt: endsAt, totalSeconds: playVisaTotalSeconds, now: current)
             if progress.almostHome, !almostHomeSpoken {
@@ -487,6 +511,16 @@ final class AppModel: ObservableObject {
                 _ = id
             }
         }
+    }
+
+    /// Whether this tick's new `now` must redraw. Child modes, the parent playtest cover and
+    /// the parent finder draw from `now` (visa/road timers, think pauses, demos, toasts,
+    /// auto-lock label): always. The plain parent settings page reads `now` only for the
+    /// 2.5 s 加咗 card flash (and 🧪 minutes, handled in `tick`).
+    private func clockTickNeedsRedraw(at date: Date) -> Bool {
+        ParentClockRedraw.needed(isParent: session.mode == .parent, playtest: playtestKind != nil,
+                                 browserOpen: parentBrowserOpen, flashUntil: parentFlashUntil,
+                                 previous: now, current: date)
     }
 
     func unlock() {
@@ -517,6 +551,8 @@ final class AppModel: ObservableObject {
     /// The LAContext success branch. The debug soak hook is the only other caller (ADR 0011).
     private func enterParentAfterAuthentication() {
         ParentScrollDiagnostics.record("PARENT enter authenticated")
+        resetParentLetterResources()
+        recoverLetterTicket(.parentEntered)
         parentDeadline = Date().addingTimeInterval(parentAccessSeconds)
         if !storageFailed { message = nil }
         guideVoice.stop()
@@ -540,6 +576,9 @@ final class AppModel: ObservableObject {
 
     func returnToChild(reason: String = "return") {
         if session.mode == .parent { ParentScrollDiagnostics.record("PARENT leave reason=\(reason)") }
+        resetParentLetterResources()
+        // The child gets the depot again; the next ticket re-checks eligibility.
+        recoverLetterTicket(.returnedToChild)
         providerBlockedParentHint = nil
         parentFinder = ParentFinderState()
         parentDraftTrialVideoID = nil
@@ -599,6 +638,8 @@ final class AppModel: ObservableObject {
         guard session.mode == .play else { return }
         if modeBeforeGrant == .parent {
             clearLetterPreview()
+            resetParentLetterResources()
+            recoverLetterTicket(.testVisa)
             // 測試一分鐘簽證 leaves parent controls straight into play (no returnToChild).
             weeklyReport.cancel()
             perf.endPlay(reason: .previewStopped, resumeSaved: false)
@@ -881,18 +922,25 @@ final class AppModel: ObservableObject {
         guard session.mode == .lock, !taskRoundOpen,
               let difficulty = ChildDifficulty(rawValue: stars) else { return }
         let pool = eligibleLetterTicketPool(gameAssignment.pool(for: difficulty))
-        guard !pool.isEmpty else {
-            unavailableLetterTicket = true
+        // Build 78: `LetterTicketDesk` picks the kind and deals the only fallible payload (a
+        // letter board) before any round state changes; only `.ready` touches the round.
+        var desk = letterTicketDesk
+        let ticketSeed = UUID().uuidString
+        let outcome: LetterTicketDesk.Outcome<TapLetterBoard> = desk.prepare(pool: pool, seed: ticketSeed) { kind in
+            makeTapLetterBoard(seed: ticketSeed, kind: kind, playtest: false)
+        }
+        letterTicketDesk = desk
+        guard case .ready(let seed, let kind, let preparedLetterBoard) = outcome else {
+            if case .unavailable(let reason) = outcome {
+                VisaGamesLog.append("letter ticket unavailable — 遊戲票暫時玩唔到 \(reason) stars=\(stars) load=\(letterSelectionLoad.logName)")
+            }
             return
         }
-        unavailableLetterTicket = false
         guideVoice.stop()
         resetTaskRound()
         selectedStars = stars
-        let seed = UUID().uuidString
         roundCompletionID = seed
         choiceDealSeed = seed
-        let kind = ActivityCatalog.kind(forRoundSeed: seed, pool: pool)
         activeActivityKind = kind
         // D1 (v0.22.0): the ticket's stars are also the question tier for generated kinds.
         let level = ActivityLevel(difficulty)
@@ -920,11 +968,7 @@ final class AppModel: ObservableObject {
         shapeTraceNotice = nil
         tapCountBoard = kind.isTapCountFamily ? makeTapCountBoard(
             seed: seed, kind: kind, avoidingItem: lastDealtItem[kind]) : nil
-        tapLetterBoard = kind.isTapLetterFamily ? makeTapLetterBoard(seed: seed, kind: kind, playtest: false) : nil
-        if kind.isTapLetterFamily && tapLetterBoard == nil {
-            unavailableLetterTicket = true
-            return
-        }
+        tapLetterBoard = preparedLetterBoard
         tapLetterWriteRound = kind == .tapLetterWrite ? tapLetterBoard.map { TapLetterWriteRound(deal: $0.deal) } : nil
         tapLetterGuideRun = nil
         tapLetterGuideSpeechGeneration += 1
@@ -2118,6 +2162,7 @@ final class AppModel: ObservableObject {
     func perfReviewSetSessionExcluded(_ id: String, excluded: Bool) {
         guard session.mode == .parent else { return }
         perf.setSessionExcluded(id, excluded: excluded)
+        invalidateParentLetterResources(reason: excluded ? "sessionExcluded" : "sessionIncluded")
         VisaGamesLog.append("parent review — session \(excluded ? "exclude" : "include")")
         perfRefreshReview()
     }
@@ -2142,6 +2187,8 @@ final class AppModel: ObservableObject {
         weeklyReport.reset()
         perf.clearAll { [weak self] ok in
             guard let self else { return }
+            // After the queue cleared the stats folder: the old 90-day history is gone.
+            self.invalidateParentLetterResources(reason: ok ? "recordsCleared" : "recordsClearFailed")
             if ok { self.perfWriteFailed = false }
             self.perfReviewGeneration += 1
             self.perfReview = .idle
@@ -2850,9 +2897,12 @@ final class AppModel: ObservableObject {
 
     func toggleMissionStar(kind: ActivityKind, star: ChildDifficulty) {
         guard session.mode == .parent else { return }
-        if kind == .tapLetterWrite && !gameAssignment.isEnabled(kind, star: star) {
-            guard let selection = letterSelectionLoad.effective,
-                  let bank = try? LetterWordBank.loadBundled(),
+        // Only a saved (or corrupt) v2 selection scopes 搵完寫; before the first Save the
+        // child keeps the v1 generator, which chooses its own write targets (build 78).
+        if kind == .tapLetterWrite && !gameAssignment.isEnabled(kind, star: star)
+            && (letterSelectionLoad.activeSelection != nil || letterSelectionLoad == .corruptV2) {
+            guard let selection = letterSelectionLoad.activeSelection,
+                  let bank = try? LetterWordBankCache.bundled.load(),
                   !selection.focus(for: .tapLetterWrite,
                     availability: LetterAvailability.resolve(bank: bank, decks: tapLetterDecks)).isEmpty else {
                 gameAssignmentBanner = "呢組暫時玩唔到『搵完寫』。請先揀可寫嘅字母。"
@@ -2868,6 +2918,7 @@ final class AppModel: ObservableObject {
         switch gameAssignment.toggling(kind, star: star) {
         case .updated(let next):
             gameAssignment = next
+            recoverLetterTicket(.assignmentChanged)
             gameAssignmentStore.save(next)
             gameAssignmentBanner = nil
             perf.assignmentChanged(kind: kind, star: star.rawValue, on: next.isEnabled(kind, star: star))
@@ -4019,61 +4070,75 @@ extension AppModel {
         previewLetterRoundIndex = nil; previewLetterWriteProgress = nil; previewStrokeOrderProgress = nil
     }
 
-    private var activeLetterSelection: LetterSelectionSettings? {
-        switch letterSelectionLoad {
-        case .saved(let value): return value
-        case .fresh: return .defaults
-        case .legacy, .repairV1, .corruptV2: return nil
-        }
-    }
+    /// Build 78: only a parent-saved v2 selection drives the child (ADR 0026). Missing,
+    /// legacy and unreadable-v1 states keep the v1 generator (abcde, review every 4).
+    private var activeLetterSelection: LetterSelectionSettings? { letterSelectionLoad.activeSelection }
 
     var letterParentLoad: LetterSelectionLoad { letterSelectionLoad }
 
-    func letterPickerSnapshot() -> (PracticePickerModel, [String: LetterCapability])? {
-        guard let bank = try? LetterWordBank.loadBundled() else { return nil }
-        let capabilities = LetterAvailability.resolve(bank: bank, decks: tapLetterDecks)
-        return (LetterAvailability.pickerModel(capabilities: capabilities, enabled: []), capabilities)
+    /// Every route that can change ticket eligibility (or leaves parent) gives the child the depot back.
+    func recoverLetterTicket(_ route: LetterTicketDesk.Recovery) {
+        guard letterTicketDesk.recover(route) else { return }
+        VisaGamesLog.append("letter ticket unavailable cleared — \(route.rawValue)")
     }
 
-    func letterPickerModel(enabled: Set<String>) -> PracticePickerModel? {
-        guard let bank = try? LetterWordBank.loadBundled() else { return nil }
-        return LetterAvailability.pickerModel(bank: bank, decks: tapLetterDecks, enabled: enabled)
+    private func resetParentLetterResources() {
+        parentLetterResources.reset()
     }
 
-    func letterCapabilities() -> [String: LetterCapability] {
-        guard let bank = try? LetterWordBank.loadBundled() else { return [:] }
-        return LetterAvailability.resolve(bank: bank, decks: tapLetterDecks)
+    /// Performance records changed (clear, 唔計呢段, 計返): the 90-day history may differ.
+    /// Drops the cached snapshot and any in-flight load; pending waiters get a fresh load,
+    /// and an open editor reloads (`letterResourcesRevision`). The recorder queue is serial,
+    /// so a reload queued after the change reads the changed records.
+    private func invalidateParentLetterResources(reason: String) {
+        if let token = parentLetterResources.invalidate() { loadParentLetterResources(token: token) }
+        letterResourcesRevision &+= 1
+        VisaGamesLog.append("parent letters — history snapshot invalidated (\(reason))")
     }
 
-    func practicedLetterTargets() -> [String] {
-        LetterTargetHistory.practiced(in: PerfEventStore(directory: PerfEventStore.defaultDirectory()).read().events,
-                                     at: Date())
+    /// Bank + 90-day history for the parent letter editor. Built once per parent visit on the
+    /// performance queue (after queued writes); never parses JSON or reads events on main.
+    /// A cached value is delivered synchronously.
+    func withLetterPickerResources(_ completion: @escaping @MainActor (LetterPickerResources) -> Void) {
+        switch parentLetterResources.request(completion) {
+        case .cached(let resources): completion(resources)
+        case .queued: break
+        case .startLoad(let token): loadParentLetterResources(token: token)
+        }
+    }
+
+    private func loadParentLetterResources(token: Int) {
+        perf.letterPickerResources(decks: tapLetterDecks, bankCache: .bundled) { [weak self] resources in
+            guard let self, let waiters = self.parentLetterResources.deliver(resources, token: token) else { return }
+            for waiter in waiters { waiter(resources) }
+        }
     }
 
     private func eligibleLetterTicketPool(_ pool: [ActivityKind]) -> [ActivityKind] {
         guard let settings = activeLetterSelection else {
             return letterSelectionLoad == .corruptV2 ? pool.filter { !$0.isTapLetterFamily } : pool
         }
-        guard let bank = try? LetterWordBank.loadBundled() else { return pool.filter { !$0.isTapLetterFamily } }
+        guard let bank = try? LetterWordBankCache.bundled.load() else { return pool.filter { !$0.isTapLetterFamily } }
         return LetterTicketEligibility.eligible(pool, settings: settings, bank: bank,
             decks: tapLetterDecks, progress: tapLetterProgress)
     }
 
-    /// The P3 host calls this authenticated boundary after its draft is reviewed.
+    /// The P3 host calls this authenticated boundary after its draft is reviewed. It validates
+    /// against the same visit resources the Save check used (no disk read on main).
     @discardableResult func saveLetterSelection(_ draft: LetterSelectionSettings,
+                                                resources: LetterPickerResources,
                                                 repairCorruptV2: Bool = false) throws -> LetterSelectionSettings {
         guard session.mode == .parent else { throw LetterSelectionSettingsStore.StoreError.notParent }
         let before = letterSelectionLoad
-        guard let bank = try? LetterWordBank.loadBundled() else { throw LetterSelectionSettingsStore.StoreError.writeFailed }
-        let ready = LetterAvailability.resolve(bank: bank, decks: tapLetterDecks)
+        guard resources.bankAvailable else { throw LetterSelectionSettingsStore.StoreError.writeFailed }
         let writingAssigned = !gameAssignment.isHiddenFromMissions(.tapLetterWrite)
-        let history = Set(LetterTargetHistory.practiced(
-            in: PerfEventStore(directory: PerfEventStore.defaultDirectory()).read().events, at: Date()))
-        let saved = try LetterSelectionSettingsStore().save(draft, availability: ready,
-            writingAssigned: writingAssigned, allowedReview: history, at: Date(),
+        let store = LetterSelectionSettingsStore()
+        let saved = try store.save(draft, availability: resources.capabilities,
+            writingAssigned: writingAssigned, allowedReview: Set(resources.history), at: Date(),
             repairCorruptV2: repairCorruptV2)
+        ParentScrollDiagnostics.record("DRAFT save stored key=\(LetterSelectionSettingsStore.key) v2KeyPresent=\(store.defaults.object(forKey: LetterSelectionSettingsStore.key) != nil) readback=\(store.load() == .saved(saved)) revision=\(saved.revision) firstSave=\(before.activeSelection == nil)")
         letterSelectionLoad = .saved(saved)
-        unavailableLetterTicket = false
+        recoverLetterTicket(.lettersSaved)
         if before.effective != saved {
             let old = before.effective
             let firstSave: Bool
@@ -4092,7 +4157,7 @@ extension AppModel {
     }
 
     private func makeTapLetterBoard(seed: String, kind: ActivityKind, playtest: Bool) -> TapLetterBoard? {
-        guard let bank = try? LetterWordBank.loadBundled() else { return nil }
+        guard let bank = try? LetterWordBankCache.bundled.load() else { return nil }
         if let selection = activeLetterSelection {
             if playtest && previewLetterSchedule == nil {
                 previewLetterSchedule = letterSelectionSchedule
@@ -4133,7 +4198,7 @@ extension AppModel {
             "guard": .string((deal.legacySettings?.mirrorGuard ?? deal.selection?.mirrorGuard ?? tapLetterSettings.mirrorGuard) ? "on" : "off"),
             "glyph_scale": .double(deal.glyphScale), "match_mode": .string("test")
         ]
-        if let selection = deal.selection, let bank = try? LetterWordBank.loadBundled() {
+        if let selection = deal.selection, let bank = try? LetterWordBankCache.bundled.load() {
             let readiness = LetterAvailability.resolve(bank: bank, decks: deal.decks)
             let kind = currentTapLetterKind ?? .tapLetterAll
             extras["focus_letters"] = .string(selection.focusLetters.sorted().joined(separator: " "))

@@ -1,5 +1,20 @@
 import Foundation
 
+/// The letter card / save bar status word (build 78). A corrupt v2 never claims the child
+/// plays the previous settings: letter games are suspended until the parent repairs.
+public enum LetterPickerStatus {
+    public static func text(load: LetterSelectionLoad, hasDraft: Bool, hasChanges: Bool) -> String {
+        guard hasDraft else { return "載入中" }
+        if load == .corruptV2 {
+            return hasChanges ? "未儲存 · 字母遊戲暫停，要修復" : "讀唔到 · 字母遊戲暫停，要修復"
+        }
+        if hasChanges { return "未儲存" }
+        if load.activeSelection != nil { return "已儲存" }
+        // Nothing saved yet: the child still plays the previous letter settings.
+        return "未儲存 · 而家用緊舊設定"
+    }
+}
+
 /// The parent editor checks the draft before offering Save. Persistence still validates again.
 public struct LetterPickerSaveCheck: Equatable {
     public let reason: String?

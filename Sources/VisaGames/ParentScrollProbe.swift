@@ -82,6 +82,7 @@ final class ParentScrollProbeView: NSView {
     private var stopped = false
     private var reportedMissing = false
     private var detector = ParentScrollJumpDetector()
+    private var scrollerPress = ParentScrollerPress()
     private var stackHistory = ParentScrollStackHistory()
     private var isSampling = false
     private var lastDocumentHeight: Double?
@@ -199,6 +200,7 @@ final class ParentScrollProbeView: NSView {
         document = nil
         observedWindow = nil
         detector = ParentScrollJumpDetector()
+        scrollerPress = ParentScrollerPress()
         stackHistory = ParentScrollStackHistory()
         lastDocumentHeight = nil
         lastClipBounds = nil
@@ -257,6 +259,11 @@ final class ParentScrollProbeView: NSView {
         guard self.document === document, clip === scroll.contentView else { scheduleAttach(); return }
         let clip = scroll.contentView
         let now = ProcessInfo.processInfo.systemUptime
+        // Hooks off (default): a scroller press that is still held explains movement,
+        // because the knob-tracking loop hides its drags from the local monitor.
+        if scrollerPress.isTracking(leftButtonDown: NSEvent.pressedMouseButtons & 1 != 0) {
+            detector.recordScrollerInteraction(at: now)
+        }
         lastClipBounds = clip.bounds
         lastDocumentFrame = document.frame
         lastDocumentBounds = document.bounds
@@ -329,12 +336,16 @@ final class ParentScrollProbeView: NSView {
         var subtype = ""
         switch event.type {
         case .leftMouseDown, .leftMouseDragged:
+            if event.type == .leftMouseDown { scrollerPress.mouseDown(inScroller: inScroller) }
             if inScroller {
                 if event.type == .leftMouseDown, let scroll { ParentScrollHooks.refreshScroller(in: scroll) }
                 detector.recordScrollerInteraction(at: now)
             }
             subtype = " subtype=\(event.subtype.rawValue) scroller=\(inScroller)"
-        case .leftMouseUp, .rightMouseDown,
+        case .leftMouseUp:
+            scrollerPress.mouseUp()
+            subtype = " subtype=\(event.subtype.rawValue)"
+        case .rightMouseDown,
              .rightMouseUp, .rightMouseDragged, .otherMouseDown, .otherMouseUp, .otherMouseDragged:
             // Pen contacts may arrive as mouse events with tabletPoint subtype.
             subtype = " subtype=\(event.subtype.rawValue)"

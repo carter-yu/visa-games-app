@@ -1,5 +1,37 @@
 import Foundation
 
+/// Build 78: the native IMP hooks are opt-in only. The plain observe-only scroll log
+/// stays on. Enable for one launch with
+/// `defaults write family.visagames.mac ParentScrollStackHooks -bool true` (app domain
+/// = bundle id), then relaunch; `defaults delete family.visagames.mac ParentScrollStackHooks` turns it off.
+public enum ParentScrollOptions {
+    public static let defaultsDomain = "family.visagames.mac"
+    public static let stackHooksKey = "ParentScrollStackHooks"
+
+    /// Absent, false or a non-boolean value leaves the hooks uninstalled.
+    public static func stackHooksEnabled(defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: stackHooksKey) as? Bool ?? false
+    }
+}
+
+/// Without the NSScroller hook, AppKit's knob-tracking loop consumes drag/up events
+/// before local monitors see them. A left press that began inside the vertical scroller
+/// is treated as scroller interaction while the button stays down. Content presses never are.
+public struct ParentScrollerPress: Sendable {
+    private var beganInScroller = false
+
+    public init() {}
+
+    public mutating func mouseDown(inScroller: Bool) { beganInScroller = inScroller }
+    public mutating func mouseUp() { beganInScroller = false }
+
+    /// Call while sampling geometry with the current left-button state.
+    public mutating func isTracking(leftButtonDown: Bool) -> Bool {
+        if !leftButtonDown { beganInScroller = false }
+        return beganInScroller
+    }
+}
+
 /// Observes top-relative offsets without changing scrolling. Times must use one
 /// monotonic clock (the app uses system uptime). Create a detector per scroll view.
 public struct ParentScrollJumpDetector: Sendable {

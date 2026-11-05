@@ -1,5 +1,6 @@
 import AppKit
 import ObjectiveC.runtime
+import VisaCore
 
 /// Observes the existing parent scroll view; never replaces a view, changes an
 /// argument/result, or sends a second copy of a native scrolling operation.
@@ -12,6 +13,10 @@ enum ParentScrollHooks {
     private static var installed: Set<MethodKey> = []
     private static var wrapperAddresses: Set<UInt> = []
     private static let installationLimit = 96
+    /// Build 78: OFF unless `ParentScrollStackHooks=true` in the app's defaults domain.
+    /// Read once per launch; when off, no AppKit method is ever added or replaced.
+    static let isEnabled = ParentScrollOptions.stackHooksEnabled()
+    private static var reportedDisabled = false
 
     static var path: String { state.calls.joined(separator: " > ") }
 
@@ -19,6 +24,13 @@ enum ParentScrollHooks {
                        onBoundary: @escaping (String) -> Void,
                        onScrollerTracking: @escaping (Bool) -> Void) {
         detach()
+        guard isEnabled else {
+            if !reportedDisabled {
+                reportedDisabled = true
+                ParentScrollLog.write("HOOK disabled domain=\(ParentScrollOptions.defaultsDomain) key=\(ParentScrollOptions.stackHooksKey) (observe-only log stays on)")
+            }
+            return
+        }
         state.matches = { [weak clip, weak scroll] receiver, role in
             switch role {
             case .clip: return receiver === clip
@@ -105,7 +117,8 @@ enum ParentScrollHooks {
     private typealias PointImplementation = @convention(c) (AnyObject, Selector, NSPoint) -> Void
     private typealias RectImplementation = @convention(c) (AnyObject, Selector, NSRect) -> Void
     private typealias RectResultImplementation = @convention(c) (AnyObject, Selector, NSRect) -> NSRect
-    private typealias ObjectImplementation = @convention(c) (AnyObject, Selector, AnyObject) -> Void
+    // Optional: Objective-C callers may pass nil; a non-optional Swift reference would trap.
+    private typealias ObjectImplementation = @convention(c) (AnyObject, Selector, AnyObject?) -> Void
 
     nonisolated private static func pointWrapper(_ original: IMP, _ selector: Selector,
                                                  _ role: Role, _ label: String) -> IMP {
@@ -143,7 +156,7 @@ enum ParentScrollHooks {
     nonisolated private static func objectWrapper(_ original: IMP, _ selector: Selector,
                                                   _ role: Role, _ label: String) -> IMP {
         let invoke = unsafeBitCast(original, to: ObjectImplementation.self)
-        let block: @convention(block) (AnyObject, AnyObject) -> Void = { receiver, argument in
+        let block: @convention(block) (AnyObject, AnyObject?) -> Void = { receiver, argument in
             let token = state.begin(receiver, role: role, label: label)
             defer { state.end(token, label: label) }
             invoke(receiver, selector, argument)

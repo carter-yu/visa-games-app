@@ -9,10 +9,14 @@ final class ParentLetterSettingsState: ObservableObject {
     @Published private(set) var notice: String?
     @Published private(set) var repairCorrupt = false
     @Published private(set) var saveCheck = LetterPickerSaveCheck(reason: "字母卡載入中。")
+    /// True while the bank/history snapshot is built off the main thread (build 78).
+    @Published private(set) var isLoading = false
     private(set) var history: [String] = []
     private(set) var capabilities: [String: LetterCapability] = [:]
+    private var resources: LetterPickerResources?
     private var basePicker: PracticePickerModel?
     private var presets: [PracticePickerPreset] = []
+    private var loadGeneration = 0
 
     var selected: Set<String> { Set(draft?.value.focusLetters ?? []) }
     var candidates: [String] {
@@ -26,19 +30,49 @@ final class ParentLetterSettingsState: ObservableObject {
     }
 
     func saveStatus(for load: LetterSelectionLoad) -> String {
-        guard let draft else { return "載入中" }
-        if draft.hasChanges { return "未儲存" }
-        if case .saved = load { return "已儲存" }
-        return "未儲存"
+        LetterPickerStatus.text(load: load, hasDraft: draft != nil, hasChanges: draft?.hasChanges ?? false)
     }
 
     func open(model: AppModel) {
-        guard draft == nil else { return }
-        ParentScrollDiagnostics.record("DRAFT open state=\(diagnosticID)")
-        let snapshot = model.letterPickerSnapshot()
-        basePicker = snapshot?.0
-        capabilities = snapshot?.1 ?? [:]
-        history = model.practicedLetterTargets()
+        guard draft == nil, !isLoading else { return }
+        ParentScrollDiagnostics.record("DRAFT open state=\(diagnosticID) load=\(model.letterParentLoad.logName)")
+        loadGeneration &+= 1
+        let generation = loadGeneration
+        isLoading = true
+        let started = ProcessInfo.processInfo.systemUptime
+        model.withLetterPickerResources { [weak self, weak model] resources in
+            guard let self, let model, generation == self.loadGeneration, self.isLoading else { return }
+            self.isLoading = false
+            self.install(resources, model: model)
+            let elapsed = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
+            ParentScrollDiagnostics.record("DRAFT ready state=\(self.diagnosticID) elapsedMs=\(elapsed) bank=\(resources.bankAvailable) history=\(resources.history.count) canSave=\(self.saveCheck.canSave) reason=\(self.saveCheck.reason ?? "none")")
+        }
+    }
+
+    /// Performance records changed under the open editor (clear / 唔計呢段 / 計返): fetch a new
+    /// history snapshot and keep the parent's draft. Save is unavailable until it arrives.
+    func reloadResources(model: AppModel) {
+        guard draft != nil, !isLoading else { return }
+        ParentScrollDiagnostics.record("DRAFT reload state=\(diagnosticID) reason=historyChanged")
+        loadGeneration &+= 1
+        let generation = loadGeneration
+        isLoading = true
+        resources = nil
+        saveCheck = LetterPickerSaveCheck(reason: "字母卡載入中。")
+        model.withLetterPickerResources { [weak self, weak model] resources in
+            guard let self, let model, generation == self.loadGeneration, self.isLoading else { return }
+            self.isLoading = false
+            // The draft as it is now (edits made while loading are kept).
+            self.install(resources, model: model, keeping: self.draft)
+            ParentScrollDiagnostics.record("DRAFT ready state=\(self.diagnosticID) reload=true history=\(resources.history.count) canSave=\(self.saveCheck.canSave) reason=\(self.saveCheck.reason ?? "none")")
+        }
+    }
+
+    private func install(_ resources: LetterPickerResources, model: AppModel, keeping kept: LetterPickerDraft? = nil) {
+        self.resources = resources
+        basePicker = resources.picker
+        capabilities = resources.capabilities
+        history = resources.history
         if let basePicker {
             let school: [PracticePickerPreset] = [LetterPath.abc, .jolly, .lettersAndSounds].flatMap { path in
                 let title: String
@@ -56,18 +90,25 @@ final class ParentLetterSettingsState: ObservableObject {
             presets = basePicker.presets + [PracticePickerPreset(id: "practised90",
                 label: "近 90 日練過 / Practised in 90 days", itemIDs: history)] + school
         }
-        draft = LetterPickerDraft(saved: model.letterParentLoad.effective ?? .defaults)
-        notice = nil
-        repairCorrupt = false
+        if let kept {
+            draft = kept // history reload: keep edits, repair choice and notice
+        } else {
+            draft = LetterPickerDraft(saved: model.letterParentLoad.effective ?? .defaults)
+            notice = nil
+            repairCorrupt = false
+        }
         recheck(model: model)
     }
 
     func clear() {
-        guard draft != nil else { return }
-        ParentScrollDiagnostics.record("DRAFT clear state=\(diagnosticID)")
+        guard draft != nil || isLoading else { return }
+        ParentScrollDiagnostics.record("DRAFT clear state=\(diagnosticID) loading=\(isLoading)")
+        loadGeneration &+= 1 // a snapshot still being built is dropped on arrival
+        isLoading = false
         draft = nil
         notice = nil
         repairCorrupt = false
+        resources = nil
         history = []
         capabilities = [:]
         basePicker = nil
@@ -108,30 +149,48 @@ final class ParentLetterSettingsState: ObservableObject {
 
     func recheck(model: AppModel) {
         guard let draft else { return }
+        guard !isLoading else {
+            saveCheck = LetterPickerSaveCheck(reason: "字母卡載入中。")
+            return
+        }
         saveCheck = LetterPickerSaveCheck.evaluate(draft.value, availability: capabilities,
             writingAssigned: !model.gameAssignment.isHiddenFromMissions(.tapLetterWrite),
             allowedReview: Set(history).union(draft.saved.reviewLetters), load: model.letterParentLoad,
             repairCorruptV2: repairCorrupt, bankAvailable: basePicker != nil)
     }
 
+    /// Every Save tap leaves one `DRAFT save … result=` line (build 78), so UAT can tell
+    /// "never tapped/disabled" from "blocked", "failed" and "stored" (plus the AppModel
+    /// `DRAFT save stored … v2KeyPresent=` line on success).
     func save(model: AppModel) {
-        guard var draft else { return }
-        ParentScrollDiagnostics.record("DRAFT save state=\(diagnosticID)")
+        ParentScrollDiagnostics.record("DRAFT save state=\(diagnosticID) load=\(model.letterParentLoad.logName) hasChanges=\(draft?.hasChanges ?? false)")
+        guard var draft, let resources else {
+            ParentScrollDiagnostics.record("DRAFT save result=notReady state=\(diagnosticID) loading=\(isLoading)")
+            return
+        }
         recheck(model: model)
-        guard saveCheck.canSave else { notice = saveCheck.reason; return }
+        guard saveCheck.canSave else {
+            notice = saveCheck.reason
+            ParentScrollDiagnostics.record("DRAFT save result=blocked state=\(diagnosticID) reason=\(saveCheck.reason ?? "none")")
+            return
+        }
         do {
-            let saved = try model.saveLetterSelection(draft.value, repairCorruptV2: repairCorrupt)
+            let saved = try model.saveLetterSelection(draft.value, resources: resources, repairCorruptV2: repairCorrupt)
             draft.acceptSaved(saved)
             self.draft = draft
             notice = "儲存咗，下局開始用。"
             repairCorrupt = false
             recheck(model: model)
+            ParentScrollDiagnostics.record("DRAFT save result=saved state=\(diagnosticID) revision=\(saved.revision) focusCount=\(saved.focusLetters.count) reviewEvery=\(saved.reviewEvery)")
         } catch let error as LetterSelectionSettings.ValidationError {
             notice = LetterPickerSaveCheck.reason(for: error)
+            ParentScrollDiagnostics.record("DRAFT save result=invalid state=\(diagnosticID) error=\(error)")
         } catch let error as LetterSelectionSettingsStore.StoreError {
             notice = LetterPickerSaveCheck.reason(for: error)
+            ParentScrollDiagnostics.record("DRAFT save result=storeError state=\(diagnosticID) error=\(error)")
         } catch {
             notice = "儲存失敗，請再試吓。"
+            ParentScrollDiagnostics.record("DRAFT save result=error state=\(diagnosticID) error=\(String(describing: type(of: error)))")
         }
     }
 }
@@ -209,8 +268,8 @@ struct ParentTapLetterSettingsView: View {
             }
             ParentLabel("今次練邊啲字母？", size: 18, weight: 900)
             ParentLabel("撳字格揀字母，儲存之後下一題開始用。最少揀 1 個。", size: 12, weight: 600, color: .inkSoft)
-            if case .legacy(_, let previous) = model.letterParentLoad {
-                ParentLabel("儲存後只練揀咗嘅字母；想溫舊字母，可以下面開返。之前設定：每 \(previous) 局溫 1 局。",
+            if let previous = model.letterParentLoad.previousReviewEvery {
+                ParentLabel("未儲存之前，小朋友照用舊設定（每 \(previous) 局溫 1 局）。儲存後只練揀咗嘅字母；想溫舊字母，可以下面開返。",
                             size: 12, weight: 700, color: .inkSoft)
             }
             if model.letterParentLoad == .repairV1 {
@@ -255,6 +314,8 @@ struct ParentTapLetterSettingsView: View {
                     ParentLabel("減少容易混淆嘅字母同時出現。", size: 12, weight: 600, color: .inkSoft)
                 }
                 ParentLabel("儲存、取消同還原按鈕固定喺頁頂。", size: 12, weight: 600, color: .inkSoft)
+            } else if state.isLoading {
+                ParentLabel("字母卡載入中…", size: 14, weight: 700, color: .inkSoft)
             } else {
                 ParentBanner(text: "字母卡未能讀取，暫時儲存唔到。", fill: Color(hex: DesignTokens.Palette.sand))
             }

@@ -90,6 +90,10 @@ struct ParentSettingsView: View {
         .onChange(of: model.gameAssignment) { _ in
             if library == .games { letterState.recheck(model: model) }
         }
+        // Build 78: records cleared or a session (un)excluded — refresh the 90-day history.
+        .onChange(of: model.letterResourcesRevision) { _ in
+            if library == .games { letterState.reloadResources(model: model) }
+        }
         .onDisappear {
             scrollTrace.event("disappear tab=\(library)")
             letterState.clear()
@@ -179,6 +183,12 @@ struct ParentSettingsView: View {
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
+    /// Build 78: inner card width for the eager rows. The kiosk window is always full screen
+    /// (≥ 1280 pt) and the page content is capped at 940 pt, so this is a constant 852 pt; no
+    /// geometry reader or measured row feeds back into the scroll document.
+    private static let cardWidth = ParentGridColumns.parentContentWidth(
+        viewportWidth: ParentGridColumns.kioskMinimumViewportWidth)
+
     private func gamesSection(proxy: ScrollViewProxy) -> some View {
         ParentSection(
             title: "遊戲",
@@ -188,22 +198,23 @@ struct ParentSettingsView: View {
                 if let banner = model.gameAssignmentBanner {
                     ParentBanner(text: banner, fill: Color(hex: DesignTokens.Palette.taxiTicket))
                 }
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 230, maximum: 320), spacing: 18)],
-                    alignment: .leading,
-                    spacing: 22
-                ) {
-                    ForEach(ActivityCatalog.playableKinds, id: \.self) { kind in
-                        ParentGameCard(
-                            kind: kind,
-                            assignment: model.gameAssignment,
-                            isHighlighted: model.playtestHighlightedKind == kind,
-                            playtestedOn: model.parentPlaytestLog.playtestedOn(kind),
-                            onToggleStar: { model.toggleMissionStar(kind: kind, star: $0) },
-                            onPlaytest: { model.startPlaytest(kind: kind) }
-                        )
-                        .id(kind)
-                    }
+                // Build 78 (HYPOTHESIS): eager rows replace the adaptive lazy grid
+                // (minimum 230, maximum 320, spacing 18, row spacing 22).
+                ParentEagerRows(
+                    items: ActivityCatalog.playableKinds,
+                    columns: ParentGridColumns(width: Self.cardWidth, minimum: 230, maximum: 320, spacing: 18),
+                    spacing: 18,
+                    rowSpacing: 22
+                ) { kind in
+                    ParentGameCard(
+                        kind: kind,
+                        assignment: model.gameAssignment,
+                        isHighlighted: model.playtestHighlightedKind == kind,
+                        playtestedOn: model.parentPlaytestLog.playtestedOn(kind),
+                        onToggleStar: { model.toggleMissionStar(kind: kind, star: $0) },
+                        onPlaytest: { model.startPlaytest(kind: kind) }
+                    )
+                    .id(kind)
                 }
                 .padding(.bottom, 6)
                 ParentLineMatchSettingsView(
@@ -341,14 +352,18 @@ struct ParentSettingsView: View {
                         action: { model.perfToggleUAT() }
                     )
                 }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 12)], alignment: .leading, spacing: 12) {
-                    ForEach(ThemePaletteID.allCases, id: \.self) { palette in
-                        ThemeChip(
-                            pack: ThemePack.forID(palette),
-                            selected: model.themePaletteID == palette,
-                            action: { model.selectTheme(palette) }
-                        )
-                    }
+                // Build 78 (HYPOTHESIS): eager rows replace the adaptive lazy grid (minimum 190, spacing 12).
+                ParentEagerRows(
+                    items: ThemePaletteID.allCases,
+                    columns: ParentGridColumns(width: Self.cardWidth, minimum: 190, spacing: 12),
+                    spacing: 12,
+                    rowSpacing: 12
+                ) { palette in
+                    ThemeChip(
+                        pack: ThemePack.forID(palette),
+                        selected: model.themePaletteID == palette,
+                        action: { model.selectTheme(palette) }
+                    )
                 }
             }
         }

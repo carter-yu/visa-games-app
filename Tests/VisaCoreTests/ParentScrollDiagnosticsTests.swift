@@ -234,4 +234,90 @@ final class ParentScrollDiagnosticsTests {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("VisaGamesParentScroll-\(UUID().uuidString)", isDirectory: true)
     }
+
+    // MARK: Build 78
+
+    /// (e) Native hooks stay off unless the boolean opt-in is set in the app's defaults domain.
+    func testStackHooksAreOptInOnly() {
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        expectEqual(ParentScrollOptions.defaultsDomain, "family.visagames.mac")
+        expectEqual(ParentScrollOptions.stackHooksKey, "ParentScrollStackHooks")
+        expectFalse(ParentScrollOptions.stackHooksEnabled(defaults: defaults))
+        defaults.set("true", forKey: ParentScrollOptions.stackHooksKey)
+        expectFalse(ParentScrollOptions.stackHooksEnabled(defaults: defaults), "a string is not an opt-in")
+        defaults.set(false, forKey: ParentScrollOptions.stackHooksKey)
+        expectFalse(ParentScrollOptions.stackHooksEnabled(defaults: defaults))
+        defaults.set(true, forKey: ParentScrollOptions.stackHooksKey)
+        expectTrue(ParentScrollOptions.stackHooksEnabled(defaults: defaults))
+    }
+
+    /// (e) Without hooks, a held scroller press explains movement; content presses never do.
+    func testScrollerPressFallbackOnlyWhileAScrollerPressIsHeld() {
+        var press = ParentScrollerPress()
+        expectFalse(press.isTracking(leftButtonDown: true), "no press seen yet")
+        press.mouseDown(inScroller: false)
+        expectFalse(press.isTracking(leftButtonDown: true), "content press")
+        press.mouseDown(inScroller: true)
+        expectTrue(press.isTracking(leftButtonDown: true))
+        expectFalse(press.isTracking(leftButtonDown: false), "button released (up event swallowed)")
+        expectFalse(press.isTracking(leftButtonDown: true), "stays off until a new scroller press")
+        press.mouseDown(inScroller: true)
+        press.mouseUp()
+        expectFalse(press.isTracking(leftButtonDown: true))
+        // Wired into the classifier: a held press suppresses a reversal like a scroller drag.
+        var detector = ParentScrollJumpDetector()
+        _ = detector.observe(offset: 3000, at: 1)
+        detector.recordScrollerInteraction(at: 1.5)
+        expectTrue(detector.observe(offset: 1000, at: 1.6) == nil)
+    }
+
+    /// Review finding 5: the tick that crosses `parentFlashUntil` redraws once (also after a
+    /// late tick), so the 加咗 card never stays lit; idle settings ticks do not redraw.
+    func testClockRedrawPublishesOnceWhenTheFlashEnds() {
+        let until = Date(timeIntervalSince1970: 1_000)
+        func needed(_ previous: Double, _ current: Double, flash: Date? = until, parent: Bool = true,
+                    playtest: Bool = false, browser: Bool = false) -> Bool {
+            ParentClockRedraw.needed(isParent: parent, playtest: playtest, browserOpen: browser, flashUntil: flash,
+                                     previous: until.addingTimeInterval(previous), current: until.addingTimeInterval(current))
+        }
+        expectTrue(needed(5, 5.5, flash: nil, parent: false), "child modes redraw every tick")
+        expectTrue(needed(5, 5.5, flash: nil, playtest: true))
+        expectTrue(needed(5, 5.5, flash: nil, browser: true))
+        expectFalse(needed(5, 5.5, flash: nil), "idle settings page")
+        expectTrue(needed(-1, -0.5), "during the flash")
+        expectTrue(needed(-0.3, 0.2), "the crossing tick")
+        expectFalse(needed(0.2, 0.7), "after the crossing redraw")
+        expectTrue(needed(-0.2, 30), "a late crossing tick still redraws once")
+        expectFalse(needed(30, 30.5))
+        expectTrue(needed(0, 0.5) == false, "a tick exactly at the end was already drawn off")
+    }
+
+    /// (f) Eager rows reproduce the adaptive grids' columns at the kiosk width (build-76 log:
+    /// viewport 1905 → 852 pt cards): games 3 × 272 pt, themes 4 × 204 pt.
+    func testEagerGridColumnsMatchTheAdaptiveGrids() {
+        let width = ParentGridColumns.parentContentWidth(viewportWidth: 1905)
+        expectEqual(width, 852)
+        expectEqual(ParentGridColumns.parentContentWidth(viewportWidth: ParentGridColumns.kioskMinimumViewportWidth), 852)
+        let games = ParentGridColumns(width: width, minimum: 230, maximum: 320, spacing: 18)
+        expectEqual(games.count, 3)
+        expectEqual(games.itemWidth, 272)
+        let themes = ParentGridColumns(width: width, minimum: 190, spacing: 12)
+        expectEqual(themes.count, 4)
+        expectEqual(themes.itemWidth, 204)
+        expectEqual(games.rows(itemCount: 7), [0..<3, 3..<6, 6..<7])
+        expectEqual(games.rows(itemCount: 0), [])
+        // A wider row adds columns; the maximum caps width only when the fit leaves slack.
+        let wide = ParentGridColumns(width: 2000, minimum: 230, maximum: 320, spacing: 18)
+        expectEqual(wide.count, 8)
+        expectEqual(wide.itemWidth, 234.25)
+        let capped = ParentGridColumns(width: 700, minimum: 230, maximum: 320, spacing: 18)
+        expectEqual(capped.count, 2)
+        expectEqual(capped.itemWidth, 320, "never wider than the old maximum")
+        let narrow = ParentGridColumns(width: 100, minimum: 230, spacing: 18)
+        expectEqual(narrow.count, 1)
+        expectEqual(narrow.itemWidth, 100)
+        let invalid = ParentGridColumns(width: .nan, minimum: -1, spacing: .infinity)
+        expectEqual(invalid.count, 1)
+        expectEqual(invalid.itemWidth, 0)
+    }
 }

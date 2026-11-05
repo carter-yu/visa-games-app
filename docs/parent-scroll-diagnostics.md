@@ -1,6 +1,77 @@
-# Parent settings scroll investigation — 0.37.0 / 77
+# Parent settings scroll investigation — 0.37.0 / 78
 
-## DIAG2: caller capture, 2026-11-05
+## Build 78: eager-grid experiment — HYPOTHESIS, not a proven fix (2026-11-05)
+
+Build 77 was never installed; the Mac mini still has 76. Build 78 is the first build since
+75 that changes parent layout. **The snap is not claimed fixed.** It tests two hypotheses
+from the build-76 evidence (`parent-scroll-76-2352.log`, Games lines 388–391, 461–464,
+518–521):
+
+- Within one `mono` timestamp, each Games reversal is `GEOMETRY reason=document` (height
+  +57/+52/+50 pt) → `OFFSET reason=document` (up ~240–300 pt) → `JUMP` (down 2,445–2,583 pt).
+  The destinations are fractional (3600.724…, 3613.485…, 3909.457…) and their fractions carry
+  into the next whole-number wheel steps, so the destination was computed, not input-driven.
+- The document height changes during pure scrolling with no draft, picker, focus or scroll
+  command (7651 → 7614 → 7605 → 7695 → … → 7907 → 7872 → 7924 → 7880 → 7930).
+
+**HYPOTHESIS 1 (tested by this build):** the two adaptive `LazyVGrid`s above the letter card
+(theme chips in `quickActions`, game cards in `gamesSection`) re-estimate their height as
+rows leave or enter the render window. SwiftUI then corrects the offset against an estimated
+anchor far above the viewport. Build 78 replaces both with eager chunked HStack rows
+(`ParentEagerRows`, same pattern as the letter tiles in `ParentPracticeItemPicker`). The
+column maths (`VisaCore/ParentGridColumns`) reproduce the adaptive grids at the kiosk width:
+852 pt cards → games 3 × 272 pt, themes 4 × 204 pt (offline check). The width is a constant
+(full-screen kiosk ≥ 1280 pt, page capped at 940 pt), so nothing in the document measures
+itself. The Videos tab's allowlist `LazyVGrid` is unchanged.
+
+**HYPOTHESIS 2 (amplifier, also changed):** every 0.5 s tick republished `now` and an
+unchanged `session` (76 log: `TICK … PUBLISH session from=parent to=parent
+snapshotChanged=false`, then `VIEW … body count` +1 for the page and the letter card).
+`now` is no longer `@Published`; `tick()` redraws on every tick only in child modes, during a
+parent playtest and while the parent finder is open (all read `now`). On the plain settings
+page it redraws only during the 2.5 s 加咗 card flash and when the 🧪 testing badge's minute
+or on/off state changes. `update()` no longer reassigns an unchanged session.
+
+**How UAT decides (build 78 log, Games tab, scroll down past the letter card several times):**
+
+| Observation | Meaning |
+| --- | --- |
+| No `JUMP` while scrolling down on 遊戲, and `GEOMETRY … documentHeight` constant while only scrolling | Consistent with Hypothesis 1. Not proof: repeat across sessions/inputs (wheel, trackpad, Wacom). |
+| `documentHeight` still changes with no `DRAFT`/`PICKER`/disclosure line | Hypothesis 1 is wrong or incomplete: something else in the document still resizes. Turn the stack hooks on (below) and capture. |
+| `JUMP` still appears with stable height | Height estimation is not the trigger. Use the stack hooks. |
+| `TICK begin publish=none` on the settings page, and `VIEW … body count` no longer rising every 0.5 s | Hypothesis 2 change is active. |
+
+Verify the build first: `VIEW … appear … version=0.37.0 build=78`.
+
+### Build 78: native stack hooks are now OFF by default
+
+`ParentScrollHooks` installs no Objective-C method wrapper unless the app's defaults domain
+opts in. The plain observe-only log (notifications, local event monitor, `GEOMETRY`/`OFFSET`/
+`JUMP`/`TICK`/`VIEW`/`DRAFT`, height stacks via `Thread.callStackReturnAddresses`) stays on.
+
+```sh
+defaults write family.visagames.mac ParentScrollStackHooks -bool true    # then relaunch
+defaults delete family.visagames.mac ParentScrollStackHooks              # then relaunch
+```
+
+The flag is read once per launch (`HOOK disabled …` is logged once when off). Only a boolean
+`true` enables it. Object arguments of the wrapped `reflectScrolledClipView:` and
+`mouseDown:` are now optional, so a nil from Objective-C cannot trap. With hooks off, the
+`SCROLLER` begin/end records and `path=[…]` are absent. A left press that began in the
+vertical scroller counts as scroller interaction while the button stays down
+(`ParentScrollerPress`, polled with `NSEvent.pressedMouseButtons` at each sample), because
+AppKit's knob-tracking loop hides drag/up events from the local monitor.
+
+### Build 78: letter Save evidence
+
+Each 儲存 tap now writes one `DRAFT save … load=<fresh|legacy|repairV1|saved|corruptV2>
+hasChanges=…` line and one `DRAFT save result=<notReady|blocked|saved|invalid|storeError|error>`
+line. A stored Save also writes `DRAFT save stored key=VisaGames.tapLetterSettings.v2
+v2KeyPresent=… readback=… revision=…`. Opening the card logs `DRAFT open … load=…` and,
+when the off-main resources arrive, `DRAFT ready … elapsedMs=… canSave=… reason=…`. No
+`DRAFT save` line after a tap means the button never fired (disabled or not hit).
+
+## DIAG2: caller capture, 2026-11-05 (build 77, never installed)
 
 Carter selected caller-stack diagnostics at 06:45 HKT. Build **0.37.0 / 77**
 adds observation only; layout, buttons, focus, timers and scroll policy stay as

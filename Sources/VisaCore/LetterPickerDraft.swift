@@ -23,10 +23,11 @@ public struct LetterPickerDraft: Equatable, Sendable {
             value.focusOrder.append(letter)
             value.reviewLetters.removeAll { $0 == letter }
         }
+        turnOffEmptyReview()
         value.focusLetters.sort()
         value.focusOrder = value.focusLetters
         value.source = "custom"
-        if Set(value.focusLetters) == Set(saved.focusLetters),
+        if Set(value.focusLetters) == Set(saved.focusLetters), value.reviewEvery == saved.reviewEvery,
            value.reviewLetters == saved.reviewLetters, value.mirrorGuard == saved.mirrorGuard {
             value.focusLetters = saved.focusLetters
             value.focusOrder = saved.focusOrder
@@ -39,6 +40,7 @@ public struct LetterPickerDraft: Equatable, Sendable {
         value.focusLetters = letters
         value.focusOrder = letters
         value.reviewLetters.removeAll { letters.contains($0) }
+        turnOffEmptyReview()
         value.source = source
     }
 
@@ -49,15 +51,23 @@ public struct LetterPickerDraft: Equatable, Sendable {
         else if value.reviewLetters.isEmpty {
             value.reviewLetters = candidates.filter { !value.focusLetters.contains($0) }
         }
+        turnOffEmptyReview()
     }
 
     public mutating func refreshReview(_ candidates: [String]) {
         guard value.reviewEvery == 4 else { return }
         value.reviewLetters = candidates.filter { !value.focusLetters.contains($0) }
+        turnOffEmptyReview()
     }
 
     public mutating func removeReview(_ letter: String) {
         value.reviewLetters.removeAll { $0 == letter }
+        turnOffEmptyReview()
+    }
+
+    /// Review on with no letters is never a valid Save. Every edit that can empty the
+    /// review list turns review off instead of leaving Save blocked with a review reason.
+    private mutating func turnOffEmptyReview() {
         if value.reviewLetters.isEmpty { value.reviewEvery = 0 }
     }
 
