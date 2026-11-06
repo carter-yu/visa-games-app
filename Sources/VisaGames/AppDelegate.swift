@@ -1129,6 +1129,9 @@ final class AppModel: ObservableObject {
         case .tapLetterAll, .tapLetterWrite:
             speakTapLetterPrompt()
             return
+        case .tapHanziAll, .tapHanziWrite:
+            // Hanzi H1: not playable yet; its voice stays OFF by default when it is (D4).
+            return
         }
         guideVoice.speak(SpokenPrompt(
             key: "activity.\(kind.rawValue)",
@@ -3054,6 +3057,9 @@ final class AppModel: ObservableObject {
         case .tapLetterAll, .tapLetterWrite:
             speakTapLetterPrompt()
             return
+        case .tapHanziAll, .tapHanziWrite:
+            // Hanzi H1: no parent card to playtest yet (H4).
+            return
         }
         guideVoice.speak(SpokenPrompt(
             key: "playtest.\(kind.rawValue)",
@@ -4033,7 +4039,8 @@ struct ShellView: View {
                     onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .twoPictureChoose, .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .traceLines, .traceShapesArrows, .traceShapesFree,
-                 .traceShapesDotted, .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite, .none:
+                 .traceShapesDotted, .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite,
+                 .tapHanziAll, .tapHanziWrite, .none:
                 // Legacy shell is setup / parent only; 連一連 is canvas-only (CanvasActivityHost).
                 EntryActivityView(
                     question: model.currentTwoPictureQuestion,

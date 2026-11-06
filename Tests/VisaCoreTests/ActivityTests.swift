@@ -161,7 +161,8 @@ final class ActivityTests {
         expectEqual(ActivityCatalog.defaultOffKinds,
                     [.lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch, .traceLines, .traceShapesDotted,
                      .traceShapesArrows, .traceShapesFree, .tapCountAll, .tapCountTrace, .tapCountPick,
-                     .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite])
+                     .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite,
+                     .tapHanziAll, .tapHanziWrite])
         expectEqual(ActivityCatalog.defaultOnKinds.count, 10)
         expectEqual(ActivityCatalog.stubKinds, [])
         // Deterministic: same seed → same kind; covering seeds hit every default-on kind (D7:

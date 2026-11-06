@@ -102,7 +102,8 @@ struct CanvasActivityHost: View {
                 tapCount
             case .tapLetterAll, .tapLetterWrite:
                 tapLetter
-            case .none:
+            case .tapHanziAll, .tapHanziWrite, .none:
+                // Hanzi H1: not playable yet, so no round shows one (find UI is H2).
                 EmptyView()
             }
         }

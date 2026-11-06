@@ -620,6 +620,7 @@ public enum WeeklyTextCatalog {
         case .traceLines: return WeeklyWords("條線", "the lines")
         case .tapCountTrace, .tapCountTraceEnglish: return WeeklyWords("個數字", "the numbers")
         case .tapLetterAll, .tapLetterWrite: return WeeklyWords("啲字母", "the letters")
+        case .tapHanziAll, .tapHanziWrite: return WeeklyWords("啲中文字", "the characters")
         }
     }
 

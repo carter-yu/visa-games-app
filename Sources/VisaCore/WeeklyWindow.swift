@@ -138,6 +138,9 @@ public enum WeeklyArea: String, Sendable, Equatable, Hashable, CaseIterable {
             return .pen
         case .tapLetterAll, .tapLetterWrite:
             return .letters
+        case .tapHanziAll, .tapHanziWrite:
+            // Hanzi H1: not dealt yet; its report area is H4.
+            return .other
         }
     }
 }

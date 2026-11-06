@@ -134,7 +134,9 @@ final class MissionGameAssignmentTests {
     }
 
     func testParentCardNamesAreTraditionalAndUnbuiltAreNotKinds() {
-        expectEqual(ActivityKind.allCases.count, 25)
+        // 25 playable kinds plus the two Hanzi kinds, which exist from H1 but join the catalog with their UI (H2–H4).
+        expectEqual(ActivityKind.allCases.count, 27)
+        expectEqual(ActivityKind.allCases.filter { !ActivityCatalog.playableKinds.contains($0) }, [.tapHanziAll, .tapHanziWrite])
         expectEqual(ActivityKind.twoPictureChoose.parentCardTitle, "邊架消防車")
         expectEqual(ActivityKind.findTheSame.parentShortLabel, "搵相同")
         expectEqual(ActivityKind.emptyBay.parentCardEnglish, "Empty parking bay")

@@ -341,6 +341,8 @@ public struct HanziPack: Decodable, Equatable, Sendable {
               && coordinateSystem.origin == "top-left", "coordinate system")
         check(defaults.week == week, "defaults.week differs from board.targetWeek")
         check(!week.isEmpty && Set(week).count == week.count, "week glyphs empty or repeated")
+        // The fallback for a short parent week (`HanziTapSettings.validWeek`) must itself be long enough.
+        check(week.count >= HanziScheduler.minimumWeek, "fewer than \(HanziScheduler.minimumWeek) week targets")
         check(Set(pool).count == pool.count, "find-only pool repeats a glyph")
         check(Set(week).isDisjoint(with: pool), "a glyph is both target and find-only")
         check(Set(characters.keys) == Set(week), "characters do not match the week")
@@ -436,5 +438,47 @@ public enum HanziGlyphs {
         pack.strokes(of: glyph).map {
             TracePath(svg: $0.svg, scale: scale, offset: offset, corners: $0.corners.map(\.point))
         }
+    }
+}
+
+// MARK: - Glyph / guide adapters (H1): pack targets as the shared stroke-order and guide types
+
+extension StrokeGlyph {
+    /// A target for the shared stroke-order player (stroke-order D11, D14), as `latin(_:)`: `hanzi:<glyph>` id and
+    /// progress key, the 300 × 300 box, the pack's strokes in MOE order (D5) with their 筆劃 kind, and a turn only
+    /// at a declared true corner (右's 橫折). Nil for a find-only or unknown glyph: it is never written.
+    public static func hanzi(_ glyph: String, in pack: HanziPack) -> StrokeGlyph? {
+        guard let character = pack.characters[glyph] else { return nil }
+        let paths = HanziGlyphs.paths(glyph, in: pack)
+        guard !paths.isEmpty, paths.count == character.strokes.count else { return nil }
+        let strokes = zip(paths, character.strokes).map { path, stroke in
+            Stroke(path: path, turns: path.corners.filter { $0 > 0.5 && $0 < path.length - 0.5 }, kind: stroke.type)
+        }
+        return StrokeGlyph(id: "hanzi:\(glyph)", script: .hanzi, strokes: strokes, box: HanziGlyphs.boxSize,
+                           progressKey: "hanzi:\(glyph)", orderStandard: "MOE")
+    }
+}
+
+/// The Hanzi counterpart of `LetterGuideData.letter`: a target's pack guide as the shared `NumeralGuideSpec`
+/// (beats, merge line, AHEAD / STOP cues, hop and last-stroke lines), in pack order. `zh` / `zhSub` are the pack's
+/// HK Traditional `zhHK` / `zhHKSub`; `en` is its engineering English. Nil for a find-only or unknown glyph. Stage
+/// placement, the guide style, tray / legend copy and the 右 corner contract stay with the write round (H3).
+public enum HanziGuideData {
+    public static func spec(_ glyph: String, in pack: HanziPack) -> NumeralGuideSpec? {
+        guard let guide = pack.characters[glyph]?.guide else { return nil }
+        func line(_ text: HanziText) -> TapCountGuideLine {
+            TapCountGuideLine(zh: text.zhHK, zhSub: text.zhHKSub ?? "", en: text.en, enSub: text.enSub ?? "")
+        }
+        func point(_ p: HanziPoint, pass: Int) -> NumeralGuidePoint { NumeralGuidePoint(x: p.x, y: p.y, pass: pass) }
+        let beats = guide.beats.map {
+            NumeralGuideBeatSpec(stroke: $0.stroke, until: $0.until.map { point($0.point, pass: $0.pass) },
+                                 seconds: $0.seconds, line: line($0.line))
+        }
+        let cues = guide.cues.map {
+            NumeralGuideCueSpec(stroke: $0.stroke, point: point($0.point, pass: $0.pass),
+                                sign: $0.sign == .stop ? .stop : .ahead, signAt: $0.signAt.point, line: line($0.line))
+        }
+        return NumeralGuideSpec(numeral: 0, beats: beats, merge: line(guide.merge), cues: cues, hop: line(guide.hop),
+                                hopSide: nil, lastStroke: line(guide.lastStroke))
     }
 }

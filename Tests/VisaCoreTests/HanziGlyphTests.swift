@@ -467,6 +467,7 @@ final class HanziGlyphTests {
         rejects(["characters", "下", "strokes", 1, "marker", "label"], "3", "下 marker 2")
         rejects(["characters", "左", "guide", "beats", 4, "until"], ["point": [171, 242], "pass": 1] as [String: Any], "左 stroke 5 needs a beat")
         rejects(["board", "targetWeek"], ["人", "上", "下", "左", "右", "大"], "defaults.week")
+        rejects(["board", "targetWeek"], ["人", "上"], "fewer than 3 week targets")
         rejects(["findOnly", "本", "confusableWith"], ["上"], "本 confusableWith")
         rejects(["characters", "人", "guide", "beats", 0, "until"], "middle")
         rejects(["characters", "木", "strokes", 0, "start"], [81, 118, 0])
@@ -475,6 +476,95 @@ final class HanziGlyphTests {
         // The Mac bundle ships the pack where `loadBundled` looks for it (bundle.sh does not run on Linux).
         let bundle = try String(contentsOfFile: "scripts/bundle.sh", encoding: .utf8)
         expectTrue(bundle.contains("cp Resources/HanziTap/hanzi-pack.json \"$bundle/Contents/Resources/HanziTap/hanzi-pack.json\""))
+    }
+
+    /// H1 adapters (fix round 1): each target as the shared stroke-order glyph (`StrokeGlyph.hanzi`) and guide
+    /// (`HanziGuideData.spec`, `NumeralGuide(hanzi:in:)`), keyed `hanzi:<glyph>` and built from exactly the pack's
+    /// centre lines in MOE order. Find-only and unknown glyphs are never written, so they get neither.
+    func testStrokeOrderAndGuideAdapters() throws {
+        let pack = try loadPack()
+        var counts: [Int] = []
+        for glyph in Self.week {
+            let entry = pack.characters[glyph]!
+            let paths = HanziGlyphs.paths(glyph, in: pack)
+            guard let strokeGlyph = StrokeGlyph.hanzi(glyph, in: pack), let spec = HanziGuideData.spec(glyph, in: pack),
+                  let guide = NumeralGuide(hanzi: glyph, in: pack) else {
+                expectTrue(false, "adapters for \(glyph)")
+                continue
+            }
+            counts.append(strokeGlyph.strokes.count)
+            expectEqual(strokeGlyph.id, "hanzi:\(glyph)")
+            expectEqual(strokeGlyph.progressKey, "hanzi:\(glyph)")
+            expectEqual(strokeGlyph.script, .hanzi)
+            expectEqual(strokeGlyph.orderStandard, "MOE")
+            expectTrue(strokeGlyph.box.width == 300 && strokeGlyph.box.height == 300 && strokeGlyph.alternates.isEmpty, glyph)
+            // Stroke i is the pack's stroke i: the trace board's path, its 筆劃 kind, its start and end, inside the box.
+            expectEqual(strokeGlyph.strokes.map(\.path), paths)
+            expectEqual(strokeGlyph.strokes.map(\.kind), Self.orders[glyph]!.map { Optional($0) })
+            for (stroke, source) in zip(strokeGlyph.strokes, entry.strokes) {
+                let name = "\(glyph) stroke \(source.n)"
+                expectTrue(stroke.path.start.distance(to: source.start.point) < 0.01
+                           && stroke.path.end.distance(to: source.end.point) < 0.01, name)
+                expectTrue(stroke.path.points.allSatisfy { (0...300).contains($0.x) && (0...300).contains($0.y) }, name)
+                // A turn only at the declared true corner (右's 橫折), where the trace board stops too.
+                expectEqual(stroke.turns, stroke.path.corners, name)
+                expectEqual(stroke.turns.isEmpty, !(glyph == "右" && source.n == 4), name)
+            }
+            // The shared player draws them in that order, lifts between strokes and pauses only at 右's corner.
+            var drawn: [Int] = []
+            var lifts = 0
+            var pauses: [Int] = []
+            for step in StrokeOrderTimeline(glyph: strokeGlyph, dosage: .remind).steps {
+                switch step.kind {
+                case .draw(let stroke, _, _): if drawn.last != stroke { drawn.append(stroke) }
+                case .lift: lifts += 1
+                case .pause(let stroke, _): pauses.append(stroke)
+                case .lead, .hold: break
+                }
+            }
+            expectEqual(drawn, Array(0..<entry.strokes.count), glyph)
+            expectEqual(lifts, entry.strokes.count - 1, glyph)
+            expectEqual(pauses, glyph == "右" ? [3] : [], glyph)
+            // The guide spec: the pack's beats, cues and lines in order; `zh` is the HK Traditional line.
+            let source = entry.guide
+            expectEqual(spec.beats.map(\.stroke), source.beats.map(\.stroke), glyph)
+            expectEqual(spec.beats.map(\.seconds), source.beats.map(\.seconds), glyph)
+            expectEqual(spec.beats.map { $0.until.map { LineMatchPoint(x: $0.x, y: $0.y) } },
+                        source.beats.map { $0.until?.point.point }, glyph)
+            expectEqual(spec.beats.map(\.until?.pass), source.beats.map(\.until?.pass), glyph)
+            expectEqual(spec.beats.map(\.line.zh), source.beats.map(\.line.zhHK), glyph)
+            expectEqual(spec.beats.map(\.line.en), source.beats.map(\.line.en), glyph)
+            expectEqual(spec.cues.map(\.sign.rawValue), source.cues.map(\.sign.rawValue), glyph)
+            expectEqual(spec.cues.map(\.signAt), source.cues.map(\.signAt.point), glyph)
+            expectEqual(spec.cues.map(\.line.zh), source.cues.map(\.line.zhHK), glyph)
+            expectEqual([spec.merge.zh, spec.hop?.zh, spec.lastStroke?.zh] as [String?],
+                        [source.merge.zhHK, source.hop.zhHK, source.lastStroke.zhHK], glyph)
+            // Resolved on the same paths: each beat ends on its stroke, a stroke's closing beat at its end.
+            expectEqual(guide.glyphKey, "hanzi:\(glyph)")
+            expectEqual(guide.paths, paths)
+            expectEqual(guide.beats.map(\.stroke), source.beats.map(\.stroke), glyph)
+            for (beat, beatSource) in zip(guide.beats, source.beats) {
+                let length = paths[beat.stroke].length
+                expectTrue(beat.end > 0 && beat.end <= length, glyph)
+                if beatSource.until == nil { expectEqual(beat.end, length, accuracy: 0.001) }
+            }
+            expectEqual(guide.cues.count, source.cues.count, glyph)
+            // A placement moves lines and signs together (the 田字格 stage placement itself is H3).
+            let offset = LineMatchPoint(x: 400, y: 100)
+            let placed = NumeralGuide(hanzi: glyph, in: pack, offset: offset, scale: 1.5)!
+            expectEqual(placed.paths, HanziGlyphs.paths(glyph, in: pack, offset: offset, scale: 1.5))
+            expectEqual(placed.cues.count, guide.cues.count, glyph)
+            for (cue, base) in zip(placed.cues, guide.cues) {
+                expectEqual(cue.signPoint.x, 400 + base.signPoint.x * 1.5, accuracy: 0.001)
+                expectEqual(cue.signPoint.y, 100 + base.signPoint.y * 1.5, accuracy: 0.001)
+            }
+        }
+        expectEqual(counts, [2, 3, 3, 5, 5, 4])
+        for glyph in ["入", "八", "本", "未", "大", "a", "", "人人", "hanzi:人"] {
+            expectNil(StrokeGlyph.hanzi(glyph, in: pack))
+            expectNil(HanziGuideData.spec(glyph, in: pack))
+            expectNil(NumeralGuide(hanzi: glyph, in: pack))
+        }
     }
 
     /// `Fixtures/traditional-check/simplified-only.txt`: one character per entry, `#` lines are comments.

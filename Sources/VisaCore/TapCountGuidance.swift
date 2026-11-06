@@ -459,6 +459,19 @@ public struct NumeralGuide: Equatable, Sendable {
         self.init(spec: spec, glyphKey: "latin:\(letter)", placement: placement, strokes: strokes, paths: paths)
     }
 
+    /// A Hanzi target from its pack (H1 adapter, `hanzi:<glyph>`), placed by `scale` then `offset`: glyph units by
+    /// default, as the 田字格 stage placement and the guide style are H3. Nil for a find-only or unknown glyph, or
+    /// a beat or cue point off its stroke.
+    public init?(hanzi glyph: String, in pack: HanziPack, offset: LineMatchPoint = LineMatchPoint(x: 0, y: 0),
+                 scale: Double = 1) {
+        guard let spec = HanziGuideData.spec(glyph, in: pack) else { return nil }
+        let strokes = pack.strokes(of: glyph).map { NumeralStroke($0.svg, corners: $0.corners.map(\.point)) }
+        let paths = HanziGlyphs.paths(glyph, in: pack, offset: offset, scale: scale)
+        guard !paths.isEmpty else { return nil }
+        self.init(spec: spec, glyphKey: "hanzi:\(glyph)", placement: (offset: offset, scale: scale), strokes: strokes,
+                  paths: paths)
+    }
+
     private init?(spec: NumeralGuideSpec, glyphKey: String,
                   placement: (offset: LineMatchPoint, scale: Double), strokes: [NumeralStroke], paths: [TracePath]) {
         var beats: [Beat] = []
