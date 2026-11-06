@@ -2,8 +2,8 @@ import Foundation
 
 // Hanzi H1 pure core (0.38.0 / 82): design hanzi-tap v2 (LOCKED D1–D12) and the six-target addendum
 // (2026-11-06). Settings, recognition progress, the week scheduler, 2 × 5 Find & flip deals, cue decks, the
-// round index and writing progress for 中文字 · 翻字卡 (`tapHanziAll`) and 搵完寫 (`tapHanziWrite`). No view
-// reads it before H2. Every value lives in its own `VisaGames.tapHanzi*` store under `hanzi:<glyph>` keys; no
+// round index and writing progress for 中文字 · 翻字卡 (`tapHanziAll`) and 搵完寫 (`tapHanziWrite`). The H2 find
+// board (`HanziFind.swift`) deals through it. Every value lives in its own `VisaGames.tapHanzi*` store under `hanzi:<glyph>` keys; no
 // letter store, key or value is read or written. Only pack targets are dealt, retried, reviewed or written;
 // find-only glyphs (入 八 本 未) are board distractors only (D2).
 

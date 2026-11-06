@@ -77,9 +77,10 @@ public enum ActivityKind: String, CaseIterable, Sendable, Codable, Equatable, Ha
     /// Letters ABC · Find & write: find both copies, then trace the lowercase target.
     case tapLetterWrite
     /// 中文字 · 翻字卡 / Find & flip (Hanzi H1, 0.38.0 / 82): find both copies of the week character.
-    /// Pure core only: not in `playableKinds` until its find UI (H2) and parent card (H4) exist.
+    /// Playable since its find UI (H2, build 83), default-off until its own playtest; its own parent card is H4.
     case tapHanziAll
-    /// 中文字 · 搵完寫 / Find & write: find both copies, then write the character (write UI H3).
+    /// 中文字 · 搵完寫 / Find & write: find both copies, then write the character. Not playable until its write
+    /// round (H3); the find phase is wired (H2) and holds before writing.
     case tapHanziWrite
 }
 
@@ -976,7 +977,7 @@ public enum FirstEntryActivity {
 /// Activity-type inspiration only — no Gakken IP; no Tomica/Thomas/Tayo likenesses.
 public enum ActivityCatalog {
     /// Playable kinds the child can get after picking difficulty (rotation by round seed).
-    /// `tapHanziAll` / `tapHanziWrite` are not here yet: they join with their UI (H2–H4).
+    /// `tapHanziAll` joined with its find UI (Hanzi H2, build 83); `tapHanziWrite` joins with its write round (H3).
     public static let playableKinds: [ActivityKind] = [
         .twoPictureChoose,
         .findTheSame,
@@ -1001,12 +1002,13 @@ public enum ActivityCatalog {
         .tapCountAllEnglish,
         .tapCountTraceEnglish,
         .tapCountPickEnglish,
-        .tapLetterAll, .tapLetterWrite
+        .tapLetterAll, .tapLetterWrite,
+        .tapHanziAll
     ]
 
     /// D7 (Carter 2026-10-13, option B): new kinds join no ticket until a parent turns a star on
     /// in 家長 → 遊戲 (after 試玩). They stay playable from the parent catalog.
-    /// The two Hanzi kinds are listed before they are playable (H1), so they start OFF (hanzi D6) once H2–H4 add them.
+    /// Both Hanzi kinds are listed from H1, so each starts OFF (hanzi D6) when it becomes playable (翻字卡 in H2).
     public static let defaultOffKinds: [ActivityKind] = [
         .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch, .traceLines, .traceShapesDotted,
         .traceShapesArrows, .traceShapesFree, .tapCountAll, .tapCountTrace, .tapCountPick,

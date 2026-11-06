@@ -102,8 +102,9 @@ struct CanvasActivityHost: View {
                 tapCount
             case .tapLetterAll, .tapLetterWrite:
                 tapLetter
-            case .tapHanziAll, .tapHanziWrite, .none:
-                // Hanzi H1: not playable yet, so no round shows one (find UI is H2).
+            case .tapHanziAll, .tapHanziWrite:
+                tapHanzi
+            case .none:
                 EmptyView()
             }
         }
@@ -446,6 +447,25 @@ struct CanvasActivityHost: View {
                                onTap: { model.tapLetterTap(card: $0) },
                                onReprompt: { model.speakTapLetterPrompt() })
             }
+        }
+    }
+
+    /// 中文字 · 翻字卡 (Hanzi H2): the 2 × 5 find board. 搵完寫 shows the same find phase; its write round is H3,
+    /// so the board holds once both are found (the kind is not playable before then).
+    @ViewBuilder
+    private var tapHanzi: some View {
+        if let board = model.currentTapHanziBoard, let pack = model.tapHanziPack, let copy = model.tapHanziCopy {
+            TapHanziBoardView(board: board, pack: pack, copy: copy, isWrite: shownKind == .tapHanziWrite,
+                              audioOn: model.tapHanziAudioOn,
+                              pendingMinutes: pendingMinutes,
+                              fuelBefore: model.tapHanziFuelBefore,
+                              thinkPauseRemaining: thinkRemaining,
+                              bubble: model.tapHanziBubble,
+                              celebrating: model.tapHanziCelebrating,
+                              strokeReveal: model.tapHanziStrokeReveal,
+                              plaqueNudge: model.tapHanziPlaqueNudge,
+                              onTap: { model.tapHanziTap(card: $0) },
+                              onReprompt: { model.speakTapHanziPrompt() })
         }
     }
 

@@ -202,6 +202,12 @@ private struct ParentGameArtWell: View {
                 Image(systemName: "arrow.right")
                 Image(systemName: "pawprint.fill").font(.system(size: 36))
             }
+        } else if kind.isTapHanziFamily {
+            // 中文字: the play board's robot and a cue picture, one illustration family (D8). Its own parent card is H4.
+            HStack(spacing: 6) {
+                VectorArtView(artwork: HanziCueArt.robot)
+                VectorArtView(artwork: HanziCueArt.personStanding)
+            }
         } else if kind.isTapCountFamily {
             // 一架一架數: the mockup 09 tile (lit cars with badges / a half-painted 3 / picks + OK).
             TapCountIconView(kind: kind)
