@@ -280,6 +280,22 @@ public struct TracePath: Sendable, Equatable {
 
 // MARK: - Board (pure reducer; the app owns the clock)
 
+/// How the pen takes the vehicle and how far the vehicle follows it (`ShapeTraceQuestion.penRule`).
+public enum ShapeTracePenRule: Sendable, Equatable {
+    /// Every trace but Hanzi: a pen-down within `ShapeTraceBoard.grabRadius` (90u) of the vehicle takes it before any
+    /// other marker is checked, and the vehicle then runs to the pen (up to `maxStep` a move).
+    case shared
+    /// Hanzi (H3, design hanzi-tap v2 D10 and § Writing). Resolved before the vehicle, each within `holdRadius` and
+    /// only when nearer than the vehicle: a pen-down on a later stroke's numbered start is a wrong start (D10; 右's
+    /// ③ and ④ share one start, which belongs to whichever is current, D12), on the red end a reversal, on a later
+    /// stroke's end a wrong start. Only then does the pen take the vehicle, and only within `holdRadius` of it (a
+    /// pen-down or a slide). A slide onto the vehicle passes the same checks: where a pen-down would be refused, the
+    /// slide does not take it and counts that refusal once a touch, and it may still slide on to where a pen-down would
+    /// take it. The vehicle moves only as far as the pen moves on along the stroke while it holds it, so a tap or a press
+    /// never draws (下's 點 is a short stroke). A stroke is never taken from its red end.
+    case orderedStarts(holdRadius: Double)
+}
+
 public enum ShapeTracePenDown: Sendable, Equatable {
     /// Pen down within 90u of the vehicle: it now follows the pen along the stroke.
     case grabbed(shape: Int, stroke: Int)
@@ -310,7 +326,8 @@ public enum ShapeTraceMove: Sendable, Equatable {
     case drove
     /// Pen on the stroke at or behind the vehicle.
     case waiting
-    /// Pen off the stroke, too far ahead, or never took hold of the vehicle.
+    /// Pen off the stroke, too far ahead, or never took hold of the vehicle (`.orderedStarts`: also a slide onto it that
+    /// a pen-down there would make a wrong start or reversal, counted as that pen-down once a touch).
     case away
     /// The vehicle just reached a corner and stopped (「停！轉彎！」).
     case cornerReached
@@ -389,6 +406,12 @@ public struct ShapeTraceBoard: Sendable, Equatable {
     public private(set) var reversedStrokes: [String] = []
     public private(set) var dragging = false
     public private(set) var holding = false
+    /// `.orderedStarts`: the vehicle's progress when the pen took hold, and the furthest back along the stroke the pen
+    /// has been since. The vehicle never runs further than `holdFrom` + the pen's travel on from `holdLow`.
+    public private(set) var holdFrom = 0.0
+    public private(set) var holdLow = 0.0
+    /// `.orderedStarts`: this touch has slid onto the vehicle where a pen-down would be refused (counted once a touch).
+    public private(set) var slideRefused = false
     public private(set) var offPath = false
     public private(set) var awaySince: Double?
     /// When the current stroke last moved (or became current). Ghost demo clock.
@@ -493,9 +516,12 @@ public struct ShapeTraceBoard: Sendable, Equatable {
         question.laneWidth * tolerance.roadWidthFactor / 2
     }
 
-    /// Arc length at which `path` counts as drawn (97% or the tolerance's arrival slack).
+    /// Arc length at which `path` counts as drawn (97% or the tolerance's arrival slack), and never before the
+    /// question's `minimumArrivalFraction` of it.
     public func arrivalDistance(_ path: TracePath) -> Double {
-        path.length - max(path.length * (1 - Self.arrivalFraction), tolerance.arrivalSlack)
+        let near = path.length - max(path.length * (1 - Self.arrivalFraction), tolerance.arrivalSlack)
+        let share = question.minimumArrivalFraction
+        return share > 0 ? max(near, path.length * share) : near
     }
 
     /// 0…1 drawn share of the current stroke.
@@ -543,6 +569,7 @@ public struct ShapeTraceBoard: Sendable, Equatable {
     public mutating func penDown(at point: LineMatchPoint, now: Double) -> ShapeTracePenDown {
         dragging = false
         holding = false
+        slideRefused = false
         offPath = false
         awaySince = nil
         inking = false
@@ -556,6 +583,9 @@ public struct ShapeTraceBoard: Sendable, Equatable {
         if startedAt == nil { startedAt = now }
         if lastProgressAt == nil { lastProgressAt = now }
         if shapeStats[shape].startedAt == nil { shapeStats[shape].startedAt = now }
+        if case let .orderedStarts(radius) = question.penRule {
+            return orderedPenDown(at: point, shape: shape, path: path, vehicle: vehicle, radius: radius, now: now)
+        }
         if point.distance(to: vehicle) <= Self.grabRadius {
             dragging = true
             holding = true
@@ -583,6 +613,72 @@ public struct ShapeTraceBoard: Sendable, Equatable {
         dragging = true
         awaySince = now
         return .notNearVehicle
+    }
+
+    /// `ShapeTracePenRule.orderedStarts` (Hanzi): the pen-down's refusal (`orderedRefusal`); then the vehicle within
+    /// `radius`; anywhere else the vehicle waits.
+    private mutating func orderedPenDown(at point: LineMatchPoint, shape: Int, path: TracePath, vehicle: LineMatchPoint,
+                                         radius: Double, now: Double) -> ShapeTracePenDown {
+        if let refused = orderedRefusal(at: point, path: path, vehicle: vehicle, radius: radius) {
+            countRefusal(refused, shape: shape)
+            return refused
+        }
+        dragging = true
+        if point.distance(to: vehicle) <= radius {
+            takeHold(path, at: point)
+            return .grabbed(shape: shape, stroke: strokeIndex)
+        }
+        awaySince = now
+        return .notNearVehicle
+    }
+
+    /// `ShapeTracePenRule.orderedStarts` (Hanzi): the one check a pen-down and a slide onto the vehicle both pass before
+    /// the pen takes it (D10). Each only when within `radius` and nearer than the vehicle: a later stroke's numbered
+    /// start is a wrong start (右's ⑤ starts on ③'s red end), the red end a reversal, a later stroke's end a wrong
+    /// start; nil when none applies.
+    private func orderedRefusal(at point: LineMatchPoint, path: TracePath, vehicle: LineMatchPoint,
+                                radius: Double) -> ShapeTracePenDown? {
+        let toVehicle = point.distance(to: vehicle)
+        func on(_ marker: LineMatchPoint) -> Bool {
+            point.distance(to: marker) <= radius && point.distance(to: marker) < toVehicle
+        }
+        let later = laterStrokes
+        if later.contains(where: { $0.start.distance(to: path.start) > 0.5 && on($0.start) }) { return .wrongStart }
+        if !path.closed, on(path.end) { return .reverse }
+        if later.contains(where: { on($0.end) }) { return .wrongStart }
+        return nil
+    }
+
+    /// A refused pen-down or slide: a wrong start, and at the red end a reversal too. Coached, never a miss.
+    private mutating func countRefusal(_ refused: ShapeTracePenDown, shape: Int) {
+        if refused == .reverse {
+            reverseDirections += 1
+            shapeStats[shape].reverseDirections += 1
+        }
+        wrongStarts += 1
+        shapeStats[shape].wrongStarts += 1
+    }
+
+    /// The strokes after the current one. A later start the current stroke shares is its own (D12: 右's ③ and ④).
+    private var laterStrokes: [TracePath] {
+        var later: [TracePath] = []
+        for (s, shape) in shapes.enumerated() where s >= shapeIndex {
+            for (k, stroke) in shape.strokes.enumerated() where !(s == shapeIndex && k <= strokeIndex) { later.append(stroke) }
+        }
+        return later
+    }
+
+    /// How near the vehicle the pen must be to take it, by a pen-down or a slide.
+    public var vehicleRadius: Double {
+        if case let .orderedStarts(radius) = question.penRule { return radius }
+        return Self.grabRadius
+    }
+
+    private mutating func takeHold(_ path: TracePath, at point: LineMatchPoint) {
+        holding = true
+        guard case .orderedStarts = question.penRule else { return }
+        holdFrom = progress
+        holdLow = path.project(point, window: searchWindow(path)).distance
     }
 
     /// Pen down on the start or end of a stroke that is not the current one.
@@ -622,11 +718,22 @@ public struct ShapeTraceBoard: Sendable, Equatable {
         guard dragging, let shape = currentShape, let path = currentPath else { return .ignored }
         if !holding {
             // Sliding onto the vehicle takes hold of it, as a fresh pen-down near it would.
-            guard let vehicle = vehiclePoint, point.distance(to: vehicle) <= Self.grabRadius else {
+            guard let vehicle = vehiclePoint, point.distance(to: vehicle) <= vehicleRadius else {
                 if awaySince == nil { awaySince = now }
                 return .away
             }
-            holding = true
+            if case let .orderedStarts(radius) = question.penRule,
+               let refused = orderedRefusal(at: point, path: path, vehicle: vehicle, radius: radius) {
+                // Hanzi: never taken where that pen-down would be refused (D10), coached as it once a touch. The pen
+                // may still slide on to the car, so a slide along the stroke past a later start reaches it.
+                if !slideRefused {
+                    slideRefused = true
+                    countRefusal(refused, shape: shape)
+                }
+                if awaySince == nil { awaySince = now }
+                return .away
+            }
+            takeHold(path, at: point)
         }
         let projection = path.project(point, window: searchWindow(path))
         let corner = nextCorner
@@ -673,8 +780,15 @@ public struct ShapeTraceBoard: Sendable, Equatable {
             shapeStats[shape].cornerCuts += 1
         }
         awaySince = nil
+        let ordered = question.penRule != .shared
+        if ordered { holdLow = min(holdLow, projection.distance) }
         guard projection.distance > progress + 0.01 else { return .waiting }
         var next = min(projection.distance, progress + Self.maxStep, path.length)
+        if ordered {
+            // Only the pen's own travel on along the stroke moves the vehicle: never the point where it took hold.
+            next = min(next, holdFrom + projection.distance - holdLow)
+            guard next > progress + 0.01 else { return .waiting }
+        }
         var reachedCorner = false
         // A turn-back (cusp) counts as reached within half the corridor of its tip: a pen that turns
         // a little early would otherwise project onto the leg behind the vehicle and never get there.

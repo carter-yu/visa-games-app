@@ -76,9 +76,9 @@ extension TapCountDrawing {
         if to > from {
             let beam = ShapeTraceDrawing.segment(path, from: from, to: to)
             g.stroke(beam, with: .color(Color(hex: styles.beamOuter)),
-                     style: StrokeStyle(lineWidth: (guide.numeral.glyphKey.hasPrefix("latin:") ? LetterGuideData.styles.beamOuterWidth : styles.beamOuterWidth * k), lineCap: .round, lineJoin: .round))
+                     style: StrokeStyle(lineWidth: (guide.numeral.compactStyles?.beamOuterWidth ?? styles.beamOuterWidth * k), lineCap: .round, lineJoin: .round))
             g.stroke(beam, with: .color(Color(hex: styles.beamInner, opacity: styles.beamInnerOpacity)),
-                     style: StrokeStyle(lineWidth: (guide.numeral.glyphKey.hasPrefix("latin:") ? LetterGuideData.styles.beamInnerWidth : styles.beamInnerWidth * k), lineCap: .round, lineJoin: .round))
+                     style: StrokeStyle(lineWidth: (guide.numeral.compactStyles?.beamInnerWidth ?? styles.beamInnerWidth * k), lineCap: .round, lineJoin: .round))
         }
         for d in guide.headlights {
             place(TapCountArt.guideChev, at: path.point(at: d), scale: guide.numeral.chevronScale, angle: path.angle(at: d), in: &g)
@@ -100,11 +100,11 @@ extension TapCountDrawing {
     static func cueSign(_ cue: NumeralGuide.Cue, guide: NumeralGuide, stopWord: String, opacity: Double = 1, in g: inout GraphicsContext) {
         switch cue.sign {
         case .ahead:
-            place(TapCountArt.guideAhead, at: cue.signPoint, scale: guide.glyphKey.hasPrefix("latin:") ? LetterGuideData.board.aheadSignScale : 1, angle: guide.aheadAngle(for: cue), opacity: opacity, in: &g)
+            place(TapCountArt.guideAhead, at: cue.signPoint, scale: guide.aheadSignScale, angle: guide.aheadAngle(for: cue), opacity: opacity, in: &g)
         case .stop:
             var layer = g
             layer.opacity = g.opacity * opacity
-            stopSign(at: cue.signPoint, scale: guide.glyphKey.hasPrefix("latin:") ? LetterGuideData.board.stopSignScale : 0.8, word: stopWord, in: &layer)
+            stopSign(at: cue.signPoint, scale: guide.stopSignScale, word: stopWord, in: &layer)
         }
     }
 
@@ -182,7 +182,7 @@ extension TapCountDrawing {
                 let u = lit / styles.litGlowSeconds
                 g.stroke(ShapeTraceDrawing.whole(m.numeral.paths[to]),
                          with: .color(Color(hex: styles.litGlow, opacity: styles.litGlowOpacity * 0.5 * (1 - u))),
-                         style: StrokeStyle(lineWidth: m.numeral.glyphKey.hasPrefix("latin:") ? LetterGuideData.styles.litGlowWidth : styles.litGlowWidth * k, lineCap: .round, lineJoin: .round))
+                         style: StrokeStyle(lineWidth: m.numeral.compactStyles?.litGlowWidth ?? styles.litGlowWidth * k, lineCap: .round, lineJoin: .round))
             }
             if dt >= 0, dt < timing.hopSeconds + styles.litGlowSeconds, !m.reduceMotion, m.numeral.paths.indices.contains(to) {
                 let start = m.numeral.paths[to].start
@@ -204,7 +204,7 @@ extension TapCountDrawing {
         }
         if case .stall = m.help, let vehicle = trace.vehiclePoint {
             let pulse = m.reduceMotion ? 1 : 1 + 0.06 * sin(now * 2 * Double.pi)
-            let r = (m.numeral.glyphKey.hasPrefix("latin:") ? LetterGuideData.styles.stallRingRadius : styles.stallRingRadius) * pulse
+            let r = (m.numeral.compactStyles?.stallRingRadius ?? styles.stallRingRadius) * pulse
             let ring = Path(ellipseIn: CGRect(x: vehicle.x - r, y: vehicle.y - r, width: 2 * r, height: 2 * r))
             g.fill(ring, with: .color(Color(hex: styles.stallRingFill, opacity: 0.55)))
             g.stroke(ring, with: .color(Color(hex: styles.stallRingStroke)), style: StrokeStyle(lineWidth: 5, dash: [10, 9]))
@@ -288,10 +288,10 @@ extension TapCountDrawing {
             var layer = g
             layer.opacity = g.opacity * run.opacity * mergeFade
             layer.stroke(p, with: .color(Color(hex: styles.routeGlow)),
-                         style: StrokeStyle(lineWidth: (timeline.guide.glyphKey.hasPrefix("latin:") ? LetterGuideData.styles.routeGlowWidth : styles.routeGlowWidth * k), lineCap: .round, lineJoin: .round))
+                         style: StrokeStyle(lineWidth: (timeline.guide.compactStyles?.routeGlowWidth ?? styles.routeGlowWidth * k), lineCap: .round, lineJoin: .round))
             layer.stroke(p, with: .color(Color(hex: styles.routeCore)),
-                         style: StrokeStyle(lineWidth: (timeline.guide.glyphKey.hasPrefix("latin:") ? LetterGuideData.styles.routeCoreWidth : styles.routeCoreWidth * k), lineCap: .round, lineJoin: .round,
-                                            dash: (timeline.guide.glyphKey.hasPrefix("latin:") ? LetterGuideData.styles.routeDash : styles.routeDash.map { $0 * k }).map { CGFloat($0) }))
+                         style: StrokeStyle(lineWidth: (timeline.guide.compactStyles?.routeCoreWidth ?? styles.routeCoreWidth * k), lineCap: .round, lineJoin: .round,
+                                            dash: (timeline.guide.compactStyles?.routeDash ?? styles.routeDash.map { $0 * k }).map { CGFloat($0) }))
         }
     }
 

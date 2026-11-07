@@ -450,11 +450,20 @@ struct CanvasActivityHost: View {
         }
     }
 
-    /// 中文字 · 翻字卡 (Hanzi H2): the 2 × 5 find board. 搵完寫 shows the same find phase; its write round is H3,
-    /// so the board holds once both are found (the kind is not playable before then).
+    /// 中文字 · 翻字卡 (Hanzi H2): the 2 × 5 find board. 搵完寫 shows the same find phase, then (H3) its 田字格 write
+    /// round once both are found and the stroke reveal is done.
     @ViewBuilder
     private var tapHanzi: some View {
         if let board = model.currentTapHanziBoard, let pack = model.tapHanziPack, let copy = model.tapHanziCopy {
+            if shownKind == .tapHanziWrite, let round = model.currentTapHanziWriteRound, let writeCopy = model.tapHanziWriteCopy,
+               round.phase == .writing || round.phase == .done {
+                TapHanziWriteBoardView(round: round, pack: pack, copy: writeCopy, audioOn: model.tapHanziAudioOn,
+                                       now: model.now.timeIntervalSinceReferenceDate, bubble: model.tapHanziWriteBubble,
+                                       onDown: { model.tapHanziWritePenDown($0) },
+                                       onMove: { model.tapHanziWritePenMove($0) },
+                                       onUp: { model.tapHanziWritePenUp() },
+                                       onReprompt: { model.speakTapHanziPrompt() })
+            } else {
             TapHanziBoardView(board: board, pack: pack, copy: copy, isWrite: shownKind == .tapHanziWrite,
                               audioOn: model.tapHanziAudioOn,
                               pendingMinutes: pendingMinutes,
@@ -466,6 +475,7 @@ struct CanvasActivityHost: View {
                               plaqueNudge: model.tapHanziPlaqueNudge,
                               onTap: { model.tapHanziTap(card: $0) },
                               onReprompt: { model.speakTapHanziPrompt() })
+            }
         }
     }
 

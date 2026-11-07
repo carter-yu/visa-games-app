@@ -1,5 +1,155 @@
 # Progress
 
+## 2026-11-07 — v0.38.0 / 84 — Hanzi H3 write board
+
+- Written by Claude Code on `feat/hanzi-tap` @ `6df9bd1` (0.38.0/83), from `visa-games-sessions/hanzi/h3-run3/HANDOFF.md`, design hanzi-tap v2 (§ Writing, the H3 row and the child copy table; LOCKED D5, D10–D12) and the six-target addendum. Two earlier H3 sessions stopped at session limits and left the code below uncommitted and untested (the new files, the wiring, `CFBundleVersion` 84). This run (h3-run3) registered and fixed the checks, brought the H2-era checks up to H3 and verified. H3 only: no parent cards, settings rows, 教／提／熄 labels or report area (H4), no install or Mac mini run (H5). No commit, push, stash, checkout or reset.
+- `VisaCore/HanziWrite.swift` (new):
+  - `HanziWriteBoard`:
+    - the letter write card (440, 126, 400 × 408) with a 350 × 350 田字格 square at (465, 166). The 300 × 300 glyph box is scaled by 7/6 on both axes (no stretch), and the lane is the pack's 36 units on the board. `paths` and `guide` place the pack's centre lines and guide there;
+    - `startMarks(_:in:current:)`: every numbered start in MOE order (D10), with its direction arrow 24 glyph units along its stroke and a state (done, current, future). Only the current one takes the pen. A pack leader moves the number, never the start (D12: 右's ③ and ④ share (118, 160) with two leaders);
+    - `signBox`: where an AHEAD or STOP sign is drawn, for the clearance checks;
+    - `minimumArrivalFraction` 0.7: a stroke counts as drawn no earlier than 70% of its length (design `shortStrokeProgressFraction`), so 下's 點 is a short down-right stroke, never a tap or a nudge.
+  - `HanziWriteCopy(pack:)`: the write lines from the pack's copy, with `{H}` filled: header, subline, watch, turn, reprompt, done, re-demo, 停, the tray lines, 「轉彎唔提筆。」 and the legend. It is nil when a key or placeholder is missing.
+  - `TapHanziWriteRound`: only a completed 搵完寫 find whose target has a guide opens it. It drives the shared trace engine and coach (`TapCountGuideRun`, `TapCountGuideCoach`, `TapCountDemoTimeline`), as `TapLetterWriteRound` does for letters:
+    - the first touch during the car demo only ends it; nothing is painted, not even by that touch's moves;
+    - `coachTick` starts each help episode and each sign line once, on the plan's timers: stall ring + ghost, ghost to the stroke end, and the 20 s re-demo at most twice;
+    - there is no miss transition. The find board, its misses and its hint are never changed;
+    - `resultFields` are practice facts: write_clean, lifts, off_path, wrong_start, reverse, corner_overshoot and the guide's stalls, ghosts and re-demos.
+- `VisaCore/TapCountGuidance.swift`:
+  - The guide style is injected. `NumeralGuide.compactBoard` / `compactStyles`, set by the letter initialiser (`LetterGuideData`) and the Hanzi one (`HanziGuideData.board` / `.styles`), replace the `latin:` prefix tests. New `aheadSignScale` / `stopSignScale`. Numerals keep their values (nil).
+  - `NumeralGuide.CuePauses`: numerals and letters keep `.insideBeats`. Hanzi uses `.stopTurns`: the demo car never waits at an AHEAD sign, and a beat that ends on a STOP turn waits there once for `cuePauseSeconds` (0.3 s), on the same stroke with no hop. That turn is 右's 橫折 corner at (226, 160), the only STOP in the set.
+- `VisaCore/HanziGlyphs.swift`:
+  - `HanziGuideData.board`: 0.6 car, 42-unit nose, 0.7 chevrons, 30-unit lane dots, STOP 0.8, AHEAD 0.8;
+  - `HanziGuideData.styles`: the letter board's widths;
+  - the design's `styles.compactBoard.aheadSignScale` is 1.0. At 1.0 the locked 上 and 左 sign centres (glyph y 282) put the sign box at stage y 469–521, past the square's bottom at 516; at 0.8 it ends at 515.8.
+- `VisaCore/ShapeTraceCatalog.swift` / `ShapeTraceEngine.swift`: `ShapeTraceQuestion.minimumArrivalFraction` defaults to 0, the old arrival rule for every other trace. When it is above 0, `arrivalDistance` is never earlier than that share.
+- `VisaCore/Activity.swift`: `tapHanziWrite` joins `ActivityCatalog.playableKinds` (27 kinds) and stays in `defaultOffKinds` with `requiresPlaytestBeforeStars` (D6). `HanziFind.swift`: comment only.
+- App (`VisaGames`; SwiftUI / AppKit are not compiled on this box):
+  - `TapHanziWriteBoardView.swift` (new) uses the letter write board's places:
+    - the header with the robot (reprompt), the glyph drawn from its centre lines and the 中文 / Find & write pill;
+    - the two earned picture cards: cue art, teal glyph and meaning, with 「我隻左手」／「我隻右手」 for 左／右;
+    - the cream write card:
+      - the 田字格, with a border and a dashed centre cross and no diagonals;
+      - the roads, lane dots and teal ink;
+      - the numbered starts with their arrows and leaders, and the red end dot;
+    - the shared headlights / sign / 「睇住」 badge / demo / ghost drawing, with Reduce Motion;
+    - the bubble with the speaker mark, crossed out while 廣東話語音 is off;
+    - the tray with the 搵晒 → 寫 chips, its line and the legend for the signs this glyph shows.
+    - A touch that ends the demo is dropped until the pen lifts. The STOP sign says 停.
+  - `TapCountGuideDrawing.swift` reads the guide's injected widths and sign scales, never a `latin:` key.
+  - `CanvasActivityHost.swift`: 搵完寫 shows the write board once its write round is writing or done; before that, the H2 find board.
+  - `AppDelegate.swift`:
+    - a write round per lane (the child round, a parent's 試玩);
+    - after the find and its stroke reveal, `finishTapHanziFind`'s `.awaitWriteRound` begins writing at the shared 描字提示 level (`tapCountSettings.guidance`, never migrated). With a demo it shows 「而家寫『X』！先睇車仔。」, otherwise 「到你喇！跟住箭嘴寫『X』。」;
+    - pen down / move / up handlers. The coach runs in `tick()` (every 0.5 s) and on each pen move;
+    - coached events show as text and are spoken only through `tapHanziSpeak` (audio on):
+      - the beat ahead on a stall or ghost;
+      - 「再睇車仔行一次！」 on a re-demo;
+      - the sign lines, with 「轉彎唔提筆。」 under 右's corner line;
+    - the first help of a write records a non-clean write, as for letters;
+    - a drawn write goes back through `finishTapHanziFind`, so the parent-controls hold covers its stamp too;
+    - `finishTapHanziRound` merges the write fields and records the write. A playtest records it only in a preview copy, dropped on Return by `clearHanziPreview`. The stamp uses the find's own hint;
+    - a reset, a new deal, a new playtest and dropping a playtest clear the write rounds.
+    - No penalty, fuel, hint or recognition record comes from writing.
+  - By reading (not run): the parent Games list iterates `playableKinds`. 搵完寫 therefore now has its own card ("Games · 27") with its stars locked until its own playtest, and `startPlaytest` accepts it.
+- Tests: new `HanziWriteTests` adds 8 checks (banner `8 hanzi-write`):
+  - (1) placement and clearance:
+    - every beat and cue point projects onto its stroke, and every lane is inside the 田字格;
+    - every sign is inside the square and at least half a lane clear of every stroke;
+    - numbers are inside the square, clear of the signs and apart;
+    - one STOP in the set (右);
+    - 右's ③ (arrow down) and ④ (arrow across) share their start with two leaders, and the corner is not a start;
+    - find-only glyphs are never written;
+    - the compact style is injected for Hanzi, while letters and numerals keep theirs;
+  - (2) the demo timeline:
+    - one hop per lift, and the duration adds up;
+    - Reduce Motion never glides or lifts, and the route covers every stroke;
+    - no wait at AHEAD, and no wait anywhere in 人上下左木;
+    - 右 waits exactly once, 0.3 s, at its 橫折 corner, on the same stroke on both sides, wheels down (also with Reduce Motion), with the STOP sign blinking;
+    - letter and numeral demos keep the pre-H3 pause rule;
+  - (3) the round and the coach:
+    - only a completed 搵完寫 find opens the round, and a touch during the demo paints nothing;
+    - 標準 at 2 / 8 / 20 s. The re-demo restarts the child's turn at its end, so a second 8 s ghost follows inside the 40 s window;
+    - the stall ghost and its Reduce Motion pose, and three headlight chevrons;
+    - at most two re-demos;
+    - 多啲 at 1 / 5 / 15 s, with a demo even once learned;
+    - 少啲: no demo, headlights or signs, and only the 8 s ghost;
+    - 標準 once learned: headlights only;
+  - (4) 右's corner:
+    - all six targets at narrow, standard and wide take one pen-down per stroke with no lifts, and only 右's 4th stroke has a corner stop;
+    - on 右, a stall before the corner ghosts to the corner;
+    - a run-on is held at the corner and coached with the pen still down;
+    - turning down finishes the same stroke with no lift, and the write stays clean;
+  - (5) 下's 點: a tap, a nudge under 70% or a run down beside the 豎 never draws it; the stroke does, at every tolerance. Without the floor, the wide tolerance counted the dot as drawn before any move;
+  - (6) zero penalties, per target:
+    - a reversal, a wrong start (右), going off the lane, a lift and a stall are all coached;
+    - the find is unchanged: no misses, the same hint, clean recognition;
+    - two clean writes make the glyph learned, a coached write resets the streak, and the keys are `hanzi:`;
+    - app source guards: no evaluation, fuel, hint, recognition record, entry success or direct voice in the write section; the stamp's hint source; one writing save; a playtest saves only its preview;
+  - (7) the write lines are the pack's HK Traditional copy (the fixture, no ASCII letters, no 熄), and the copy fails closed;
+  - (8) wiring:
+    - playable, default-off and gated by its own playtest; a build-83 assignment reloads with 搵完寫 OFF;
+    - host routing;
+    - the hold before both the write and the stamp; one `finishTapHanziRound` caller; writing begins once at the shared level; the stamp goes through the hold;
+    - the dismissing touch is dropped;
+    - write input only in the lock with an open round, or in a parent's 試玩;
+    - the tick, the resets and the robot reprompt;
+    - the view uses Reduce Motion, the start marks, the shared drawing, pack glyphs and 停, and no Latin furniture;
+    - the drawing never tests `latin:`.
+- Fixed in this run:
+  - two defects in the uncommitted test file:
+    - `found` dealt with the default week. A scheduler with no progress always deals the week's first target, so every write round was 人 and `writing("右")` crashed. The parent week now leads with the glyph;
+    - check (3) expected one ghost-to-end in its 40 s window, but the shared coach (letters and numerals too) restarts the turn at the re-demo's end;
+  - a 熄 in a `HanziWrite.swift` doc comment, which the build-80 rule forbids in Sources (`LetterPickerTests`). It now reads 多啲／標準／少啲.
+- Existing checks updated for H3:
+  - playable count 26 → 27 (ActivityTests, MissionGameAssignmentTests, HanziTapTests (f)), and no non-playable kind remains;
+  - HanziTapTests (e): both Hanzi kinds are OFF on every star for a fresh or corrupt assignment, and a hand-edited one follows its stars. The `.rejectedLastStar` toggle expectation for the formerly unplayable 搵完寫 is dropped;
+  - HanziTapTests (f): a build-81/82 assignment reloads with both Hanzi kinds OFF;
+  - HanziFindTests (5): 搵完寫 is playable and stamps only once its write round can stamp;
+  - HanziFindTests (6): `finishTapHanziRound(token:` has two calls, both in `finishTapHanziFind`;
+  - version 83 → 84 (PerformanceRecordTests, WeeklyReportPDFTests; set by the earlier H3 sessions).
+- Mutation runs with the built binary (`visa-games-sessions/hanzi/h3-run3/mutations.log`), each file restored and checked by sha256. All 12 fail an H3 check:
+  - no 0.3 s wait at the corner;
+  - the demo waiting at AHEAD;
+  - no 0.7 floor;
+  - the dismissing touch painting;
+  - no Hanzi style;
+  - AHEAD at 1.0;
+  - no re-demo cap;
+  - letters losing their style;
+  - a write wrong start penalised;
+  - 搵完寫 stamping without its write;
+  - the dismissing touch not dropped;
+  - a playtest write saving the child's store.
+- Version 0.38.0 / 84 (`CFBundleVersion` and both version assertions, set by the earlier H3 sessions; the footer label stays v0.38.0).
+- Verification on this Linux box:
+  - `env LD_LIBRARY_PATH=/home/box/.local/swiftlibs PATH=/tmp/visa-games-swift/toolchain/usr/bin:/usr/bin:/bin bash scripts/test.sh` passed (`visa-games-sessions/hanzi/h3-run3/test-box.log`, EXIT=0). The banner includes `10 hanzi-glyph + 11 hanzi-tap + 6 hanzi-find + 8 hanzi-write`. The full builds of this run had no compiler warnings.
+  - `swiftc -parse` passed for `AppDelegate.swift`, `CanvasActivityHost.swift`, `TapHanziWriteBoardView.swift` and `TapCountGuideDrawing.swift`.
+  - The H3 AppModel code was extracted verbatim with stubs for app-only members: the write extension, `speakTapHanziPrompt`, `finishTapHanziFind`, `finishHeldTapHanziFind` and `finishTapHanziRound`. It passed `swiftc -typecheck -swift-version 6` against the built VisaCore module, and a mutated copy failed. SwiftUI / AppKit were not type-checked.
+  - No Mac mini run, no `bundle.sh` and no UAT. Not checked: TV / Wacom input, the 田字格 at TV distance, Reduce Motion on the device, the voice.
+- Open:
+  - Carter: the AHEAD sign scale is 0.8 against the design's 1.0. Keep 0.8, move the 上 / 左 `signAt`, or let the sign cross the square's edge (it stays on the card)?
+  - The write round's parent-controls hold is pinned by source guards only, not simulated as in HanziFindTests (6).
+  - The 36-unit lane and the 0.7 short-stroke share are still the design's proposed tuning (TO-VERIFY with Wacom / TV).
+  - H4: the Hanzi parent cards and settings rows, the 教／提／熄 display labels (D9 vs the build-80 開／關 rule), the 廣東話語音 / 粵拼 toggles and the report area.
+  - H5: household release.
+- fix1 (`visa-games-sessions/hanzi/h3-fix1/`, a fresh Claude Code session) after the gpt-6-astra ultra review (`h3-astra/ASTRA-REVIEW.md`: NOT READY, 0 blockers / 3 majors / 2 minors). Still 0.38.0 / 84 and uncommitted. All three majors were first reproduced with a probe against the built VisaCore (`h3-fix1/probe/before.log`).
+  - M1 and M2 (下's 點 drawn by a still tap; a later start taking the pen, D10). `ShapeTraceQuestion.penRule` is new, and its default `.shared` keeps every other trace as it was. The write round uses `.orderedStarts(holdRadius: 21)`, half the 36-unit lane on the board.
+    - Before the car, each only when nearer than the car: a later stroke's numbered start is a wrong start (右's shared ③ / ④ start belongs to the current stroke), the red end is a reversal, and a later stroke's end is a wrong start.
+    - The pen takes the car only within 21 units, by a pen-down or a slide. The car then moves only as far as the pen moves on along the stroke.
+    - Before, a still tap at 75%, 90% or 100% of the dot drew it at every tolerance, and a tap on 上's ② (88.67 units from ①) painted 60 units of ①. Now both are coached and draw nothing.
+  - M3 (the 2 s ghost through 右's STOP). `NumeralGuide.stallGhostEnd` stops a Hanzi guide's stall ghost at the next beat end or STOP the car has not reached. 右 stalled 18 / 6 units before the corner now ghosts to the corner (before: 148 / 224). `TapCountGuideCoach.help` uses it, so the reducer and the view agree. The help bubble's line is `TapHanziWriteRound.helpBeat` (the same boundary). Letters and numerals keep the shared rule. The 8 s ghost still runs to the stroke's end.
+  - Minor 1: the numbered starts, their arrows and leaders, and the red end are drawn in a canvas above the guidance layer, so the paint car no longer covers the current number.
+  - Minor 2: a scheduled demo line is spoken only while its lane is on screen with its pen open (`tapHanziUsesPlaytest == playtest`, `tapHanziWriteInputOpen`). Entering parent controls bumps `tapHanziGuideSpeechGeneration`.
+  - Tests: check (5) adds still taps at 71–100% of the dot, a press, marching taps, a slide and the shared-rule contrast. New check (9) covers only the current start taking the pen and new check (10) the 2 s ghost at 右's STOP. Check (8) adds source guards for both minors and the help line. The banner is now `10 hanzi-write` (40 groups, 455 checks).
+  - Verification on this box:
+    - box tests EXIT=0 (`h3-fix1/test-box.log`);
+    - 13 mutations each fail a check, with files restored and verified by sha256 (`h3-fix1/mutations.log`);
+    - `swiftc -parse` passed for `AppDelegate.swift` and `TapHanziWriteBoardView.swift`;
+    - the changed AppModel code (with `enterParentAfterAuthentication`) type-checks against VisaCore in a stub harness, and mutated copies fail.
+    - No Mac mini, `bundle.sh`, Wacom or TV run.
+  - Open: the 21-unit hold radius is new tuning (TO-VERIFY with Wacom / TV). The 口 inset and AHEAD 0.8 vs 1.0 are unchanged.
+
 ## 2026-11-06 — v0.38.0 / 83 — Hanzi H2 finding UI
 
 - Written by Claude Code on `feat/hanzi-tap` @ `a8568be` (0.38.0/82), from `visa-games-sessions/hanzi/h2-run2/HANDOFF.md`, design hanzi-tap v2 (§ ★ 搵字翻卡, the child copy table and the H2 row; LOCKED D1–D12) and the six-target addendum. The first H2 session stopped at a session limit before writing any code. H2 only: no 田字格 or write round (H3), no parent cards, toggles or report area (H4), no install or Mac mini run (H5). No commit, push, stash, checkout or reset.

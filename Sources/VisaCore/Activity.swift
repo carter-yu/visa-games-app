@@ -977,7 +977,7 @@ public enum FirstEntryActivity {
 /// Activity-type inspiration only — no Gakken IP; no Tomica/Thomas/Tayo likenesses.
 public enum ActivityCatalog {
     /// Playable kinds the child can get after picking difficulty (rotation by round seed).
-    /// `tapHanziAll` joined with its find UI (Hanzi H2, build 83); `tapHanziWrite` joins with its write round (H3).
+    /// `tapHanziAll` joined with its find UI (Hanzi H2, build 83); `tapHanziWrite` with its write round (H3, build 84).
     public static let playableKinds: [ActivityKind] = [
         .twoPictureChoose,
         .findTheSame,
@@ -1003,7 +1003,7 @@ public enum ActivityCatalog {
         .tapCountTraceEnglish,
         .tapCountPickEnglish,
         .tapLetterAll, .tapLetterWrite,
-        .tapHanziAll
+        .tapHanziAll, .tapHanziWrite
     ]
 
     /// D7 (Carter 2026-10-13, option B): new kinds join no ticket until a parent turns a star on

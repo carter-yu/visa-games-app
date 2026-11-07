@@ -72,8 +72,7 @@ public struct TapHanziBoard: Equatable, Sendable {
 public enum HanziFindFinish: Equatable, Sendable {
     /// 翻字卡: the round is done and stamps.
     case stamp
-    /// 搵完寫: the write round takes over. It is H3 (田字格); until then the find result is held and never stamped,
-    /// and the kind stays out of `ActivityCatalog.playableKinds`.
+    /// 搵完寫: the 田字格 write round takes over (`TapHanziWriteRound`, H3); the round stamps only once it is drawn.
     case awaitWriteRound
 }
 

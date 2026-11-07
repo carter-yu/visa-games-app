@@ -461,9 +461,19 @@ extension StrokeGlyph {
 
 /// The Hanzi counterpart of `LetterGuideData.letter`: a target's pack guide as the shared `NumeralGuideSpec`
 /// (beats, merge line, AHEAD / STOP cues, hop and last-stroke lines), in pack order. `zh` / `zhSub` are the pack's
-/// HK Traditional `zhHK` / `zhHKSub`; `en` is its engineering English. Nil for a find-only or unknown glyph. Stage
-/// placement, the guide style, tray / legend copy and the 右 corner contract stay with the write round (H3).
+/// HK Traditional `zhHK` / `zhHKSub`; `en` is its engineering English. Nil for a find-only or unknown glyph. The 田字格
+/// placement and the write round are `HanziWriteBoard` / `TapHanziWriteRound` (H3).
 public enum HanziGuideData {
+    /// The compact board style every Hanzi guide carries (design hanzi-tap v2 `styles.compactBoard`, the letter
+    /// board's values): 0.6 car, 42-unit nose, 0.7 chevrons, 30-unit lane dots, STOP 0.8. AHEAD is 0.8 rather than the
+    /// letters' 1.0: at 1.0 the locked 上 / 左 sign centres (y 282) put the sign outside the 300 × 300 box (H3).
+    public static let board = LetterBoardGuideStyle(laneScale: LetterGuideData.board.laneScale, carScale: 0.6,
+                                                    noseUnits: 42, chevScale: 0.7, laneDotSpacing: 30,
+                                                    stopSignScale: 0.8, aheadSignScale: 0.8)
+    /// Route, beam, stall-ring and glow widths in stage units: the letter board's (design `styles`: route 19 / 6 with a
+    /// 9 / 7 dash, beam 30 / 12, ring 40).
+    public static let styles = LetterGuideData.styles
+
     public static func spec(_ glyph: String, in pack: HanziPack) -> NumeralGuideSpec? {
         guard let guide = pack.characters[glyph]?.guide else { return nil }
         func line(_ text: HanziText) -> TapCountGuideLine {

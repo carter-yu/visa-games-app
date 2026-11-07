@@ -778,41 +778,36 @@ final class HanziTapTests {
         roundStore.save(-3)
         expectEqual(roundStore.load(), 0)
 
-        // Games: both kinds are default-off (D6) and need their own playtest. Since H2 (build 83) 翻字卡 is playable,
-        // so a fresh or corrupt assignment holds it OFF on every star; 搵完寫 stays unplayable until its write round
-        // (H3), so even a hand-edited assignment never deals or enables it.
+        // Games: both kinds are default-off (D6) and need their own playtest. 翻字卡 is playable since H2 (build 83) and
+        // 搵完寫 since its write round (H3, build 84), so a fresh or corrupt assignment holds both OFF on every star.
         for kind in [ActivityKind.tapHanziAll, .tapHanziWrite] {
             expectFalse(ActivityCatalog.defaultOnKinds.contains(kind))
             expectTrue(ActivityCatalog.defaultOffKinds.contains(kind) && kind.requiresPlaytestBeforeStars && kind.isTapHanziFamily)
             expectEqual(MissionGameAssignment.defaultStars(for: kind), [])
+            expectTrue(ActivityCatalog.playableKinds.contains(kind))
         }
-        expectTrue(ActivityCatalog.playableKinds.contains(.tapHanziAll))
-        expectFalse(ActivityCatalog.playableKinds.contains(.tapHanziWrite))
         let assignments = MissionGameAssignmentStore(defaults: defaults)
         var loaded = [assignments.load()]
         defaults.set(Data("{\"starsByKind\":".utf8), forKey: MissionGameAssignmentStore.key)
         loaded.append(assignments.load())
         for assignment in loaded {
-            expectEqual(assignment.enabledStars[.tapHanziAll], [])
-            expectTrue(assignment.enabledStars[.tapHanziWrite] == nil)
             for kind in [ActivityKind.tapHanziAll, .tapHanziWrite] {
+                expectEqual(assignment.enabledStars[kind], [])
                 expectTrue(assignment.isHiddenFromMissions(kind))
                 for star in ChildDifficulty.allCases {
                     expectFalse(assignment.isEnabled(kind, star: star) || assignment.pool(for: star).contains(kind))
                 }
             }
-            for star in ChildDifficulty.allCases {
-                expectEqual(assignment.toggling(.tapHanziWrite, star: star), .rejectedLastStar)
-            }
         }
-        // A hand-edited assignment: 翻字卡 follows its stored stars like every playable kind (the D6 playtest gate is
-        // the parent toggle's `ParentPlaytestLog` check); 搵完寫 is dropped.
+        // A hand-edited assignment: both follow their stored stars like every playable kind (the D6 playtest gate is
+        // the parent toggle's `ParentPlaytestLog` check).
         defaults.set(json(["starsByKind": ["tapHanziAll": [1, 2, 3], "tapHanziWrite": [1, 2, 3]]]), forKey: MissionGameAssignmentStore.key)
         let edited = assignments.load()
-        expectEqual(edited.enabledStars[.tapHanziAll], Set(ChildDifficulty.allCases))
-        expectTrue(edited.enabledStars[.tapHanziWrite] == nil && edited.isHiddenFromMissions(.tapHanziWrite))
-        for star in ChildDifficulty.allCases {
-            expectFalse(edited.pool(for: star).contains(.tapHanziWrite))
+        for kind in [ActivityKind.tapHanziAll, .tapHanziWrite] {
+            expectEqual(edited.enabledStars[kind], Set(ChildDifficulty.allCases))
+            for star in ChildDifficulty.allCases {
+                expectTrue(edited.pool(for: star).contains(kind))
+            }
         }
     }
 
@@ -916,26 +911,28 @@ final class HanziTapTests {
         let decoded = try JSONDecoder().decode([ActivityKind].self, from: JSONEncoder().encode(build81))
         expectEqual(decoded, Array(ActivityKind.allCases.prefix(25)))
         expectThrowsError(try JSONDecoder().decode([ActivityKind].self, from: Data("[\"tapHanziRead\"]".utf8)))
-        // Build 83 (H2): 翻字卡 joins the playable kinds; 搵完寫 waits for its write round (H3).
-        expectEqual(Set(ActivityCatalog.playableKinds.map(\.rawValue)), Set(build81 + ["tapHanziAll"]))
-        expectEqual(ActivityCatalog.playableKinds.count, 26)
+        // Build 83 (H2): 翻字卡 joins the playable kinds; build 84 (H3): 搵完寫 with its write round.
+        expectEqual(Set(ActivityCatalog.playableKinds.map(\.rawValue)), Set(build81 + ["tapHanziAll", "tapHanziWrite"]))
+        expectEqual(ActivityCatalog.playableKinds.count, 27)
         expectEqual(ActivityCatalog.defaultOnKinds.count, 10)
         let assignment = MissionGameAssignmentStore(defaults: defaults).load()
         expectEqual(assignment, MissionGameAssignment.defaults)
-        expectEqual(assignment.enabledStars.count, 26)
-        // A build-81/82 assignment (25 kinds) reloads with 翻字卡 added OFF on every star and nothing else changed.
+        expectEqual(assignment.enabledStars.count, 27)
+        // A build-81/82 assignment (25 kinds) reloads with both Hanzi kinds added OFF on every star and nothing else
+        // changed.
         var stored: [String: [Int]] = [:]
-        for kind in ActivityCatalog.playableKinds where kind != .tapHanziAll {
+        for kind in ActivityCatalog.playableKinds where !kind.isTapHanziFamily {
             stored[kind.rawValue] = ChildDifficulty.allCases.filter { assignment.isEnabled(kind, star: $0) }.map(\.rawValue)
         }
         stored["traceLines"] = [2]
         let older = UserDefaults(suiteName: "VisaGames.hanziBuild82.\(UUID().uuidString)")!
         older.set(try JSONSerialization.data(withJSONObject: ["starsByKind": stored]), forKey: MissionGameAssignmentStore.key)
         let upgraded = MissionGameAssignmentStore(defaults: older).load()
-        expectEqual(upgraded.enabledStars.count, 26)
+        expectEqual(upgraded.enabledStars.count, 27)
         expectEqual(upgraded.enabledStars[.tapHanziAll], [])
+        expectEqual(upgraded.enabledStars[.tapHanziWrite], [])
         expectEqual(upgraded.enabledStars[.traceLines], [.medium])
-        for kind in ActivityCatalog.playableKinds where kind != .tapHanziAll && kind != .traceLines {
+        for kind in ActivityCatalog.playableKinds where !kind.isTapHanziFamily && kind != .traceLines {
             expectEqual(upgraded.enabledStars[kind], assignment.enabledStars[kind], kind.rawValue)
         }
         // D1 names; the short labels and levels match the letter pair. HK Traditional only.

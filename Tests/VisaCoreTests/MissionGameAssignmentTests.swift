@@ -4,7 +4,7 @@ import VisaCore
 final class MissionGameAssignmentTests {
     func testDefaultsAllStarsOn() {
         let assignment = MissionGameAssignment.defaults
-        expectEqual(ActivityCatalog.playableKinds.count, 26)
+        expectEqual(ActivityCatalog.playableKinds.count, 27)
         for kind in ActivityCatalog.defaultOnKinds {
             for star in ChildDifficulty.allCases {
                 expectTrue(assignment.isEnabled(kind, star: star))
@@ -134,9 +134,9 @@ final class MissionGameAssignmentTests {
     }
 
     func testParentCardNamesAreTraditionalAndUnbuiltAreNotKinds() {
-        // 26 playable kinds: 中文字 · 翻字卡 joined with its find UI (H2); 搵完寫 joins with its write round (H3).
+        // 27 playable kinds: 中文字 · 翻字卡 joined with its find UI (H2), 搵完寫 with its write round (H3).
         expectEqual(ActivityKind.allCases.count, 27)
-        expectEqual(ActivityKind.allCases.filter { !ActivityCatalog.playableKinds.contains($0) }, [.tapHanziWrite])
+        expectEqual(ActivityKind.allCases.filter { !ActivityCatalog.playableKinds.contains($0) }, [])
         expectEqual(ActivityKind.twoPictureChoose.parentCardTitle, "邊架消防車")
         expectEqual(ActivityKind.findTheSame.parentShortLabel, "搵相同")
         expectEqual(ActivityKind.emptyBay.parentCardEnglish, "Empty parking bay")

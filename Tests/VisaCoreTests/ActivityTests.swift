@@ -136,10 +136,11 @@ final class ActivityTests {
     }
 
     func testCatalogPlayableKindsAndRotation() {
-        // Build 83 (Hanzi H2): 中文字 · 翻字卡 joins as the 26th playable kind, default-off; 搵完寫 waits for H3.
-        expectEqual(ActivityCatalog.playableKinds.count, 26)
+        // Build 83 (Hanzi H2): 中文字 · 翻字卡 joined as the 26th playable kind, default-off; build 84 (H3): 搵完寫
+        // joins with its write round as the 27th, default-off.
+        expectEqual(ActivityCatalog.playableKinds.count, 27)
         expectTrue(ActivityCatalog.playableKinds.contains(.tapHanziAll))
-        expectFalse(ActivityCatalog.playableKinds.contains(.tapHanziWrite))
+        expectTrue(ActivityCatalog.playableKinds.contains(.tapHanziWrite))
         expectTrue(ActivityCatalog.playableKinds.contains(.twoPictureChoose))
         expectTrue(ActivityCatalog.playableKinds.contains(.findTheSame))
         expectTrue(ActivityCatalog.playableKinds.contains(.countVehicles))
