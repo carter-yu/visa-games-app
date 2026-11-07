@@ -225,6 +225,43 @@ final class AppModel: ObservableObject {
     private var tapLetterRoundStart = Date().timeIntervalSinceReferenceDate
     private var tapLetterIdleSpoken = false
     private var tapLetterPenaltyPending = false
+    /// Hanzi H2 中文字 · 翻字卡 board (child round / playtest) and its transient state. Nil on every other kind.
+    @Published private(set) var tapHanziBoard: TapHanziBoard?
+    @Published private(set) var playtestTapHanziBoard: TapHanziBoard?
+    @Published private(set) var tapHanziBubble: String?
+    private var tapHanziBubbleGeneration = 0
+    @Published private(set) var tapHanziCelebrating = false
+    @Published private(set) var tapHanziStrokeReveal: StrokeOrderReveal?
+    @Published private(set) var tapHanziPlaqueNudge = false
+    @Published private(set) var tapHanziFuelBefore = 0
+    private var tapHanziPenaltyPending = false
+    private var tapHanziLastActionAt = Date().timeIntervalSinceReferenceDate
+    private var tapHanziRoundStart = Date().timeIntervalSinceReferenceDate
+    private var tapHanziIdleSpoken = false
+    /// A child find that came due under parent controls, held for its round until Return (`ChildFinishHold`).
+    private var tapHanziFinishHold = ChildFinishHold()
+    /// The bundled pack and its find copy, loaded on first use. Nil keeps both Hanzi kinds off every ticket.
+    private lazy var hanziPack: HanziPack? = try? HanziPack.loadBundled()
+    private lazy var hanziCopy: HanziFindCopy? = hanziPack.flatMap(HanziFindCopy.init(pack:))
+    /// Hanzi H1 stores: settings (廣東話語音 / 粵拼 OFF, D4), recognition progress, cue decks, round index and
+    /// writing progress. H2 reads the settings and never saves them.
+    private var hanziSettings = HanziTapSettingsStore().load()
+    private var hanziProgress = HanziProgressStore().load()
+    private var hanziDecks = HanziCueDecksStore().load()
+    private var hanziRoundIndex = HanziRoundIndexStore().load()
+    private var hanziWriteProgress = HanziWriteProgressStore().load()
+    /// A parent's 試玩 rounds advance these copies, never the child's Hanzi stores; dropped on leaving parent.
+    private var previewHanziProgress: HanziProgress?
+    private var previewHanziDecks: HanziCueDecks?
+    private var previewHanziRoundIndex: Int?
+    private var previewHanziWriteProgress: HanziWriteProgress?
+    /// Hanzi H3 中文字 · 搵完寫 write round per lane (child round / playtest): nil until that lane's find is complete.
+    @Published private(set) var tapHanziWriteRound: TapHanziWriteRound?
+    @Published private(set) var playtestTapHanziWriteRound: TapHanziWriteRound?
+    @Published private(set) var tapHanziWriteBubble: HanziWriteLine?
+    private var tapHanziWriteBubbleGeneration = 0
+    private var tapHanziGuideSpeechGeneration = 0
+    private lazy var hanziWriteCopy: HanziWriteCopy? = hanziPack.flatMap(HanziWriteCopy.init(pack:))
     /// 數字設定 (shared by the 3 tap-count cards). UserDefaults, not the snapshot.
     @Published private(set) var tapCountSettings = TapCountSettings.defaults
     /// Gentle line in the tap-count tray (未揀車喎 / wrong start / 試吓撳 OK). Never a miss.
@@ -478,6 +515,8 @@ final class AppModel: ObservableObject {
         advancePlaytestThinkPauseIfNeeded(now: current)
         tapCountIdleCheck(now: current.timeIntervalSinceReferenceDate)
         tapLetterIdleCheck(now: current.timeIntervalSinceReferenceDate)
+        tapHanziIdleCheck(now: current.timeIntervalSinceReferenceDate)
+        tapHanziWriteTick(now: current.timeIntervalSinceReferenceDate)
         if let outcome = resilientStore.retryIfDue(now: current) {
             noteSaveOutcome(outcome, context: "retry")
         }
@@ -556,6 +595,8 @@ final class AppModel: ObservableObject {
         parentDeadline = Date().addingTimeInterval(parentAccessSeconds)
         if !storageFailed { message = nil }
         guideVoice.stop()
+        // A Hanzi write demo's scheduled beat lines belong to the child's lane: drop them, not just the current one.
+        tapHanziGuideSpeechGeneration += 1
         let modeBeforeParent = session.mode
         // The player is torn down under parent controls: close the child play first.
         perf.endPlay(reason: .parentUnlock, resumeSaved: false)
@@ -588,6 +629,7 @@ final class AppModel: ObservableObject {
         // before leaveParent so it cannot resume as a child round.
         discardPlaytestCover(reason: "leaveParent")
         clearLetterPreview()
+        clearHanziPreview()
         let beforeMode = session.mode
         if beforeMode == .parent {
             // An inline 試播 preview (if any) ends with parent controls.
@@ -624,6 +666,8 @@ final class AppModel: ObservableObject {
             "returnToChild — 返回兒童 beforeMode=\(beforeMode) afterMode=\(session.mode) entryBefore=\(beforeEntry) entryAfter=\(isEntryActivityCompleted) rewardNil=\(session.snapshot.reward == nil)"
         )
         logShellBranch(context: "returnToChild")
+        // Last, in the child lock: a Hanzi find that came due under parent controls stamps now, once.
+        finishHeldTapHanziFind()
     }
 
     func setup() {
@@ -638,6 +682,7 @@ final class AppModel: ObservableObject {
         guard session.mode == .play else { return }
         if modeBeforeGrant == .parent {
             clearLetterPreview()
+            clearHanziPreview()
             resetParentLetterResources()
             recoverLetterTicket(.testVisa)
             // 測試一分鐘簽證 leaves parent controls straight into play (no returnToChild).
@@ -710,6 +755,7 @@ final class AppModel: ObservableObject {
 
     func guideSpeakStamped() {
         if activeActivityKind?.isTapLetterFamily == true { tapLetterSpeak("stamp", "Stamped!") }
+        else if activeActivityKind?.isTapHanziFamily == true { tapHanziSpeak("stamp", SpokenPrompt.stamped.traditionalChinese) }
         else { guideVoice.speak(.stamped) }
     }
     func guideSpeakEmptyAllowlist() { guideVoice.speak(.emptyAllowlist) }
@@ -921,13 +967,16 @@ final class AppModel: ObservableObject {
     func selectDifficulty(stars: Int) {
         guard session.mode == .lock, !taskRoundOpen,
               let difficulty = ChildDifficulty(rawValue: stars) else { return }
-        let pool = eligibleLetterTicketPool(gameAssignment.pool(for: difficulty))
+        let pool = eligibleLetterTicketPool(eligibleHanziTicketPool(gameAssignment.pool(for: difficulty)))
         // Build 78: `LetterTicketDesk` picks the kind and deals the only fallible payload (a
-        // letter board) before any round state changes; only `.ready` touches the round.
+        // letter board; since build 83 also a Hanzi board) before any round state changes; only
+        // `.ready` touches the round.
         var desk = letterTicketDesk
         let ticketSeed = UUID().uuidString
-        let outcome: LetterTicketDesk.Outcome<TapLetterBoard> = desk.prepare(pool: pool, seed: ticketSeed) { kind in
-            makeTapLetterBoard(seed: ticketSeed, kind: kind, playtest: false)
+        let outcome: LetterTicketDesk.Outcome<TicketBoard> = desk.prepare(pool: pool, seed: ticketSeed) { kind in
+            kind.isTapHanziFamily
+                ? makeTapHanziBoard(seed: ticketSeed, kind: kind, playtest: false).map(TicketBoard.hanzi)
+                : makeTapLetterBoard(seed: ticketSeed, kind: kind, playtest: false).map(TicketBoard.letter)
         }
         letterTicketDesk = desk
         guard case .ready(let seed, let kind, let preparedLetterBoard) = outcome else {
@@ -968,7 +1017,10 @@ final class AppModel: ObservableObject {
         shapeTraceNotice = nil
         tapCountBoard = kind.isTapCountFamily ? makeTapCountBoard(
             seed: seed, kind: kind, avoidingItem: lastDealtItem[kind]) : nil
-        tapLetterBoard = preparedLetterBoard
+        tapLetterBoard = preparedLetterBoard?.letter
+        tapHanziBoard = preparedLetterBoard?.hanzi
+        tapHanziWriteRound = nil
+        resetTapHanziTransient()
         tapLetterWriteRound = kind == .tapLetterWrite ? tapLetterBoard.map { TapLetterWriteRound(deal: $0.deal) } : nil
         tapLetterGuideRun = nil
         tapLetterGuideSpeechGeneration += 1
@@ -1031,6 +1083,10 @@ final class AppModel: ObservableObject {
         tapLetterBoard = nil
         tapLetterWriteRound = nil
         tapLetterBubble = nil
+        tapHanziBoard = nil
+        tapHanziWriteRound = nil
+        tapHanziBubble = nil
+        tapHanziFinishHold.drop()
     }
 
     func useEntryHint() {
@@ -1076,6 +1132,8 @@ final class AppModel: ObservableObject {
                                            tolerance: tapCountTolerance, recentTargets: tapCountRecentTargets)
         case .tapLetterAll, .tapLetterWrite:
             return tapLetterFacts(currentTapLetterBoard)
+        case .tapHanziAll, .tapHanziWrite:
+            return tapHanziFacts(currentTapHanziBoard)
         default: return PerfChoiceCatalog.facts(kind: kind, seed: seed)
         }
     }
@@ -1128,6 +1186,10 @@ final class AppModel: ObservableObject {
             return
         case .tapLetterAll, .tapLetterWrite:
             speakTapLetterPrompt()
+            return
+        case .tapHanziAll, .tapHanziWrite:
+            // Shown as text; spoken only with 廣東話語音 on (D4: OFF).
+            speakTapHanziPrompt()
             return
         }
         guideVoice.speak(SpokenPrompt(
@@ -1478,6 +1540,11 @@ final class AppModel: ObservableObject {
             changed?()
             return
         }
+        if activeActivityKind?.isTapHanziFamily == true {
+            tapHanziAfterPause()
+            changed?()
+            return
+        }
         // Existing assisted/hint rescue still helps when fuel remains.
         if ActivityHintPolicy.shouldAutoHint(afterMissCount: entryMissCount), !entryHintUsed {
             useEntryHint()
@@ -1496,9 +1563,18 @@ final class AppModel: ObservableObject {
             fields["box_after"] = .string(boxes.after)
             perf.roundResultExtra(fields)
         }
+        if activeActivityKind?.isTapHanziFamily == true, let board = tapHanziBoard, !board.isComplete {
+            var fields = tapHanziResultFields(board)
+            let boxes = tapHanziSaveRound(board, playtest: false)
+            fields["box_before"] = .string(boxes.before)
+            fields["box_after"] = .string(boxes.after)
+            perf.roundResultExtra(fields)
+        }
         if activeActivityKind?.isTapLetterFamily == true {
             guideVoice.speak(SpokenPrompt.englishOnly(key: "en.tapLetter.outOfFuel",
                                                       WrongAnswerCopy.returnDepotEnglish))
+        } else if activeActivityKind?.isTapHanziFamily == true {
+            tapHanziSpeak("outOfFuel", WrongAnswerCopy.returnDepotTraditionalChinese)
         } else { guideVoice.speak(.outOfFuelDepot) }
         VisaGamesLog.append("returnToDepotOutOfFuel — 油用晒 返車廠")
         perf.roundFinished(outcome: .zeroed, earnedMinutes: 0, assisted: false)
@@ -2987,6 +3063,9 @@ final class AppModel: ObservableObject {
         tapLetterRoundStart = tapLetterLastActionAt
         tapLetterIdleSpoken = false
         tapLetterPenaltyPending = false
+        playtestTapHanziBoard = kind.isTapHanziFamily ? makeTapHanziBoard(seed: playtestChoiceDealSeed, kind: kind, playtest: true) : nil
+        playtestTapHanziWriteRound = nil
+        resetTapHanziTransient()
         resetTapCountTransient()
         clearPlaytestThinkPause()
         let facts = dealFacts(kind: kind, seed: playtestChoiceDealSeed,
@@ -3053,6 +3132,9 @@ final class AppModel: ObservableObject {
             return
         case .tapLetterAll, .tapLetterWrite:
             speakTapLetterPrompt()
+            return
+        case .tapHanziAll, .tapHanziWrite:
+            speakTapHanziPrompt()
             return
         }
         guideVoice.speak(SpokenPrompt(
@@ -3271,6 +3353,10 @@ final class AppModel: ObservableObject {
             tapLetterAfterPause()
             return
         }
+        if playtestKind?.isTapHanziFamily == true {
+            tapHanziAfterPause()
+            return
+        }
         // Fuel may hit 0. Stay on the cover — do not speak the depot line or end the visa.
         if ActivityHintPolicy.shouldAutoHint(afterMissCount: playtestMissCount), !playtestHintUsed {
             playtestHintUsed = true
@@ -3306,6 +3392,9 @@ final class AppModel: ObservableObject {
         playtestTapCountBoard = nil
         playtestTapLetterBoard = nil
         tapLetterWriteRound = nil
+        playtestTapHanziBoard = nil
+        playtestTapHanziWriteRound = nil
+        tapHanziBubble = nil
         tapCountNotice = nil
         clearPlaytestThinkPause()
         VisaGamesLog.append("playtest discard — 試玩收起 reason=\(reason)")
@@ -4033,7 +4122,8 @@ struct ShellView: View {
                     onSpeakPrompt: { model.speakEntryPrompt() }
                 )
             case .twoPictureChoose, .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .traceLines, .traceShapesArrows, .traceShapesFree,
-                 .traceShapesDotted, .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite, .none:
+                 .traceShapesDotted, .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite,
+                 .tapHanziAll, .tapHanziWrite, .none:
                 // Legacy shell is setup / parent only; 連一連 is canvas-only (CanvasActivityHost).
                 EntryActivityView(
                     question: model.currentTwoPictureQuestion,
@@ -4681,6 +4771,560 @@ extension AppModel {
         LetterProgressStore().save(tapLetterProgress)
         LetterWordDecksStore().save(tapLetterDecks)
         return (before, tapLetterProgress.state(for: board.deal.target).box.rawValue)
+    }
+}
+
+// MARK: - 中文字 · 翻字卡 / Find & flip (Hanzi H2, 0.38.0 / 83)
+
+/// The fallible board a find ticket deals before any round state changes (`LetterTicketDesk`).
+private enum TicketBoard {
+    case letter(TapLetterBoard)
+    case hanzi(TapHanziBoard)
+
+    var letter: TapLetterBoard? { if case .letter(let board) = self { return board } else { return nil } }
+    var hanzi: TapHanziBoard? { if case .hanzi(let board) = self { return board } else { return nil } }
+}
+
+extension AppModel {
+    private var tapHanziUsesPlaytest: Bool { isParentPlaytest && playtestKind?.isTapHanziFamily == true }
+    private var currentTapHanziKind: ActivityKind? { tapHanziUsesPlaytest ? playtestKind : activeActivityKind }
+
+    var currentTapHanziBoard: TapHanziBoard? { tapHanziUsesPlaytest ? playtestTapHanziBoard : tapHanziBoard }
+    var tapHanziPack: HanziPack? { hanziPack }
+    var tapHanziCopy: HanziFindCopy? { hanziCopy }
+    /// 廣東話語音 (D4: OFF). The board's speaker mark shows it; nothing in H2 turns it on.
+    var tapHanziAudioOn: Bool { hanziSettings.audioEnabled }
+
+    private func clearHanziPreview() {
+        previewHanziProgress = nil; previewHanziDecks = nil; previewHanziRoundIndex = nil; previewHanziWriteProgress = nil
+    }
+
+    /// Without the bundled pack or its find copy no Hanzi kind is dealt (fail closed).
+    private func eligibleHanziTicketPool(_ pool: [ActivityKind]) -> [ActivityKind] {
+        hanziPack != nil && hanziCopy != nil ? pool : pool.filter { !$0.isTapHanziFamily }
+    }
+
+    /// The scheduler's next target on the H1 deal, as a board every state can draw; nil → no deal. A playtest deals
+    /// from the preview copies once a parent has played one, else from the child's state, which it never saves.
+    private func makeTapHanziBoard(seed: String, kind: ActivityKind, playtest: Bool) -> TapHanziBoard? {
+        guard let pack = hanziPack, hanziCopy != nil else { return nil }
+        let progress = playtest ? (previewHanziProgress ?? hanziProgress) : hanziProgress
+        let decks = playtest ? (previewHanziDecks ?? hanziDecks) : hanziDecks
+        let n = (playtest ? (previewHanziRoundIndex ?? hanziRoundIndex) : hanziRoundIndex) + 1
+        guard let deal = TapHanziGenerator.make(seed: seed, kind: kind, n: n, settings: hanziSettings, progress: progress,
+                                                decks: decks, pack: pack, now: Date()).deal else { return nil }
+        return TapHanziBoard(deal: deal, pack: pack)
+    }
+
+    private func resetTapHanziTransient() {
+        tapHanziBubbleGeneration += 1
+        tapHanziBubble = nil
+        tapHanziCelebrating = false
+        tapHanziStrokeReveal = nil
+        tapHanziPlaqueNudge = false
+        tapHanziLastActionAt = Date().timeIntervalSinceReferenceDate
+        tapHanziRoundStart = tapHanziLastActionAt
+        tapHanziIdleSpoken = false
+        tapHanziPenaltyPending = false
+        tapHanziWriteBubbleGeneration += 1
+        tapHanziWriteBubble = nil
+        tapHanziGuideSpeechGeneration += 1
+    }
+
+    private func tapHanziFacts(_ board: TapHanziBoard?) -> PerfDealFacts {
+        guard let board else { return PerfChoiceCatalog.facts(kind: currentTapHanziKind ?? .tapHanziAll, seed: "reference") }
+        let deal = board.deal
+        let kind = currentTapHanziKind ?? deal.kind
+        let rows = deal.board.rows.map { $0.joined() }
+        let item = "tapHanzi.\(kind == .tapHanziWrite ? "write" : "all").\(board.target).\(deal.board.glyphs.joined()).\(rows.joined(separator: "-"))"
+        let extras: [String: PerfValue] = [
+            "target": .string(board.target), "glyph": .string(HanziProgress.key(board.target)),
+            "board_set": .string(deal.board.glyphs.joined()), "rows": .strings(rows), "targets": .int(2),
+            "this_week": .strings(deal.choice.week), "lane": .string(deal.choice.lane.rawValue), "cycle": .int(deal.choice.cycle),
+            "guard": .string(hanziSettings.confusableGuard ? "on" : "off"), "guarded": .strings(deal.board.guarded),
+            "cues": .strings(deal.cues), "audio": .string(hanziSettings.audioEnabled ? "on" : "off"), "match_mode": .string("test")
+        ]
+        return PerfDealFacts(item: item, gen: "hanzi_v1", level: kind == .tapHanziWrite ? .l2 : .l1, chance: 1.0 / 45,
+                             slots: (0..<10).map { "card-\($0)" }, correctChoice: nil,
+                             tagsByChoice: [:], assetByChoice: [:], extraDealtFields: extras)
+    }
+
+    /// The only Hanzi voice path. Silent unless 廣東話語音 is on (D4: OFF by default); then the existing HK Cantonese
+    /// path speaks the zhHK line (a reviewed clip, else an installed zh-HK / yue-HK voice, else silence; never
+    /// romanisation, never Mandarin). Every line is also shown on the board, so silence loses no instruction.
+    private func tapHanziSpeak(_ key: String, _ line: String, queued: Bool = true) {
+        guard hanziSettings.audioEnabled else { return }
+        let prompt = SpokenPrompt(key: "hanzi.\(key)", traditionalChinese: line, english: "")
+        if queued { guideVoice.speakQueued(prompt) } else { guideVoice.speak(prompt) }
+    }
+
+    private func tapHanziShowBubble(_ line: String, seconds: Double = 2) {
+        tapHanziBubbleGeneration += 1
+        let generation = tapHanziBubbleGeneration
+        tapHanziBubble = line
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
+            guard self?.tapHanziBubbleGeneration == generation else { return }
+            self?.tapHanziBubble = nil
+        }
+    }
+
+    /// The robot or plaque: the find line again, as text (and voice only with audio on); while writing, the write line.
+    func speakTapHanziPrompt() {
+        if let round = currentTapHanziWriteRound, round.phase == .writing, let writeCopy = hanziWriteCopy {
+            tapHanziShowWriteBubble(HanziWriteLine(writeCopy.reprompt(round.glyph)), seconds: 3)
+            tapHanziSpeak("write.reprompt.\(round.glyph)", writeCopy.reprompt(round.glyph))
+            return
+        }
+        guard let board = currentTapHanziBoard, let copy = hanziCopy, !board.isComplete, !tapHanziPenaltyPending,
+              (tapHanziUsesPlaytest ? !playtestChoicesLocked : (taskRoundOpen && !choicesLocked)) else { return }
+        let line = copy.prompt(board.target)
+        tapHanziShowBubble(line, seconds: 3)
+        tapHanziSpeak("prompt.\(board.target)", line)
+    }
+
+    /// `tapLetterTap` for Hanzi: a flip shows 「『上』，上面！」; the first tap on a wrong card shows 「嗰個係『X』。」 and
+    /// costs one penalty (half the fuel, the 10-second Think Pause); a known-wrong card again only shows the line, and a
+    /// double tap or a tap while the penalty is pending does nothing.
+    func tapHanziTap(card: Int) {
+        let playtest = tapHanziUsesPlaytest
+        guard let current = currentTapHanziBoard, let pack = hanziPack, let copy = hanziCopy,
+              !current.isComplete, !tapHanziPenaltyPending,
+              (playtest ? !playtestChoicesLocked : (session.mode == .lock && taskRoundOpen &&
+                activeActivityKind?.isTapHanziFamily == true && !choicesLocked && !activityJustCompleted)) else { return }
+        let clock = Date().timeIntervalSinceReferenceDate
+        var board = current
+        let outcome = board.tap(card, at: clock)
+        if playtest { playtestTapHanziBoard = board } else { tapHanziBoard = board }
+        guard outcome != .ignored && outcome != .doubleTapIgnored else { return }
+        tapHanziLastActionAt = clock
+        tapHanziIdleSpoken = false
+        let target = board.target
+        let assisted = board.assisted
+        let glyph = board.glyph(at: card) ?? ""
+        let choice = "card-\(card)"
+        let attempt = (tags: [String](), fields: ["card": PerfValue.int(card), "glyph": .string(glyph)])
+        switch outcome {
+        case .found, .allFound, .foundRetap:
+            let line = copy.foundPair(target, pack: pack)
+            tapHanziShowBubble(line)
+            tapHanziSpeak("foundPair.\(target)", line)
+            if outcome == .found || outcome == .allFound {
+                let before = playtest ? playtestPendingMinutes : pendingAwardMinutes
+                if playtest {
+                    perf.playtestAnswer(choice: choice, correct: true, pendingBefore: before, pendingAfter: before,
+                                        hintOn: assisted, record: attempt)
+                } else {
+                    perf.roundAnswer(choice: choice, correct: true, pendingBefore: before, pendingAfter: before,
+                                     hintOn: assisted, record: attempt)
+                }
+            }
+            if outcome == .allFound {
+                let token = playtest ? playtestChoiceDealSeed : choiceDealSeed
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                    guard let self, (playtest ? self.playtestChoiceDealSeed : self.choiceDealSeed) == token,
+                          (playtest ? self.playtestTapHanziBoard : self.tapHanziBoard)?.isComplete == true else { return }
+                    self.tapHanziCelebrating = true
+                    self.tapHanziShowBubble(copy.allFound, seconds: 4)
+                    self.tapHanziSpeak("allFound", copy.allFound)
+                    let delay = self.startTapHanziStrokeReveal(glyph: target)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                        self?.finishTapHanziFind(token: token, playtest: playtest)
+                    }
+                }
+            }
+        case .miss, .knownWrongRetap:
+            let line = copy.wrong(glyph)
+            // A first miss keeps its line up through the Think Pause, so it reads with the voice off (D4).
+            tapHanziShowBubble(line, seconds: outcome == .miss ? Double(WrongAnswerPolicy.thinkPauseSeconds) + 0.6 : 2)
+            tapHanziSpeak("wrong.\(glyph)", line)
+            if outcome == .miss {
+                tapHanziPenaltyPending = true
+                tapHanziFuelBefore = playtest ? playtestPendingMinutes : pendingAwardMinutes
+                let token = playtest ? playtestChoiceDealSeed : choiceDealSeed
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                    guard let self, (playtest ? self.playtestChoiceDealSeed : self.choiceDealSeed) == token else { return }
+                    self.pendingAnswerRecord = attempt
+                    if playtest { self.playtestHandle(.incorrect, selectionLabel: choice) }
+                    else { self.handleEvaluation(.incorrect, selectionLabel: choice) }
+                    self.pendingAnswerRecord = nil
+                    self.tapHanziPenaltyPending = false
+                }
+            }
+        default: break
+        }
+    }
+
+    /// Both found: the plaque writes the target from its MOE strokes (筆順動畫 follows the existing setting).
+    private func startTapHanziStrokeReveal(glyph: String) -> Double {
+        guard let pack = hanziPack,
+              let dosage = StrokeOrderPlan.star1(setting: tapCountSettings.strokeOrder,
+                                                 learned: hanziWriteProgress.isLearned(glyph)),
+              let strokes = StrokeGlyph.hanzi(glyph, in: pack) else { return 2.4 }
+        let timeline = StrokeOrderTimeline(glyph: strokes, dosage: dosage)
+        let clock = Date().timeIntervalSinceReferenceDate
+        tapHanziStrokeReveal = StrokeOrderReveal(dosage: dosage, duration: timeline.duration,
+                                                 startAt: clock + Self.strokeRevealLead)
+        return tapHanziStrokeReveal?.finishDelay(now: clock, minimum: 2.4, flash: Self.strokeRevealFlash) ?? 2.4
+    }
+
+    /// Reads the lane's own board, as `finishTapHanziRound` does: during a parent's Hanzi 試玩 `currentTapHanziBoard`
+    /// is the playtest's, and the child's finish must still find its own round.
+    private func finishTapHanziFind(token: String, playtest: Bool) {
+        guard (playtest ? playtestChoiceDealSeed : choiceDealSeed) == token,
+              let board = playtest ? playtestTapHanziBoard : tapHanziBoard, board.isComplete else { return }
+        // Parent controls opened during the reveal. The stamp needs the child lock (`applyEntrySuccess`), so finishing
+        // here would save the round and complete it with no visa: the open round is held for Return
+        // (`finishHeldTapHanziFind`).
+        if !playtest, taskRoundOpen, !tapHanziFinishHold.finishesNow(token, mode: session.mode) {
+            VisaGamesLog.append("hanzi find done under parent controls — held for return target=\(board.target)")
+            return
+        }
+        let clock = Date().timeIntervalSinceReferenceDate
+        if let reveal = tapHanziStrokeReveal {
+            let wait = reveal.finishDelay(now: clock, minimum: 0, flash: Self.strokeRevealFlash)
+            if wait > 0.05 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + wait) { [weak self] in
+                    self?.finishTapHanziFind(token: token, playtest: playtest)
+                }
+                return
+            }
+        }
+        tapHanziStrokeReveal = nil
+        switch board.finish {
+        case .stamp:
+            finishTapHanziRound(token: token, playtest: playtest)
+        case .awaitWriteRound:
+            // 搵完寫 (H3): the find opens the 田字格 write round, and a drawn write round comes back here to stamp, so a
+            // finish that comes due under parent controls is held above in both cases.
+            if (playtest ? playtestTapHanziWriteRound : tapHanziWriteRound)?.canStamp == true {
+                finishTapHanziRound(token: token, playtest: playtest)
+            } else {
+                beginTapHanziWriting(token: token, playtest: playtest)
+            }
+        }
+    }
+
+    /// `returnToChild`, in the child lock: a find held under parent controls finishes now, once, if its round is
+    /// still the open one. A reset or new round has dropped it; `finishTapHanziFind` checks the round and board again.
+    private func finishHeldTapHanziFind() {
+        guard let round = tapHanziFinishHold.release(openRound: taskRoundOpen ? choiceDealSeed : nil,
+                                                     mode: session.mode) else { return }
+        VisaGamesLog.append("hanzi find held under parent controls — finishing on return")
+        finishTapHanziFind(token: round, playtest: false)
+    }
+
+    private func finishTapHanziRound(token: String, playtest: Bool) {
+        guard let board = playtest ? playtestTapHanziBoard : tapHanziBoard, board.isComplete,
+              (playtest ? playtestChoiceDealSeed : choiceDealSeed) == token else { return }
+        // 翻字卡 stamps after the find; 搵完寫 only once its write round is drawn.
+        let write = playtest ? playtestTapHanziWriteRound : tapHanziWriteRound
+        guard board.finish == .stamp || write?.canStamp == true else { return }
+        if playtest { guard !playtestCompleted else { return } }
+        else { guard taskRoundOpen, !activityJustCompleted else { return } }
+        var fields = tapHanziResultFields(board)
+        if board.finish == .awaitWriteRound, let write {
+            fields.merge(write.resultFields) { _, writing in writing }
+            tapHanziRecordWrite(write.glyph, clean: write.clean, playtest: playtest)
+        }
+        let boxes = tapHanziSaveRound(board, playtest: playtest)
+        fields["box_before"] = .string(boxes.before)
+        fields["box_after"] = .string(boxes.after)
+        if playtest {
+            perf.playtestResultExtra(fields)
+            perf.playtestSolved(earnedMinutes: playtestPendingMinutes, assisted: board.assisted)
+            playtestCompleted = true
+            playtestLastCorrectID = "tap_hanzi"
+            // D6: this card's own full playtest unlocks its stars.
+            if let kind = currentTapHanziKind, parentPlaytestLog.playtestedOn(kind) == nil {
+                parentPlaytestLog = parentPlaytestLog.recording(kind, on: Date())
+                parentPlaytestLogStore.save(parentPlaytestLog)
+            }
+            return
+        }
+        perf.roundResultExtra(fields)
+        guard pendingAwardMinutes > 0 else { returnToDepotOutOfFuel(); return }
+        lastCorrectChoiceID = "tap_hanzi"
+        activityJustCompleted = true
+        applyEntrySuccess(assisted: board.assisted)
+    }
+
+    private func tapHanziResultFields(_ board: TapHanziBoard) -> [String: PerfValue] {
+        [
+            "first_try": .bool(board.misses == 0), "misses": .int(board.misses),
+            "hint_used": .bool(board.assisted), "assisted": .bool(board.assisted),
+            "duration_ms": .int(Int((Date().timeIntervalSinceReferenceDate - tapHanziRoundStart) * 1_000)),
+            "glyph": .string(HanziProgress.key(board.target)), "flip_cues": .strings(board.deal.cues),
+            "scan_order": .string(board.tapOrder == board.tapOrder.sorted() ? "reading" : "other")
+        ]
+    }
+
+    /// Records a finished (or out-of-fuel) round in the child's Hanzi stores: clean = found first try with no hint.
+    /// A parent's 試玩 records only into the preview copies, which `clearHanziPreview` drops on leaving parent.
+    private func tapHanziSaveRound(_ board: TapHanziBoard, playtest: Bool) -> (before: String, after: String) {
+        let target = board.target
+        if playtest {
+            var progress = previewHanziProgress ?? hanziProgress
+            let n = (previewHanziRoundIndex ?? hanziRoundIndex) + 1
+            let before = progress.state(for: target).box.rawValue
+            progress.record(board.deal.choice, clean: board.isClean, round: n, at: Date())
+            previewHanziProgress = progress
+            previewHanziRoundIndex = n
+            previewHanziDecks = board.deal.decks
+            return (before, progress.state(for: target).box.rawValue)
+        }
+        let before = hanziProgress.state(for: target).box.rawValue
+        hanziProgress.record(board.deal.choice, clean: board.isClean, round: hanziRoundIndex + 1, at: Date())
+        hanziRoundIndex += 1
+        hanziDecks = board.deal.decks
+        HanziProgressStore().save(hanziProgress)
+        HanziRoundIndexStore().save(hanziRoundIndex)
+        HanziCueDecksStore().save(hanziDecks)
+        return (before, hanziProgress.state(for: target).box.rawValue)
+    }
+
+    /// After a Think Pause: the hint ring and 「呢張係『上』！」 after a second miss, else 「再搵『上』！」.
+    private func tapHanziAfterPause() {
+        guard var board = currentTapHanziBoard, let copy = hanziCopy else { return }
+        let playtest = tapHanziUsesPlaytest
+        // The idle nudge counts from the end of the pause, not from the wrong tap.
+        tapHanziLastActionAt = Date().timeIntervalSinceReferenceDate
+        let line: (key: String, text: String)
+        if board.misses >= 2 && !board.assisted {
+            board.showHint()
+            if playtest { playtestTapHanziBoard = board; perf.playtestHint(afterMisses: board.misses) }
+            else { tapHanziBoard = board; perf.roundHint(afterMisses: board.misses) }
+            line = ("hint.\(board.target)", copy.hint(board.target))
+        } else {
+            line = ("findAgain.\(board.target)", copy.findAgain(board.target))
+        }
+        tapHanziShowBubble(line.text, seconds: 3)
+        tapHanziSpeak(line.key, line.text)
+    }
+
+    private func tapHanziIdleCheck(now clock: Double) {
+        guard let board = currentTapHanziBoard, let copy = hanziCopy, !board.isComplete, !tapHanziIdleSpoken,
+              !tapHanziPenaltyPending, clock - tapHanziLastActionAt >= 10,
+              (tapHanziUsesPlaytest ? !playtestChoicesLocked : (activeActivityKind?.isTapHanziFamily == true &&
+                taskRoundOpen && !choicesLocked)) else { return }
+        tapHanziIdleSpoken = true
+        tapHanziPlaqueNudge = true
+        let line = copy.idle(board.target)
+        tapHanziShowBubble(line, seconds: 3)
+        tapHanziSpeak("idle.\(board.target)", line)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            self?.tapHanziPlaqueNudge = false
+        }
+    }
+}
+
+// MARK: - 中文字 · 搵完寫 / Find & write (Hanzi H3, 0.38.0 / 84)
+
+extension AppModel {
+    /// The lane's write round: a parent's Hanzi 試玩 writes on its own round, never on the child's.
+    var currentTapHanziWriteRound: TapHanziWriteRound? { tapHanziUsesPlaytest ? playtestTapHanziWriteRound : tapHanziWriteRound }
+    var tapHanziWriteCopy: HanziWriteCopy? { hanziWriteCopy }
+
+    private func setTapHanziWriteRound(_ round: TapHanziWriteRound, playtest: Bool) {
+        if playtest { playtestTapHanziWriteRound = round } else { tapHanziWriteRound = round }
+    }
+
+    /// The pen reaches only the open round of the lane on screen: the child's in the lock, or a parent's 試玩.
+    private var tapHanziWriteInputOpen: Bool {
+        tapHanziUsesPlaytest ? !playtestCompleted
+            : session.mode == .lock && taskRoundOpen && activeActivityKind == .tapHanziWrite && !activityJustCompleted
+    }
+
+    private func tapHanziShowWriteBubble(_ line: HanziWriteLine, seconds: Double) {
+        tapHanziWriteBubbleGeneration += 1
+        let generation = tapHanziWriteBubbleGeneration
+        tapHanziWriteBubble = line
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
+            guard self?.tapHanziWriteBubbleGeneration == generation else { return }
+            self?.tapHanziWriteBubble = nil
+        }
+    }
+
+    /// After the find and its stroke reveal: the 田字格 round with the shared coach at the shared tracing-help level
+    /// (`tapCountSettings.guidance`, never migrated). The car demo plays first at 多啲 always and at 標準 until the
+    /// glyph is learned (two clean writes); 少啲 starts with the pen and keeps only the 8 s ghost.
+    private func beginTapHanziWriting(token: String, playtest: Bool) {
+        guard (playtest ? playtestChoiceDealSeed : choiceDealSeed) == token, let pack = hanziPack, let copy = hanziWriteCopy,
+              let board = playtest ? playtestTapHanziBoard : tapHanziBoard,
+              (playtest ? playtestTapHanziWriteRound : tapHanziWriteRound) == nil,
+              var round = TapHanziWriteRound(found: board, pack: pack) else { return }
+        let glyph = round.glyph
+        let clock = Date().timeIntervalSinceReferenceDate
+        let learned = (playtest ? previewHanziWriteProgress ?? hanziWriteProgress : hanziWriteProgress).isLearned(glyph)
+        round.begin(plan: TapCountGuidePlan(level: tapCountSettings.guidance, learned: learned), now: clock,
+                    demoLead: Self.tapCountGuideDemoLead)
+        setTapHanziWriteRound(round, playtest: playtest)
+        tapHanziBubble = nil
+        if round.demoPending(now: clock) {
+            tapHanziShowWriteBubble(HanziWriteLine(copy.watch(glyph)), seconds: Self.tapCountGuideDemoLead)
+            tapHanziSpeak("write.watch.\(glyph)", copy.watch(glyph))
+            scheduleTapHanziDemoSpeech(round, start: clock + Self.tapCountGuideDemoLead, playtest: playtest)
+        } else {
+            tapHanziShowWriteBubble(HanziWriteLine(copy.turn(glyph)), seconds: 3)
+            tapHanziSpeak("write.turn.\(glyph)", copy.turn(glyph))
+        }
+        VisaGamesLog.append("hanzi write start — 搵完寫 target=\(glyph) demo=\(round.demoPending(now: clock)) guide=\(tapCountSettings.guidance.rawValue) playtest=\(playtest)")
+    }
+
+    /// Says each beat line as the demo car starts it, then 「到你喇！」 (audio on only; the bubble shows them from the
+    /// demo clock). A touch that ends the demo, a re-demo, a new round or leaving the lane (parent controls) drops the
+    /// rest, and a line is said only while its own lane is on screen with its pen open.
+    private func scheduleTapHanziDemoSpeech(_ round: TapHanziWriteRound, start: Double, playtest: Bool) {
+        tapHanziGuideSpeechGeneration += 1
+        let generation = tapHanziGuideSpeechGeneration
+        let token = playtest ? playtestChoiceDealSeed : choiceDealSeed
+        let spec = round.guide.spec
+        let lines = round.timeline.beatStarts.enumerated().map { ($0.element, "beat\($0.offset + 1)", spec.beats[$0.offset].line.zh) }
+            + [(round.timeline.mergeStart, "merge", spec.merge.zh)]
+        for (offset, key, line) in lines {
+            DispatchQueue.main.asyncAfter(deadline: .now() + max(0, start + offset - Date().timeIntervalSinceReferenceDate)) { [weak self] in
+                guard let self, self.tapHanziGuideSpeechGeneration == generation,
+                      self.tapHanziUsesPlaytest == playtest, self.tapHanziWriteInputOpen,
+                      (playtest ? self.playtestChoiceDealSeed : self.choiceDealSeed) == token,
+                      (playtest ? self.playtestTapHanziWriteRound : self.tapHanziWriteRound)?
+                        .demoPending(now: Date().timeIntervalSinceReferenceDate) == true else { return }
+                self.tapHanziSpeak("guide.\(round.glyph).\(key)", line)
+            }
+        }
+    }
+
+    /// The first touch while the car demo is on screen only ends it (nothing is painted); after that the pen drives the
+    /// car. A wrong start is coached, never a miss. False = the view drops the rest of this touch.
+    func tapHanziWritePenDown(_ point: LineMatchPoint) -> Bool {
+        let playtest = tapHanziUsesPlaytest
+        guard tapHanziWriteInputOpen, var round = currentTapHanziWriteRound, round.phase == .writing,
+              let copy = hanziWriteCopy else { return false }
+        let wasClean = round.clean
+        let result = round.penDown(at: point, now: Date().timeIntervalSinceReferenceDate)
+        setTapHanziWriteRound(round, playtest: playtest)
+        switch result {
+        case .demoDismissed:
+            tapHanziGuideSpeechGeneration += 1
+            tapHanziShowWriteBubble(HanziWriteLine(copy.turn(round.glyph)), seconds: 3)
+            tapHanziSpeak("write.turn.\(round.glyph)", copy.turn(round.glyph), queued: false)
+            VisaGamesLog.append("hanzi write demo dismissed — 落筆，示範停 (nothing painted, no miss)")
+            return false
+        case .trace(let down):
+            if down == .wrongStart || down == .reverse { tapHanziWriteReprompt(round, copy: copy) }
+            tapHanziNoteWriteHelp(wasClean: wasClean, round: round, playtest: playtest)
+            return true
+        case .ignored:
+            return false
+        }
+    }
+
+    /// A slide onto the car that a pen-down there would make a wrong start or reversal is coached as that pen-down (D10).
+    func tapHanziWritePenMove(_ point: LineMatchPoint) {
+        let playtest = tapHanziUsesPlaytest
+        guard tapHanziWriteInputOpen, var round = currentTapHanziWriteRound, round.phase == .writing,
+              let copy = hanziWriteCopy else { return }
+        let clock = Date().timeIntervalSinceReferenceDate
+        let wasClean = round.clean
+        let wrongStarts = round.trace.wrongStarts
+        let move = round.penMove(to: point, now: clock)
+        let coached = round.coachTick(now: clock, demoLead: Self.tapCountGuideDemoLead)
+        setTapHanziWriteRound(round, playtest: playtest)
+        tapHanziNoteWriteHelp(wasClean: wasClean, round: round, playtest: playtest)
+        tapHanziWriteCoached(coached, round: round, playtest: playtest)
+        if round.trace.wrongStarts > wrongStarts { tapHanziWriteReprompt(round, copy: copy) }
+        switch move {
+        case .strokeDone:
+            if let plan = round.coach?.plan, plan.hops, plan.cueWords, let hop = round.guide.spec.hop?.zh {
+                tapHanziShowWriteBubble(HanziWriteLine(hop), seconds: 3)
+                tapHanziSpeak("write.hop", hop, queued: false)
+            }
+        case .allDone:
+            let line = copy.done(round.glyph)
+            tapHanziShowWriteBubble(HanziWriteLine(line), seconds: 2)
+            tapHanziSpeak("write.done.\(round.glyph)", line, queued: false)
+            VisaGamesLog.append("hanzi write done — 寫好 \(round.glyph) clean=\(round.clean) offPath=\(round.trace.offPathCount) lifts=\(round.trace.lifts) (practice, no miss)")
+            let token = playtest ? playtestChoiceDealSeed : choiceDealSeed
+            // Back through the find's finish, so a stamp that comes due under parent controls is held for Return.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+                self?.finishTapHanziFind(token: token, playtest: playtest)
+            }
+        default:
+            break
+        }
+    }
+
+    func tapHanziWritePenUp() {
+        let playtest = tapHanziUsesPlaytest
+        guard var round = currentTapHanziWriteRound, round.phase == .writing else { return }
+        round.penUp()
+        setTapHanziWriteRound(round, playtest: playtest)
+    }
+
+    /// A wrong start or a start at the red end, by a pen-down or a slide: 「喺綠色箭嘴開始，寫『右』！」 (never a miss).
+    private func tapHanziWriteReprompt(_ round: TapHanziWriteRound, copy: HanziWriteCopy) {
+        tapHanziShowWriteBubble(HanziWriteLine(copy.reprompt(round.glyph)), seconds: 3)
+        tapHanziSpeak("write.reprompt.\(round.glyph)", copy.reprompt(round.glyph), queued: false)
+    }
+
+    /// Each clock tick: the coach's 2 / 8 / 20 s help on the lane on screen (the child's only in the lock).
+    private func tapHanziWriteTick(now clock: Double) {
+        let playtest = tapHanziUsesPlaytest
+        guard tapHanziWriteInputOpen, var round = currentTapHanziWriteRound, round.phase == .writing else { return }
+        let wasClean = round.clean
+        let coached = round.coachTick(now: clock, demoLead: Self.tapCountGuideDemoLead)
+        guard !coached.isEmpty else { return }
+        setTapHanziWriteRound(round, playtest: playtest)
+        tapHanziNoteWriteHelp(wasClean: wasClean, round: round, playtest: playtest)
+        tapHanziWriteCoached(coached, round: round, playtest: playtest)
+    }
+
+    /// What the coach started, as text (spoken with audio on only): with cue words on, a stall or ghost shows the line
+    /// of the bit ahead; the re-demo says 「再睇車仔行一次！」 and plays the car again; a sign shows its line (右's
+    /// corner with 「轉彎唔提筆。」). Never a miss, never fuel.
+    private func tapHanziWriteCoached(_ coached: [TapHanziWriteCoach], round: TapHanziWriteRound, playtest: Bool) {
+        guard let copy = hanziWriteCopy, let plan = round.coach?.plan else { return }
+        for event in coached {
+            switch event {
+            case .help(let help):
+                VisaGamesLog.append("hanzi write help — \(help.kind) (no miss)")
+                guard plan.cueWords, let index = round.helpBeat else { continue }
+                let line = round.guide.spec.beats[index].line.zh
+                tapHanziShowWriteBubble(HanziWriteLine(line), seconds: 3)
+                tapHanziSpeak("guide.\(round.glyph).beat\(index + 1)", line, queued: false)
+            case .redemo:
+                tapHanziShowWriteBubble(HanziWriteLine(copy.redemo), seconds: Self.tapCountGuideDemoLead)
+                tapHanziSpeak("write.redemo", copy.redemo, queued: false)
+                let start = round.coach?.demoStartedAt ?? Date().timeIntervalSinceReferenceDate + Self.tapCountGuideDemoLead
+                scheduleTapHanziDemoSpeech(round, start: start, playtest: playtest)
+                VisaGamesLog.append("hanzi write redemo — 再睇車仔 (no miss)")
+            case .cue(let cue):
+                let text = round.guide.spec.cues[cue.index].line.zh
+                let line = cue.sign == .stop ? copy.stopCue(text) : HanziWriteLine(text)
+                tapHanziShowWriteBubble(line, seconds: 3)
+                tapHanziSpeak("guide.\(round.glyph).cue\(cue.index + 1)", line.text + (line.sub ?? ""), queued: false)
+            }
+        }
+    }
+
+    /// The first help of a write (coach help, wrong start, reversal, off path) puts the glyph back to learning at once,
+    /// as for letters; the finished write records its own result in `finishTapHanziRound`.
+    private func tapHanziNoteWriteHelp(wasClean: Bool, round: TapHanziWriteRound, playtest: Bool) {
+        guard wasClean, !round.clean else { return }
+        tapHanziRecordWrite(round.glyph, clean: false, playtest: playtest)
+    }
+
+    /// Writing progress (`HanziWriteProgress`, two clean writes in a row): the child's store, or the preview copy a
+    /// parent's 試玩 writes into (`clearHanziPreview` drops it). Never the recognition record: writing help is practice,
+    /// not a finding miss.
+    private func tapHanziRecordWrite(_ glyph: String, clean: Bool, playtest: Bool) {
+        guard let pack = hanziPack else { return }
+        if playtest {
+            var progress = previewHanziWriteProgress ?? hanziWriteProgress
+            progress.record(glyph, clean: clean, pack: pack)
+            previewHanziWriteProgress = progress
+            return
+        }
+        hanziWriteProgress.record(glyph, clean: clean, pack: pack)
+        HanziWriteProgressStore().save(hanziWriteProgress)
     }
 }
 

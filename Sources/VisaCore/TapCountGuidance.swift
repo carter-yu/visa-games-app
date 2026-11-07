@@ -429,6 +429,14 @@ public struct NumeralGuide: Equatable, Sendable {
         public let signPoint: LineMatchPoint
     }
 
+    /// Where the demo car waits at a cue. Numerals and letters wait at every cue inside a beat (and at none where a
+    /// beat ends). Hanzi (H3, design hanzi-tap v2) waits only at a STOP, a true turn inside a pen-down stroke, also
+    /// where a beat ends on it (右's 橫折 corner), and never at an AHEAD sign.
+    public enum CuePauses: Equatable, Sendable {
+        case insideBeats
+        case stopTurns
+    }
+
     public let numeral: Int
     public let glyphKey: String
     public let spec: NumeralGuideSpec
@@ -437,6 +445,11 @@ public struct NumeralGuide: Equatable, Sendable {
     public let offset: LineMatchPoint
     public let beats: [Beat]
     public let cues: [Cue]
+    /// The compact board style and drawing widths, injected by the letter and Hanzi initialisers (0.6 car, 42-unit
+    /// nose, 0.7 chevrons, 30-unit lane dots, sign scales). Nil = the numeral board, scaled by `scale`.
+    public let compactBoard: LetterBoardGuideStyle?
+    public let compactStyles: TapCountGuideStyles?
+    public let cuePauses: CuePauses
 
     /// Nil when the numeral has no spec or a point does not lie on its stroke.
     public init?(_ n: Int) {
@@ -456,11 +469,29 @@ public struct NumeralGuide: Equatable, Sendable {
         }
         let paths = LatinGlyphs.paths(letter, offset: placement.offset, scale: placement.scale)
         guard !paths.isEmpty else { return nil }
-        self.init(spec: spec, glyphKey: "latin:\(letter)", placement: placement, strokes: strokes, paths: paths)
+        self.init(spec: spec, glyphKey: "latin:\(letter)", placement: placement, strokes: strokes, paths: paths,
+                  compactBoard: LetterGuideData.board, compactStyles: LetterGuideData.styles)
+    }
+
+    /// A Hanzi target from its pack (H1 adapter, `hanzi:<glyph>`), placed by `scale` then `offset`: glyph units by
+    /// default; the write board passes the 田字格 placement (`HanziWriteBoard`). The compact style is injected here
+    /// (`HanziGuideData.board`; a `hanzi:` key would otherwise draw numeral-sized), and the demo waits only at 右's
+    /// STOP turn. Nil for a find-only or unknown glyph, or a beat or cue point off its stroke.
+    public init?(hanzi glyph: String, in pack: HanziPack, offset: LineMatchPoint = LineMatchPoint(x: 0, y: 0),
+                 scale: Double = 1) {
+        guard let spec = HanziGuideData.spec(glyph, in: pack) else { return nil }
+        let strokes = pack.strokes(of: glyph).map { NumeralStroke($0.svg, corners: $0.corners.map(\.point)) }
+        let paths = HanziGlyphs.paths(glyph, in: pack, offset: offset, scale: scale)
+        guard !paths.isEmpty else { return nil }
+        self.init(spec: spec, glyphKey: "hanzi:\(glyph)", placement: (offset: offset, scale: scale), strokes: strokes,
+                  paths: paths, compactBoard: HanziGuideData.board, compactStyles: HanziGuideData.styles,
+                  cuePauses: .stopTurns)
     }
 
     private init?(spec: NumeralGuideSpec, glyphKey: String,
-                  placement: (offset: LineMatchPoint, scale: Double), strokes: [NumeralStroke], paths: [TracePath]) {
+                  placement: (offset: LineMatchPoint, scale: Double), strokes: [NumeralStroke], paths: [TracePath],
+                  compactBoard: LetterBoardGuideStyle? = nil, compactStyles: TapCountGuideStyles? = nil,
+                  cuePauses: CuePauses = .insideBeats) {
         var beats: [Beat] = []
         for beat in spec.beats {
             guard paths.indices.contains(beat.stroke), beat.seconds > 0 else { return nil }
@@ -490,6 +521,9 @@ public struct NumeralGuide: Equatable, Sendable {
         self.offset = placement.offset
         self.beats = beats
         self.cues = cues.sorted { ($0.stroke, $0.distance) < ($1.stroke, $1.distance) }
+        self.compactBoard = compactBoard
+        self.compactStyles = compactStyles
+        self.cuePauses = cuePauses
     }
 
     /// How far (glyph units) a spec point may lie from its stroke.
@@ -544,10 +578,15 @@ public struct NumeralGuide: Equatable, Sendable {
     }
 
     /// Lane dot spacing in stage units (`stroke-dasharray 0 30` in glyph units).
-    public var dotSpacing: Double { glyphKey.hasPrefix("latin:") ? LetterGuideData.board.laneDotSpacing : 30 * scale }
-    public var noseUnits: Double { glyphKey.hasPrefix("latin:") ? LetterGuideData.board.noseUnits : TapCountGuideCoach.noseUnits }
-    public var carScale: Double { glyphKey.hasPrefix("latin:") ? LetterGuideData.board.carScale : 0.72 }
-    public var chevronScale: Double { glyphKey.hasPrefix("latin:") ? LetterGuideData.board.chevScale : scale }
+    public var dotSpacing: Double { compactBoard?.laneDotSpacing ?? 30 * scale }
+    public var noseUnits: Double { compactBoard?.noseUnits ?? TapCountGuideCoach.noseUnits }
+    public var carScale: Double { compactBoard?.carScale ?? 0.72 }
+    public var chevronScale: Double { compactBoard?.chevScale ?? scale }
+    public var aheadSignScale: Double { compactBoard?.aheadSignScale ?? 1 }
+    public var stopSignScale: Double { compactBoard?.stopSignScale ?? 0.8 }
+
+    /// The demo car waits at `cue` (see `CuePauses`).
+    public func demoPauses(at cue: Cue) -> Bool { cuePauses == .insideBeats || cue.sign == .stop }
 
     public func aheadAngle(for cue: Cue) -> Double {
         let path = paths[cue.stroke]
@@ -561,6 +600,24 @@ public struct NumeralGuide: Equatable, Sendable {
     public func beatEnd(stroke: Int, after progress: Double) -> Double {
         let ends = beats.filter { $0.stroke == stroke }.map(\.end)
         return ends.first { $0 > progress + 10 } ?? paths[stroke].length
+    }
+
+    /// Where the 2 s stall ghost stops on a stroke `length` long: the end of the beat the car is in, at least 40 units
+    /// on. A Hanzi guide (`CuePauses.stopTurns`) never runs it past a beat end or STOP turn the car has not reached
+    /// (within the trace's 0.5-unit corner reach), however near: 右's ghost stops at the 橫折 corner and turns down
+    /// only once the car is there.
+    public func stallGhostEnd(stroke: Int, progress: Double, length: Double) -> Double {
+        let shared = min(length, max(beatEnd(stroke: stroke, after: progress), progress + 40))
+        guard cuePauses == .stopTurns else { return shared }
+        let boundaries = beats.filter { $0.stroke == stroke }.map(\.end)
+            + cues(onStroke: stroke).filter { $0.sign == .stop }.map(\.distance)
+        return boundaries.filter { $0 > progress + 0.5 }.reduce(shared, min)
+    }
+
+    /// The beat the car is in on `stroke`: the line a Hanzi stall or ghost shows, by the same 0.5-unit reach as
+    /// `stallGhostEnd` (右's stays 「口字上面橫過去！」 until the car is at the corner).
+    public func beatIndex(stroke: Int, at progress: Double) -> Int? {
+        beats.firstIndex { $0.stroke == stroke && $0.end > progress + 0.5 }
     }
 
     /// Mean demo speed (stage units per second), used for the 8 s ghost-to-the-end.
@@ -674,7 +731,8 @@ public struct TapCountDemoTimeline: Equatable, Sendable {
             let to = max(from, beat.end)
             let span = max(to - from, 0.001)
             var cursor = from
-            for cue in guide.cues(onStroke: beat.stroke) where cue.distance > from + 0.5 && cue.distance <= to - 0.5 {
+            for cue in guide.cues(onStroke: beat.stroke)
+            where guide.demoPauses(at: cue) && cue.distance > from + 0.5 && cue.distance <= to - 0.5 {
                 let leg = (cue.distance - cursor) / span * beat.seconds
                 steps.append(Timed(step: .drive(stroke: beat.stroke, from: cursor, to: cue.distance, beat: index), start: t, end: t + leg))
                 t += leg
@@ -686,6 +744,14 @@ public struct TapCountDemoTimeline: Equatable, Sendable {
             let leg = (to - cursor) / span * beat.seconds
             steps.append(Timed(step: .drive(stroke: beat.stroke, from: cursor, to: to, beat: index), start: t, end: t + leg))
             t += leg
+            // Hanzi: a beat that ends on a true turn inside its stroke (右's 橫折) waits there once, wheels down: the
+            // next beat drives on along the same stroke, with no hop.
+            if guide.cuePauses == .stopTurns, to < guide.paths[beat.stroke].length - 0.5,
+               let turn = guide.cues(onStroke: beat.stroke).first(where: { $0.sign == .stop && abs($0.distance - to) <= 0.5 }) {
+                steps.append(Timed(step: .pause(stroke: beat.stroke, at: turn.distance, cue: turn.index, beat: index),
+                                   start: t, end: t + timing.cuePauseSeconds))
+                t += timing.cuePauseSeconds
+            }
             at = (beat.stroke, to)
         }
         mergeStart = t
@@ -813,7 +879,7 @@ public enum TapCountGuideCoach {
         if let stall = plan.stallSeconds, trace.dragging {
             let since = max(lastMove, trace.lastPenDownAt ?? -Double.infinity)
             if now - since >= stall {
-                let to = min(path.length, max(guide.beatEnd(stroke: stroke, after: trace.progress), trace.progress + 40))
+                let to = guide.stallGhostEnd(stroke: stroke, progress: trace.progress, length: path.length)
                 return .stall(stroke: stroke, from: trace.progress, to: to, since: since + stall)
             }
         }

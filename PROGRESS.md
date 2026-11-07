@@ -1,5 +1,367 @@
 # Progress
 
+## 2026-11-07 — v0.38.0 / 84 — Hanzi H3 write board
+
+- Written by Claude Code on `feat/hanzi-tap` @ `6df9bd1` (0.38.0/83), from `visa-games-sessions/hanzi/h3-run3/HANDOFF.md`, design hanzi-tap v2 (§ Writing, the H3 row and the child copy table; LOCKED D5, D10–D12) and the six-target addendum. Two earlier H3 sessions stopped at session limits and left the code below uncommitted and untested (the new files, the wiring, `CFBundleVersion` 84). This run (h3-run3) registered and fixed the checks, brought the H2-era checks up to H3 and verified. H3 only: no parent cards, settings rows, 教／提／熄 labels or report area (H4), no install or Mac mini run (H5). No commit, push, stash, checkout or reset.
+- `VisaCore/HanziWrite.swift` (new):
+  - `HanziWriteBoard`:
+    - the letter write card (440, 126, 400 × 408) with a 350 × 350 田字格 square at (465, 166). The 300 × 300 glyph box is scaled by 7/6 on both axes (no stretch), and the lane is the pack's 36 units on the board. `paths` and `guide` place the pack's centre lines and guide there;
+    - `startMarks(_:in:current:)`: every numbered start in MOE order (D10), with its direction arrow 24 glyph units along its stroke and a state (done, current, future). Only the current one takes the pen. A pack leader moves the number, never the start (D12: 右's ③ and ④ share (118, 160) with two leaders);
+    - `signBox`: where an AHEAD or STOP sign is drawn, for the clearance checks;
+    - `minimumArrivalFraction` 0.7: a stroke counts as drawn no earlier than 70% of its length (design `shortStrokeProgressFraction`), so 下's 點 is a short down-right stroke, never a tap or a nudge.
+  - `HanziWriteCopy(pack:)`: the write lines from the pack's copy, with `{H}` filled: header, subline, watch, turn, reprompt, done, re-demo, 停, the tray lines, 「轉彎唔提筆。」 and the legend. It is nil when a key or placeholder is missing.
+  - `TapHanziWriteRound`: only a completed 搵完寫 find whose target has a guide opens it. It drives the shared trace engine and coach (`TapCountGuideRun`, `TapCountGuideCoach`, `TapCountDemoTimeline`), as `TapLetterWriteRound` does for letters:
+    - the first touch during the car demo only ends it; nothing is painted, not even by that touch's moves;
+    - `coachTick` starts each help episode and each sign line once, on the plan's timers: stall ring + ghost, ghost to the stroke end, and the 20 s re-demo at most twice;
+    - there is no miss transition. The find board, its misses and its hint are never changed;
+    - `resultFields` are practice facts: write_clean, lifts, off_path, wrong_start, reverse, corner_overshoot and the guide's stalls, ghosts and re-demos.
+- `VisaCore/TapCountGuidance.swift`:
+  - The guide style is injected. `NumeralGuide.compactBoard` / `compactStyles`, set by the letter initialiser (`LetterGuideData`) and the Hanzi one (`HanziGuideData.board` / `.styles`), replace the `latin:` prefix tests. New `aheadSignScale` / `stopSignScale`. Numerals keep their values (nil).
+  - `NumeralGuide.CuePauses`: numerals and letters keep `.insideBeats`. Hanzi uses `.stopTurns`: the demo car never waits at an AHEAD sign, and a beat that ends on a STOP turn waits there once for `cuePauseSeconds` (0.3 s), on the same stroke with no hop. That turn is 右's 橫折 corner at (226, 160), the only STOP in the set.
+- `VisaCore/HanziGlyphs.swift`:
+  - `HanziGuideData.board`: 0.6 car, 42-unit nose, 0.7 chevrons, 30-unit lane dots, STOP 0.8, AHEAD 0.8;
+  - `HanziGuideData.styles`: the letter board's widths;
+  - the design's `styles.compactBoard.aheadSignScale` is 1.0. At 1.0 the locked 上 and 左 sign centres (glyph y 282) put the sign box at stage y 469–521, past the square's bottom at 516; at 0.8 it ends at 515.8.
+- `VisaCore/ShapeTraceCatalog.swift` / `ShapeTraceEngine.swift`: `ShapeTraceQuestion.minimumArrivalFraction` defaults to 0, the old arrival rule for every other trace. When it is above 0, `arrivalDistance` is never earlier than that share.
+- `VisaCore/Activity.swift`: `tapHanziWrite` joins `ActivityCatalog.playableKinds` (27 kinds) and stays in `defaultOffKinds` with `requiresPlaytestBeforeStars` (D6). `HanziFind.swift`: comment only.
+- App (`VisaGames`; SwiftUI / AppKit are not compiled on this box):
+  - `TapHanziWriteBoardView.swift` (new) uses the letter write board's places:
+    - the header with the robot (reprompt), the glyph drawn from its centre lines and the 中文 / Find & write pill;
+    - the two earned picture cards: cue art, teal glyph and meaning, with 「我隻左手」／「我隻右手」 for 左／右;
+    - the cream write card:
+      - the 田字格, with a border and a dashed centre cross and no diagonals;
+      - the roads, lane dots and teal ink;
+      - the numbered starts with their arrows and leaders, and the red end dot;
+    - the shared headlights / sign / 「睇住」 badge / demo / ghost drawing, with Reduce Motion;
+    - the bubble with the speaker mark, crossed out while 廣東話語音 is off;
+    - the tray with the 搵晒 → 寫 chips, its line and the legend for the signs this glyph shows.
+    - A touch that ends the demo is dropped until the pen lifts. The STOP sign says 停.
+  - `TapCountGuideDrawing.swift` reads the guide's injected widths and sign scales, never a `latin:` key.
+  - `CanvasActivityHost.swift`: 搵完寫 shows the write board once its write round is writing or done; before that, the H2 find board.
+  - `AppDelegate.swift`:
+    - a write round per lane (the child round, a parent's 試玩);
+    - after the find and its stroke reveal, `finishTapHanziFind`'s `.awaitWriteRound` begins writing at the shared 描字提示 level (`tapCountSettings.guidance`, never migrated). With a demo it shows 「而家寫『X』！先睇車仔。」, otherwise 「到你喇！跟住箭嘴寫『X』。」;
+    - pen down / move / up handlers. The coach runs in `tick()` (every 0.5 s) and on each pen move;
+    - coached events show as text and are spoken only through `tapHanziSpeak` (audio on):
+      - the beat ahead on a stall or ghost;
+      - 「再睇車仔行一次！」 on a re-demo;
+      - the sign lines, with 「轉彎唔提筆。」 under 右's corner line;
+    - the first help of a write records a non-clean write, as for letters;
+    - a drawn write goes back through `finishTapHanziFind`, so the parent-controls hold covers its stamp too;
+    - `finishTapHanziRound` merges the write fields and records the write. A playtest records it only in a preview copy, dropped on Return by `clearHanziPreview`. The stamp uses the find's own hint;
+    - a reset, a new deal, a new playtest and dropping a playtest clear the write rounds.
+    - No penalty, fuel, hint or recognition record comes from writing.
+  - By reading (not run): the parent Games list iterates `playableKinds`. 搵完寫 therefore now has its own card ("Games · 27") with its stars locked until its own playtest, and `startPlaytest` accepts it.
+- Tests: new `HanziWriteTests` adds 8 checks (banner `8 hanzi-write`):
+  - (1) placement and clearance:
+    - every beat and cue point projects onto its stroke, and every lane is inside the 田字格;
+    - every sign is inside the square and at least half a lane clear of every stroke;
+    - numbers are inside the square, clear of the signs and apart;
+    - one STOP in the set (右);
+    - 右's ③ (arrow down) and ④ (arrow across) share their start with two leaders, and the corner is not a start;
+    - find-only glyphs are never written;
+    - the compact style is injected for Hanzi, while letters and numerals keep theirs;
+  - (2) the demo timeline:
+    - one hop per lift, and the duration adds up;
+    - Reduce Motion never glides or lifts, and the route covers every stroke;
+    - no wait at AHEAD, and no wait anywhere in 人上下左木;
+    - 右 waits exactly once, 0.3 s, at its 橫折 corner, on the same stroke on both sides, wheels down (also with Reduce Motion), with the STOP sign blinking;
+    - letter and numeral demos keep the pre-H3 pause rule;
+  - (3) the round and the coach:
+    - only a completed 搵完寫 find opens the round, and a touch during the demo paints nothing;
+    - 標準 at 2 / 8 / 20 s. The re-demo restarts the child's turn at its end, so a second 8 s ghost follows inside the 40 s window;
+    - the stall ghost and its Reduce Motion pose, and three headlight chevrons;
+    - at most two re-demos;
+    - 多啲 at 1 / 5 / 15 s, with a demo even once learned;
+    - 少啲: no demo, headlights or signs, and only the 8 s ghost;
+    - 標準 once learned: headlights only;
+  - (4) 右's corner:
+    - all six targets at narrow, standard and wide take one pen-down per stroke with no lifts, and only 右's 4th stroke has a corner stop;
+    - on 右, a stall before the corner ghosts to the corner;
+    - a run-on is held at the corner and coached with the pen still down;
+    - turning down finishes the same stroke with no lift, and the write stays clean;
+  - (5) 下's 點: a tap, a nudge under 70% or a run down beside the 豎 never draws it; the stroke does, at every tolerance. Without the floor, the wide tolerance counted the dot as drawn before any move;
+  - (6) zero penalties, per target:
+    - a reversal, a wrong start (右), going off the lane, a lift and a stall are all coached;
+    - the find is unchanged: no misses, the same hint, clean recognition;
+    - two clean writes make the glyph learned, a coached write resets the streak, and the keys are `hanzi:`;
+    - app source guards: no evaluation, fuel, hint, recognition record, entry success or direct voice in the write section; the stamp's hint source; one writing save; a playtest saves only its preview;
+  - (7) the write lines are the pack's HK Traditional copy (the fixture, no ASCII letters, no 熄), and the copy fails closed;
+  - (8) wiring:
+    - playable, default-off and gated by its own playtest; a build-83 assignment reloads with 搵完寫 OFF;
+    - host routing;
+    - the hold before both the write and the stamp; one `finishTapHanziRound` caller; writing begins once at the shared level; the stamp goes through the hold;
+    - the dismissing touch is dropped;
+    - write input only in the lock with an open round, or in a parent's 試玩;
+    - the tick, the resets and the robot reprompt;
+    - the view uses Reduce Motion, the start marks, the shared drawing, pack glyphs and 停, and no Latin furniture;
+    - the drawing never tests `latin:`.
+- Fixed in this run:
+  - two defects in the uncommitted test file:
+    - `found` dealt with the default week. A scheduler with no progress always deals the week's first target, so every write round was 人 and `writing("右")` crashed. The parent week now leads with the glyph;
+    - check (3) expected one ghost-to-end in its 40 s window, but the shared coach (letters and numerals too) restarts the turn at the re-demo's end;
+  - a 熄 in a `HanziWrite.swift` doc comment, which the build-80 rule forbids in Sources (`LetterPickerTests`). It now reads 多啲／標準／少啲.
+- Existing checks updated for H3:
+  - playable count 26 → 27 (ActivityTests, MissionGameAssignmentTests, HanziTapTests (f)), and no non-playable kind remains;
+  - HanziTapTests (e): both Hanzi kinds are OFF on every star for a fresh or corrupt assignment, and a hand-edited one follows its stars. The `.rejectedLastStar` toggle expectation for the formerly unplayable 搵完寫 is dropped;
+  - HanziTapTests (f): a build-81/82 assignment reloads with both Hanzi kinds OFF;
+  - HanziFindTests (5): 搵完寫 is playable and stamps only once its write round can stamp;
+  - HanziFindTests (6): `finishTapHanziRound(token:` has two calls, both in `finishTapHanziFind`;
+  - version 83 → 84 (PerformanceRecordTests, WeeklyReportPDFTests; set by the earlier H3 sessions).
+- Mutation runs with the built binary (`visa-games-sessions/hanzi/h3-run3/mutations.log`), each file restored and checked by sha256. All 12 fail an H3 check:
+  - no 0.3 s wait at the corner;
+  - the demo waiting at AHEAD;
+  - no 0.7 floor;
+  - the dismissing touch painting;
+  - no Hanzi style;
+  - AHEAD at 1.0;
+  - no re-demo cap;
+  - letters losing their style;
+  - a write wrong start penalised;
+  - 搵完寫 stamping without its write;
+  - the dismissing touch not dropped;
+  - a playtest write saving the child's store.
+- Version 0.38.0 / 84 (`CFBundleVersion` and both version assertions, set by the earlier H3 sessions; the footer label stays v0.38.0).
+- Verification on this Linux box:
+  - `env LD_LIBRARY_PATH=/home/box/.local/swiftlibs PATH=/tmp/visa-games-swift/toolchain/usr/bin:/usr/bin:/bin bash scripts/test.sh` passed (`visa-games-sessions/hanzi/h3-run3/test-box.log`, EXIT=0). The banner includes `10 hanzi-glyph + 11 hanzi-tap + 6 hanzi-find + 8 hanzi-write`. The full builds of this run had no compiler warnings.
+  - `swiftc -parse` passed for `AppDelegate.swift`, `CanvasActivityHost.swift`, `TapHanziWriteBoardView.swift` and `TapCountGuideDrawing.swift`.
+  - The H3 AppModel code was extracted verbatim with stubs for app-only members: the write extension, `speakTapHanziPrompt`, `finishTapHanziFind`, `finishHeldTapHanziFind` and `finishTapHanziRound`. It passed `swiftc -typecheck -swift-version 6` against the built VisaCore module, and a mutated copy failed. SwiftUI / AppKit were not type-checked.
+  - No Mac mini run, no `bundle.sh` and no UAT. Not checked: TV / Wacom input, the 田字格 at TV distance, Reduce Motion on the device, the voice.
+- Open:
+  - Carter: the AHEAD sign scale is 0.8 against the design's 1.0. Keep 0.8, move the 上 / 左 `signAt`, or let the sign cross the square's edge (it stays on the card)?
+  - The write round's parent-controls hold is pinned by source guards only, not simulated as in HanziFindTests (6).
+  - The 36-unit lane and the 0.7 short-stroke share are still the design's proposed tuning (TO-VERIFY with Wacom / TV).
+  - H4: the Hanzi parent cards and settings rows, the 教／提／熄 display labels (D9 vs the build-80 開／關 rule), the 廣東話語音 / 粵拼 toggles and the report area.
+  - H5: household release.
+- fix1 (`visa-games-sessions/hanzi/h3-fix1/`, a fresh Claude Code session) after the gpt-6-astra ultra review (`h3-astra/ASTRA-REVIEW.md`: NOT READY, 0 blockers / 3 majors / 2 minors). Still 0.38.0 / 84 and uncommitted. All three majors were first reproduced with a probe against the built VisaCore (`h3-fix1/probe/before.log`).
+  - M1 and M2 (下's 點 drawn by a still tap; a later start taking the pen, D10). `ShapeTraceQuestion.penRule` is new, and its default `.shared` keeps every other trace as it was. The write round uses `.orderedStarts(holdRadius: 21)`, half the 36-unit lane on the board.
+    - Before the car, each only when nearer than the car: a later stroke's numbered start is a wrong start (右's shared ③ / ④ start belongs to the current stroke), the red end is a reversal, and a later stroke's end is a wrong start.
+    - The pen takes the car only within 21 units, by a pen-down or a slide. The car then moves only as far as the pen moves on along the stroke.
+    - Before, a still tap at 75%, 90% or 100% of the dot drew it at every tolerance, and a tap on 上's ② (88.67 units from ①) painted 60 units of ①. Now both are coached and draw nothing.
+  - M3 (the 2 s ghost through 右's STOP). `NumeralGuide.stallGhostEnd` stops a Hanzi guide's stall ghost at the next beat end or STOP the car has not reached. 右 stalled 18 / 6 units before the corner now ghosts to the corner (before: 148 / 224). `TapCountGuideCoach.help` uses it, so the reducer and the view agree. The help bubble's line is `TapHanziWriteRound.helpBeat` (the same boundary). Letters and numerals keep the shared rule. The 8 s ghost still runs to the stroke's end.
+  - Minor 1: the numbered starts, their arrows and leaders, and the red end are drawn in a canvas above the guidance layer, so the paint car no longer covers the current number.
+  - Minor 2: a scheduled demo line is spoken only while its lane is on screen with its pen open (`tapHanziUsesPlaytest == playtest`, `tapHanziWriteInputOpen`). Entering parent controls bumps `tapHanziGuideSpeechGeneration`.
+  - Tests: check (5) adds still taps at 71–100% of the dot, a press, marching taps, a slide and the shared-rule contrast. New check (9) covers only the current start taking the pen and new check (10) the 2 s ghost at 右's STOP. Check (8) adds source guards for both minors and the help line. The banner is now `10 hanzi-write` (40 groups, 455 checks).
+  - Verification on this box:
+    - box tests EXIT=0 (`h3-fix1/test-box.log`);
+    - 13 mutations each fail a check, with files restored and verified by sha256 (`h3-fix1/mutations.log`);
+    - `swiftc -parse` passed for `AppDelegate.swift` and `TapHanziWriteBoardView.swift`;
+    - the changed AppModel code (with `enterParentAfterAuthentication`) type-checks against VisaCore in a stub harness, and mutated copies fail.
+    - No Mac mini, `bundle.sh`, Wacom or TV run.
+  - Open: the 21-unit hold radius is new tuning (TO-VERIFY with Wacom / TV). The 口 inset and AHEAD 0.8 vs 1.0 are unchanged.
+
+## 2026-11-06 — v0.38.0 / 83 — Hanzi H2 finding UI
+
+- Written by Claude Code on `feat/hanzi-tap` @ `a8568be` (0.38.0/82), from `visa-games-sessions/hanzi/h2-run2/HANDOFF.md`, design hanzi-tap v2 (§ ★ 搵字翻卡, the child copy table and the H2 row; LOCKED D1–D12) and the six-target addendum. The first H2 session stopped at a session limit before writing any code. H2 only: no 田字格 or write round (H3), no parent cards, toggles or report area (H4), no install or Mac mini run (H5). No commit, push, stash, checkout or reset.
+- `VisaCore/HanziFind.swift` (new):
+  - `TapHanziBoard`: per-card state for one H1 deal, with `TapLetterBoard.tap`'s rules and its `TapLetterTap` outcomes. Only the first tap on a wrong card is a miss. Tapping a known-wrong card again gives `.knownWrongRetap`, the same card within 0.4 s gives `.doubleTapIgnored`, and a found card gives `.foundRetap`. `init?(deal:pack:)` refuses a deal that some state could not draw: a card glyph without centre lines, a target without a meaning, or a cue picture without artwork. `isClean` means no miss and no hint.
+  - `HanziCardFace` / `HanziFlipArt`, `face(_:pack:)` and `slot(_:pack:)`:
+    - an unopened card is its glyph, with the same background, ink and scale on every card;
+    - a found target shows its cue picture, the target glyph and the meaning;
+    - the other target stays an unmarked glyph until it is found;
+    - the two collection slots fill in target-card order;
+    - the meaning is the pack's `meaning.zhHK`, except that 左／右 use `meaningCue.zhHK` 「我隻左手」／「我隻右手」, because the picture is the child's own hand (D7).
+  - `HanziFindCopy(pack:)`: the find lines from the pack copy, with placeholders filled: 「搵晒『上』！」, 「點晒兩張。」, 「仲有一張」, 「搵晒喇！」, 「嗰個係『X』。」, 「呢張係『上』！」, 「再搵『上』！」, 「搵『上』！」 and 「『上』，上面！」. It is nil when a line or a placeholder is missing. Jyutping and voice keys stay separate pack fields and are not shown (D4).
+  - `HanziFindFinish`: 翻字卡 stamps; 搵完寫 is `.awaitWriteRound`.
+- `VisaCore/HanziCueArt.swift` (new) is generated by the new `scripts/svg_to_hanzicueart.py` from `docs/hanzi-cue-art/illustrations.svg` and `illustration-style.css`:
+  - the 14 sprite symbols (12 cue pictures, robot, car-top) as `CanvasArtwork` in their 240 × 200 viewBox;
+  - colours from the token sheet's class rules, with `left-hand-2`'s inline skin override applied (and inherited by `right-hand-2`);
+  - `<use>` and transforms baked in. The bridge's `scale(1 1.4)` gives its strokes the geometric-mean width, not SVG's anisotropic stroke;
+  - an FNV-1a 64 fingerprint of both source files.
+  - `docs/hanzi-cue-art/README.md` now describes the converter step.
+- App (`VisaGames`; SwiftUI / AppKit are not compiled on this box):
+  - `TapHanziBoardView.swift` (new) uses the letter board's places: the header, 2 × 5 cards on the letter grid, a tray with the plaque and two slots, and the bubble at (745, 75). It adds:
+    - `HanziGlyphView`: every card, plaque and header glyph is drawn from the pack's centre lines, never from a font;
+    - `HanziCueArt` flips with a green tick;
+    - the robot as the reprompt button and the 中文 / Find & flip pill;
+    - a speaker mark beside every bubble line, crossed out while 廣東話語音 is off. It is not a control;
+    - the shared Cantonese tray Think Pause card;
+    - a plaque stroke reveal from `StrokeGlyph.hanzi`.
+  - `AppDelegate.swift` mirrors the letter round:
+    - It loads the Hanzi H1 stores. The settings are read and never saved.
+    - The bundled pack and its copy load on first use. If either is missing, the Hanzi kinds are filtered out of tickets.
+    - `tapHanziTap` mirrors `tapLetterTap`. A penalty comes only from `.miss`, after 0.6 s, through the shared Think Pause and fuel halving. A known-wrong retap only shows 「嗰個係『X』。」. A first miss keeps that line up through the pause.
+    - At pause end it shows the hint after a second miss, or 「再搵『上』！」. The idle nudge comes 10 s after the last action or pause end.
+    - When both are found: the plaque stroke reveal (the 筆順動畫 setting), then the stamp for 翻字卡. 搵完寫 holds after the find (H3).
+    - Finished and out-of-fuel rounds are recorded in the Hanzi stores (clean = first try, no hint).
+    - Playtest rounds go only into preview copies, dropped on leaving parent. A finished playtest is recorded in the playtest log, which is the own-playtest star gate (D6).
+    - The deal facts use `gen` `hanzi_v1`.
+    - One voice gate, `tapHanziSpeak`: silent unless `audioEnabled` is on, then the existing zh-HK / yue-HK path. A Hanzi round's stamp and out-of-fuel lines go through it too.
+  - `CanvasActivityHost.swift` routes `.tapHanziAll` and `.tapHanziWrite` to `TapHanziBoardView`.
+  - `ParentGameCard.swift`: the Hanzi art well shows the robot and 人's cue picture. The generic art fell back to a "?" placeholder.
+- VisaCore catalogue and desk:
+  - `ActivityCatalog.playableKinds` gains `.tapHanziAll` (26 kinds). `tapHanziWrite` stays out until H3, and both stay in `defaultOffKinds` with `requiresPlaytestBeforeStars`. A fresh or build-82 assignment holds 翻字卡 OFF on every star.
+  - `LetterTicketDesk.prepare` now also deals the Hanzi board before any round state changes (`dealsBoard`), so a failed Hanzi deal leaves the round untouched (log reason `noHanziDeal`).
+- Tests: new `HanziFindTests` adds 5 checks (banner `5 hanzi-find`):
+  - (1) tap rules: an explicit sequence, plus 150 scripted deals of both kinds compared step by step with a letter board (same outcomes, misses, finds, known-wrong cards, remaining and tap order); misses always equal the number of known-wrong cards;
+  - (2) render data over 48 rounds in the week, retry and review lanes, both kinds, all six targets and all 12 pictures:
+    - ten glyph faces unflipped and after a wrong tap;
+    - one flipped (its own picture, the target glyph, the meaning), the other target still a glyph, and 「仲有一張」;
+    - both flipped, slots in order, and 「搵晒喇！」;
+    - a cue picture without artwork refuses the board;
+  - (3) copy: the design-table lines, HK Traditional only (fixture and both lists), no ASCII letters, placeholders filled; a missing key or placeholder gives nil;
+  - (4) cue art:
+    - the fingerprints match the sources;
+    - token colours only, and everything inside the viewBox;
+    - 右 mirrors 左 element by element, with the arrow on the other side;
+    - the second skin tone appears only on the -2 hands;
+    - shadow opacity 0.12;
+  - (5) wiring:
+    - playable / default-off / no stars before the kind's own playtest;
+    - the desk deals the Hanzi board first;
+    - app source guards: routing; one penalty path, on `.miss`; the wrong line shown before the voice; one audio gate and no settings save; the Hanzi functions never call the voice directly; no write board; playtest saves only previews; glyphs from pack paths.
+- Existing checks updated:
+  - playable count 25 → 26 (ActivityTests, MissionGameAssignmentTests, HanziTapTests (f));
+  - the non-playable list is `[.tapHanziWrite]`;
+  - HanziTapTests (e): 翻字卡 is OFF on every star for a fresh or corrupt assignment; a hand-edited one follows its stars; 搵完寫 is dropped;
+  - HanziTapTests (f): a 25-kind build-82 assignment reloads with 翻字卡 OFF and nothing else changed;
+  - version 82 → 83.
+- Mutation runs with the built binary, each source restored and checked by sha256: all 11 fail at least one check:
+  - known-wrong retap penalised;
+  - no double-tap window;
+  - the other target flips too;
+  - 左 meaning 左邊;
+  - 「仲有一張」 at two remaining;
+  - a cue without art accepted;
+  - a stale art fingerprint;
+  - the app penalising a known-wrong retap;
+  - an ungated voice;
+  - 搵完寫 stamping;
+  - 搵完寫 playable.
+- Version 0.38.0 / 83 (`CFBundleVersion` and both version assertions; the footer label stays v0.38.0).
+- Verification on this Linux box:
+  - `env LD_LIBRARY_PATH=/home/box/.local/swiftlibs PATH=/tmp/visa-games-swift/toolchain/usr/bin:/usr/bin:/bin bash scripts/test.sh`, logged to `visa-games-sessions/hanzi/h2-run2/test-box.log`. The banner includes `10 hanzi-glyph + 11 hanzi-tap + 5 hanzi-find`.
+  - One earlier run failed the weekly-model timing budget at 325 ms (budget 300 ms). Two direct re-runs of the same binary took 133 ms and 143 ms, against a 141 ms baseline before any edit.
+  - `swiftc -parse` passed for `AppDelegate.swift`, `CanvasActivityHost.swift`, `TapHanziBoardView.swift` and `ParentGameCard.swift`. That is syntax only; SwiftUI / AppKit were not type-checked.
+  - No Mac mini run, no `bundle.sh`, and no UAT. TV / Wacom card selection and glyph contrast are not checked.
+- Fix round 1 (from `visa-games-sessions/hanzi/h2-astra/ASTRA-REVIEW.md`: NOT READY, 0 blockers, 1 major, 0 minors, 1 nit; handoff `h2-fix1b/HANDOFF.md`, after the `h2-fix1` session stopped at a session limit with no code change). Same build 83. No commit, push, stash, checkout or reset.
+  - Major: parent controls opened during the plaque stroke reveal. The delayed finish then ran under parent controls: it saved the round to the Hanzi stores and set `activityJustCompleted`, but `applyEntrySuccess` needs the lock, so Return left a finished board that took no taps, with no visa. Now:
+    - `VisaCore/ChildFinishHold.swift` (new): `finishesNow(_:mode:)` holds the round outside the lock; `release(openRound:mode:)` gives it back once, in the lock, only while it is still the open round (any other held round is dropped); `drop()`.
+    - `finishTapHanziFind` holds an open child round outside the lock, before the reveal wait and before anything is saved. `returnToChild` calls `finishHeldTapHanziFind()` last, after leaving parent, and the held find runs once. `resetTaskRound` drops the hold (new ticket, out of fuel, storage or entry-UAT reset, a visa ending).
+    - A Return into a running visa (測試一分鐘簽證, or a 試播 preview's visa) releases nothing; that visa's end resets the round without saving it or awarding it.
+    - `finishTapHanziFind`, `finishTapHanziRound` and the 0.4 s celebrate step read the lane's own board (`playtest ? playtestTapHanziBoard : tapHanziBoard`). `currentTapHanziBoard` is the playtest's board during a parent's Hanzi 試玩.
+  - Test: `HanziFindTests.testParentDuringTheRevealFinishesOnceOnReturn` (banner `6 hanzi-find`, was 5) runs the real session, ledger, Hanzi progress and hold in AppModel's finish order. Before the fix: saved, completed, no visa, taps ignored. Fixed: nothing saved under parent controls, then on Return one progress record, one ledger award and one visa; a late finish and a second parent visit change nothing, and the ledger rejects the round's ID again. Also: Return before the finish is due; Return into a test visa (nothing released, dropped at its end); a reset under parent controls; the hold's own rules; and AppModel source guards (order, one `finishTapHanziRound` caller, lane boards, one release call, the drop).
+  - Mutation runs (`visa-games-sessions/hanzi/h2-fix1b/mutations.log`), each file restored and checked by sha256: all 11 fail the new check: no hold; a mode guard without resume; no release on Return; release before leaving parent; reset keeps the hold; the find back on `currentTapHanziBoard`; release into the playtest lane; release not clearing; release ignoring the open round; finishing outside the lock; releasing outside the lock.
+  - Nit: `scripts/svg_to_hanzicueart.py` (docstring and template) now credits `HanziFindTests` with the fingerprint check; regenerated `HanziCueArt.swift` differs only in that comment.
+  - Not changed: the letter, tap-count, shape-trace and guided line-match finishes. By reading, each still drops (or, letters, saves without a visa) a finish that comes due under parent controls; not exercised.
+  - Verification on this Linux box: `env LD_LIBRARY_PATH=/home/box/.local/swiftlibs PATH=/tmp/visa-games-swift/toolchain/usr/bin:/usr/bin:/bin bash scripts/test.sh` passed (`visa-games-sessions/hanzi/h2-fix1b/test-box.log`, EXIT=0; the banner includes `10 hanzi-glyph + 11 hanzi-tap + 6 hanzi-find`). `swiftc -parse` passed for `AppDelegate.swift`, and the edited AppModel members, extracted verbatim with stubs, passed `swiftc -typecheck -swift-version 6` against the built VisaCore module. SwiftUI / AppKit were not type-checked. No Mac mini run, no `bundle.sh` and no UAT.
+- Open:
+  - H3: the 搵完寫 write round (田字格, the write-round entry after the find, adding `tapHanziWrite` to `playableKinds`);
+  - H4: the Hanzi parent cards (suggested ★ / ★★, settings rows, 廣東話語音 / 粵拼 toggles), the report area, and the unavailable-ticket screen naming letters;
+  - Carter: 左／右 flipped-card label (「我隻左手」 vs 「左邊」), and whether a Hanzi round's 「蓋印！」 / out-of-fuel lines should stay silent with audio off;
+  - H5: household release.
+
+## 2026-11-06 — v0.38.0 / 82 — Hanzi H1 pure core
+
+- Written by Claude Code on `feat/hanzi-tap` @ `3b73717` (0.38.0/81), from `visa-games-sessions/hanzi/h1-run2/HANDOFF.md`, the six-target addendum (2026-11-06) and `visa-games-design/hanzi-tap/v2` (LOCKED D1–D12). Run 1 stopped at a session limit with the kinds and `HanziTap.swift` uncommitted, untested and without a version bump. Run 2 compiled and checked that code, fixed one defect, and added the tests and the version bump. Pure core only: no SwiftUI view, parent card, report area or install. No commit, push, stash or checkout.
+- Kinds `tapHanziAll` (中文字 · 翻字卡 / Find & flip, L1) and `tapHanziWrite` (中文字 · 搵完寫 / Find & write, L2):
+  - appended after the 25 build-81 kinds (`ActivityKind.allCases` 27);
+  - in `ActivityCatalog.defaultOffKinds` with `requiresPlaytestBeforeStars` (D6), but not in `playableKinds` (still 25) until their UI exists (H2–H4). `MissionGameAssignment` therefore drops them on load, rejects toggling them and never pools them;
+  - parent titles, short labels (翻字卡 / 搵完寫, shared with letters), help, hint, perf catalog (ten `card-N` slots, chance 1/45), weekly words 啲中文字 / the characters, and every app switch case. `WeeklyArea` is `.other` until H4. The app's prompt and playtest voice cases return without speaking.
+- `VisaCore/HanziTap.swift`:
+  - Stores, each under its own key with `hanzi:<glyph>` entries: `VisaGames.tapHanziSettings.v1` (schema 1), `VisaGames.tapHanziProgress.v1`, `VisaGames.tapHanziWriteProgress.v1`, `VisaGames.tapHanziRoundIndex.v1`, `VisaGames.tapHanziCueDecks.v1`. No letter store is read or written.
+  - Settings: week, review every 4 or 0, confusable guard, audio OFF, jyutping OFF. Missing, unreadable, other-schema or out-of-range data loads these defaults. A week with fewer than three pack targets (`HanziScheduler.minimumWeek`; two before fix round 1) uses the pack week; find-only and unknown glyphs are dropped from it. The games' on/off stays in the mission assignment, as for letters.
+  - `HanziScheduler`: the first cycle in the week's order, later cycles reshuffled by seed; a week or retry round is that cycle's visit; never the last target, also across a cycle boundary; a missed target is dealt by no lane (week, retry or review; all lanes since fix round 1) until two other rounds intervene, then comes back as its retry; every fourth round, an older target outside the week whose box spacing has passed (letters' 0 / 2 / 7 days), never the last target. A review goes before a due retry, which keeps its due round and is dealt in the next round.
+  - `HanziBoardBuilder`: 2 × 5; both rows permute one five-glyph set that leads with the target; one target per row in different columns; no row in build or pack order, or reversed. Guard, until the target's first clean find round (persisted as `hasCleanRound` since fix round 1, so a later miss no longer re-arms it): paired glyphs stay off; a paired week glyph is replaced by a validated find-only glyph; with none left, no deal.
+  - `HanziCueDecks` (both pictures, the lead alternates), `HanziWriteProgress` (learned = two clean writes in a row; a non-clean write resets; pack targets only; clean = the letter completion rule) and `TapHanziGenerator` (no deal without a pack, for another kind, or when the board refuses).
+- Six-target minimal adaptation (addendum): the board stays 2 × 5 with five distinct glyphs per row and two targets. The five-glyph set always holds the target and stays within the pack's pool `board.targetWeek` ∪ the dealable find-only glyphs (addendum §2). After the target (and the guard's stand-ins or, unguarded, its confusable partners), the builder draws from the parent-selected week (`HanziTapSettings.validWeek`, a subset of `board.targetWeek`), then the dealable find-only glyphs, then the pack's other `board.targetWeek` targets. With six week targets at least one week glyph sits each deal out. The guard's stand-ins are 入 八 本 未 (all four `displayFormVerified`). Scheduler rules are unchanged; a cycle is six week rounds.
+- Defect fixed in the run-1 code: a two-target parent week with 人 or 木 guarded (人上, 人下, 人左, 人右, 人木, 上木, 下木, 左木, 右木) reached only four glyphs and returned no deal. The builder now tops up from the pack's other targets after the week and find-only glyphs (still within targetWeek ∪ approvedFindOnlyPool). Every other deal is unchanged. No parent UI can set such a week yet (H4). Since fix round 1 a two-target parent week becomes the pack week before the scheduler, so only a direct `HanziBoardBuilder.make` call reaches the top-up.
+- Tests: `HanziTapTests` adds 8 checks (banner `8 hanzi-tap`):
+  - (a) 2 × 5, two targets, one per row, different columns: 300 seeds × six targets × guard on / off / lifted, plus 3,600 generator deals of both kinds with misses and retries;
+  - (b) the balanced set over every parent week of two to six targets, for week and review targets, including the top-up weeks;
+  - (c) the guard and its stand-ins, lifting (run 2 also expected re-arming after a miss; fix round 1 replaced that with staying lifted), refusal with no verified find-only glyph, an unverified 本 never shown, and find-only glyphs never targets, cues or writing progress;
+  - (d) cycle order, no immediate repeat, determinism, retry after two intervening rounds, and review every fourth round by box spacing;
+  - (e) fail-closed settings and stores, and the games off for a fresh, corrupt or hand-edited assignment;
+  - (f) letter stores byte-identical after a Hanzi run that writes only the five Hanzi keys; build-81 kinds decode unchanged; real catalog counts; HK Traditional copy;
+  - (g) two clean writes in a row per glyph, kept apart from Latin, with the clean rule checked on a real trace.
+- Existing checks updated for the two kinds: the `defaultOffKinds` list, `ActivityKind.allCases` 25 → 27 (the extras are exactly the Hanzi kinds), and the single-right-choice loop, which now skips the Hanzi family as it does letters.
+- Mutation runs with the built binary, each restored afterwards: removing the top-up fails (`no deal: week 人上 target 人 guard true`); due one round early fails the retry order.
+- Version 0.38.0 / 82 (`CFBundleVersion` and both version assertions; the footer label stays v0.38.0).
+- Verification on this Linux box: `env PATH=/tmp/visa-games-swift/toolchain/usr/bin:/usr/bin:/bin bash scripts/test.sh` passed (`visa-games-sessions/hanzi/h1-run2/test-box.log`, EXIT=0; the banner includes `9 hanzi-glyph + 8 hanzi-tap`). `swiftc -parse` passed for `AppDelegate.swift` and `CanvasActivityHost.swift` (syntax only; SwiftUI/AppKit are not type-checked here). No Mac mini run and no UAT.
+- Fix round 1 (from `visa-games-sessions/hanzi/h1-run2/ASTRA-REVIEW.md`: NOT READY, 0 blockers, 3 majors, 2 minors, 1 nit; handoff `h1-fix1/HANDOFF.md`, restarted as `h1-fix1b/HANDOFF.md` after the first fix session was killed mid-way with its source edits uncompiled). Same build 82. No commit, push, stash, checkout or reset.
+  - M1 retry spacing: every lane skips a missed target whose retry is not due yet (`ready` = not the last target and not cooling). A parent week under `HanziScheduler.minimumWeek` (3 = intervening rounds + 1) uses the pack week, and a pack whose own week is shorter fails to load. Tests: the retry check now covers every round that deals a missed target (its next deal is its retry exactly three rounds later); new `testMissWaitsTwoRoundsInNarrowWeeksAndAcrossCycles` (every week under three → the pack week; the review's 人上 counterexample; all 20 three-target weeks × 30 seeds with misses; a six-target cycle boundary with 木, or 右 and 木, missed, over 100 seeds).
+  - M2 guard: `HanziGlyphState.hasCleanRound` is set by the first clean find round and never cleared; the guard reads it. Decoding is back-compatible: a missing field is derived from `cleanRounds > 0`, and every other field is still required. Tests: the (c) block that expected re-arming now expects the guard to stay lifted; new `testGuardStaysLiftedAfterALaterMiss` (a miss before the first clean find keeps the guard; clean → misses → save/load → still lifted; a blob without the field decodes with the derived value; a missing required field loads empty).
+  - M3 adapters (pure data): `StrokeGlyph.hanzi(_:in:)` (`hanzi:<glyph>` id and progress key, script `.hanzi`, the 300 × 300 box, the pack's strokes in MOE order with their 筆劃 kinds, a turn only at 右's 橫折 corner), `HanziGuideData.spec(_:in:)` (the pack guide as `NumeralGuideSpec`, `zh` = `zhHK`) in `HanziGlyphs.swift`, and `NumeralGuide(hanzi:in:offset:scale:)` in `TapCountGuidance.swift`. All are nil for find-only and unknown glyphs. Test: `HanziGlyphTests.testStrokeOrderAndGuideAdapters` (2 / 3 / 3 / 5 / 5 / 4 strokes; order, kinds, starts and ends; box bounds; the 右 turn; the shared timeline's draw order, lifts and only pause; beats, cues and lines; placement; nil for 入 八 本 未 and unknown glyphs).
+  - m1: new `testReviewGoesBeforeADueRetryWhichKeepsItsPlace`. 左, missed in round 5, is due in round 8; round 8 reviews 人; the queue still holds (左, 8); round 9 deals 左 as a retry. With review off, round 8 deals it.
+  - m2: the progress, writing, cue-deck and round stores are versioned by their `.v1` key, and their doc comments say so. A well-formed `.v1` blob with an added `schemaVersion: 2` loads as v1, a `.v2` key is never read, and unreadable blobs load empty. Only the settings store checks `schemaVersion`.
+  - Nit: the six-target bullet above names the pack pool (`board.targetWeek` ∪ dealable find-only glyphs) and the parent-selected week.
+  - Banner `10 hanzi-glyph + 11 hanzi-tap` (was 9 + 8).
+  - Mutation runs with the built binary, each restored and checked byte-identical, all fail at least one new or updated check: cooldown only in the retry lane, two-target weeks accepted, the guard re-armed by `cleanRounds == 0`, the legacy decode defaulting to false, a review round dropping the postponed retry, reversed adapter strokes, and adapter `zh` lines taken from the English. With the earlier-failing checks skipped, the cooldown mutation also fails the narrow-week part and, on its own, the cycle-boundary part (`木 missed in round 6, dealt again in round 8`).
+  - Verification on this Linux box: `env LD_LIBRARY_PATH=/home/box/.local/swiftlibs PATH=/tmp/visa-games-swift/toolchain/usr/bin:/usr/bin:/bin bash scripts/test.sh` passed (`visa-games-sessions/hanzi/h1-fix1b/test-box.log`, EXIT=0). No app (VisaGames) source changed in this round. No Mac mini run and no UAT.
+- Open: H2 finding UI; H3 trace and headlights: the Hanzi write round (`TapLetterWriteRound` builds Latin paths), the 田字格 stage placement and guide style (the 0.6 style is keyed on `latin:`), and wiring the fix-round-1 adapters into them; H4 parent cards, toggles, a week editor (a week under three targets loads as the pack week) and the report area; H5 household release.
+
+## 2026-11-06 — v0.38.0 / 81 fix round 1 — 入／八 MOE display forms; cue-art README
+
+- From `visa-games-sessions/hanzi/h0/ASTRA-REVIEW.md` (NOT READY: 0 blockers, 1 major, 1 nit). Same build 81; data, tests and docs only. No Swift source changed. No commit, push, stash or checkout.
+- MOE retrieval (2026-11-06 05:06 HKT, curl):
+  - `dictView.jsp?ID=20837&la=0` is 入 (`入,2 畫,入部`) and `?ID=20843&la=0` is 八 (`八,2 畫,八部`), both HTTP 200;
+  - `provideStrokeInfo.do?ucs=5165` / `?ucs=516B` returned HTTP 404, as for 木, so the stroke XML is the pages' embedded `xml[20837]` / `xml[20843]`;
+  - raw files are in `visa-games-sessions/hanzi/moe/`.
+- MOE forms:
+  - 入: the 捺 starts above and left, and the 撇 starts on the 捺 (the reverse of 人);
+  - 八: the 捺 head is directly above a short, separate 撇.
+  - Both match the 2026-11-03 audit rows exactly, so the run-1 paths were wrong, not the audit.
+- Pack:
+  - 入 and 八 are re-authored from the MOE tracks with the H0 method (`h0/moe_extract.py` → `fit_centrelines.py` → `build_pack.py`). Two cases were added: outline mid-width points for 八's two-point 撇 track, and a polyline fit for the headed 捺 of both.
+  - Paths: 入 `M138 111 C125 156 96 189 51 210` / `M107 91 C167 109 174 215 251 209`; 八 `M117 137 C102 167 79 193 50 210` / `M117 92 C175 107 177 213 250 206`.
+  - Every start and end is within 0.61 of its MOE track end.
+  - `displayFormVerified` is true for both, `moeSource.checked` is count/order/shape with the track ends, and `dealableFindOnly` is 入, 八, 本, 未.
+  - Both stay find-only (D2): never targets, no starts, no writing progress.
+  - The rest of the pack is byte-identical, apart from the provenance `geometry` line.
+- Tests (`HanziGlyphTests`, still 9 checks):
+  - the find-only check pins the raw 入／八 MOE track ends, checks the 人／入／八 start relations and requires all four forms verified;
+  - the MOE-track check now covers 木 入 八 本 未;
+  - the board check expects four dealable find-only glyphs.
+  - Mutation runs with the built binary: the pre-fix pack and 人-like 入 paths both fail.
+- `docs/hanzi-cue-art/README.md`: "no inline colours" now applies only to the trees, and the `left-hand-2` palette override (inherited by `right-hand-2`) is documented.
+- Comparison: `visa-games-sessions/hanzi/h0/SOURCE-COMPARE.md` §1, §3, §4 and §9.
+- Verification on this Linux box: `env PATH=/tmp/visa-games-swift/toolchain/usr/bin:/usr/bin:/bin bash scripts/test.sh` passed (`visa-games-sessions/hanzi/h0-fix1/test-box.log`, EXIT=0; the banner includes `9 hanzi-glyph`). No Mac mini run, no UAT, and no Chrome render.
+
+## 2026-11-06 — v0.38.0 / 81 — Hanzi H0 data pack (人上下左右木)
+
+- Written by Claude Code on `feat/hanzi-tap` from `main` @ `cd232f5` (0.37.0/80), from `visa-games-sessions/hanzi/h0/HANDOFF.md`, the six-target addendum (2026-11-06) and `visa-games-design/hanzi-tap/v2` (LOCKED D1–D12). H0 only: data and source contract. No activity kind, deal, scheduler, store, find/write UI, parent card or report was added. No commit, push, stash or checkout.
+- `Resources/HanziTap/hanzi-pack.json` (`visagames.hanziPack.v1`) contains:
+  - six targets 人 上 下 左 右 木, with ordered 300 × 300 centre lines (2 / 3 / 3 / 5 / 5 / 4 strokes), numbered starts with review-label leaders, guide beats and cues, two cue pictures each, meanings, jyutping and voice keys, and MOE provenance;
+  - find-only glyphs 入 八 本 未;
+  - the 2×5 board with the six-glyph week, five distinct glyphs per row, and confusable pairs including 木–本 and 木–未;
+  - defaults with both games, audio and jyutping OFF;
+  - 29 child copy lines. Parent labels are not in the pack (H4).
+- 人上下左右: the LOCKED spec's centre lines, markers, beats, cues and copy are carried verbatim (右 in MOE order after D5).
+- 木:
+  - Taiwan MOE order 橫 → 豎 → 撇 → 捺 (4 strokes), from the `xml[26408]` embedded in the cached dictView page. `provideStrokeInfo.do` returned 404 on 2026-11-06.
+  - Centre lines are authored from the MOE tracks: one uniform map (scale 0.11 about the box centre), level 橫, straight 豎, and one cubic per 撇／捺. Every start and end lies within 8.51 units of its MOE track end.
+  - New beats 「橫先行！」「直落！」「撇落去！」「捺出去！」, one AHEAD cue where the 豎 crosses the 橫, and no STOP. Cue pictures are `tree` / `tree-2`.
+- Find-only:
+  - 本 (橫豎撇捺橫) and 未 (橫橫豎撇捺) were checked against the cached MOE pages (count, order, track ends) and added to `approvedFindOnlyPool`.
+  - 入 and 八 stay in the pool (D2) but are held back from deals. The run-1 入 display path puts the 撇 on top like 人, which contradicts the 2026-11-03 MOE audit. 八 has no cached MOE page, and its audit row conflicts with its path. (Settled in fix round 1, above.)
+  - This is recorded as `board.findOnlyDealRule` plus a per-glyph `displayFormVerified`; `HanziPack.dealableFindOnly` is 本, 未 (入, 八, 本, 未 since fix round 1). With six targets the guard never needs a filler.
+- `VisaCore/HanziGlyphs.swift`:
+  - `HanziPack` decoder (`load(url:)`, `load(data:)`, `loadBundled()`). It fails closed on a wrong schema, a decoding error or any of its `problems`: reference integrity, stroke numbering and kinds, single-subpath SVG, declared start/end vs the path, corners at path joins, box bounds, marker anchors, beat coverage, and STOP only at a true turn.
+  - `HanziGlyphs.paths` returns `TracePath`s. Unknown glyphs have no strokes.
+- Cue art: `tree` / `tree-2` were added to the design sprite (`hanzi-tap/v2/assets/illustrations.svg`, shared tokens only) and copied with the token sheet to `docs/hanzi-cue-art/`. The app does not draw them yet (H2).
+- `scripts/bundle.sh` copies the pack to `Contents/Resources/HanziTap/`.
+- Tests: `HanziGlyphTests` adds 9 checks, registered in the runner; the banner reads `9 hanzi-glyph`. They cover:
+  - pack, board and defaults;
+  - counts, orders, bounds, corners and the verbatim paths;
+  - 木 / 本 / 未 against their MOE tracks, with the order pinned;
+  - find-only forms and review status;
+  - guide and sign policy (AHEAD only at junctions, exactly one STOP);
+  - HK Traditional copy against the OpenCC fixture, with 托 exempted as an OpenCC false positive (托住 is standard Traditional);
+  - cue IDs against the sprite, and token-only trees;
+  - tracing every target at narrow, standard and wide tolerance, one pen-down per stroke;
+  - fail-closed loading over 16 mutated packs, plus a `bundle.sh` source guard.
+- Version 0.38.0 / 81 (`Info.plist`, parent footer label, both version assertions).
+- Source comparison, MOE citations and open items are in `visa-games-sessions/hanzi/h0/SOURCE-COMPARE.md`. Still open:
+  - the 入／八 display forms (MOE XML for dictView ID 20837 / 20843) — settled in fix round 1, above;
+  - Carter's naturalness check of the new 木 lines and the 本／未 meanings and readings (not checked against words.hk);
+  - the D9 熄 label vs the build-80 開／關 rule (H4);
+  - H1–H5.
+- Verification on this Linux box:
+  - `env PATH=/tmp/visa-games-swift/toolchain/usr/bin:/usr/bin:/bin bash scripts/test.sh` passed with exit 0 in `visa-games-sessions/hanzi/h0/test-box-run3.log` (01:20 HKT; the banner includes `9 hanzi-glyph`) and in the orchestrator's re-run `test-box-orch1.log` (02:02 HKT). The final redirect to `h0/test-box.log` was cut off when the session limit hit, and holds only the build lines (corrected in fix round 1). The unchanged baseline also passed before any H0 edit (`test-box-baseline.log`).
+  - The first H0 run stopped at the 托 fixture hit; that was fixed in the test, not in the copy.
+  - `swiftc -parse` passed for `ParentSettingsView.swift` (version string only). SwiftUI/AppKit are not type-checked here, and `bundle.sh` was not run (no AppKit on Linux).
+  - No Mac mini run, no UAT, and no Chrome render.
+
 ## 2026-11-05 — v0.37.0 / 80 fix round 1 — reserved warning slots; 開／關 in reports
 
 - From `b80/ASTRA-REVIEW-r0.md` (two minors). Same build 80; copy/layout only; loading stays off-main. No commit, push, stash or checkout.

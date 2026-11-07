@@ -218,14 +218,22 @@ public struct ShapeTraceQuestion: Sendable, Equatable {
     public let car: ShapeTraceCar?
     /// ★★ / ★★★ size variant (0 smallest … 2 largest); scenery for undrawn slots uses it too.
     public let size: Int
+    /// A stroke is drawn no earlier than this share of its length (0 = the tolerance's arrival rule alone). Hanzi
+    /// (H3) uses 0.7, so a short stroke such as 下's dot cannot finish as a tap or a nudge.
+    public let minimumArrivalFraction: Double
+    /// How the pen takes and drives the vehicle: `.shared` for every trace but Hanzi.
+    public let penRule: ShapeTracePenRule
 
     public init(itemID: String, kind: ActivityKind, level: ActivityLevel, scene: ShapeTraceScene, shift: Double,
                 big: Bool, slant: Bool, shapes: [ShapeTraceShape], laneWidth: Double, promptKey: String,
                 promptTraditionalChinese: String, promptEnglish: String, featured: ShapeTraceMixShape? = nil,
-                car: ShapeTraceCar? = nil, size: Int = 1) {
+                car: ShapeTraceCar? = nil, size: Int = 1, minimumArrivalFraction: Double = 0,
+                penRule: ShapeTracePenRule = .shared) {
         self.featured = featured
         self.car = car
         self.size = size
+        self.minimumArrivalFraction = minimumArrivalFraction
+        self.penRule = penRule
         self.itemID = itemID
         self.kind = kind
         self.level = level

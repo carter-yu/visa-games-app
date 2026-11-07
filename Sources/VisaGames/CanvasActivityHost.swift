@@ -102,6 +102,8 @@ struct CanvasActivityHost: View {
                 tapCount
             case .tapLetterAll, .tapLetterWrite:
                 tapLetter
+            case .tapHanziAll, .tapHanziWrite:
+                tapHanzi
             case .none:
                 EmptyView()
             }
@@ -444,6 +446,35 @@ struct CanvasActivityHost: View {
                                plaqueNudge: model.tapLetterPlaqueNudge,
                                onTap: { model.tapLetterTap(card: $0) },
                                onReprompt: { model.speakTapLetterPrompt() })
+            }
+        }
+    }
+
+    /// 中文字 · 翻字卡 (Hanzi H2): the 2 × 5 find board. 搵完寫 shows the same find phase, then (H3) its 田字格 write
+    /// round once both are found and the stroke reveal is done.
+    @ViewBuilder
+    private var tapHanzi: some View {
+        if let board = model.currentTapHanziBoard, let pack = model.tapHanziPack, let copy = model.tapHanziCopy {
+            if shownKind == .tapHanziWrite, let round = model.currentTapHanziWriteRound, let writeCopy = model.tapHanziWriteCopy,
+               round.phase == .writing || round.phase == .done {
+                TapHanziWriteBoardView(round: round, pack: pack, copy: writeCopy, audioOn: model.tapHanziAudioOn,
+                                       now: model.now.timeIntervalSinceReferenceDate, bubble: model.tapHanziWriteBubble,
+                                       onDown: { model.tapHanziWritePenDown($0) },
+                                       onMove: { model.tapHanziWritePenMove($0) },
+                                       onUp: { model.tapHanziWritePenUp() },
+                                       onReprompt: { model.speakTapHanziPrompt() })
+            } else {
+            TapHanziBoardView(board: board, pack: pack, copy: copy, isWrite: shownKind == .tapHanziWrite,
+                              audioOn: model.tapHanziAudioOn,
+                              pendingMinutes: pendingMinutes,
+                              fuelBefore: model.tapHanziFuelBefore,
+                              thinkPauseRemaining: thinkRemaining,
+                              bubble: model.tapHanziBubble,
+                              celebrating: model.tapHanziCelebrating,
+                              strokeReveal: model.tapHanziStrokeReveal,
+                              plaqueNudge: model.tapHanziPlaqueNudge,
+                              onTap: { model.tapHanziTap(card: $0) },
+                              onReprompt: { model.speakTapHanziPrompt() })
             }
         }
     }

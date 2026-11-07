@@ -136,7 +136,11 @@ final class ActivityTests {
     }
 
     func testCatalogPlayableKindsAndRotation() {
-        expectEqual(ActivityCatalog.playableKinds.count, 25)
+        // Build 83 (Hanzi H2): 中文字 · 翻字卡 joined as the 26th playable kind, default-off; build 84 (H3): 搵完寫
+        // joins with its write round as the 27th, default-off.
+        expectEqual(ActivityCatalog.playableKinds.count, 27)
+        expectTrue(ActivityCatalog.playableKinds.contains(.tapHanziAll))
+        expectTrue(ActivityCatalog.playableKinds.contains(.tapHanziWrite))
         expectTrue(ActivityCatalog.playableKinds.contains(.twoPictureChoose))
         expectTrue(ActivityCatalog.playableKinds.contains(.findTheSame))
         expectTrue(ActivityCatalog.playableKinds.contains(.countVehicles))
@@ -161,7 +165,8 @@ final class ActivityTests {
         expectEqual(ActivityCatalog.defaultOffKinds,
                     [.lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch, .traceLines, .traceShapesDotted,
                      .traceShapesArrows, .traceShapesFree, .tapCountAll, .tapCountTrace, .tapCountPick,
-                     .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite])
+                     .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite,
+                     .tapHanziAll, .tapHanziWrite])
         expectEqual(ActivityCatalog.defaultOnKinds.count, 10)
         expectEqual(ActivityCatalog.stubKinds, [])
         // Deterministic: same seed → same kind; covering seeds hit every default-on kind (D7:

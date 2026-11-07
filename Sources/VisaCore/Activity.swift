@@ -76,6 +76,12 @@ public enum ActivityKind: String, CaseIterable, Sendable, Codable, Equatable, Ha
     case tapLetterAll
     /// Letters ABC · Find & write: find both copies, then trace the lowercase target.
     case tapLetterWrite
+    /// 中文字 · 翻字卡 / Find & flip (Hanzi H1, 0.38.0 / 82): find both copies of the week character.
+    /// Playable since its find UI (H2, build 83), default-off until its own playtest; its own parent card is H4.
+    case tapHanziAll
+    /// 中文字 · 搵完寫 / Find & write: find both copies, then write the character. Not playable until its write
+    /// round (H3); the find phase is wired (H2) and holds before writing.
+    case tapHanziWrite
 }
 
 extension ActivityKind {
@@ -141,7 +147,12 @@ extension ActivityKind {
     /// D11: a parent plays the card through once in 試玩 before a star can be turned on.
     public var isTapLetterFamily: Bool { self == .tapLetterAll || self == .tapLetterWrite }
     public var tapLetterLevel: ActivityLevel? { self == .tapLetterAll ? .l1 : self == .tapLetterWrite ? .l2 : nil }
-    public var requiresPlaytestBeforeStars: Bool { isShapeTraceFamily || isTapCountFamily || isTapLetterFamily }
+    /// Hanzi D1 / D6: two independent cards (★ find, ★★ find then write), each OFF until its own playtest.
+    public var isTapHanziFamily: Bool { self == .tapHanziAll || self == .tapHanziWrite }
+    public var tapHanziLevel: ActivityLevel? { self == .tapHanziAll ? .l1 : self == .tapHanziWrite ? .l2 : nil }
+    public var requiresPlaytestBeforeStars: Bool {
+        isShapeTraceFamily || isTapCountFamily || isTapLetterFamily || isTapHanziFamily
+    }
 
     /// How this kind deals a line-match question. Guided kinds pin geometry (straight = L1,
     /// bridge = L2); free match uses the mission star's level. Nil when not a line-match kind.
@@ -182,6 +193,8 @@ extension ActivityKind {
         case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentCardTitle(self)
         case .tapLetterAll: return "英文字母 ABC · 翻字卡"
         case .tapLetterWrite: return "英文字母 ABC · 搵完寫"
+        case .tapHanziAll: return "中文字 · 翻字卡"
+        case .tapHanziWrite: return "中文字 · 搵完寫"
         }
     }
 
@@ -211,6 +224,8 @@ extension ActivityKind {
         case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentCardEnglish(self)
         case .tapLetterAll: return "Letters ABC · Find & flip"
         case .tapLetterWrite: return "Letters ABC · Find & write"
+        case .tapHanziAll: return "Chinese characters · Find & flip"
+        case .tapHanziWrite: return "Chinese characters · Find & write"
         }
     }
 
@@ -238,8 +253,8 @@ extension ActivityKind {
         case .tapCountTrace: return "數完畫"
         case .tapCountPick: return "揀啱數"
         case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentShortLabel(self)
-        case .tapLetterAll: return "翻字卡"
-        case .tapLetterWrite: return "搵完寫"
+        case .tapLetterAll, .tapHanziAll: return "翻字卡"
+        case .tapLetterWrite, .tapHanziWrite: return "搵完寫"
         }
     }
 
@@ -269,6 +284,8 @@ extension ActivityKind {
         case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentHelpTraditionalChinese(self)
         case .tapLetterAll: return "搵晒嗰個英文字母，點啱一張就翻出一張字卡（圖 + 字 + 讀音）！"
         case .tapLetterWrite: return "搵晒個英文字母（一樣翻出字卡），再跟住箭嘴寫一次！"
+        case .tapHanziAll: return "搵晒嗰個中文字，點啱一張就翻出一張字卡（圖 + 字 + 意思）！"
+        case .tapHanziWrite: return "搵晒個中文字（一樣翻出字卡），再跟住箭嘴寫一次！"
         }
     }
 
@@ -297,6 +314,8 @@ extension ActivityKind {
         case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentHelpEnglish(self)
         case .tapLetterAll: return "Find every copy of the letter; each one flips into a word card!"
         case .tapLetterWrite: return "Find every copy, then write the letter along the arrows!"
+        case .tapHanziAll: return "Find every copy of the character; each one flips into a picture card!"
+        case .tapHanziWrite: return "Find every copy, then write the character along the arrows!"
         }
     }
 
@@ -353,6 +372,10 @@ extension ActivityKind {
             return ["tapLetter.icon.all"]
         case .tapLetterWrite:
             return ["tapLetter.icon.write"]
+        case .tapHanziAll:
+            return ["tapHanzi.icon.all"]
+        case .tapHanziWrite:
+            return ["tapHanzi.icon.write"]
         }
     }
 }
@@ -954,6 +977,7 @@ public enum FirstEntryActivity {
 /// Activity-type inspiration only — no Gakken IP; no Tomica/Thomas/Tayo likenesses.
 public enum ActivityCatalog {
     /// Playable kinds the child can get after picking difficulty (rotation by round seed).
+    /// `tapHanziAll` joined with its find UI (Hanzi H2, build 83); `tapHanziWrite` with its write round (H3, build 84).
     public static let playableKinds: [ActivityKind] = [
         .twoPictureChoose,
         .findTheSame,
@@ -978,15 +1002,18 @@ public enum ActivityCatalog {
         .tapCountAllEnglish,
         .tapCountTraceEnglish,
         .tapCountPickEnglish,
-        .tapLetterAll, .tapLetterWrite
+        .tapLetterAll, .tapLetterWrite,
+        .tapHanziAll, .tapHanziWrite
     ]
 
     /// D7 (Carter 2026-10-13, option B): new kinds join no ticket until a parent turns a star on
     /// in 家長 → 遊戲 (after 試玩). They stay playable from the parent catalog.
+    /// Both Hanzi kinds are listed from H1, so each starts OFF (hanzi D6) when it becomes playable (翻字卡 in H2).
     public static let defaultOffKinds: [ActivityKind] = [
         .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch, .traceLines, .traceShapesDotted,
         .traceShapesArrows, .traceShapesFree, .tapCountAll, .tapCountTrace, .tapCountPick,
-        .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite
+        .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite,
+        .tapHanziAll, .tapHanziWrite
     ]
 
     /// Kinds every ticket deals before a parent changes anything (the v0.22 rotation).
@@ -1317,6 +1344,8 @@ public enum ActivityCatalog {
             return TapCountEnglishCopy.hint
         case .tapLetterAll, .tapLetterWrite:
             return "提示：搵一樣嘅字母。 / Hint: look for the same letter."
+        case .tapHanziAll, .tapHanziWrite:
+            return "提示：搵一樣嘅中文字。 / Hint: look for the same character."
         }
     }
 }

@@ -1,0 +1,51 @@
+/* Original SVG illustration system. All assets use these same tokens. */
+:root {
+  --ink: #302a35;
+  --outline: 5.5;
+  --detail-outline: 3.5;
+  --cream: #fff9ed;
+  --yellow: #ffd647;
+  --yellow-shade: #eab735;
+  --teal: #2d9fa5;
+  --teal-shade: #247e88;
+  --red: #ed4b41;
+  --red-shade: #ce403b;
+  --sky: #aedcf0;
+  --lavender: #c4bbd3;
+  --skin: #f5d5a1;
+  --skin-shade: #e7b980;
+  --blush: #f6a7b3;
+  --shadow: #302a35;
+  --shadow-opacity: .12;
+  --corner-radius: 18px;
+}
+.ill { overflow: visible; }
+.ill .outline, .ill.outline, .outline {
+  stroke: var(--ink); stroke-width: var(--outline);
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.ill .detail, .detail {
+  fill: none; stroke: var(--ink); stroke-width: var(--detail-outline);
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.ill .ink, .ink { fill: var(--ink); }
+.ill .cream, .cream { fill: var(--cream); }
+.ill .white, .white { fill: #fff; }
+.ill .yellow, .yellow { fill: var(--yellow); }
+.ill .yellow-shade, .yellow-shade { fill: var(--yellow-shade); }
+.ill .teal, .teal { fill: var(--teal); }
+.ill .teal-shade, .teal-shade { fill: var(--teal-shade); }
+.ill .red, .red { fill: var(--red); }
+.ill .red-shade, .red-shade { fill: var(--red-shade); }
+.ill .sky, .sky { fill: var(--sky); }
+.ill .lavender, .lavender { fill: var(--lavender); }
+.ill .skin, .skin { fill: var(--skin); }
+.ill .skin-shade, .skin-shade { fill: var(--skin-shade); }
+.ill .blush, .blush { fill: var(--blush); }
+.ill .ground-shadow, .ground-shadow { fill: var(--shadow); opacity: var(--shadow-opacity); }
+.ill .shine, .shine { fill: none; stroke: #fff; stroke-width: 6; stroke-linecap: round; opacity: .75; }
+.ill .cloud, .cloud { fill: #eaf7fc; }
+.ill .eye, .eye { fill: var(--ink); }
+.ill .eye-shine, .eye-shine { fill: #fff; }
+.ill .road, .road { fill: #eadabd; }
+.ill .road-line, .road-line { fill: none; stroke: #fff9ed; stroke-width: 4; stroke-linecap: round; }
