@@ -753,16 +753,16 @@ final class WeeklyReportPDFTests {
             expectFalse(storage.contains(needle), "resetStorage must not use \(needle)")
         }
         expectTrue(storage.contains("perf.marker(\"reset_storage\")"))
-        // Version: Info.plist == the parent footer == 0.39.0 / build 85.
+        // Version: Info.plist == the parent footer == 0.39.0 / build 86.
         func plistValue(_ key: String) -> String? {
             guard let keyRange = plist.range(of: "<key>\(key)</key><string>"),
                   let end = plist.range(of: "</string>", range: keyRange.upperBound..<plist.endIndex) else { return nil }
             return String(plist[keyRange.upperBound..<end.lowerBound])
         }
         expectEqual(plistValue("CFBundleShortVersionString"), "0.39.0")
-        expectEqual(plistValue("CFBundleVersion"), "85")
+        expectEqual(plistValue("CFBundleVersion"), "86")
         expectTrue(settings.contains("static let versionLabel = \"Visa Games v0.39.0\""))
-        print("  weekly report pdf: clear dialog sentence, clear order, visa reset untouched, version 0.39.0 / 85")
+        print("  weekly report pdf: clear dialog sentence, clear order, visa reset untouched, version 0.39.0 / 86")
     }
 
     // MARK: The macOS PDF maker and the app wiring (source guards; the WebKit run is `WeeklyReportPDFMacTests`)

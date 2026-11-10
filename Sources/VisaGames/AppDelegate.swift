@@ -11,6 +11,10 @@ final class AppModel: ObservableObject {
     /// The child path redraws every tick as before; the plain parent settings page does
     /// not, so the whole page is no longer re-evaluated twice a second (snap HYPOTHESIS 2).
     private(set) var now = Date()
+    /// Clock chip C1: `systemUptime` read once, at app start (`AppDelegate` builds the one AppModel before
+    /// `app.run()`). The chip's bottom row counts from here: monotonic, so a wall-clock change cannot move it and Mac
+    /// sleep is excluded; only a relaunch starts it again at 0 (design Q1).
+    let launchUptime = ProcessInfo.processInfo.systemUptime
     @Published private(set) var message: String?
     @Published private(set) var authenticating = false
     @Published private(set) var themePaletteID: ThemePaletteID
@@ -3707,6 +3711,19 @@ struct ShellView: View {
         !model.showTimesUp && model.session.mode == .play && playRoute == .watch
     }
 
+    /// Clock chip C1: the screen `childOrLegacy` shows, from the same inputs in the same branch order (VisaCore
+    /// `StatusRoute`), as a chip plan. Nil under parent controls, on the LM family until C4 and on Watch until C5.
+    private var statusChipPlan: StatusChipPlan? {
+        StatusChipPlan(
+            route: StatusRoute(mode: model.session.mode, providerBlocked: model.showProviderBlocked,
+                               timesUp: model.showTimesUp, taskRoundOpen: model.taskRoundOpen,
+                               letterTicketUnavailable: model.unavailableLetterTicket,
+                               boardKind: model.activeActivityKind, playRoute: playRoute),
+            activeKind: model.activeActivityKind,
+            thinkPauseRemaining: model.thinkPauseRemainingSeconds
+        )
+    }
+
     /// v0.22.2: build the ZStack in place (no precomputed `content`). Skip ParentCornerLayer
     /// on the depot — DepotHomeView already embeds ParentCornerEntry; a second full-screen
     /// CanvasStage/GeometryReader overlay can steal ticket taps (hang sample: idle main thread).
@@ -3717,8 +3734,15 @@ struct ShellView: View {
         // Depot has its own parent corner; Watch uses the garage glyph (ADR 0007 §5).
         let onDepot = model.session.mode == .lock && !model.taskRoundOpen && !model.unavailableLetterTicket
         let showsParentCorner = childMode && !watching && !onDepot
+        let statusChip = statusChipPlan
         return ZStack {
             childOrLegacy
+            // Clock chip C1 (design §2.1 order: content, chip, parent corner, pen spark). Never hit-testable.
+            if let statusChip {
+                StatusClockLayer(plan: statusChip, launchUptime: model.launchUptime)
+                    .equatable()
+                    .ignoresSafeArea()
+            }
             if showsParentCorner {
                 ParentCornerLayer(onUnlock: { model.unlock() })
                     .ignoresSafeArea()
