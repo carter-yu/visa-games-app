@@ -3,8 +3,8 @@ import VisaCore
 
 /// Clock + elapsed glance chip C1 (0.39.0 / 86; clock-playtime design §1.3, §2.1, §2.7, §6, §9 C1; chip-rows/
 /// compare.md FINAL v1 §5): the Hong Kong `h:mm` over the time since this app started, in the slot `plan` gives.
-/// `ShellView` builds the plan from the screen it shows; with no plan (parent controls, the LM family until C4, Watch
-/// until C5) the layer is not there at all.
+/// `ShellView` builds the plan from the screen it shows; with no plan (parent controls, the LM family until C4) the
+/// layer is not there at all. On Watch the chip sits in the strip above the player (C5, 0.39.0 / 87; `screenRect`).
 ///
 /// Never hit-testable, never focusable and without gestures, like `PenSparkOverlay`: taps, pen strokes and the parent
 /// hold reach whatever is under it. `Equatable` + `.equatable()`: the 0.5 s shell tick does not re-render it, and it
@@ -24,7 +24,7 @@ struct StatusClockLayer: View, Equatable {
         GeometryReader { proxy in
             let width = Double(proxy.size.width)
             let height = Double(proxy.size.height)
-            let rect = StatusSlot.onScreen(plan.slot, screenWidth: width, screenHeight: height)
+            let rect = plan.screenRect(screenWidth: width, screenHeight: height)
             let stage = DesignTokens.stageLayout(screenWidth: width, screenHeight: height)
             TimelineView(StatusChipSchedule(launchUptime: launchUptime)) { context in
                 // The top row reads the entry's instant; the bottom row reads only the two uptimes.

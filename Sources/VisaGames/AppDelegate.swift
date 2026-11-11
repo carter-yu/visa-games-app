@@ -3712,7 +3712,8 @@ struct ShellView: View {
     }
 
     /// Clock chip C1: the screen `childOrLegacy` shows, from the same inputs in the same branch order (VisaCore
-    /// `StatusRoute`), as a chip plan. Nil under parent controls, on the LM family until C4 and on Watch until C5.
+    /// `StatusRoute`), as a chip plan. Nil under parent controls and on the LM family until C4; on Watch the chip sits
+    /// in the strip above the player (C5).
     private var statusChipPlan: StatusChipPlan? {
         StatusChipPlan(
             route: StatusRoute(mode: model.session.mode, providerBlocked: model.showProviderBlocked,

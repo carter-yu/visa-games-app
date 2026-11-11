@@ -3,14 +3,16 @@ import VisaCore
 
 /// Clock + elapsed chip C1 (0.39.0 / 86): the child glance chip layer's pure decisions (clock-playtime design §1.3,
 /// §2.1–2.3, §2.7, §6, §9 C1, D-C0b and D-C0c; chip-rows/compare.md FINAL v1 §5) and source guards on the app wiring
-/// (`ShellView`, `AppModel.launchUptime`, `StatusClockLayer`), which this box cannot compile. Expected values are
-/// written out here, never recomputed with the code under test.
+/// (`ShellView`, `AppModel.launchUptime`, `StatusClockLayer`), which this box cannot compile. Since C5 (0.39.0 / 87)
+/// Watch has the strip slot; its own checks are `StatusWatchStripTests`. Expected values are written out here, never
+/// recomputed with the code under test.
 final class StatusChipLayerTests {
     private static func utc(_ stamp: String) -> Date { PerfCodec.parseTimestamp(stamp)! }
 
-    /// S and S_pick (design §2.3; compare.md §5).
+    /// S, S_pick and the Watch strip slot (design §2.3; compare.md §4–§5).
     private static let s = LineMatchRect(x: 1190, y: 6, width: 84, height: 40)
     private static let sPick = LineMatchRect(x: 1042, y: 6, width: 84, height: 40)
+    private static let watchStrip = LineMatchRect(x: 1196, y: 0, width: 84, height: 40)
 
     /// The header families of design §2.3 rows 2–4 (10 + 4 + 13 kinds).
     private static let boardTwo: [ActivityKind] = [.twoPictureChoose, .findTheSame, .countVehicles, .sequenceShortToLong,
@@ -95,13 +97,13 @@ final class StatusChipLayerTests {
 
     // MARK: Slot and the hidden rule
 
-    /// Where the chip goes (design §2.3, §9 C1, D-C0c): S on rows 1–3, 5–7, 9–11 and Setup, S_pick on the picker,
-    /// nothing on the LM family until C4 or on Watch until C5, and nothing under parent controls.
-    func testChipSitsAtItsSlotAndHidesOnLineMatchAndWatch() {
+    /// Where the chip goes (design §2.3, §9 C1, D-C0c, §9 C5): S on rows 1–3, 5–7, 9–11 and Setup, S_pick on the
+    /// picker, the strip slot on Watch (C5), nothing on the LM family until C4, and nothing under parent controls.
+    func testChipSitsAtItsSlotAndHidesOnLineMatch() {
         let expected: [(StatusRoute, LineMatchRect?)] = [
             (.depot, Self.s), (.boardTwo, Self.s), (.hanziLetter, Self.s), (.lineMatchFamily, nil), (.stamp, Self.s),
             (.timesUp, Self.s), (.resumeChoice, Self.s), (.videoPicker, Self.sPick), (.emptyAllowlist, Self.s),
-            (.letterUnavailable, Self.s), (.providerBlocked, Self.s), (.watch, nil), (.setup, Self.s)
+            (.letterUnavailable, Self.s), (.providerBlocked, Self.s), (.watch, Self.watchStrip), (.setup, Self.s)
         ]
         expectEqual(expected.count, 13)
         expectEqual(Set(expected.map { $0.0 }), Set(StatusRoute.allCases))
@@ -112,8 +114,9 @@ final class StatusChipLayerTests {
             expectEqual(plan?.route, shownRoute, "\(route)")
         }
         expectNil(Self.plan(nil, .findTheSame))
-        // C1's hidden rule names exactly the routes without a slot, so C4 and C5 have to change both together.
-        expectEqual(StatusChipPlan.hiddenRoutes, [.lineMatchFamily, .watch])
+        // The hidden rule names exactly the routes without a slot, so C4 has to change both together (C5 took Watch
+        // out of both).
+        expectEqual(StatusChipPlan.hiddenRoutes, [.lineMatchFamily])
         for route in StatusRoute.allCases {
             expectEqual(StatusChipPlan.hiddenRoutes.contains(route), StatusSlot.rect(for: route) == nil, "\(route)")
         }
@@ -126,9 +129,10 @@ final class StatusChipLayerTests {
             if lineMatch { hiddenBoards += 1 }
         }
         expectEqual(hiddenBoards, 13)
-        // Watch hides it, the picker moves it to S_pick, Time's up over a playing video brings it back at S, Setup
-        // shows it at S, and parent controls (with or without a 試玩 board) never show the child chip.
-        expectNil(Self.plan(Self.shown(.play, play: .watch), .findTheSame))
+        // Watch shows it in the strip above the player (C5), the picker moves it to S_pick, Time's up over a playing
+        // video puts it at S, Setup shows it at S, and parent controls (with or without a 試玩 board) never show the
+        // child chip.
+        expectEqual(Self.plan(Self.shown(.play, play: .watch), .findTheSame)?.slot, Self.watchStrip)
         expectEqual(Self.plan(Self.shown(.play, play: .videoPicker))?.slot, Self.sPick)
         expectEqual(Self.plan(Self.shown(.play, timesUp: true, play: .watch))?.slot, Self.s)
         expectEqual(Self.plan(Self.shown(.setup))?.slot, Self.s)
@@ -147,8 +151,8 @@ final class StatusChipLayerTests {
             if tone == .night { nights += 1 }
         }
         expectEqual(nights, 3)
-        expectEqual([Self.plan(.timesUp)?.tone, Self.plan(.resumeChoice)?.tone, Self.plan(.setup)?.tone,
-                     Self.plan(.depot)?.tone], [.night, .night, .day, .day])
+        expectEqual([Self.plan(.timesUp)?.tone, Self.plan(.resumeChoice)?.tone, Self.plan(.watch)?.tone,
+                     Self.plan(.setup)?.tone, Self.plan(.depot)?.tone], [.night, .night, .night, .day, .day])
         // English: the Letters boards, the stamp after a Letters round and the English tap-count twins.
         let english: [(StatusRoute, ActivityKind)] = [
             (.hanziLetter, .tapLetterAll), (.hanziLetter, .tapLetterWrite), (.stamp, .tapLetterAll),
@@ -498,7 +502,7 @@ final class StatusChipLayerTests {
             "struct StatusClockLayer: View, Equatable {",
             "nonisolated static func == (lhs: StatusClockLayer, rhs: StatusClockLayer) -> Bool {",
             "lhs.plan == rhs.plan && lhs.launchUptime == rhs.launchUptime",
-            "StatusSlot.onScreen(plan.slot, screenWidth: width, screenHeight: height)",
+            "plan.screenRect(screenWidth: width, screenHeight: height)",
             "TimelineView(StatusChipSchedule(launchUptime: launchUptime)) { context in",
             "StatusChipContent(date: context.date, launchUptime: launchUptime,",
             "nowUptime: ProcessInfo.processInfo.systemUptime,",

@@ -3,8 +3,8 @@ import Foundation
 // Clock + elapsed status chip C0 (0.39.0 / 85): where the chip sits. clock-playtime design §2.1–2.5 and Locked
 // decision 1 at the R2 size (84 × 40 u, Carter 2026-11-10); chip-rows/compare.md FINAL v1 §4–§5. Canvas units on the
 // 1280 × 720 artboard, mapped to screen points with `DesignTokens.stageLayout`. Pure geometry for the Linux collision
-// and Watch-strip checks; the app's `StatusClockLayer` (C1, 0.39.0 / 86) draws the chip at `rect(for:)`, and the
-// Watch view is unchanged until C5.
+// and Watch-strip checks; the app's `StatusClockLayer` (C1, 0.39.0 / 86) draws the chip at `rect(for:)` on the stage,
+// and on Watch (C5, 0.39.0 / 87) in the strip `WatchStripLayout` lays out, with the Watch view's player under it.
 
 // MARK: - Routes
 
@@ -74,9 +74,12 @@ public enum StatusSlot {
     /// The Watch strip chip on a 16:9 screen: x 1196–1280, y 0–40, its right edge on the safe line (`WatchStripLayout`
     /// places it on any screen).
     public static let watchStrip = LineMatchRect(x: 1196, y: 0, width: chipWidth, height: chipHeight)
+    /// Around the strip chip: x 1188–1280, y 0–48, the chip plus the 8 u gap (`WatchStripLayout.chipGap`) on its open
+    /// sides. On a 16:9 screen the player starts on its bottom edge (118.8 pt on a 1920 × 1080 TV).
+    public static let watchStripKeepOut = LineMatchRect(x: 1188, y: 0, width: 92, height: 48)
 
     /// The chip on `route`, or nil while it is hidden there: the LM family until the C4 header nudge (today's header
-    /// covers S) and Watch until the C5 strip. Setup uses S (D-C0c).
+    /// covers S). Setup uses S (D-C0c); Watch the strip slot (C5).
     public static func rect(for route: StatusRoute) -> LineMatchRect? { placement(route)?.slot }
 
     /// The keep-out around `rect(for:)`.
@@ -89,9 +92,12 @@ public enum StatusSlot {
             return (main, mainKeepOut)
         case .videoPicker:
             return (picker, pickerKeepOut)
-        case .lineMatchFamily, .watch:
-            // No slot until C4 nudges the LM header (§2.4) and C5 adds the Watch strip (§2.5); `StatusChipPlan`
-            // names the same two routes as C1's hidden rule.
+        case .watch:
+            // C5: the strip above the player (§2.5). On screen the layer draws `WatchStripLayout`'s chip
+            // (`StatusChipPlan.screenRect`), which is this rect on a 16:9 stage.
+            return (watchStrip, watchStripKeepOut)
+        case .lineMatchFamily:
+            // No slot until C4 nudges the LM header (§2.4); `StatusChipPlan.hiddenRoutes` names the same route.
             return nil
         }
     }
@@ -113,12 +119,14 @@ public enum StatusSlot {
 
 // MARK: - Watch strip
 
-/// Watch with the C5 status strip above the player (design §2.5, Decision 7; R2 figures in compare.md §4), or today's
-/// Watch without it, in screen points. Watch lays out from the screen edges, not the canvas, so the chip sits at the
-/// top right of the TV safe rect (§2.5: safeTop is 5% of the screen height) and the player's top moves to 8 u under it.
-/// The sides, road strip and bottom stay as today, and nothing is drawn over the web view.
+/// Watch with the status strip above the player (design §2.5, Decision 7; R2 figures in compare.md §4), as the Watch
+/// view lays it out since C5, or Watch before C5 without it (the baseline for the video's loss), in screen points.
+/// Watch lays out from the screen edges, not the canvas, so the chip sits at the top right of the TV safe rect (§2.5:
+/// safeTop is 5% of the screen height) and the player's top moves to 8 u under it. The sides, road strip and bottom
+/// stay as before, and nothing is drawn over the web view.
 public struct WatchStripLayout: Equatable, Sendable {
-    // Today's Watch (`StampWatchTimesUpViews` watchBody), in canvas units at the stage scale.
+    // The Watch view (`StampWatchTimesUpViews` watchBody), in canvas units at the stage scale. `topInset` is the
+    // player's top before C5; with the strip it starts `chipGap` under the chip.
     public static let sideInset: Double = 36
     public static let topInset: Double = 20
     public static let stackSpacing: Double = 12
@@ -137,13 +145,17 @@ public struct WatchStripLayout: Equatable, Sendable {
     /// A 16:9 video fitted and centred in the web view.
     public let video: LineMatchRect
 
-    public init(screenWidth width: Double, screenHeight height: Double, strip: Bool) {
+    /// The strip chip on a `width` × `height` screen: 84 × 40 u at the top right of the TV safe rect.
+    public static func chip(screenWidth width: Double, screenHeight height: Double) -> LineMatchRect {
         let u = DesignTokens.stageLayout(screenWidth: width, screenHeight: height).scale
         let safe = StatusSlot.safeRect(screenWidth: width, screenHeight: height)
-        let chip = strip
-            ? LineMatchRect(x: safe.maxX - StatusSlot.chipWidth * u, y: safe.y,
-                            width: StatusSlot.chipWidth * u, height: StatusSlot.chipHeight * u)
-            : nil
+        return LineMatchRect(x: safe.maxX - StatusSlot.chipWidth * u, y: safe.y,
+                             width: StatusSlot.chipWidth * u, height: StatusSlot.chipHeight * u)
+    }
+
+    public init(screenWidth width: Double, screenHeight height: Double, strip: Bool) {
+        let u = DesignTokens.stageLayout(screenWidth: width, screenHeight: height).scale
+        let chip = strip ? Self.chip(screenWidth: width, screenHeight: height) : nil
         let top = max(Self.topInset * u, chip.map { $0.maxY + Self.chipGap * u } ?? 0)
         let bottom = height - (Self.bottomInset + Self.roadHeight + Self.stackSpacing) * u
         let player = LineMatchRect(x: Self.sideInset * u, y: top, width: width - 2 * Self.sideInset * u,

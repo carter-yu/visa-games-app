@@ -196,19 +196,24 @@ final class StatusClockTests {
         }
         expectTrue(Self.contains(StatusSlot.mainKeepOut, StatusSlot.main))
         expectTrue(Self.contains(StatusSlot.pickerKeepOut, StatusSlot.picker))
-        // S on rows 1–3, 5–7, 9–11 and Setup (row 13, D-C0c), S_pick on the picker, hidden on the LM family and Watch
-        // (design §9 C1).
-        let picked: [StatusRoute: LineMatchRect] = [.videoPicker: StatusSlot.picker]
-        let hidden: Set<StatusRoute> = [.lineMatchFamily, .watch]
+        expectEqual([StatusSlot.watchStripKeepOut.x, StatusSlot.watchStripKeepOut.maxX, StatusSlot.watchStripKeepOut.y,
+                     StatusSlot.watchStripKeepOut.maxY], [1188, 1280, 0, 48])
+        expectTrue(Self.contains(StatusSlot.watchStripKeepOut, StatusSlot.watchStrip))
+        // S on rows 1–3, 5–7, 9–11 and Setup (row 13, D-C0c), S_pick on the picker, the strip slot on Watch (C5),
+        // hidden on the LM family (design §9 C1, until C4).
+        let placed: [StatusRoute: (LineMatchRect, LineMatchRect)] = [
+            .videoPicker: (StatusSlot.picker, StatusSlot.pickerKeepOut),
+            .watch: (StatusSlot.watchStrip, StatusSlot.watchStripKeepOut)
+        ]
+        let hidden: Set<StatusRoute> = [.lineMatchFamily]
         expectEqual(StatusRoute.allCases.count, 13)
         for route in StatusRoute.allCases {
             if hidden.contains(route) {
                 expectNil(StatusSlot.rect(for: route))
                 expectNil(StatusSlot.keepOut(for: route))
             } else {
-                expectEqual(StatusSlot.rect(for: route), picked[route] ?? StatusSlot.main, "\(route)")
-                expectEqual(StatusSlot.keepOut(for: route), picked[route] == nil ? StatusSlot.mainKeepOut
-                                                                                 : StatusSlot.pickerKeepOut, "\(route)")
+                expectEqual(StatusSlot.rect(for: route), placed[route]?.0 ?? StatusSlot.main, "\(route)")
+                expectEqual(StatusSlot.keepOut(for: route), placed[route]?.1 ?? StatusSlot.mainKeepOut, "\(route)")
             }
         }
         // Screen points, [x, maxX, y, maxY], as the design prints them (one decimal).
@@ -233,9 +238,10 @@ final class StatusClockTests {
         expectEqual(tv.height, 54.0, accuracy: 1e-9)
     }
 
-    /// L2 / I10: each slot and keep-out is clear of the documented neighbours on its own route. Today's LM header
-    /// covers S, which is why the chip is hidden there until the C4 nudge; the picker's ticket art covers S, which is
-    /// why the picker uses S_pick. Every game kind has a header family.
+    /// L2 / I10: each slot and keep-out is clear of the documented neighbours on its own route (Watch's own neighbour,
+    /// the player, is in screen points: L3 and `StatusWatchStripTests`). Today's LM header covers S, which is why the
+    /// chip is hidden there until the C4 nudge; the picker's ticket art covers S, which is why the picker uses S_pick.
+    /// Every game kind has a header family.
     func testSlotsClearTheirRoutesNeighbours() {
         // §7.1 L2's neighbour rects (design §2.3 / §2.4, from the app views).
         let boardTwoCluster = LineMatchRect(x: 980, y: 28, width: 184, height: 122)
@@ -258,7 +264,7 @@ final class StatusClockTests {
                 checked += 1
             }
         }
-        expectEqual(checked, 14)
+        expectEqual(checked, 15)
         // The clear space the design quotes (u).
         expectEqual(StatusSlot.main.gap(to: hanziLetterHeader), 8)
         expectEqual(StatusSlot.main.gap(to: boardTwoCluster), 26)
@@ -365,7 +371,9 @@ final class StatusClockTests {
             expectTrue(chip.map { abs($0.x - stage.x) + abs($0.y - stage.y) + abs($0.maxX - stage.maxX)
                 + abs($0.maxY - stage.maxY) < 1e-9 } ?? false, "\(width) × \(height)")
         }
-        // The model's insets are today's Watch view's (`StampWatchTimesUpViews` watchBody and the road strip).
+        // The model's insets are the Watch view's (`StampWatchTimesUpViews` watchBody and the road strip). Since C5 the
+        // view's top is the strip's player top (`StatusWatchStripTests`); `topInset` is the pre-C5 top, the baseline
+        // the video's loss is measured from.
         expectEqual([WatchStripLayout.sideInset, WatchStripLayout.topInset, WatchStripLayout.stackSpacing,
                      WatchStripLayout.roadHeight, WatchStripLayout.bottomInset, WatchStripLayout.webViewInset,
                      WatchStripLayout.chipGap], [36, 20, 12, 78, 20, 8, 8])
@@ -378,7 +386,7 @@ final class StatusClockTests {
         }
         let body = view[start.upperBound..<road.lowerBound]
         for needle in ["VStack(spacing: metrics.u(12))", ".padding(metrics.u(8))", ".padding(.horizontal, metrics.u(36))",
-                       ".padding(.top, metrics.u(20))", ".padding(.bottom, metrics.u(20))", "RoadTimerStrip("] {
+                       ".padding(.top, playerTop)", ".padding(.bottom, metrics.u(20))", "RoadTimerStrip("] {
             expectTrue(body.contains(needle), "watchBody: \(needle)")
         }
         expectTrue(view[road.upperBound..<roadEnd.lowerBound].contains(".frame(height: metrics.u(78))"), "road strip 78 u")
