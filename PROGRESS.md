@@ -1,5 +1,73 @@
 # Progress
 
+## 2026-11-12 — v0.39.0 / 87 — Clock C5: Watch status strip
+
+- Written by Claude Code on `feat/clock-c5` from `feat/clock-c1` @ `9f00799` (0.39.0/86). Sources: `visa-games-sessions/clock/c5/PROMPT.md`; the clock-playtime design (`visa-games-design/clock-playtime/design.md`: Locked decisions with the R2 84 × 40 u chip, Decision 7, §2.3 row 12, §2.5, §6, §7.1 L3, §9 C5); `chip-rows/compare.md` FINAL v1 §4–§5. Carter's go for C5 with R2: 2026-11-12 00:21 HKT, after TV UAT of C1 showed no clock on Watch. C5 only: no LM header nudge (C4), no parent bars (C2), no ledger (C6), no one-row Watch fallback. No commit, push, stash, checkout or reset.
+- `VisaCore/StatusChip.swift`:
+  - `StatusChipPlan.hiddenRoutes` is now the LM family only, so Watch gets a plan: strip slot, night tone, Cantonese row, the same accessibility label as the other Cantonese screens.
+  - New `StatusChipPlan.screenRect(screenWidth:screenHeight:)`. On Watch it returns the strip chip `WatchStripLayout` places at the top right of the TV safe rect; every other route still maps its slot through the canvas stage.
+  - Watch needs this because the stage is letterboxed on screens taller than 16:9. At 1512 × 982 the stage-mapped strip rect (y 108.3–150.8 pt) would sit on the player (top 100.13 pt).
+- `VisaCore/StatusSlot.swift`:
+  - `rect(for: .watch)` is the strip slot (canvas x 1196–1280, y 0–40).
+  - New `watchStripKeepOut` (x 1188–1280, y 0–48): the chip plus the 8 u gap on its left and below.
+  - `WatchStripLayout.chip(screenWidth:screenHeight:)` is factored out of `init`, with the same arithmetic.
+- App (`VisaGames`; SwiftUI / AppKit are not compiled on this box):
+  - `StampWatchTimesUpViews.swift`: `WatchPlaybackView` builds `WatchStripLayout(…, strip: true)` from its GeometryReader size. `watchBody` pads the player's top by `strip.player.y` instead of 20 u.
+  - Nothing is drawn in the strip by the Watch view and nothing over the web view. `RoadTimerStrip` (仲有 N 分鐘, last-minute glow / pulse) and the garage hold are unchanged.
+  - `StatusClockLayer.swift`: the chip rect is `plan.screenRect(…)`. ShellView's one non-hittable layer now draws the Watch chip as on every other screen.
+  - `AppDelegate.swift`: one comment.
+- Video size as implemented (the design's geometry model, not measured on a screen):
+  - 1920 × 1080: player top 27.0 → 118.8 pt, frame 904.5 → 812.7 pt. A 16:9 video goes 1569.6 × 882.9 → 1406.4 × 791.1 pt: −10.4 % linear / −19.7 % area.
+  - 1280 × 720: the same fractions.
+  - 1512 × 982: −6.3 % / −12.1 %.
+  - The bottom, sides and road strip do not move.
+- Tests: new `StatusWatchStripTests` adds 3 checks (banner `3 status-watch`; 43 groups, 476 checks):
+  - (1) The Watch plan: slot / keep-out literals; hidden routes = LM family only; 12 shell combinations of a playing video give strip slot, night, Cantonese; Time's up / provider blocked over a video give S; parent gives nil; the night style; the verbatim label, equal to the depot's.
+  - (2) L3 at 1920 × 1080, 1280 × 720 and 1512 × 982 with literal values:
+    - the chip inside the safe rect on its right / top lines;
+    - player top 118.8 / 79.2 / 100.13 pt, exactly 8 u under the chip;
+    - the chip clear of the player, web view and video;
+    - video sizes and losses;
+    - the stage-mapped rect on the player at 1512 × 982; the depot still on the stage;
+    - plus 280 window sizes up to 3840 × 2160.
+  - (3) Source guards:
+    - the Watch view's player top comes from `WatchStripLayout`, one top inset, no hard-coded points;
+    - no chip in the Watch view or `ScopedPlayerView`; no overlay attached to the web view; no animation or timer added to the Watch strip (the existing frame outline and the player watchdog timer stay unchanged);
+    - road strip and garage-hold needles;
+    - one `StatusClockLayer(` in the app and one `StatusChipView(`;
+    - no Watch special case around the layer; no parent corner while watching;
+    - the layer uses `plan.screenRect` and no focus, key, command or hover API.
+- Existing checks updated:
+  - version 86 → 87 (PerformanceRecordTests, WeeklyReportPDFTests);
+  - StatusClockTests: Watch slot and keep-out, LM family the only hidden route, 15 slot / neighbour pairs (was 14), the Watch view's top needle;
+  - StatusChipLayerTests: `testChipSitsAtItsSlotAndHidesOnLineMatch` (renamed; Watch at the strip slot), Watch in the night list, the layer's `plan.screenRect` needle.
+- Version 0.39.0 / 87 (`CFBundleVersion` and both version assertions; the footer label stays v0.39.0), continuing the clock capability C0 opened as 0.39.0.
+- Verification on this Linux box:
+  - `cd /workspace/visa-games-app && env PATH=/tmp/visa-games-swift/toolchain/usr/bin:$PATH LD_LIBRARY_PATH=/home/box/.local/swiftlibs bash scripts/test.sh` → EXIT=0, 43 groups, 476 checks (`visa-games-sessions/clock/c5/test-box.log`). The unchanged tree passed first (`test-box-baseline.log`, 42 groups, 473 checks). The new checks failed to compile before the implementation (`test-box-red.log`).
+  - `swiftc -parse` passed for `StampWatchTimesUpViews.swift`, `StatusClockLayer.swift` and `AppDelegate.swift`.
+  - Type-check harness (`visa-games-sessions/clock/c5/evidence/`): C1's SwiftUI stand-in, extended, plus `StatusClockLayer.swift`, `WatchPlaybackView` and the C1 ShellView lines copied verbatim. It passed `swiftc -typecheck -swift-version 6` against the built VisaCore module with 0 warnings; three mutated copies failed. The stand-in is not SwiftUI: this is not a macOS build.
+  - A from-scratch build printed only the pre-existing `ProviderBlockedPolicy.swift:101` deprecation (14×).
+  - Mutation runs with the built binary (`visa-games-sessions/clock/c5/mutations.log`): 8 mutants, all 8 killed, 0 survived. Each touched file was restored byte for byte and checked by sha256, and the post-run list matched the pre-run list for all 4 files. Mutants:
+    - Watch back in the hidden rule;
+    - the Watch chip in the day tone;
+    - the Watch view keeping the 20 u player top;
+    - `WatchStripLayout` ignoring the chip;
+    - `screenRect` mapping the Watch slot through the stage;
+    - the layer placing the chip through the stage (C1);
+    - the LM family unhidden with S;
+    - an overlay on the web view.
+  - The restored tree passed again: `test-box-postmutation.log`, EXIT=0, 476 checks.
+  - Not done: no Mac mini build or tests, no `bundle.sh`, no screenshots, no UAT U14, no install, no TV or Wacom.
+- Open:
+  - Carter, U14: whether the −10.4 % / −19.7 % smaller video is acceptable on the TV.
+  - The night chip on the Ink Watch background: the chip's fill (Ink 80 %) matches the background, so it reads by its Paper outline and text. The tone values are still open from C1 (compare.md draws night as #1B2238 / #F4EBD0).
+  - TO-VERIFY on the Mac mini / TV:
+    - the SwiftUI build;
+    - the chip and player from the two GeometryReaders agree at runtime (1080p chip y 54.0–108.0 pt, player from 118.8 pt);
+    - the TV's real mode and overscan;
+    - taps, pen, keys and first responder still reach the player under the non-hittable layer; VoiceOver reads the chip.
+  - Still to do: C4 LM nudge (the LM family is the last hidden route), C2 parent bars, optional C6 ledger.
+
 ## 2026-11-10 — v0.39.0 / 86 — Clock C1: child glance chip layer
 
 - Written by Claude Code on `feat/clock-c1` from `feat/clock-c0` @ `0217669` (0.39.0/85), from `visa-games-sessions/clock/c1/PROMPT.md`, the clock-playtime design (`visa-games-design/clock-playtime/design.md`: Locked decisions with the R2 84 × 40 u chip; D-C0a/b/c, Carter 2026-11-10 15:15 HKT; §1.3, §2.1–2.3, §2.7, §6, §9 C1; Appendix A) and `chip-rows/compare.md` FINAL v1 §5. C1 only: no parent bars (C2), no LM header nudge (C4), no Watch strip (C5), no play-time ledger or storage (C6). No commit, push, stash, checkout or reset.

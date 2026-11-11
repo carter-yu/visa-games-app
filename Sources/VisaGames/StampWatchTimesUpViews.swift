@@ -229,10 +229,14 @@ struct WatchPlaybackView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let layout = DesignTokens.stageLayout(screenWidth: Double(proxy.size.width),
-                                                  screenHeight: Double(proxy.size.height))
+            let width = Double(proxy.size.width)
+            let height = Double(proxy.size.height)
+            let layout = DesignTokens.stageLayout(screenWidth: width, screenHeight: height)
             let metrics = CanvasMetrics(scale: CGFloat(layout.scale))
-            watchBody(metrics: metrics)
+            // Clock C5 (0.39.0 / 87): the status strip above the player (design §2.5). ShellView's StatusClockLayer
+            // draws the chip in it; nothing here draws over the web view.
+            let strip = WatchStripLayout(screenWidth: width, screenHeight: height, strip: true)
+            watchBody(metrics: metrics, playerTop: CGFloat(strip.player.y))
                 .environment(\.canvasMetrics, metrics)
                 .frame(width: proxy.size.width, height: proxy.size.height)
         }
@@ -240,9 +244,10 @@ struct WatchPlaybackView: View {
     }
 
     @ViewBuilder
-    private func watchBody(metrics: CanvasMetrics) -> some View {
+    private func watchBody(metrics: CanvasMetrics, playerTop: CGFloat) -> some View {
         // v0.16.0: grow the framed player to fill vertical space (less letterbox) while
         // keeping the road strip as a real bottom band — never overlayed on the video.
+        // C5: the player starts at `playerTop`, under the status strip.
         ZStack {
             Color(hex: DesignTokens.Palette.ink)
             VStack(spacing: metrics.u(12)) {
@@ -277,7 +282,7 @@ struct WatchPlaybackView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.horizontal, metrics.u(36))
-                .padding(.top, metrics.u(20))
+                .padding(.top, playerTop)
 
                 RoadTimerStrip(ticket: ticket, progress: progress, onParentUnlock: onParentUnlock)
                     .padding(.horizontal, metrics.u(36))

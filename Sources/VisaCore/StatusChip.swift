@@ -5,7 +5,7 @@ import Foundation
 // chip-rows/compare.md FINAL v1 §5 for the chip's inside. Pure decisions, so the Linux checks cover them: screen →
 // route, route → slot, tone and language, the Think Pause dim, the colours under the macOS contrast and transparency
 // settings, the words at one moment, and when those words can next change. No view, timer, storage or play-time
-// ledger (C6).
+// ledger (C6). C5 (0.39.0 / 87): Watch shows the chip in the status strip above the player (design §2.5, Decision 7).
 
 // MARK: - Screen → route
 
@@ -54,14 +54,14 @@ extension StatusRoute {
 
 /// Everything the chip layer draws on one screen. ShellView makes one per render; nil draws nothing.
 public struct StatusChipPlan: Equatable, Sendable {
-    /// C1's hidden rule: no chip on the LM family (LineMatch / ShapeTrace / TapCount) until C4 nudges its header 78 u
-    /// left (design §2.4; today's header panel and visa badge run under S), and none on Watch until C5 adds the strip
-    /// above the player (§2.5). C4 and C5 each take their route out of this set and give it a slot in
-    /// `StatusSlot.rect(for:)`; the checks require the two to agree.
-    public static let hiddenRoutes: Set<StatusRoute> = [.lineMatchFamily, .watch]
+    /// The hidden rule: no chip on the LM family (LineMatch / ShapeTrace / TapCount) until C4 nudges its header 78 u
+    /// left (design §2.4; today's header panel and visa badge run under S). C4 takes the route out of this set and
+    /// gives it a slot in `StatusSlot.rect(for:)`; the checks require the two to agree. C5 did the same for Watch (the
+    /// strip above the player, §2.5).
+    public static let hiddenRoutes: Set<StatusRoute> = [.lineMatchFamily]
 
     public let route: StatusRoute
-    /// S or S_pick, canvas units.
+    /// S, S_pick or the Watch strip slot, canvas units (`screenRect` places it on screen).
     public let slot: LineMatchRect
     public let tone: StatusChipTone
     public let language: StatusChipLanguage
@@ -77,6 +77,16 @@ public struct StatusChipPlan: Equatable, Sendable {
         tone = StatusChipTone(route: route)
         language = StatusChipLanguage(route: route, activeKind: activeKind)
         dimmed = thinkPauseRemaining > 0
+    }
+
+    /// Where the layer draws the chip on a `width` × `height` screen, in points: the slot on the canvas stage
+    /// (`StatusSlot.onScreen`), except on Watch, which lays out from the screen edges (design §2.5): there it is the
+    /// strip's chip (`WatchStripLayout.chip`), at the top right of the TV safe rect and 8 u above the player on any
+    /// screen. The two agree on 16:9; on a taller screen the stage is letterboxed and its slot would sit on the player.
+    public func screenRect(screenWidth width: Double, screenHeight height: Double) -> LineMatchRect {
+        route == .watch
+            ? WatchStripLayout.chip(screenWidth: width, screenHeight: height)
+            : StatusSlot.onScreen(slot, screenWidth: width, screenHeight: height)
     }
 }
 
