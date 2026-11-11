@@ -3,12 +3,13 @@ import Foundation
 // Clock + elapsed status chip C0 (0.39.0 / 85): where the chip sits. clock-playtime design §2.1–2.5 and Locked
 // decision 1 at the R2 size (84 × 40 u, Carter 2026-11-10); chip-rows/compare.md FINAL v1 §4–§5. Canvas units on the
 // 1280 × 720 artboard, mapped to screen points with `DesignTokens.stageLayout`. Pure geometry for the Linux collision
-// and Watch-strip checks; nothing draws the chip yet (C1) and the Watch view is unchanged until C5.
+// and Watch-strip checks; the app's `StatusClockLayer` (C1, 0.39.0 / 86) draws the chip at `rect(for:)`, and the
+// Watch view is unchanged until C5.
 
 // MARK: - Routes
 
-/// The child screens of design §2.3, rows 1–12. Setup and the parent surfaces (rows 13–16) are not here: the child
-/// chip layer shows only in lock and play (§2.1), and the parent bars lay the chip out themselves (C2).
+/// The screens of design §2.3, rows 1–13: the child screens and, since D-C0c (Carter 2026-11-10), Setup. The parent
+/// surfaces (rows 14–16) are not here: the parent bars lay the chip out themselves (C2).
 public enum StatusRoute: CaseIterable, Sendable {
     /// Depot home (row 1).
     case depot
@@ -34,6 +35,9 @@ public enum StatusRoute: CaseIterable, Sendable {
     case providerBlocked
     /// Watch, the real video (row 12).
     case watch
+    /// Setup, the legacy shell before a parent finishes setup (row 13). D-C0c: the chip shows here too; the top right
+    /// holds only the decorative sun accent.
+    case setup
 
     /// The header family of a game board (rows 2–4), as `CanvasActivityHost` routes the kinds. Exhaustive, so a new
     /// kind has to pick its family.
@@ -72,7 +76,7 @@ public enum StatusSlot {
     public static let watchStrip = LineMatchRect(x: 1196, y: 0, width: chipWidth, height: chipHeight)
 
     /// The chip on `route`, or nil while it is hidden there: the LM family until the C4 header nudge (today's header
-    /// covers S) and Watch until the C5 strip.
+    /// covers S) and Watch until the C5 strip. Setup uses S (D-C0c).
     public static func rect(for route: StatusRoute) -> LineMatchRect? { placement(route)?.slot }
 
     /// The keep-out around `rect(for:)`.
@@ -81,11 +85,13 @@ public enum StatusSlot {
     private static func placement(_ route: StatusRoute) -> (slot: LineMatchRect, keepOut: LineMatchRect)? {
         switch route {
         case .depot, .boardTwo, .hanziLetter, .stamp, .timesUp, .resumeChoice, .emptyAllowlist, .letterUnavailable,
-             .providerBlocked:
+             .providerBlocked, .setup:
             return (main, mainKeepOut)
         case .videoPicker:
             return (picker, pickerKeepOut)
         case .lineMatchFamily, .watch:
+            // No slot until C4 nudges the LM header (§2.4) and C5 adds the Watch strip (§2.5); `StatusChipPlan`
+            // names the same two routes as C1's hidden rule.
             return nil
         }
     }

@@ -196,10 +196,11 @@ final class StatusClockTests {
         }
         expectTrue(Self.contains(StatusSlot.mainKeepOut, StatusSlot.main))
         expectTrue(Self.contains(StatusSlot.pickerKeepOut, StatusSlot.picker))
-        // S on rows 1–3, 5–7 and 9–11, S_pick on the picker, hidden on the LM family and Watch (design §9 C1).
+        // S on rows 1–3, 5–7, 9–11 and Setup (row 13, D-C0c), S_pick on the picker, hidden on the LM family and Watch
+        // (design §9 C1).
         let picked: [StatusRoute: LineMatchRect] = [.videoPicker: StatusSlot.picker]
         let hidden: Set<StatusRoute> = [.lineMatchFamily, .watch]
-        expectEqual(StatusRoute.allCases.count, 12)
+        expectEqual(StatusRoute.allCases.count, 13)
         for route in StatusRoute.allCases {
             if hidden.contains(route) {
                 expectNil(StatusSlot.rect(for: route))
@@ -257,7 +258,7 @@ final class StatusClockTests {
                 checked += 1
             }
         }
-        expectEqual(checked, 13)
+        expectEqual(checked, 14)
         // The clear space the design quotes (u).
         expectEqual(StatusSlot.main.gap(to: hanziLetterHeader), 8)
         expectEqual(StatusSlot.main.gap(to: boardTwoCluster), 26)
