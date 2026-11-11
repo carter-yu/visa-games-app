@@ -1,5 +1,55 @@
 # Progress
 
+## 2026-11-10 — v0.39.0 / 85 — Clock C0: status chip pure core
+
+- Written by Claude Code on `feat/clock-c0` from `main` @ `86002df` (0.38.0/84), from `visa-games-sessions/clock/c0/PROMPT.md`, the clock-playtime design (`visa-games-design/clock-playtime/design.md`: Locked decisions 1–10 with the R2 84 × 40 u chip, Carter 2026-11-10 13:45 HKT; §7.1 L1–L3 and L-E; §9 C0; Appendix A) and `chip-rows/compare.md` FINAL v1 §4–§5. C0 only: VisaCore logic and Linux checks. No view, no AppModel / AppDelegate change, no play-time ledger or storage (C6). No commit, push, stash, checkout or reset.
+- `VisaCore/StatusClock.swift` (new):
+  - `StatusClockText`, always Asia/Hong_Kong (`PerfClock.calendar(PerfClock.hongKong)`, integer formatting, no locale or formatter template):
+    - `clock`: `h:mm`, 12-hour, no AM/PM, no seconds (00:05 → `12:05`, 12:00 → `12:00`, 15:45 → `3:45`);
+    - `clock24`: `15:45`;
+    - `accessibility`: 「而家時間：下午3時45分」 / `Time now: 3:45 PM`.
+  - `ElapsedSinceLaunch(launchUptime:nowUptime:)`: floored whole minutes from two monotonic uptimes; no `Date` goes in. A backwards or non-finite uptime gives 0.
+    - `text`: 「0 分鐘」…「59 分鐘」, 「1 小時 0 分」…「99 小時 59 分」, 「99+ 小時」 from 100 h; ABC boards `0 min`…`59 min`, `1 h 0 min`…`99 h 59 min`, `99+ h`;
+    - `accessibility`: 「由開App計：52 分鐘」 / `Since app start: 52 min` (from 60 min the chip's own text, e.g. 「由開App計：1 小時 5 分」);
+    - `parentCaption`: 「由開App計 52 分鐘」 / `52 min since app start`.
+  - `StatusChipCopy` / `StatusChipText` (`zh` for Cantonese boards, `en` for ABC boards, `bilingual` = `zh / en`): Appendix A chip.elapsed, chip.elapsedHours, chip.a11y, bar.sinceStart, clock.a11y and bar.hkTime, plus the `99+` overflow. The C6-only rows (today, card, notes, flags, save banners) are not added.
+- `VisaCore/StatusSlot.swift` (new):
+  - `StatusRoute`: the 12 child screens of design §2.3 (setup and the parent bars are not canvas routes). `init(board:)` maps every `ActivityKind` to its header family: 10 Board-2, 4 Hanzi / Letter, 13 LM family.
+  - `StatusSlot`: S (x 1190–1274, y 6–46), K (x 1182–1280, y 0–56), S_pick (x 1042–1126, y 6–46), K_pick (x 1034–1132, y 0–56) and the Watch strip canvas rect (x 1196–1280, y 0–40). `rect(for:)` / `keepOut(for:)`: S on rows 1–3, 5–7 and 9–11, S_pick on the picker, nil on the LM family (until the C4 nudge) and on Watch (until the C5 strip). `onScreen` uses `DesignTokens.stageLayout`; `safeRect` uses `DesignTokens.safeAreaFraction`.
+  - `WatchStripLayout`: today's Watch and the C5 strip in screen points, with today's insets (36 u sides, 20 u top, 12 u spacing, 78 u road strip, 20 u bottom, 8 u web-view inset). With the strip, the chip sits at the top right of the TV safe rect (design §2.5: safe top = 5% of the screen height) and the player top 8 u under it; only the top moves. On 16:9 the chip is the canvas rect x 1196–1280, y 0–40.
+- Tests: new `StatusClockTests` adds 9 checks (banner `9 status-clock`; 41 groups, 465 checks):
+  - L1:
+    - 00:05 → `12:05`, 12:00 → `12:00`, 15:45 → `3:45` / `15:45`, 9:07, 12:55, 1:00, midnight, seconds dropped (15:45:59.999 → `3:45`), and all 1,440 minutes of a Hong Kong day;
+    - the process zone forced to UTC, America/New_York and Asia/Kolkata (TZ and Foundation's default; each offset asserted, then restored): still Hong Kong. Source guard: no host zone, calendar, locale, `DateFormatter` or `String(format:)`, and `PerfClock.calendar(PerfClock.hongKong)`;
+    - 「而家時間：下午3時45分」 / `Time now: 3:45 PM`, 上午 / 下午 at 12:05 AM, 12:00 PM and 11:59 AM / PM;
+  - L-E:
+    - 0 s, 59 s, 59.75 s, 60 s, 52 min 59 s, 59 min, 59 min 59.75 s, 60 min, 65 min, 10 h 59 min, 99 h 59 min (and + 59.75 s), 100 h and 1,000 h, floored, on both boards; the accessibility and parent-caption forms; minutes 0–6,001 give only the seven budgeted shapes (widest `99 小時 59 分` / `99 h 59 min`);
+    - backwards, negative and non-finite uptimes give 0, and a huge span gives `99+`; the same uptimes under three forced zones give the same figure. Source guard: the type's code names no `Date`, `Calendar`, `TimeZone`, `ProcessInfo`, clock or `mach_` call, and its one initializer takes two `TimeInterval` uptimes;
+  - L2:
+    - S, K, S_pick, K_pick and the Watch canvas rect by their edges, inside 1280 × 720, each keep-out around its slot; route → slot for all 12 routes; on screen at 1920 × 1080, 1280 × 720 and 1512 × 982 as design §2.2 / compare.md §5 print them (±0.05 pt), inside the safe rect;
+    - per route, slot and keep-out clear of the Board-2 cluster, the Hanzi / Letter header, the picker art and the parent corner (13 pairs), with the quoted 8 / 26 / 8 u gaps. S and K sit on the picker art (why the picker uses S_pick). Today's `LineMatchLayout.header` (20, 16, 1240, 96) and visa badge run under S, so the LM family has no slot; the nudged header and badge (§2.4) are clear of S and K. The 27 kinds fall into 10 / 4 / 13 families;
+  - L3: at 1920 × 1080, 1280 × 720 and 1512 × 982, the chip is inside the safe rect (right edge on the safe line, top on the safe top), the player starts 8 u under it with the same sides, road strip and bottom, and the frame, web view and video match the design (1080p: player top 118.8 pt, frame 812.7, web view 791.1, video 1406.4 × 791.1; today 27.0, 904.5, 882.9, 1569.6 × 882.9). Video −10.4% linear / −19.7% area (±0.05 points) on 16:9, −6.3% / −12.1% at 1512 × 982. Source guard: the model's insets are today's `StampWatchTimesUpViews` watchBody and road strip;
+  - copy: Appendix A verbatim; 19,448 generated strings and both new sources against the OpenCC fixture and both lists (the fixture lists 开 计 钟 时 间, and 「由开App计：52 分钟」 is caught); ABC-board strings are ASCII; no unfilled placeholder.
+- Existing checks updated: version 84 → 85 and 0.38.0 → 0.39.0 (PerformanceRecordTests, WeeklyReportPDFTests); the runner registers the new checks before the macOS PDF block.
+- Mutation runs with the built binary (`visa-games-sessions/clock/c0/mutations.log`), each file restored and checked by sha256. All 7 fail a status-clock check:
+  - elapsed rounded instead of floored (59 s → 1);
+  - the clock without the fixed Hong Kong zone. Only the forced-zone check catches it: this box's own zone is +08:00;
+  - `99+` from just after 100 h (100 h → 「100 小時 0 分」);
+  - no clamp for a backwards uptime (−1);
+  - the Watch chip on the canvas instead of the safe rect (1512 × 982: chip top 108.3 pt, not 49.1);
+  - the LM family given S before the C4 nudge;
+  - noon spoken as 上午 / AM.
+- Version 0.39.0 / 85 (`Info.plist`, the parent footer `ParentSettingsView.versionLabel` and both version assertions). The footer line is the only `Sources/VisaGames` change.
+- Verification on this Linux box:
+  - `cd /workspace/visa-games-app && env PATH=/tmp/visa-games-swift/toolchain/usr/bin:$PATH LD_LIBRARY_PATH=/home/box/.local/swiftlibs bash scripts/test.sh` passed (`visa-games-sessions/clock/c0/test-box.log`, EXIT=0; the banner ends `12 parent-youtube + 9 status-clock`). The unchanged tree passed first (`test-box-baseline.log`, 40 groups, 456 checks).
+  - `swiftc -parse` passed for `ParentSettingsView.swift` (version string only).
+  - No Mac mini run, no `bundle.sh`, no UAT, no TV or Wacom. The forced-zone checks have run on Linux only.
+- Open:
+  - Carter: the chip's accessibility wording. The design has three: Appendix A 「由開App計：52 分鐘」 / `Since app start: 52 min` (used), §9 C0 「由開App計：52分鐘」 (no spaces) and compare.md §5 「玩咗 52 分鐘」 / `played 52 min` (Q5).
+  - Setup is not a `StatusRoute`: design §2.3 row 13 hides the chip there, compare.md §6 says "same chip at S2, not excluded".
+  - TO-VERIFY on the Mac mini: the suite and build; that `systemUptime` stops while the Mac sleeps (Q1); the forced-zone checks under macOS Foundation.
+  - C1 chip layer (tones, Think Pause dim, launch uptime captured once), C2 parent bars, C4 LM nudge (`rect(for: .lineMatchFamily)` becomes S), C5 Watch strip (the view uses `WatchStripLayout`), optional C6 ledger.
+
 ## 2026-11-07 — v0.38.0 / 84 — Hanzi H3 write board
 
 - Written by Claude Code on `feat/hanzi-tap` @ `6df9bd1` (0.38.0/83), from `visa-games-sessions/hanzi/h3-run3/HANDOFF.md`, design hanzi-tap v2 (§ Writing, the H3 row and the child copy table; LOCKED D5, D10–D12) and the six-target addendum. Two earlier H3 sessions stopped at session limits and left the code below uncommitted and untested (the new files, the wiring, `CFBundleVersion` 84). This run (h3-run3) registered and fixed the checks, brought the H2-era checks up to H3 and verified. H3 only: no parent cards, settings rows, 教／提／熄 labels or report area (H4), no install or Mac mini run (H5). No commit, push, stash, checkout or reset.
