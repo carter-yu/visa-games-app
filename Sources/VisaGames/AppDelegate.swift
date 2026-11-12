@@ -27,6 +27,8 @@ final class AppModel: ObservableObject {
     /// Build 78: the protected 「呢張遊戲票暫時玩唔到」 state (VisaCore `LetterTicketDesk`).
     @Published private(set) var letterTicketDesk = LetterTicketDesk()
     var unavailableLetterTicket: Bool { letterTicketDesk.unavailable }
+    /// Hanzi H4: what the unavailable ticket could not deal, so its screen names the right settings.
+    var unavailableTicketKinds: [ActivityKind] { letterTicketDesk.unavailableKinds }
     /// Playtest cover. Nil unless a parent is reviewing a game. Never a child round.
     @Published private(set) var playtestKind: ActivityKind?
     /// Card to mark sunny after 返回家長.
@@ -247,9 +249,10 @@ final class AppModel: ObservableObject {
     /// The bundled pack and its find copy, loaded on first use. Nil keeps both Hanzi kinds off every ticket.
     private lazy var hanziPack: HanziPack? = try? HanziPack.loadBundled()
     private lazy var hanziCopy: HanziFindCopy? = hanziPack.flatMap(HanziFindCopy.init(pack:))
-    /// Hanzi H1 stores: settings (廣東話語音 / 粵拼 OFF, D4), recognition progress, cue decks, round index and
-    /// writing progress. H2 reads the settings and never saves them.
-    private var hanziSettings = HanziTapSettingsStore().load()
+    /// Hanzi H1 stores: settings (廣東話語音 ON since Carter's 2026-11-13 override of D4; 粵拼 OFF, D4), recognition
+    /// progress, cue decks, round index and writing progress. Since H4 the parent's 中文字設定 saves the settings
+    /// (`saveHanziSettings`).
+    @Published private(set) var hanziSettings = HanziTapSettingsStore().load()
     private var hanziProgress = HanziProgressStore().load()
     private var hanziDecks = HanziCueDecksStore().load()
     private var hanziRoundIndex = HanziRoundIndexStore().load()
@@ -971,13 +974,14 @@ final class AppModel: ObservableObject {
     func selectDifficulty(stars: Int) {
         guard session.mode == .lock, !taskRoundOpen,
               let difficulty = ChildDifficulty(rawValue: stars) else { return }
-        let pool = eligibleLetterTicketPool(eligibleHanziTicketPool(gameAssignment.pool(for: difficulty)))
+        let assigned = gameAssignment.pool(for: difficulty)
+        let pool = eligibleLetterTicketPool(eligibleHanziTicketPool(assigned))
         // Build 78: `LetterTicketDesk` picks the kind and deals the only fallible payload (a
         // letter board; since build 83 also a Hanzi board) before any round state changes; only
-        // `.ready` touches the round.
+        // `.ready` touches the round. H4: it also keeps what could not be dealt, for the unavailable screen.
         var desk = letterTicketDesk
         let ticketSeed = UUID().uuidString
-        let outcome: LetterTicketDesk.Outcome<TicketBoard> = desk.prepare(pool: pool, seed: ticketSeed) { kind in
+        let outcome: LetterTicketDesk.Outcome<TicketBoard> = desk.prepare(pool: pool, filtered: assigned.filter { !pool.contains($0) }, seed: ticketSeed) { kind in
             kind.isTapHanziFamily
                 ? makeTapHanziBoard(seed: ticketSeed, kind: kind, playtest: false).map(TicketBoard.hanzi)
                 : makeTapLetterBoard(seed: ticketSeed, kind: kind, playtest: false).map(TicketBoard.letter)
@@ -1192,7 +1196,7 @@ final class AppModel: ObservableObject {
             speakTapLetterPrompt()
             return
         case .tapHanziAll, .tapHanziWrite:
-            // Shown as text; spoken only with 廣東話語音 on (D4: OFF).
+            // Shown as text; spoken only with 廣東話語音 on (ON by default since Carter's 2026-11-13 override of D4).
             speakTapHanziPrompt()
             return
         }
@@ -2226,7 +2230,8 @@ final class AppModel: ObservableObject {
         perfReview = .computing(previous: perfReview.report)
         var titles: [String: String] = [:]
         for video in allowlist.videos { titles[video.id] = video.parentLabel }
-        perf.buildReport(window: perfReviewWindow, videoIDs: allowlist.videos.map(\.id), titles: titles) { [weak self] report in
+        perf.buildReport(window: perfReviewWindow, videoIDs: allowlist.videos.map(\.id), titles: titles,
+                         hanziPack: hanziPack) { [weak self] report in
             guard let self, generation == self.perfReviewGeneration else { return }
             self.perfReview = .ready(report)
         }
@@ -3775,7 +3780,7 @@ struct ShellView: View {
             )
             .ignoresSafeArea()
         } else if model.session.mode == .lock && !model.taskRoundOpen && model.unavailableLetterTicket {
-            LetterUnavailableTicketView()
+            LetterUnavailableTicketView(kinds: model.unavailableTicketKinds)
                 .ignoresSafeArea()
         } else if model.session.mode == .lock && !model.taskRoundOpen {
             DepotHomeView(
@@ -4817,8 +4822,35 @@ extension AppModel {
     var currentTapHanziBoard: TapHanziBoard? { tapHanziUsesPlaytest ? playtestTapHanziBoard : tapHanziBoard }
     var tapHanziPack: HanziPack? { hanziPack }
     var tapHanziCopy: HanziFindCopy? { hanziCopy }
-    /// 廣東話語音 (D4: OFF). The board's speaker mark shows it; nothing in H2 turns it on.
-    var tapHanziAudioOn: Bool { hanziSettings.audioEnabled }
+    /// The boards' speaker mark: ON only while 廣東話語音 is on (ON by default since Carter's 2026-11-13 override of D4;
+    /// the parent's 中文字設定 turns it off or on, H4) and a zh-HK / yue-HK voice is installed, so the mark never
+    /// claims a voice the Mac cannot speak.
+    var tapHanziAudioOn: Bool { hanziSettings.audioEnabled && guideVoice.isAvailable }
+    /// 中文字設定 (H4): the saved settings a parent draft starts from.
+    var tapHanziSettings: HanziTapSettings { hanziSettings }
+
+    /// 粵拼 under the target's flipped card (find board and the write board's picture cards): nil while the parent has
+    /// not turned it on (D4), so nothing is drawn.
+    var tapHanziJyutping: String? {
+        guard let pack = hanziPack, let board = currentTapHanziBoard else { return nil }
+        return HanziJyutping.line(board.target, pack: pack, settings: hanziSettings)
+    }
+
+    /// The parent's 儲存 in 中文字設定 (H4): stores the draft, then reads it back, so the next deal, write, voice line and
+    /// jyutping use exactly what was stored. Parent controls only. Each field the read-back value changed is recorded
+    /// for the weekly report's ⚙ (fix1), as 數字設定 and 字母設定 are.
+    @discardableResult func saveHanziSettings(_ value: HanziTapSettings) -> HanziTapSettings {
+        guard session.mode == .parent else { return hanziSettings }
+        let before = hanziSettings
+        let store = HanziTapSettingsStore()
+        store.save(value)
+        hanziSettings = store.load()
+        VisaGamesLog.append("hanzi settings saved — 中文字設定 week=\(hanziSettings.week.joined()) review=\(hanziSettings.reviewEvery) guard=\(hanziSettings.confusableGuard) guide=\(hanziSettings.guidance.rawValue) audio=\(hanziSettings.audioEnabled) jyutping=\(hanziSettings.jyutpingEnabled)")
+        for change in HanziSettingChange.changes(from: before, to: hanziSettings, pack: hanziPack) {
+            perf.tapHanziSettingChanged(what: change.what, value: change.value)
+        }
+        return hanziSettings
+    }
 
     private func clearHanziPreview() {
         previewHanziProgress = nil; previewHanziDecks = nil; previewHanziRoundIndex = nil; previewHanziWriteProgress = nil
@@ -4874,9 +4906,10 @@ extension AppModel {
                              tagsByChoice: [:], assetByChoice: [:], extraDealtFields: extras)
     }
 
-    /// The only Hanzi voice path. Silent unless 廣東話語音 is on (D4: OFF by default); then the existing HK Cantonese
-    /// path speaks the zhHK line (a reviewed clip, else an installed zh-HK / yue-HK voice, else silence; never
-    /// romanisation, never Mandarin). Every line is also shown on the board, so silence loses no instruction.
+    /// The only Hanzi voice path. Silent unless 廣東話語音 is on (ON by default since Carter's 2026-11-13 override of
+    /// D4); then the existing HK Cantonese path speaks the zhHK line (a reviewed clip, else an installed zh-HK / yue-HK
+    /// voice, else silence; never romanisation, never Mandarin). Every line is also shown on the board, so silence
+    /// loses no instruction.
     private func tapHanziSpeak(_ key: String, _ line: String, queued: Bool = true) {
         guard hanziSettings.audioEnabled else { return }
         let prompt = SpokenPrompt(key: "hanzi.\(key)", traditionalChinese: line, english: "")
@@ -5169,9 +5202,10 @@ extension AppModel {
         }
     }
 
-    /// After the find and its stroke reveal: the 田字格 round with the shared coach at the shared tracing-help level
-    /// (`tapCountSettings.guidance`, never migrated). The car demo plays first at 多啲 always and at 標準 until the
-    /// glyph is learned (two clean writes); 少啲 starts with the pen and keeps only the 8 s ghost.
+    /// After the find and its stroke reveal: the 田字格 round with the shared coach at Hanzi's own 描字提示 level
+    /// (`hanziSettings.guidance`, H4; the letter / number level and the stroke-order reveal are separate settings and
+    /// neither is migrated). The car demo plays first at 多啲 always and at 標準 until the glyph is learned (two clean
+    /// writes); 少啲 starts with the pen and keeps only the 8 s ghost.
     private func beginTapHanziWriting(token: String, playtest: Bool) {
         guard (playtest ? playtestChoiceDealSeed : choiceDealSeed) == token, let pack = hanziPack, let copy = hanziWriteCopy,
               let board = playtest ? playtestTapHanziBoard : tapHanziBoard,
@@ -5180,7 +5214,7 @@ extension AppModel {
         let glyph = round.glyph
         let clock = Date().timeIntervalSinceReferenceDate
         let learned = (playtest ? previewHanziWriteProgress ?? hanziWriteProgress : hanziWriteProgress).isLearned(glyph)
-        round.begin(plan: TapCountGuidePlan(level: tapCountSettings.guidance, learned: learned), now: clock,
+        round.begin(plan: TapCountGuidePlan(level: hanziSettings.guidance, learned: learned), now: clock,
                     demoLead: Self.tapCountGuideDemoLead)
         setTapHanziWriteRound(round, playtest: playtest)
         tapHanziBubble = nil
@@ -5192,7 +5226,7 @@ extension AppModel {
             tapHanziShowWriteBubble(HanziWriteLine(copy.turn(glyph)), seconds: 3)
             tapHanziSpeak("write.turn.\(glyph)", copy.turn(glyph))
         }
-        VisaGamesLog.append("hanzi write start — 搵完寫 target=\(glyph) demo=\(round.demoPending(now: clock)) guide=\(tapCountSettings.guidance.rawValue) playtest=\(playtest)")
+        VisaGamesLog.append("hanzi write start — 搵完寫 target=\(glyph) demo=\(round.demoPending(now: clock)) guide=\(hanziSettings.guidance.rawValue) playtest=\(playtest)")
     }
 
     /// Says each beat line as the demo car starts it, then 「到你喇！」 (audio on only; the bubble shows them from the

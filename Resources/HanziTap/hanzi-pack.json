@@ -34,7 +34,7 @@
     "week": ["人", "上", "下", "左", "右", "木"],
     "findEnabled": false,
     "writeEnabled": false,
-    "audioEnabled": false,
+    "audioEnabled": true,
     "jyutpingEnabled": false,
     "reviewEveryRounds": 4,
     "confusableGuard": true,

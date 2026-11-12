@@ -10,8 +10,10 @@ import Foundation
 // MARK: - Settings
 
 /// Parent intent, `VisaGames.tapHanziSettings.v1`. Missing, unreadable, another schema version or an
-/// out-of-range value loads `defaults`: audio and jyutping OFF (D4). The games are OFF elsewhere: both kinds are
-/// in `ActivityCatalog.defaultOffKinds` (no star before a playtest, D6) and are not playable before H2–H4.
+/// out-of-range value loads `defaults`: 廣東話語音 ON (Carter 2026-11-13 overrode D4's audio default) and jyutping
+/// OFF (D4). The games are OFF elsewhere: both kinds are in `ActivityCatalog.defaultOffKinds` (no star before a
+/// playtest, D6). The parent edits it in 中文字設定 (H4, `HanziSettingsDraft`); a blob saved before a field existed
+/// reads that field's default.
 public struct HanziTapSettings: Codable, Equatable, Sendable {
     public static let currentSchema = 1
 
@@ -22,22 +24,45 @@ public struct HanziTapSettings: Codable, Equatable, Sendable {
     public var reviewEvery: Int
     /// 易混字護欄.
     public var confusableGuard: Bool
-    /// 廣東話語音 (D4: OFF).
+    /// 廣東話語音: ON by default (Carter 2026-11-13 overrode D4's OFF). No zh-HK / yue-HK voice and no clip → silence,
+    /// never Mandarin, never jyutping.
     public var audioEnabled: Bool
     /// 粵拼 (D4: OFF).
     public var jyutpingEnabled: Bool
+    /// 描字提示 (H4): the Hanzi write coach's level, labelled by `HanziParentCopy.coachLabels`. Hanzi's own value: the
+    /// letter / number tracing level (`TapCountSettings.guidance`) and the stroke-order reveal (`StrokeOrderSetting`)
+    /// are never read or written for it. Missing (a blob saved before H4) → `.standard`, the pack's `guideLevel`.
+    public var guidance: TapCountGuidanceLevel
 
     public init(week: [String] = [], reviewEvery: Int = 4, confusableGuard: Bool = true,
-                audioEnabled: Bool = false, jyutpingEnabled: Bool = false) {
+                audioEnabled: Bool = true, jyutpingEnabled: Bool = false, guidance: TapCountGuidanceLevel = .standard) {
         schemaVersion = Self.currentSchema
         self.week = week
         self.reviewEvery = reviewEvery
         self.confusableGuard = confusableGuard
         self.audioEnabled = audioEnabled
         self.jyutpingEnabled = jyutpingEnabled
+        self.guidance = guidance
     }
 
     public static let defaults = Self()
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion, week, reviewEvery, confusableGuard, audioEnabled, jyutpingEnabled, guidance
+    }
+
+    /// Every H1 field is required, as before (missing or mistyped → the store loads `defaults`). Only `guidance`,
+    /// added in H4, may be missing; a present but unknown value still fails the whole decode.
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
+        week = try values.decode([String].self, forKey: .week)
+        reviewEvery = try values.decode(Int.self, forKey: .reviewEvery)
+        confusableGuard = try values.decode(Bool.self, forKey: .confusableGuard)
+        audioEnabled = try values.decode(Bool.self, forKey: .audioEnabled)
+        jyutpingEnabled = try values.decode(Bool.self, forKey: .jyutpingEnabled)
+        guidance = try values.decodeIfPresent(TapCountGuidanceLevel.self, forKey: .guidance) ?? .standard
+    }
 
     /// Pack targets in the parent's order, each once; never a find-only or unknown glyph. Fewer than three
     /// (`HanziScheduler.minimumWeek`) → the pack's week: in a two-target week a missed target could not wait out
@@ -63,6 +88,109 @@ public struct HanziTapSettingsStore {
     public func save(_ value: HanziTapSettings) {
         guard let data = try? JSONEncoder().encode(value) else { return }
         defaults.set(data, forKey: Self.key)
+    }
+}
+
+// MARK: - Parent settings draft (H4)
+
+/// One parent visit's 中文字設定 (the letter settings' draft + save pattern, `LetterPickerDraft`): edits change
+/// `value` only, and nothing is stored until the host saves it through `HanziTapSettingsStore`.
+public struct HanziSettingsDraft: Equatable, Sendable {
+    public private(set) var saved: HanziTapSettings
+    public private(set) var value: HanziTapSettings
+
+    public init(saved: HanziTapSettings) {
+        self.saved = saved
+        value = saved
+    }
+
+    public var hasChanges: Bool { value != saved }
+
+    /// 今星期 as the child gets it: the pack targets the draft names, or the pack's week (`validWeek`).
+    public func week(in pack: HanziPack) -> [String] { value.validWeek(in: pack) }
+
+    public enum WeekEdit: Equatable, Sendable {
+        case updated
+        /// A find-only (入 八 本 未) or unknown glyph: never a target (D2).
+        case notATarget
+        /// Removing it would leave fewer than `HanziScheduler.minimumWeek` targets.
+        case belowMinimum
+    }
+
+    /// Turns a pack target on or off in 今星期. The week stays in the pack's order and never drops below
+    /// `HanziScheduler.minimumWeek` (a shorter week would silently read as the pack's week). Choosing the saved
+    /// week again restores the saved value, so it is no change.
+    @discardableResult
+    public mutating func toggleWeek(_ glyph: String, in pack: HanziPack) -> WeekEdit {
+        guard pack.isTarget(glyph) else { return .notATarget }
+        var chosen = Set(week(in: pack))
+        if chosen.contains(glyph) {
+            guard chosen.count > HanziScheduler.minimumWeek else { return .belowMinimum }
+            chosen.remove(glyph)
+        } else {
+            chosen.insert(glyph)
+        }
+        let next = pack.board.targetWeek.filter(chosen.contains)
+        value.week = next == saved.validWeek(in: pack) ? saved.week : next
+        return .updated
+    }
+
+    /// 溫習「每 4 輪 1 輪」 or none; any other interval is ignored.
+    public mutating func setReviewEvery(_ interval: Int) {
+        guard interval == 0 || interval == 4 else { return }
+        value.reviewEvery = interval
+    }
+
+    public mutating func setConfusableGuard(_ enabled: Bool) { value.confusableGuard = enabled }
+    /// 描字提示 only: the stroke-order reveal is a separate, existing setting.
+    public mutating func setGuidance(_ level: TapCountGuidanceLevel) { value.guidance = level }
+    public mutating func setAudio(_ enabled: Bool) { value.audioEnabled = enabled }
+    public mutating func setJyutping(_ enabled: Bool) { value.jyutpingEnabled = enabled }
+    public mutating func revert() { value = saved }
+    public mutating func acceptSaved(_ newValue: HanziTapSettings) {
+        saved = newValue
+        value = newValue
+    }
+}
+
+/// One `config_change` a 中文字設定 save records (weekly report §4.10 ⚙, as 數字設定 and 字母設定 do): a field whose
+/// read-back value differs from before the save. `what` is the field without the recorder's `tapHanzi_` prefix;
+/// `value` is what the weekly report prints (the week in pack order, on / off, the level's raw value).
+public struct HanziSettingChange: Equatable, Sendable {
+    public let what: String
+    public let value: String
+
+    public init(what: String, value: String) {
+        self.what = what
+        self.value = value
+    }
+
+    /// The changed fields in row order: 今星期, 溫習, 易混字護欄, 描字提示, 廣東話語音, 粵拼. The week compares as the
+    /// child gets it (`validWeek`), so saving the pack's own week again is no change.
+    public static func changes(from old: HanziTapSettings, to new: HanziTapSettings, pack: HanziPack?) -> [HanziSettingChange] {
+        func week(_ settings: HanziTapSettings) -> String {
+            (pack.map(settings.validWeek(in:)) ?? settings.week).joined(separator: " ")
+        }
+        func onOff(_ flag: Bool) -> String { flag ? "on" : "off" }
+        let fields: [(what: String, new: String, old: String)] = [
+            ("week", week(new), week(old)),
+            ("review_every", String(new.reviewEvery), String(old.reviewEvery)),
+            ("guard", onOff(new.confusableGuard), onOff(old.confusableGuard)),
+            ("guidance", new.guidance.rawValue, old.guidance.rawValue),
+            ("audio", onOff(new.audioEnabled), onOff(old.audioEnabled)),
+            ("jyutping", onOff(new.jyutpingEnabled), onOff(old.jyutpingEnabled))
+        ]
+        return fields.filter { $0.new != $0.old }.map { HanziSettingChange(what: $0.what, value: $0.new) }
+    }
+}
+
+/// 粵拼 (D4: OFF): the reading shown under a target's flipped card (design: 「開咗先喺字卡下面顯示。」). Nil while the
+/// parent has not turned it on, and for a find-only or unknown glyph (only targets flip). Display only: it is never
+/// spoken (the voice reads the zhHK line).
+public enum HanziJyutping {
+    public static func line(_ glyph: String, pack: HanziPack, settings: HanziTapSettings) -> String? {
+        guard settings.jyutpingEnabled, let reading = pack.characters[glyph]?.jyutping, !reading.isEmpty else { return nil }
+        return reading
     }
 }
 

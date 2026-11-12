@@ -31,7 +31,8 @@ struct ParentGameCard: View {
                 .lineLimit(2, reservesSpace: true)
 
             if hidden {
-                Text("唔會出現 / Hidden from missions")
+                // Hanzi H4 (design: 「預設關閉」): a 中文字 card starts with no star.
+                Text(kind.isTapHanziFamily ? HanziParentCopy.cardDefaultOff : "唔會出現 / Hidden from missions")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.inkSoft)
                     .padding(.horizontal, 8)
@@ -55,11 +56,31 @@ struct ParentGameCard: View {
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.inkSoft)
             }
+            // Hanzi H4: each 中文字 card suggests its star (★ find, ★★ find then write) and says what it measures.
+            if let suggested = HanziParentCopy.suggestedStar(kind) {
+                Text(suggested)
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.inkSoft)
+            }
+            if let detail = HanziParentCopy.cardDetail(kind) {
+                Text(detail)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             HStack(spacing: 6) {
                 ForEach(ChildDifficulty.allCases, id: \.rawValue) { star in
                     starToggle(star)
                 }
+            }
+            if kind.isTapHanziFamily && starsLocked {
+                // Design: 「試玩一次先開星」 — this card's own playtest, not the other 中文字 card's.
+                Text(HanziParentCopy.starsLocked)
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.inkSoft)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
 
             Button(action: onPlaytest) {
@@ -203,7 +224,7 @@ private struct ParentGameArtWell: View {
                 Image(systemName: "pawprint.fill").font(.system(size: 36))
             }
         } else if kind.isTapHanziFamily {
-            // 中文字: the play board's robot and a cue picture, one illustration family (D8). Its own parent card is H4.
+            // 中文字: the play board's robot and a cue picture, one illustration family (D8); no separate icon language.
             HStack(spacing: 6) {
                 VectorArtView(artwork: HanziCueArt.robot)
                 VectorArtView(artwork: HanziCueArt.personStanding)

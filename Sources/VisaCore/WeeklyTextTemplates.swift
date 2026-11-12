@@ -538,9 +538,17 @@ public enum WeeklyTextCatalog {
             : value == "0" ? WeeklyWords(ParentToggleCopy.off, "Off") : nil
         case "letter_guard": return value == "on" ? WeeklyWords(ParentToggleCopy.on, "On")
             : value == "off" ? WeeklyWords(ParentToggleCopy.off, "Off") : nil
+        // Off reuses the letter review's 關 / Off words (one definition of the off wording).
+        case "hanzi_review": return value == "4" ? WeeklyWords(HanziParentCopy.reviewOn, HanziParentCopy.reviewOnEnglish)
+            : value == "0" ? label("letter_review", value) : nil
         default: return nil
         }
     }
+
+    /// 中文字設定 names (Hanzi H4 fix1): the settings screen's own rows, shared by both 中文字 cards.
+    static let hanziWeekName = WeeklyWords("今星期中文字", "Characters this week")
+    static let hanziGuardName = WeeklyWords(HanziParentCopy.guardTitle, HanziParentCopy.guardEnglish)
+    static let hanziCoachName = WeeklyWords(HanziParentCopy.coachTitle, HanziParentCopy.coachEnglish)
 
     /// any.settings names of `config_change.what` values: (name, value labels key).
     public static func configName(_ what: String) -> (name: WeeklyWords, labels: String)? {
@@ -566,12 +574,28 @@ public enum WeeklyTextCatalog {
         case "tapLetter_review_letters": return (WeeklyWords("溫習字母", "Review letters"), "letter_set")
         case "tapLetter_review_every": return (WeeklyWords("溫習頻率", "Review frequency"), "letter_review")
         case "tapLetter_mirror_guard": return (WeeklyWords("新字母護欄", "Letter guard"), "letter_guard")
+        case "tapHanzi_week": return (hanziWeekName, "letter_set")
+        case "tapHanzi_review_every": return (WeeklyWords("中文字溫習", "Character review"), "hanzi_review")
+        case "tapHanzi_guard": return (hanziGuardName, "letter_guard")
+        case "tapHanzi_guidance": return (hanziCoachName, "guidance")
+        case "tapHanzi_audio": return (WeeklyWords(HanziParentCopy.audioTitle, HanziParentCopy.audioEnglish), "letter_guard")
+        case "tapHanzi_jyutping":
+            return (WeeklyWords(HanziParentCopy.jyutpingTitle, HanziParentCopy.jyutpingEnglish), "letter_guard")
         default: return nil
         }
     }
 
-    /// any.settings names of deal (or result) signature fields; `tolerance` depends on the game's family.
+    /// any.settings names of deal (or result) signature fields; `tolerance` depends on the game's family, and a
+    /// 中文字 card's week, guard and coach level have its own names (never 描數字提示).
     public static func fieldName(_ field: String, kind: String) -> (name: WeeklyWords, labels: String)? {
+        if ActivityKind(rawValue: kind)?.isTapHanziFamily == true {
+            switch field {
+            case "this_week": return (hanziWeekName, "letter_set")
+            case "guard": return (hanziGuardName, "letter_guard")
+            case "guide_level": return (hanziCoachName, "guidance")
+            default: break
+            }
+        }
         switch field {
         case "tolerance":
             guard let known = ActivityKind(rawValue: kind) else { return nil }
@@ -651,7 +675,7 @@ public enum WeeklyTextCatalog {
             if let label = generation(value) { words.append(label) }
         }
         for (type, values) in [("letter_set", ["b f h", ""]), ("letter_review", ["0", "4"]),
-                               ("letter_guard", ["on", "off"])] {
+                               ("letter_guard", ["on", "off"]), ("hanzi_review", ["0", "4"])] {
             for value in values { if let label = self.label(type, value) { words.append(label) } }
         }
         for category in LineMatchCategory.allCases {
@@ -662,12 +686,14 @@ public enum WeeklyTextCatalog {
                      "tapCount_range", "tapCount_count_voice", "tapCount_english", "tapCount_badge_style",
                      "tapCount_trace_scaffold", "tapCount_guidance", "tapCount_stroke_order", "tapCount_tolerance",
                      "tapLetter_focus_letters", "tapLetter_review_letters", "tapLetter_review_every",
-                     "tapLetter_mirror_guard"]
+                     "tapLetter_mirror_guard", "tapHanzi_week", "tapHanzi_review_every", "tapHanzi_guard",
+                     "tapHanzi_guidance", "tapHanzi_audio", "tapHanzi_jyutping"]
         for what in whats {
             if let name = configName(what) { words.append(name.name) }
         }
         for field in WeeklySignature.dealFields + WeeklySignature.resultFields {
             if let name = fieldName(field, kind: ActivityKind.lineMatch.rawValue) { words.append(name.name) }
+            if let name = fieldName(field, kind: ActivityKind.tapHanziAll.rawValue) { words.append(name.name) }
         }
         words.append(starShiftName)
         for kind in ActivityKind.allCases {

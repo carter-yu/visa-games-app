@@ -443,7 +443,8 @@ final class HanziFindTests {
         let shown = missBranch.range(of: "tapHanziShowBubble(line")
         let spoken = missBranch.range(of: "tapHanziSpeak(")
         expectTrue(shown != nil && spoken != nil && shown!.lowerBound < spoken!.lowerBound)
-        // Voice: one gate, OFF by default (D4); nothing in H2 turns audio on or saves the Hanzi settings.
+        // Voice: one gate, 廣東話語音 (ON by default since Carter's 2026-11-13 override of D4); the model never sets it
+        // itself, and nothing in H2 saves the Hanzi settings.
         let speak = body(of: "private func tapHanziSpeak(", in: model)
         expectTrue(speak.contains("guard hanziSettings.audioEnabled else { return }"))
         expectTrue(speak.contains("guideVoice."))

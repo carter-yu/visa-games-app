@@ -52,7 +52,8 @@ JSON, JSONL and Python files are never treated as sources or resources.
    (`\u00xx`, lowercase hex). `/` and non-ASCII characters are written as they are.
 5. Order: days Monday → Sunday; kinds by `ActivityCatalog.playableKinds` (unknown kinds after,
    by UTF-8), the quiz row before the practice row; areas `numbers, matching, comparing, pen,
-   letters, other`; families `lines, shapes, roads, tapAll, tapTrace`; rounds in record order
+   letters, hanzi, other` (`hanzi` = both 中文字 cards since Hanzi H4, 0.40.0; no fixture record uses it, so
+   it is a zero row); families `lines, shapes, roads, tapAll, tapTrace`; rounds in record order
    (`PerfCodec.ordered`); weeks oldest first, the current week last.
 6. Floating sums are added in the same order on both sides (rounds in record order within a kind,
    kind rows in order within a group). Minutes are summed as integer milliseconds and divided once.

@@ -145,7 +145,7 @@ struct ParentReviewView: View, Equatable {
             ForEach(report.games) { row in
                 GameReviewRow(row: row, selected: selectedGame == row.kind, action: { toggleGame(row.kind) })
                 if selectedGame == row.kind {
-                    GameReviewDetail(row: row)
+                    GameReviewDetail(row: row, hanziLines: HanziReportText.lines(report.hanzi[row.kind], kind: row.kind))
                 }
             }
             ReviewText("● 一次答啱　◐ 試多次先啱　○ 油用晒　· 未完成", size: 13, weight: .regular, color: .inkSoft)
@@ -524,6 +524,11 @@ private struct GameReviewRow: View {
 
 private struct GameReviewDetail: View {
     let row: PerfGameRow
+    /// Hanzi H4: a 中文字 card's finding lines, then (搵完寫) its writing-help lines (`HanziReportText`); empty for
+    /// every other game.
+    var hanziLines: [String] = []
+    private static let headings: Set<String> = [HanziParentCopy.reportTitle, HanziParentCopy.reportFinding,
+                                                HanziParentCopy.reportWriting]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -556,6 +561,10 @@ private struct GameReviewDetail: View {
             }
             if let last = row.lastPlayed {
                 ReviewText("上次玩：\(ReviewFormat.date(last))", size: 13, weight: .regular, color: .inkSoft)
+            }
+            // Recorded counts only: finding errors and writing help stay in their own lines.
+            ForEach(Array(hanziLines.enumerated()), id: \.offset) { item in
+                ReviewText(item.element, size: 14, weight: Self.headings.contains(item.element) ? .semibold : .regular)
             }
         }
         .padding(12)

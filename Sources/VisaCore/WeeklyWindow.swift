@@ -98,8 +98,10 @@ public enum WeeklyRoundType: String, Sendable, Equatable, Hashable, CaseIterable
 }
 
 /// §7.2 area map (static; no schema change). Kinds outside the map are shown under `other`.
+/// `hanzi` (H4, 0.40.0): both 中文字 cards (D1 name 「中文字」 / "Chinese characters"), kept apart from the
+/// English letters.
 public enum WeeklyArea: String, Sendable, Equatable, Hashable, CaseIterable {
-    case numbers, matching, comparing, pen, letters, other
+    case numbers, matching, comparing, pen, letters, hanzi, other
 
     public var zh: String {
         switch self {
@@ -108,6 +110,7 @@ public enum WeeklyArea: String, Sendable, Equatable, Hashable, CaseIterable {
         case .comparing: return "比較・概念"
         case .pen: return "手眼・畫線"
         case .letters: return "字母"
+        case .hanzi: return "中文字"
         case .other: return "其他"
         }
     }
@@ -119,6 +122,7 @@ public enum WeeklyArea: String, Sendable, Equatable, Hashable, CaseIterable {
         case .comparing: return "Comparing & concepts"
         case .pen: return "Pen control & tracing"
         case .letters: return "Letters"
+        case .hanzi: return "Chinese characters"
         case .other: return "Other"
         }
     }
@@ -139,8 +143,7 @@ public enum WeeklyArea: String, Sendable, Equatable, Hashable, CaseIterable {
         case .tapLetterAll, .tapLetterWrite:
             return .letters
         case .tapHanziAll, .tapHanziWrite:
-            // Hanzi: 翻字卡 is dealt from H2 (build 83); its report area is H4.
-            return .other
+            return .hanzi
         }
     }
 }

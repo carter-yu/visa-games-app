@@ -340,6 +340,14 @@ final class PerformanceRecorder {
         ], actorOverride: .parent)
     }
 
+    /// Hanzi H4 中文字設定 (shared by the 2 中文字 cards; `HanziSettingChange`).
+    func tapHanziSettingChanged(what: String, value: String) {
+        emit(.configChange, [
+            "what": .string("tapHanzi_\(what)"), "kind": .string(ActivityKind.tapHanziAll.rawValue),
+            "value": .string(value)
+        ], actorOverride: .parent)
+    }
+
     func assignmentChanged(kind: ActivityKind, star: Int, on: Bool) {
         emit(.configChange, [
             "what": .string("assignment"), "kind": .string(kind.rawValue),
@@ -349,7 +357,8 @@ final class PerformanceRecorder {
 
     /// v0.21 表現: builds the report on the recorder queue (after any queued writes, so a
     /// just-tapped 唔計呢段 is already on disk), then hands it to main. Never on the main thread.
-    func buildReport(window: PerfReportWindow, videoIDs: [String], titles: [String: String],
+    /// `hanziPack` (Hanzi H4): the bundled pack, so the report can tally each 中文字 target and its confusable pairs.
+    func buildReport(window: PerfReportWindow, videoIDs: [String], titles: [String: String], hanziPack: HanziPack? = nil,
                      completion: @escaping @MainActor @Sendable (PerfReport) -> Void) {
         let store = self.store
         queue.async {
@@ -358,7 +367,7 @@ final class PerformanceRecorder {
             let report = PerfReportBuilder.build(
                 events: read.events, rollup: store.loadRollup(),
                 videos: videoIDs.map { (id: $0, title: titles[$0] ?? $0) },
-                now: Date(), window: window, timeZone: store.timeZone
+                now: Date(), window: window, timeZone: store.timeZone, hanziPack: hanziPack
             )
             let ms = Int(Date().timeIntervalSince(started) * 1000)
             VisaGamesLog.append("parent review — built \(window.rawValue) from \(read.events.count) events in \(ms) ms")
