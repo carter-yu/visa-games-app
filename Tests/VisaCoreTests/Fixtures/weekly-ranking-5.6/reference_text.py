@@ -67,6 +67,7 @@ AREA_NAMES = {
     "comparing": ("比較・概念", "Comparing & concepts"),
     "pen": ("手眼・畫線", "Pen control & tracing"),
     "letters": ("字母", "Letters"),
+    "hanzi": ("中文字", "Chinese characters"),
     "other": ("其他", "Other"),
 }
 QUIZ_AREAS = ["numbers", "matching", "comparing", "letters"]

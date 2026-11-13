@@ -671,26 +671,29 @@ final class HanziTapTests {
         expectTrue(after[1].lane == .week && without.week.contains(after[1].target) && after[1].target != "左")
     }
 
-    /// (e) Missing, corrupt or out-of-range data, or settings of another schema version, never turn anything on:
-    /// settings load the defaults (pack week, review every 4, guard on, audio and jyutping OFF), the other stores,
-    /// versioned by their `.v1` key, load empty when unreadable, and both games stay OFF.
-    func testStoresFailClosedWithGamesAudioAndJyutpingOff() throws {
+    /// (e) Missing, corrupt or out-of-range data, or settings of another schema version, never turn a game or jyutping
+    /// on and never load a partial value: settings load the defaults (pack week, review every 4, guard on, 廣東話語音 ON
+    /// since Carter's 2026-11-13 override of D4's audio default, jyutping OFF), the other stores, versioned by their
+    /// `.v1` key, load empty when unreadable, and both games stay OFF.
+    func testStoresFailClosedWithGamesAndJyutpingOffAudioOn() throws {
         let pack = try loadPack()
         let defaults = UserDefaults(suiteName: "VisaGames.hanziTap.\(UUID().uuidString)")!
         let store = HanziTapSettingsStore(defaults: defaults)
-        func expectOff(_ value: HanziTapSettings, _ label: String) {
+        func expectDefaults(_ value: HanziTapSettings, _ label: String) {
             expectEqual(value, .defaults, label)
-            expectFalse(value.audioEnabled || value.jyutpingEnabled, label)
+            expectTrue(value.audioEnabled, label)
+            expectFalse(value.jyutpingEnabled, label)
             expectEqual(value.validWeek(in: pack), Self.week, label)
             expectEqual(value.reviewEvery, 4, label)
             expectTrue(value.confusableGuard, label)
         }
-        expectOff(store.load(), "missing")
-        expectFalse(pack.defaults.audioEnabled || pack.defaults.jyutpingEnabled || pack.defaults.findEnabled
-                    || pack.defaults.writeEnabled)
-        // A valid v1 value round-trips, so each fallback below is the store's.
+        expectDefaults(store.load(), "missing")
+        expectTrue(pack.defaults.audioEnabled)
+        expectFalse(pack.defaults.jyutpingEnabled || pack.defaults.findEnabled || pack.defaults.writeEnabled)
+        // A valid v1 value round-trips (廣東話語音 OFF: the parent's choice against the ON default), so each fallback
+        // below is the store's.
         let chosen = HanziTapSettings(week: ["上", "下", "左"], reviewEvery: 0, confusableGuard: false,
-                                      audioEnabled: true, jyutpingEnabled: true)
+                                      audioEnabled: false, jyutpingEnabled: true)
         store.save(chosen)
         expectEqual(store.load(), chosen)
         func json(_ object: Any) -> Data { try! JSONSerialization.data(withJSONObject: object) }
@@ -715,10 +718,10 @@ final class HanziTapTests {
         bad.append(("typed", json(typed)))
         for (label, data) in bad {
             defaults.set(data, forKey: HanziTapSettingsStore.key)
-            expectOff(store.load(), label)
+            expectDefaults(store.load(), label)
         }
         defaults.set("audio on", forKey: HanziTapSettingsStore.key)
-        expectOff(store.load(), "a string")
+        expectDefaults(store.load(), "a string")
 
         // Progress, writing, cue and round stores: missing or unreadable → empty, never a partial value.
         let progressStore = HanziProgressStore(defaults: defaults)

@@ -462,7 +462,8 @@ struct CanvasActivityHost: View {
                                        onDown: { model.tapHanziWritePenDown($0) },
                                        onMove: { model.tapHanziWritePenMove($0) },
                                        onUp: { model.tapHanziWritePenUp() },
-                                       onReprompt: { model.speakTapHanziPrompt() })
+                                       onReprompt: { model.speakTapHanziPrompt() },
+                                       jyutping: model.tapHanziJyutping)
             } else {
             TapHanziBoardView(board: board, pack: pack, copy: copy, isWrite: shownKind == .tapHanziWrite,
                               audioOn: model.tapHanziAudioOn,
@@ -474,7 +475,8 @@ struct CanvasActivityHost: View {
                               strokeReveal: model.tapHanziStrokeReveal,
                               plaqueNudge: model.tapHanziPlaqueNudge,
                               onTap: { model.tapHanziTap(card: $0) },
-                              onReprompt: { model.speakTapHanziPrompt() })
+                              onReprompt: { model.speakTapHanziPrompt() },
+                              jyutping: model.tapHanziJyutping)
             }
         }
     }

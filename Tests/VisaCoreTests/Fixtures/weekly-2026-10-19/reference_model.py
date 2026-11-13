@@ -61,7 +61,7 @@ CATALOG_CHANCE = {
     "tapLetterAll": 1.0 / 45.0, "tapLetterWrite": 1.0 / 45.0,
 }
 
-AREAS = ["numbers", "matching", "comparing", "pen", "letters", "other"]
+AREAS = ["numbers", "matching", "comparing", "pen", "letters", "hanzi", "other"]
 AREA_OF = {}
 for _k in ["countVehicles", "moreFewer", "tapCountPick", "tapCountPickEnglish", "tapCountAll", "tapCountTrace",
            "tapCountAllEnglish", "tapCountTraceEnglish"]:
@@ -75,6 +75,9 @@ for _k in ["traceLines", "traceShapesDotted", "traceShapesArrows", "traceShapesF
     AREA_OF[_k] = "pen"
 for _k in ["tapLetterAll", "tapLetterWrite"]:
     AREA_OF[_k] = "letters"
+# Hanzi H4 (0.40.0): both 中文字 cards.
+for _k in ["tapHanziAll", "tapHanziWrite"]:
+    AREA_OF[_k] = "hanzi"
 
 FAMILIES = ["lines", "shapes", "roads", "tapAll", "tapTrace"]
 FAMILY_OF = {"traceLines": "lines", "traceShapesDotted": "shapes", "traceShapesArrows": "shapes",

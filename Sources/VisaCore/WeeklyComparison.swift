@@ -121,6 +121,9 @@ public struct WeeklyComparison: Sendable, Equatable {
             member = { $0.isTapCountFamily }
         } else if what.hasPrefix("tapLetter_") {
             member = { $0.isTapLetterFamily }
+        } else if what.hasPrefix("tapHanzi_") {
+            // 中文字設定 (Hanzi H4 fix1): one settings screen shared by both 中文字 cards.
+            member = { $0.isTapHanziFamily }
         } else {
             return []
         }
@@ -180,11 +183,13 @@ public enum WeeklySettingChange: Sendable, Equatable {
 
 /// §4.10 dominant deal signature of one row in one window.
 public struct WeeklySignature: Sendable, Equatable {
-    /// The deal fields the design names, in its order.
+    /// The deal fields the design names, in its order. `this_week` is read for the 中文字 cards only (`hanziSet`); a
+    /// letter deal's `this_week` is its legacy `focus_letters`.
     public static let dealFields = [
         "gen", "level", "tolerance", "shape_trace_level", "trace_scaffold", "range", "count_voice", "english",
         "direction_coaching", "stop_coaching", "slant_enabled", "dot_style", "category_mix", "shape_mix",
-        "focus_letters", "eligible_focus_letters", "review_letters", "eligible_review_letters", "review_every", "guard"
+        "focus_letters", "eligible_focus_letters", "review_letters", "eligible_review_letters", "review_every", "guard",
+        "this_week"
     ]
     /// Read from the round's result instead of its deal.
     public static let resultFields = ["guide_level"]
@@ -208,6 +213,13 @@ public struct WeeklySignature: Sendable, Equatable {
 
     public static func letterSet(_ values: [String]) -> String {
         Array(Set(values.filter(LetterSelectionSettings.isASCII))).sorted().joined(separator: " ")
+    }
+
+    /// A 中文字 deal's `this_week` (its pack targets) as one value: each glyph once, in code point order. No ASCII
+    /// filter (that is `letterSet`, which would read every Hanzi week as empty). Nil unless the field is an array.
+    public static func hanziSet(_ value: PerfValue?) -> String? {
+        guard let glyphs = value?.arrayValue?.compactMap(\.stringValue) else { return nil }
+        return Array(Set(glyphs)).sorted().joined(separator: " ")
     }
 
     public static func guardValue(_ value: PerfValue?) -> String? {
@@ -270,13 +282,15 @@ public struct WeeklySignature: Sendable, Equatable {
             let dealt = entry.event
             guard window.contains(dealt.timestamp) else { continue }
             let key = Key(kind: entry.kind, type: WeeklyRoundType.of(dealt: dealt))
+            let hanzi = ActivityKind(rawValue: key.kind)?.isTapHanziFamily == true
             var tally = tallies[key] ?? Tally()
             for field in dealFields {
                 let value: String?
                 if field == "gen" { value = PerfQuestionGeneration.gen(of: dealt) }
                 else if field == "guard" { value = key.kind == ActivityKind.tapLetterAll.rawValue ||
-                    key.kind == ActivityKind.tapLetterWrite.rawValue ? guardValue(dealt[field]) : nil }
-                else if field == "focus_letters", dealt[field] == nil,
+                    key.kind == ActivityKind.tapLetterWrite.rawValue || hanzi ? guardValue(dealt[field]) : nil }
+                else if field == "this_week" { value = hanzi ? hanziSet(dealt[field]) : nil }
+                else if field == "focus_letters", dealt[field] == nil, !hanzi,
                         let old = dealt["this_week"]?.arrayValue {
                     value = letterSet(old.compactMap(\.stringValue))
                 } else if ["focus_letters", "eligible_focus_letters", "review_letters", "eligible_review_letters"].contains(field),

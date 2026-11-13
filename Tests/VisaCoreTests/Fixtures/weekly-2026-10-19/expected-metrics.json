@@ -88,6 +88,23 @@
         "rounds": 1
       },
       {
+        "area": "hanzi",
+        "practice_finished": 0,
+        "practice_rate": null,
+        "practice_rounds": 0,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_adjusted": null,
+        "quiz_answered": 0,
+        "quiz_chance_mean": null,
+        "quiz_expected": 0.000000,
+        "quiz_expected_answered": 0,
+        "quiz_first_try": 0,
+        "quiz_rate": null,
+        "quiz_rounds": 0,
+        "rounds": 0
+      },
+      {
         "area": "other",
         "practice_finished": 1,
         "practice_rate": null,
@@ -2694,6 +2711,23 @@
       },
       {
         "area": "letters",
+        "practice_finished": 0,
+        "practice_rate": null,
+        "practice_rounds": 0,
+        "practice_smooth": 0,
+        "practice_smooth_defined": 0,
+        "quiz_adjusted": null,
+        "quiz_answered": 0,
+        "quiz_chance_mean": null,
+        "quiz_expected": 0.000000,
+        "quiz_expected_answered": 0,
+        "quiz_first_try": 0,
+        "quiz_rate": null,
+        "quiz_rounds": 0,
+        "rounds": 0
+      },
+      {
+        "area": "hanzi",
         "practice_finished": 0,
         "practice_rate": null,
         "practice_rounds": 0,

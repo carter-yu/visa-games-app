@@ -55,6 +55,8 @@ struct TapHanziBoardView: View {
     let plaqueNudge: Bool
     let onTap: (Int) -> Void
     let onReprompt: () -> Void
+    /// 粵拼 under each flipped card (H4, `AppModel.tapHanziJyutping`); nil while the parent has it OFF (D4).
+    var jyutping: String? = nil
 
     var body: some View {
         CanvasStage { LineMatchBackdrop() } content: {
@@ -62,7 +64,7 @@ struct TapHanziBoardView: View {
                                  pendingMinutes: pendingMinutes, fuelBefore: fuelBefore,
                                  thinkPauseRemaining: thinkPauseRemaining, bubble: bubble, celebrating: celebrating,
                                  strokeReveal: strokeReveal, plaqueNudge: plaqueNudge, onTap: onTap,
-                                 onReprompt: onReprompt)
+                                 onReprompt: onReprompt, jyutping: jyutping)
         }
     }
 }
@@ -82,6 +84,7 @@ private struct TapHanziStageContent: View {
     let plaqueNudge: Bool
     let onTap: (Int) -> Void
     let onReprompt: () -> Void
+    var jyutping: String?
     @Environment(\.canvasMetrics) private var metrics
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var paintProgress: CGFloat = 0
@@ -183,13 +186,20 @@ private struct TapHanziStageContent: View {
                 if let art = flipped {
                     VStack(spacing: metrics.u(4)) {
                         if let picture = HanziCueArt.picture(art.picture) {
+                            // With 粵拼 on, the picture gives up 22 u so the reading fits under the card's glyph row.
                             VectorArtView(artwork: picture)
-                                .frame(width: metrics.u(150), height: metrics.u(118))
+                                .frame(width: metrics.u(150), height: metrics.u(jyutping == nil ? 118 : 96))
                         }
                         HStack(spacing: metrics.u(8)) {
                             HanziGlyphView(glyph: art.glyph, pack: pack, ink: Self.teal, lineWidth: 30)
                                 .frame(width: metrics.u(44), height: metrics.u(44))
                             CanvasText(art.meaning, size: 24, weight: 800)
+                        }
+                        // 粵拼 (design: 「開咗先喺字卡下面顯示。」): drawn only when the parent turned it on, and never
+                        // spoken (kept out of the accessibility label too).
+                        if let jyutping {
+                            CanvasText(jyutping, size: 18, weight: 700, color: Self.teal)
+                                .accessibilityHidden(true)
                         }
                     }
                     .transition(reduceMotion ? .opacity : .scale(scale: 0.85).combined(with: .opacity))
@@ -235,7 +245,8 @@ private struct TapHanziStageContent: View {
         .accessibilityHidden(true)
     }
 
-    /// Voice state, shown beside every bubble line: crossed out while 廣東話語音 is off (D4). Not a button.
+    /// Voice state, shown beside every bubble line: crossed out unless the voice can speak (`AppModel.tapHanziAudioOn`:
+    /// 廣東話語音 on and a zh-HK / yue-HK voice installed). Not a button.
     private var speakerMark: some View {
         ZStack {
             VectorArtView(artwork: CanvasArt.speaker)

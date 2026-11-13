@@ -286,7 +286,7 @@ GLOSSARY = [
      "Report vs 表現 screen: the report looks at this week only, the screen at all recent play, so labels can differ."),
 ]
 
-AREA_ORDER = ["numbers", "matching", "comparing", "pen", "letters", "other"]
+AREA_ORDER = ["numbers", "matching", "comparing", "pen", "letters", "hanzi", "other"]
 FAMILY_ORDER = ["lines", "shapes", "roads", "tapAll", "tapTrace"]
 EXCLUDED_ORDER = ["parent_playtest", "parent_uat", "parent_test_visa", "excluded_session"]
 

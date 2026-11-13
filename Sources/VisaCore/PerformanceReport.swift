@@ -121,6 +121,8 @@ public struct PerfReport: Sendable, Equatable {
     public var noTelemetryPlays: Int
     public var navGuardStops: Int
     public var sessions: [PerfReportSession]
+    /// Hanzi H4: each 中文字 card's finding and writing records (`HanziReportBuilder`), same filter and window.
+    public var hanzi: [ActivityKind: HanziKindReport] = [:]
 
     public var pagingRate: Double? {
         multiPageVisits > 0 ? Double(pagedVisits) / Double(multiPageVisits) : nil
@@ -149,10 +151,11 @@ public enum PerfReportBuilder {
     public static let sessionDays = 7
     public static let sessionLimit = 5
 
-    /// `videos` is the allowlist (id, parent label) in display order.
+    /// `videos` is the allowlist (id, parent label) in display order. `hanziPack` (the bundled pack) names the 中文字
+    /// targets and confusable pairs; nil → no Hanzi report.
     public static func build(events: [PerfEvent], rollup: PerfRollup, videos: [(id: String, title: String)],
                              now: Date, window: PerfReportWindow,
-                             timeZone: TimeZone = PerfClock.hongKong) -> PerfReport {
+                             timeZone: TimeZone = PerfClock.hongKong, hanziPack: HanziPack? = nil) -> PerfReport {
         let ordered = PerfCodec.ordered(events)
         let excluded = PerfFilter.excludedSessions(in: ordered)
         let clock = DayClock(timeZone: timeZone, now: now)
@@ -169,7 +172,9 @@ public enum PerfReportBuilder {
             builtAt: now, window: window, eventCount: events.count, pooledPrior: games.pooled,
             games: games.rows, videos: video.rows, multiPageVisits: video.multiPage, pagedVisits: video.paged,
             slotPicks: video.slotPicks, noTelemetryPlays: video.noTelemetry, navGuardStops: video.navGuard,
-            sessions: video.sessions
+            sessions: video.sessions,
+            hanzi: HanziReportBuilder.build(events: events, pack: hanziPack, now: now, window: window, timeZone: timeZone,
+                                            rollup: rollup)
         )
     }
 

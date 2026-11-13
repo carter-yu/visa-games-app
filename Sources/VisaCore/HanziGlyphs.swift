@@ -249,7 +249,8 @@ public struct HanziBoardSpec: Decodable, Equatable, Sendable {
     public let scheduler: Scheduler
 }
 
-/// Defaults a fresh or unreadable Hanzi setting falls back to: both games, audio and jyutping OFF.
+/// Defaults a fresh or unreadable Hanzi setting falls back to: both games and jyutping OFF, 廣東話語音 ON (Carter
+/// 2026-11-13 overrode D4's audio default).
 public struct HanziPackDefaults: Decodable, Equatable, Sendable {
     public let week: [String]
     public let findEnabled: Bool

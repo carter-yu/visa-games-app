@@ -6,6 +6,10 @@ import Foundation
 /// without needing a letter Save.
 public struct LetterTicketDesk: Equatable, Sendable {
     public private(set) var unavailable = false
+    /// What could not be dealt while `unavailable` (H4): the kind whose board failed, or the assigned kinds the
+    /// caller's eligibility filters removed from an emptied pool. The unavailable screen names their settings
+    /// (`TicketUnavailableCopy`). Empty whenever `unavailable` is false.
+    public private(set) var unavailableKinds: [ActivityKind] = []
 
     public init() {}
 
@@ -24,11 +28,13 @@ public struct LetterTicketDesk: Equatable, Sendable {
     public static func dealsBoard(_ kind: ActivityKind) -> Bool { kind.isTapLetterFamily || kind.isTapHanziFamily }
 
     /// Picks the kind and deals the only fallible payload (a letter or Hanzi board) before the caller
-    /// touches any round state. `dealLetterBoard` is called only for `dealsBoard` kinds.
-    public mutating func prepare<Board>(pool: [ActivityKind], seed: String,
+    /// touches any round state. `dealLetterBoard` is called only for `dealsBoard` kinds. `filtered`: the assigned
+    /// kinds the caller's eligibility filters took out of `pool` (named on the screen if the pool is empty).
+    public mutating func prepare<Board>(pool: [ActivityKind], filtered: [ActivityKind] = [], seed: String,
                                         dealLetterBoard: (ActivityKind) -> Board?) -> Outcome<Board> {
         guard !pool.isEmpty else {
             unavailable = true
+            unavailableKinds = filtered
             return .unavailable(reason: "noEligibleKind")
         }
         let kind = ActivityCatalog.kind(forRoundSeed: seed, pool: pool)
@@ -36,11 +42,13 @@ public struct LetterTicketDesk: Equatable, Sendable {
         if Self.dealsBoard(kind) {
             guard let dealt = dealLetterBoard(kind) else {
                 unavailable = true
+                unavailableKinds = [kind]
                 return .unavailable(reason: "no\(kind.isTapHanziFamily ? "Hanzi" : "Letter")Deal kind=\(kind.rawValue)")
             }
             board = dealt
         }
         unavailable = false
+        unavailableKinds = []
         return .ready(seed: seed, kind: kind, letterBoard: board)
     }
 
@@ -49,6 +57,7 @@ public struct LetterTicketDesk: Equatable, Sendable {
     public mutating func recover(_ route: Recovery) -> Bool {
         guard unavailable else { return false }
         unavailable = false
+        unavailableKinds = []
         return true
     }
 }

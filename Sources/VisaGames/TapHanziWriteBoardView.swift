@@ -18,11 +18,13 @@ struct TapHanziWriteBoardView: View {
     let onMove: (LineMatchPoint) -> Void
     let onUp: () -> Void
     let onReprompt: () -> Void
+    /// 粵拼 under each earned picture card (H4, `AppModel.tapHanziJyutping`); nil while the parent has it OFF (D4).
+    var jyutping: String? = nil
 
     var body: some View {
         CanvasStage { LineMatchBackdrop() } content: {
             TapHanziWriteStage(round: round, pack: pack, copy: copy, audioOn: audioOn, now: now, bubble: bubble,
-                               onDown: onDown, onMove: onMove, onUp: onUp, onReprompt: onReprompt)
+                               onDown: onDown, onMove: onMove, onUp: onUp, onReprompt: onReprompt, jyutping: jyutping)
         }
     }
 }
@@ -38,6 +40,7 @@ private struct TapHanziWriteStage: View {
     let onMove: (LineMatchPoint) -> Void
     let onUp: () -> Void
     let onReprompt: () -> Void
+    var jyutping: String?
     @Environment(\.canvasMetrics) private var metrics
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var started = false
@@ -163,6 +166,11 @@ private struct TapHanziWriteStage: View {
                 HanziGlyphView(glyph: glyph, pack: pack, ink: Self.teal, lineWidth: 30)
                     .frame(width: metrics.u(44), height: metrics.u(44))
                 CanvasText(art?.meaning ?? "", size: 22, weight: 900)
+            }
+            // 粵拼 (design: 「開咗先喺字卡下面顯示。」): only when the parent turned it on; never spoken.
+            if let jyutping {
+                CanvasText(jyutping, size: 18, weight: 700, color: Self.teal)
+                    .accessibilityHidden(true)
             }
         }
         .frame(width: metrics.u(206), height: metrics.u(210))
@@ -393,7 +401,8 @@ private struct TapHanziWriteStage: View {
     }
 }
 
-/// Voice state beside a bubble line: crossed out while 廣東話語音 is off (D4). Not a button.
+/// Voice state beside a bubble line: crossed out unless the voice can speak (`AppModel.tapHanziAudioOn`: 廣東話語音 on
+/// and a zh-HK / yue-HK voice installed). Not a button.
 private struct HanziSpeakerMark: View {
     let audioOn: Bool
     @Environment(\.canvasMetrics) private var metrics

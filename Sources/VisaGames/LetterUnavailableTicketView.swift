@@ -4,9 +4,14 @@ import VisaCore
 /// No eligible target can be dealt. The usual three-second corner hold remains the only parent entry.
 /// Build 79 (UX review M3): built like its sibling child board `ProviderBlockedView` — stage-scaled
 /// canvas type and symbol, HK Cantonese with an English line. Nothing here is tappable; the parent
-/// corner layer above it keeps the hold.
+/// corner layer above it keeps the hold. Hanzi H4: the advice line comes from `TicketUnavailableCopy`, which names
+/// the settings to check (the letters', or 中文字設定 with the Hanzi card that could not be dealt).
 struct LetterUnavailableTicketView: View {
+    /// What could not be dealt (`AppModel.unavailableTicketKinds`); empty keeps the letter advice.
+    var kinds: [ActivityKind] = []
+
     var body: some View {
+        let lines = TicketUnavailableCopy.lines(for: kinds)
         GeometryReader { proxy in
             let layout = DesignTokens.stageLayout(screenWidth: Double(proxy.size.width),
                                                   screenHeight: Double(proxy.size.height))
@@ -26,12 +31,18 @@ struct LetterUnavailableTicketView: View {
                                color: Color.inkSoft)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, metrics.u(48))
-                    CanvasText("叫大人長按右下角，睇吓字母設定。", size: 26, weight: 800,
+                    if !lines.cards.isEmpty {
+                        CanvasText(lines.cards.joined(separator: "、"), size: 26, weight: 800,
+                                   color: Color(hex: DesignTokens.Palette.ink))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, metrics.u(48))
+                    }
+                    CanvasText(lines.advice, size: 26, weight: 800,
                                color: Color(hex: DesignTokens.Palette.ink))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, metrics.u(48))
                         .padding(.top, metrics.u(10))
-                    CanvasText("Ask a grown-up to hold the bottom-right corner and check the letter settings.",
+                    CanvasText(lines.adviceEnglish,
                                size: 16, weight: 600, color: Color.inkSoft)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, metrics.u(48))

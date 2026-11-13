@@ -54,7 +54,8 @@ final class HanziGlyphTests {
             expectTrue(left.count >= pack.board.symbolsPerRow - 1, "distractors for \(target)")
         }
         expectFalse(pack.defaults.findEnabled || pack.defaults.writeEnabled, "both games start off")
-        expectFalse(pack.defaults.audioEnabled || pack.defaults.jyutpingEnabled, "audio and jyutping start off")
+        expectTrue(pack.defaults.audioEnabled, "廣東話語音 starts on (Carter 2026-11-13 overrode D4's audio default)")
+        expectFalse(pack.defaults.jyutpingEnabled, "jyutping starts off")
         expectEqual(pack.defaults.guideLevel, .standard)
         expectEqual(pack.defaults.reviewEveryRounds, 4)
         expectTrue(pack.defaults.confusableGuard && pack.defaults.unlockStarsAfterOwnPlaytest)

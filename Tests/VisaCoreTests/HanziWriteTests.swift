@@ -903,7 +903,8 @@ final class HanziWriteTests {
         let begin = body(of: "private func beginTapHanziWriting(", in: model)
         expectTrue(begin.contains("let board = playtest ? playtestTapHanziBoard : tapHanziBoard"))
         expectTrue(begin.contains("(playtest ? playtestTapHanziWriteRound : tapHanziWriteRound) == nil"), "begins once")
-        expectTrue(begin.contains("TapCountGuidePlan(level: tapCountSettings.guidance"), "the shared level, never migrated")
+        // H4 (0.40.0 / 88): Hanzi's own 描字提示 level (`HanziTapSettings.guidance`); neither enum migrated.
+        expectTrue(begin.contains("TapCountGuidePlan(level: hanziSettings.guidance"), "Hanzi's own level, never migrated")
         let move = body(of: "func tapHanziWritePenMove(", in: model)
         expectTrue(move.contains("self?.finishTapHanziFind(token: token, playtest: playtest)"), "the stamp goes through the hold")
         expectFalse(move.contains("finishTapHanziRound"))
