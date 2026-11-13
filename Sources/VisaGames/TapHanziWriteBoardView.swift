@@ -12,6 +12,8 @@ struct TapHanziWriteBoardView: View {
     let pack: HanziPack
     let copy: HanziWriteCopy
     let audioOn: Bool
+    /// 寫字格 (H4.1): the parent's 田字格 / 米字格 (`HanziTapSettings.grid`), drawn under everything on the square.
+    let grid: HanziWritingGrid
     let now: Double
     let bubble: HanziWriteLine?
     let onDown: (LineMatchPoint) -> Bool
@@ -23,8 +25,9 @@ struct TapHanziWriteBoardView: View {
 
     var body: some View {
         CanvasStage { LineMatchBackdrop() } content: {
-            TapHanziWriteStage(round: round, pack: pack, copy: copy, audioOn: audioOn, now: now, bubble: bubble,
-                               onDown: onDown, onMove: onMove, onUp: onUp, onReprompt: onReprompt, jyutping: jyutping)
+            TapHanziWriteStage(round: round, pack: pack, copy: copy, audioOn: audioOn, grid: grid, now: now,
+                               bubble: bubble, onDown: onDown, onMove: onMove, onUp: onUp, onReprompt: onReprompt,
+                               jyutping: jyutping)
         }
     }
 }
@@ -34,6 +37,7 @@ private struct TapHanziWriteStage: View {
     let pack: HanziPack
     let copy: HanziWriteCopy
     let audioOn: Bool
+    let grid: HanziWritingGrid
     let now: Double
     let bubble: HanziWriteLine?
     let onDown: (LineMatchPoint) -> Bool
@@ -220,17 +224,23 @@ private struct TapHanziWriteStage: View {
         }
     }
 
-    /// The 田字格: a faint square border and a dashed centre cross only (D3; no diagonals).
+    /// 寫字格 (D3; 米字格 since H4.1): the lines `HanziWritingGridGeometry` gives for the parent's grid on the square. The
+    /// border is a faint solid line; the centre cross and 米字格's two diagonals share the cross's one light dash, so a
+    /// diagonal is never stronger than the cross. Drawn first, under the roads, ink, cars, signs and numbers, on a canvas
+    /// that takes no touches; the strokes and their judging never read the grid.
     private func drawGrid(in g: inout GraphicsContext) {
-        let s = HanziWriteBoard.square
-        let rect = CGRect(x: s.x, y: s.y, width: s.width, height: s.height)
-        g.stroke(Path(roundedRect: rect, cornerRadius: 2), with: .color(Color(hex: 0xADBFCE)), lineWidth: 1.5)
-        var cross = Path()
-        cross.move(to: CGPoint(x: rect.midX, y: rect.minY))
-        cross.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
-        cross.move(to: CGPoint(x: rect.minX, y: rect.midY))
-        cross.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
-        g.stroke(cross, with: .color(Color(hex: 0xB4C8D8)), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [6, 7]))
+        var border = Path(), guides = Path()
+        for line in HanziWritingGridGeometry.lines(for: grid, in: HanziWriteBoard.square) {
+            if line.dashed {
+                guides.move(to: ShapeTraceDrawing.cg(line.from))
+                guides.addLine(to: ShapeTraceDrawing.cg(line.to))
+            } else {
+                border.move(to: ShapeTraceDrawing.cg(line.from))
+                border.addLine(to: ShapeTraceDrawing.cg(line.to))
+            }
+        }
+        g.stroke(border, with: .color(Color(hex: 0xADBFCE)), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+        g.stroke(guides, with: .color(Color(hex: 0xB4C8D8)), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [6, 7]))
     }
 
     /// Each stroke's road (outline, lane, lane dots on the headlight spacing) and the teal ink drawn so far. Strokes not

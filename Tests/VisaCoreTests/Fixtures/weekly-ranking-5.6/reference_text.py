@@ -70,7 +70,8 @@ AREA_NAMES = {
     "hanzi": ("中文字", "Chinese characters"),
     "other": ("其他", "Other"),
 }
-QUIZ_AREAS = ["numbers", "matching", "comparing", "letters"]
+# Hanzi H4.1 (Carter 2026-11-14): 中文字 counts in A10 / A11 / lowest_area like 字母, last in the area order.
+QUIZ_AREAS = ["numbers", "matching", "comparing", "letters", "hanzi"]
 
 # perf-review-design §8.5 approved tag strings (only tags that `answer_attempt.tags` can carry).
 TAGS = {

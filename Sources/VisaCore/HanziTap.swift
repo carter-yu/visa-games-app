@@ -9,6 +9,15 @@ import Foundation
 
 // MARK: - Settings
 
+/// 寫字格 (D3's parent choice, H4.1): the lines the write board draws behind the glyph
+/// (`HanziWritingGridGeometry`). The raw values are stored and match the pack's `defaults.grid`.
+public enum HanziWritingGrid: String, Codable, CaseIterable, Sendable {
+    /// 田字格: the square and its centre cross.
+    case tianzi
+    /// 米字格: 田字格 plus both corner-to-corner diagonals.
+    case mizi
+}
+
 /// Parent intent, `VisaGames.tapHanziSettings.v1`. Missing, unreadable, another schema version or an
 /// out-of-range value loads `defaults`: 廣東話語音 ON (Carter 2026-11-13 overrode D4's audio default) and jyutping
 /// OFF (D4). The games are OFF elsewhere: both kinds are in `ActivityCatalog.defaultOffKinds` (no star before a
@@ -33,9 +42,13 @@ public struct HanziTapSettings: Codable, Equatable, Sendable {
     /// letter / number tracing level (`TapCountSettings.guidance`) and the stroke-order reveal (`StrokeOrderSetting`)
     /// are never read or written for it. Missing (a blob saved before H4) → `.standard`, the pack's `guideLevel`.
     public var guidance: TapCountGuidanceLevel
+    /// 寫字格 (H4.1): 米字格 by default (Carter 2026-11-14 「加米字格」, overriding D3's 田字格 default until he confirms
+    /// it). Drawing only: the strokes, their judging and the coach never read it.
+    public var grid: HanziWritingGrid
 
     public init(week: [String] = [], reviewEvery: Int = 4, confusableGuard: Bool = true,
-                audioEnabled: Bool = true, jyutpingEnabled: Bool = false, guidance: TapCountGuidanceLevel = .standard) {
+                audioEnabled: Bool = true, jyutpingEnabled: Bool = false, guidance: TapCountGuidanceLevel = .standard,
+                grid: HanziWritingGrid = .mizi) {
         schemaVersion = Self.currentSchema
         self.week = week
         self.reviewEvery = reviewEvery
@@ -43,16 +56,19 @@ public struct HanziTapSettings: Codable, Equatable, Sendable {
         self.audioEnabled = audioEnabled
         self.jyutpingEnabled = jyutpingEnabled
         self.guidance = guidance
+        self.grid = grid
     }
 
     public static let defaults = Self()
 
     enum CodingKeys: String, CodingKey {
-        case schemaVersion, week, reviewEvery, confusableGuard, audioEnabled, jyutpingEnabled, guidance
+        case schemaVersion, week, reviewEvery, confusableGuard, audioEnabled, jyutpingEnabled, guidance, grid
     }
 
-    /// Every H1 field is required, as before (missing or mistyped → the store loads `defaults`). Only `guidance`,
-    /// added in H4, may be missing; a present but unknown value still fails the whole decode.
+    /// Every H1 field is required, as before (missing or mistyped → the store loads `defaults`). `guidance`, added
+    /// in H4, may be missing; a present but unknown level still fails the whole decode. `grid`, added in H4.1, reads
+    /// the default grid when missing, null, mistyped or unknown (a blob saved before H4.1, or a later grid kind),
+    /// and every other field keeps its saved value.
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
@@ -62,6 +78,7 @@ public struct HanziTapSettings: Codable, Equatable, Sendable {
         audioEnabled = try values.decode(Bool.self, forKey: .audioEnabled)
         jyutpingEnabled = try values.decode(Bool.self, forKey: .jyutpingEnabled)
         guidance = try values.decodeIfPresent(TapCountGuidanceLevel.self, forKey: .guidance) ?? .standard
+        grid = (try? values.decodeIfPresent(HanziWritingGrid.self, forKey: .grid)) ?? Self.defaults.grid
     }
 
     /// Pack targets in the parent's order, each once; never a find-only or unknown glyph. Fewer than three
@@ -144,6 +161,8 @@ public struct HanziSettingsDraft: Equatable, Sendable {
     public mutating func setConfusableGuard(_ enabled: Bool) { value.confusableGuard = enabled }
     /// 描字提示 only: the stroke-order reveal is a separate, existing setting.
     public mutating func setGuidance(_ level: TapCountGuidanceLevel) { value.guidance = level }
+    /// 寫字格: 田字格 or 米字格.
+    public mutating func setGrid(_ grid: HanziWritingGrid) { value.grid = grid }
     public mutating func setAudio(_ enabled: Bool) { value.audioEnabled = enabled }
     public mutating func setJyutping(_ enabled: Bool) { value.jyutpingEnabled = enabled }
     public mutating func revert() { value = saved }
@@ -155,7 +174,7 @@ public struct HanziSettingsDraft: Equatable, Sendable {
 
 /// One `config_change` a 中文字設定 save records (weekly report §4.10 ⚙, as 數字設定 and 字母設定 do): a field whose
 /// read-back value differs from before the save. `what` is the field without the recorder's `tapHanzi_` prefix;
-/// `value` is what the weekly report prints (the week in pack order, on / off, the level's raw value).
+/// `value` is what the weekly report prints (the week in pack order, on / off, the level's or grid's raw value).
 public struct HanziSettingChange: Equatable, Sendable {
     public let what: String
     public let value: String
@@ -165,8 +184,8 @@ public struct HanziSettingChange: Equatable, Sendable {
         self.value = value
     }
 
-    /// The changed fields in row order: 今星期, 溫習, 易混字護欄, 描字提示, 廣東話語音, 粵拼. The week compares as the
-    /// child gets it (`validWeek`), so saving the pack's own week again is no change.
+    /// The changed fields in row order: 今星期, 溫習, 易混字護欄, 描字提示, 寫字格 (H4.1), 廣東話語音, 粵拼. The week
+    /// compares as the child gets it (`validWeek`), so saving the pack's own week again is no change.
     public static func changes(from old: HanziTapSettings, to new: HanziTapSettings, pack: HanziPack?) -> [HanziSettingChange] {
         func week(_ settings: HanziTapSettings) -> String {
             (pack.map(settings.validWeek(in:)) ?? settings.week).joined(separator: " ")
@@ -177,6 +196,7 @@ public struct HanziSettingChange: Equatable, Sendable {
             ("review_every", String(new.reviewEvery), String(old.reviewEvery)),
             ("guard", onOff(new.confusableGuard), onOff(old.confusableGuard)),
             ("guidance", new.guidance.rawValue, old.guidance.rawValue),
+            ("grid", new.grid.rawValue, old.grid.rawValue),
             ("audio", onOff(new.audioEnabled), onOff(old.audioEnabled)),
             ("jyutping", onOff(new.jyutpingEnabled), onOff(old.jyutpingEnabled))
         ]

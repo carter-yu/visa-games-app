@@ -4845,7 +4845,7 @@ extension AppModel {
         let store = HanziTapSettingsStore()
         store.save(value)
         hanziSettings = store.load()
-        VisaGamesLog.append("hanzi settings saved — 中文字設定 week=\(hanziSettings.week.joined()) review=\(hanziSettings.reviewEvery) guard=\(hanziSettings.confusableGuard) guide=\(hanziSettings.guidance.rawValue) audio=\(hanziSettings.audioEnabled) jyutping=\(hanziSettings.jyutpingEnabled)")
+        VisaGamesLog.append("hanzi settings saved — 中文字設定 week=\(hanziSettings.week.joined()) review=\(hanziSettings.reviewEvery) guard=\(hanziSettings.confusableGuard) guide=\(hanziSettings.guidance.rawValue) grid=\(hanziSettings.grid.rawValue) audio=\(hanziSettings.audioEnabled) jyutping=\(hanziSettings.jyutpingEnabled)")
         for change in HanziSettingChange.changes(from: before, to: hanziSettings, pack: hanziPack) {
             perf.tapHanziSettingChanged(what: change.what, value: change.value)
         }

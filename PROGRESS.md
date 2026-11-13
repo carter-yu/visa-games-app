@@ -1,5 +1,43 @@
 # Progress
 
+## 2026-11-14 — v0.40.1 / 89 — Hanzi H4.1: 中文字 in weekly suggestions, 米字格
+
+- Written by Claude Code on `feat/hanzi-h4-1` from `main` @ `b66e5a4` (0.40.0/88, PR #48), from `visa-games-sessions/hanzi/h4-1/PROMPT.md`: Carter's answers to the five H4 open questions (2026-11-14 03:37 HKT). No change for Q1 (描字提示 labels stay 多啲／標準／少啲; `LetterPickerTests.testReportOffWordingIsOpenClose` unchanged), Q2 (Hanzi's own coach level) and Q5 (stroke_skip counted as a wrong start). Q3 and Q4 below. No commit, push, stash, checkout or reset.
+- Q3, 中文字 in the weekly area suggestions:
+  - `VisaCore/WeeklyReportText.swift`: `WeeklyTextContext.quizAreas` is now numbers, matching, comparing, letters, hanzi (H4 left hanzi out). It feeds A10 「多做一款「{area}」遊戲。」 (the lowest quiz area two weeks running, among ≥ 2 areas with ≥ 10 answered rounds each, or ≥ 2 of the area's quiz games still learning), A11 「{area}」可以加難度：★★★ 題目／4 個選擇。 and the lowest-area rule. The rules are the ones 字母 already had. 中文字 comes last, in the area map's order (`WeeklyArea.allCases`), so on an equal adjusted rate an earlier area stays the lowest. Hanzi rounds were already quiz rounds with chance 1/45.
+  - What follows from the extra candidate: a week where 字母 and 中文字 each have ≥ 10 answered rounds, and no other area does, can now name the lower of the two (before, 字母 had no second area to be compared with); 中文字 rounds can change which area is the lowest.
+  - Copy: the existing A10 / A11 templates with the area words 中文字 / "Chinese characters" (`WeeklyArea.hanzi`, D1).
+  - Goldens: `weekly-ranking-5.6/reference_text.py` `QUIZ_AREAS` gained "hanzi". The unmodified references reproduced all 8 weekly goldens byte for byte, and the updated reference reproduces them byte for byte too: no fixture holds a Hanzi round. No golden changed.
+- Q4, 米字格:
+  - `VisaCore/HanziTap.swift`:
+    - `HanziWritingGrid` (`tianzi`, `mizi`; the raw values are stored) and `HanziTapSettings.grid`, default `.mizi`. This overrides D3's 田字格 default, pending Carter's confirmation. The key stays `VisaGames.tapHanziSettings.v1`.
+    - Decode: a missing, null, mistyped or unknown `grid` reads 米字格 and every other field keeps its saved value. A broken H1 field or an unknown 描字提示 level still loads the defaults (unchanged).
+    - `HanziSettingsDraft.setGrid`; `HanziSettingChange` records `grid` (after 描字提示), so a save writes `config_change` `tapHanzi_grid`.
+  - `VisaCore/HanziWrite.swift`: `HanziGridLine` and `HanziWritingGridGeometry.lines(for:in:)`. 田字格 = the square's 4 sides plus the centre vertical and horizontal; 米字格 = the same 6 lines plus both corner-to-corner diagonals. The border is solid; the cross and the diagonals are dashed.
+  - `VisaCore/HanziParent.swift`: the 寫字格 row: 田字格 / Square grid, 米字格 / Diagonal grid, and the chosen grid's detail line: 「田字格：方框加中間十字；冇斜線，唔會同撇、捺同頭燈爭位。」 or 「米字格（預設）：田字格再加兩條斜線，幫手對準字嘅位置同平衡。」, each with an English line. 「米字格：呢個版本未有。」 is removed.
+  - `VisaCore/WeeklyTextTemplates.swift`: `tapHanzi_grid` → 寫字格 / Writing grid, values 田字格 / Square grid and 米字格 / Diagonal grid (in `allWords`, so the weekly word audits cover them).
+  - `Resources/HanziTap/hanzi-pack.json`: `defaults.grid` "mizi", `miziGridEnabled` true. The pack mirrors the settings default, as `audioEnabled` did.
+  - App (`VisaGames`; SwiftUI / AppKit are not compiled on this box):
+    - `TapHanziWriteBoardView` takes `grid`; `drawGrid` strokes the geometry's lines on `HanziWriteBoard.square`. The border is 0xADBFCE, 1.5, solid. The cross and the diagonals share the cross's one style (0xB4C8D8, 1.5, dash 6 / 7).
+    - The grid is drawn first on the strokes' canvas (no hit-testing), under the guidance layer and the numbered starts. Border corners are now round caps instead of a 2-unit rounded rectangle.
+    - `CanvasActivityHost` passes `model.tapHanziSettings.grid`.
+    - `ParentTapHanziSettingsView`: the 寫字格 row has 田字格 / 米字格 buttons through the draft, plus the chosen grid's detail lines.
+    - `AppDelegate`: the 中文字設定 save log line adds `grid=`.
+    - The find board (翻字卡) has no writing box and is unchanged.
+- Version 0.40.1 / 89: `Info.plist`, `ParentSettingsView.versionLabel`, `PerformanceRecordTests`, `WeeklyReportPDFTests`.
+- Tests:
+  - `HanziParentTests`, new: (15) the grid setting (default, round-trip, a pre-H4.1 blob, 8 odd values, 4 broken blobs, the draft, the recorded change, its weekly names in a card comment and on page 5); (16) the geometry; (17) wiring source guards; (18) 中文字 in the weekly suggestions: A10 still learning, A10 lowest, A11, and none without the rule, including a tie that stays with 字母.
+  - `HanziParentTests`, updated: (1) defaults, round-trip, saved keys, pack mirror; (7) copy audit 100 lines (was 96); (13) every row including the grid.
+  - `HanziGlyphTests`: the pack's grid. `SessionTests`: runner and banner `18 hanzi-parent`.
+- Verification (Linux box only):
+  - `scripts/test.sh` (box toolchain): EXIT=0, 44 groups, 494 checks (was 490).
+  - `swiftc -parse` OK for the 5 touched app files. A type-check harness (the new app code copied verbatim over a SwiftUI stand-in, against the built VisaCore) passes; its 3 mutants fail.
+  - Mutation, 9 / 9 killed: G1 米字格 without diagonals; G2 default back to 田字格; G3 grid key required (old blobs lose their settings); W1 中文字 out of the suggestion areas; W2 中文字 given the 數字・數量 A10 copy. Extras: W3 中文字 before 字母; G4 an unknown grid fails the whole decode; G5 the host passes the default grid; G6 the grid drawn over the strokes. Every restore was sha256-checked; tree and git state identical before and after.
+  - Simplified scan: no Simplified-only character on a new or changed line.
+- Design: `visa-games-design/hanzi-tap/v2/design.md` decision log gained a "D3 override" row and an "H4 answers" row (Carter 2026-11-14 03:37 HKT, Q1–Q5). `hanzi-spec.json` was not edited (it still has `grid` tianzi, `miziGridEnabled` false).
+- Open: confirm the 寫字格 default, 米字格 vs D3's 田字格.
+- TO-VERIFY on Mac mini (not done): `scripts/test.sh`, `scripts/bundle.sh` and the SwiftUI build of the 5 touched app files; 米字格 and 田字格 at TV distance, beside 撇／捺 and the headlights; the 寫字格 row layout.
+
 ## 2026-11-12 — v0.40.0 / 88 — Hanzi H4: parent cards, 中文字設定 and reporting
 
 - Written by Claude Code on `feat/hanzi-h4` from `main` @ `3ba50e2` (0.39.0/87), from `visa-games-sessions/hanzi/h4/PROMPT.md` (Carter: 「開始做 H4」, 2026-11-12 09:06 HKT), design hanzi-tap v2 (LOCKED D1–D12: the H4 row, § Parent settings, the coach-vs-reveal section, the Parent rows of § Child and parent copy, the reporting paragraph of § Engineering reuse), the v1 H4 row and the six-target addendum. H4 only: no H5 household release, neither card enabled by default, no stroke-order, path, letter, count or clock behaviour change. No commit, push, stash, checkout or reset.

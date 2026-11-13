@@ -26,7 +26,7 @@ struct ParentTapHanziSettingsView: View {
                     edit { $0.setConfusableGuard(value) }
                 }
                 coachRow(draft)
-                gridRow
+                gridRow(draft)
                 strokeOrderRow
                 ParentOnOffRow(title: HanziParentCopy.jyutpingTitle, english: HanziParentCopy.jyutpingEnglish,
                                detail: HanziParentCopy.jyutpingDetail, on: draft.value.jyutpingEnabled) { value in
@@ -158,16 +158,24 @@ struct ParentTapHanziSettingsView: View {
         }
     }
 
-    /// 寫字格: 田字格 only (D3); the write board draws no 米字格.
-    private var gridRow: some View {
-        VStack(alignment: .leading, spacing: 6) {
+    /// 寫字格 (H4.1): 田字格 or 米字格 for the 搵完寫 write board, 米字格 by default (Carter 2026-11-14).
+    private func gridRow(_ draft: HanziSettingsDraft) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
             ParentLabel("\(HanziParentCopy.gridTitle) / \(HanziParentCopy.gridEnglish)", size: 15, weight: 800)
             HStack(spacing: 10) {
-                ParentPill(text: "\(HanziParentCopy.gridTianzi) / \(HanziParentCopy.gridTianziEnglish)",
-                           fill: Color(hex: DesignTokens.Palette.sunnyPale))
-                ParentLabel("\(HanziParentCopy.gridNote) / \(HanziParentCopy.gridNoteEnglish)", size: 11, weight: 600,
-                            color: .inkSoft)
+                ParentChoiceButton(title: HanziParentCopy.gridTianzi, subtitle: HanziParentCopy.gridTianziEnglish,
+                                   selected: draft.value.grid == .tianzi) {
+                    edit { $0.setGrid(.tianzi) }
+                }
+                ParentChoiceButton(title: HanziParentCopy.gridMizi, subtitle: HanziParentCopy.gridMiziEnglish,
+                                   selected: draft.value.grid == .mizi) {
+                    edit { $0.setGrid(.mizi) }
+                }
             }
+            ParentLabel(HanziParentCopy.gridLine(draft.value.grid), size: 12, weight: 700)
+                .fixedSize(horizontal: false, vertical: true)
+            ParentLabel(HanziParentCopy.gridLineEnglish(draft.value.grid), size: 11, weight: 600, color: .inkSoft)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
