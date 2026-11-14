@@ -4,7 +4,8 @@ import VisaCore
 /// Hanzi H4 parent and reporting (0.40.0 / 88): design hanzi-tap v2 § Parent settings, § 教／提／熄 (two settings must
 /// remain separate), the Parent rows of § Child and parent copy, the reporting paragraph of § Engineering reuse and
 /// the H4 row of § H0–H5 build slices. Offline: reads the bundled pack, the Traditional-only fixture and the app
-/// source (SwiftUI / AppKit are not built on this box).
+/// source (SwiftUI / AppKit are not built on this box). H4.1 (0.40.1 / 89, Carter's 2026-11-14 answers): (15)–(17)
+/// the 寫字格 setting, its lines and the write board's wiring; (18) 中文字 in the weekly area suggestions.
 final class HanziParentTests {
     private static let week = ["人", "上", "下", "左", "右", "木"]
     private static let findOnly = ["入", "八", "本", "未"]
@@ -49,20 +50,22 @@ final class HanziParentTests {
             expectEqual(value.guidance, .standard, label)
             expectEqual(value.reviewEvery, 4, label)
             expectTrue(value.confusableGuard, label)
+            expectEqual(value.grid, .mizi, label)
         }
         expectDefaults(store.load(), "missing")
         expectEqual(pack.defaults.guideLevel, HanziTapSettings.defaults.guidance)
         expectTrue(pack.defaults.audioEnabled && HanziTapSettings.defaults.audioEnabled)
-        expectFalse(pack.defaults.findEnabled || pack.defaults.writeEnabled || pack.defaults.jyutpingEnabled
-                    || pack.defaults.miziGridEnabled)
-        expectEqual(pack.defaults.grid, "tianzi")
+        expectFalse(pack.defaults.findEnabled || pack.defaults.writeEnabled || pack.defaults.jyutpingEnabled)
+        // 寫字格: the pack mirrors the settings' 米字格 default (H4.1, Carter 2026-11-14 over D3's 田字格).
+        expectEqual(pack.defaults.grid, HanziTapSettings.defaults.grid.rawValue)
+        expectTrue(pack.defaults.miziGridEnabled)
         expectEqual(pack.defaults.strokeOrder, "inheritExisting")
 
-        // Every row a parent can save round-trips, each away from its default (廣東話語音 OFF), the new 描字提示 level
-        // included.
+        // Every row a parent can save round-trips, each away from its default (廣東話語音 OFF, 田字格), the new 描字提示
+        // level included.
         for guidance in TapCountGuidanceLevel.allCases {
             let chosen = HanziTapSettings(week: ["上", "下", "木"], reviewEvery: 0, confusableGuard: false,
-                                          audioEnabled: false, jyutpingEnabled: true, guidance: guidance)
+                                          audioEnabled: false, jyutpingEnabled: true, guidance: guidance, grid: .tianzi)
             store.save(chosen)
             expectEqual(store.load(), chosen, guidance.rawValue)
         }
@@ -106,9 +109,10 @@ final class HanziParentTests {
         // The stored blob holds exactly the Hanzi rows: no stroke-order or letter / number field.
         store.save(.defaults)
         let saved = try JSONSerialization.jsonObject(with: defaults.data(forKey: HanziTapSettingsStore.key)!) as! [String: Any]
-        expectEqual(saved.keys.sorted(), ["audioEnabled", "confusableGuard", "guidance", "jyutpingEnabled", "reviewEvery",
-                                          "schemaVersion", "week"])
+        expectEqual(saved.keys.sorted(), ["audioEnabled", "confusableGuard", "grid", "guidance", "jyutpingEnabled",
+                                          "reviewEvery", "schemaVersion", "week"])
         expectEqual(saved["guidance"] as? String, "standard")
+        expectEqual(saved["grid"] as? String, "mizi")
 
         // Both games OFF: no star on a fresh or unreadable assignment, and none before each card's own playtest.
         let assignments = UserDefaults(suiteName: "VisaGames.hanziParent.assign.\(UUID().uuidString)")!
@@ -520,7 +524,7 @@ final class HanziParentTests {
                      Copy.findOnlyTitle, Copy.findOnlyEnglish, Copy.findOnlyDetail, Copy.findOnlyDetailEnglish,
                      Copy.reviewTitle, Copy.reviewEnglish, Copy.reviewOn, Copy.reviewOnEnglish, Copy.reviewOffEnglish,
                      Copy.guardTitle, Copy.guardEnglish, Copy.guardDetail, Copy.gridTitle, Copy.gridEnglish, Copy.gridTianzi,
-                     Copy.gridTianziEnglish, Copy.gridNote, Copy.gridNoteEnglish, Copy.strokeOrderTitle,
+                     Copy.gridTianziEnglish, Copy.gridMizi, Copy.gridMiziEnglish, Copy.strokeOrderTitle,
                      Copy.strokeOrderEnglish, Copy.strokeOrderNowEnglish, Copy.strokeOrderWhere, Copy.strokeOrderWhereEnglish,
                      Copy.jyutpingTitle, Copy.jyutpingEnglish, Copy.jyutpingDetail, Copy.audioTitle, Copy.audioEnglish,
                      Copy.audioDetail, Copy.saveNote, Copy.saveNoteEnglish, Copy.packUnavailable, Copy.cardDefaultOff,
@@ -529,6 +533,8 @@ final class HanziParentTests {
         lines += [true, false].flatMap { [Copy.status(hasChanges: $0), Copy.statusEnglish(hasChanges: $0)] }
         lines += StrokeOrderSetting.allCases.map(Copy.strokeOrderNow)
         lines += Copy.coachLabels.flatMap { [$0.short, $0.detail, $0.english, Copy.coachLine($0.level)] }
+        // H4.1: the 寫字格 detail lines (the 「米字格：呢個版本未有。」 note and its English are gone).
+        lines += HanziWritingGrid.allCases.flatMap { [Copy.gridLine($0), Copy.gridLineEnglish($0)] }
         for kind in [ActivityKind.tapHanziAll, .tapHanziWrite] {
             lines += [Copy.suggestedStar(kind) ?? "missing", Copy.cardDetail(kind) ?? "missing"]
         }
@@ -547,7 +553,7 @@ final class HanziParentTests {
         lines += HanziReportText.lines(HanziKindReport(finding: [row], writing: [write]), kind: .tapHanziWrite)
         // Fix1: rolled-up history (no retained detail) and the scope line beside retained detail.
         lines += [Copy.reportDetailNotKept(5), Copy.reportRolledUp(5)]
-        expectEqual(lines.count, 96)
+        expectEqual(lines.count, 100)
         for line in lines {
             expectFalse(line.isEmpty, "empty line")
             expectTrue(isTraditionalChineseOnly(line) && perfTraditionalOnly(line), line)
@@ -868,9 +874,10 @@ final class HanziParentTests {
         expectEqual(HanziSettingChange.changes(from: .defaults, to: HanziTapSettings(week: Self.week), pack: pack), [],
                     "the pack's own week again is no change")
         let every = HanziTapSettings(week: ["左", "右", "木"], reviewEvery: 0, confusableGuard: false, audioEnabled: false,
-                                     jyutpingEnabled: true, guidance: .less)
+                                     jyutpingEnabled: true, guidance: .less, grid: .tianzi)
         expectEqual(HanziSettingChange.changes(from: .defaults, to: every, pack: pack).map { "\($0.what)=\($0.value)" },
-                    ["week=左 右 木", "review_every=0", "guard=off", "guidance=less", "audio=off", "jyutping=on"])
+                    ["week=左 右 木", "review_every=0", "guard=off", "guidance=less", "grid=tianzi", "audio=off",
+                     "jyutping=on"])
 
         // One family for both cards; every name is the settings screen's own, Cantonese and English.
         func named(_ what: String) -> [String] {
@@ -886,6 +893,7 @@ final class HanziParentTests {
         expectEqual(named("tapHanzi_review_every"), ["中文字溫習", "Character review", "hanzi_review"])
         expectEqual(named("tapHanzi_guard"), ["易混字護欄", "Look-alike guard", "letter_guard"])
         expectEqual(named("tapHanzi_guidance"), ["描字提示", "Writing help", "guidance"])
+        expectEqual(named("tapHanzi_grid"), ["寫字格", "Writing grid", "hanzi_grid"])
         expectEqual(named("tapHanzi_audio"), ["廣東話語音", "Cantonese voice", "letter_guard"])
         expectEqual(named("tapHanzi_jyutping"), ["粵拼", "Jyutping", "letter_guard"])
         for kind in cards {
@@ -1064,5 +1072,414 @@ final class HanziParentTests {
         let clips = try FileManager.default.contentsOfDirectory(atPath: "Resources/Voice")
         expectFalse(clips.contains { $0.hasPrefix("hanzi.") }, "a Hanzi clip would speak while the mark is crossed out")
         print("  hanzi parent: speaker mark ON only with 廣東話語音 on and a zh-HK / yue-HK voice; both boards; no Hanzi clip")
+    }
+
+    // MARK: H4.1 helpers
+
+    /// One 中文字 or letter round as the weekly report reads it (the fields both boards record): `game_dealt` with the
+    /// card's `gen` and chance, then a solved `round_result` 40 s later, right first time or after one wrong card.
+    private func weeklyRound(_ kind: ActivityKind, at date: Date, firstTry: Bool) -> [PerfEvent] {
+        seq += 1
+        let id = "wa\(seq)"
+        let gen = kind.isTapHanziFamily ? "hanzi_v1" : "letters_v2"
+        let dealt = PerfEvent(type: .gameDealt, timestamp: date, tz: "+08:00", mono: Double(seq), launch: "L1", seq: seq,
+                              app: "0.40.1", actor: .child, mode: "lock", session: "s1",
+                              fields: ["round": .string(id), "kind": .string(kind.rawValue), "stars": .int(1),
+                                       "match_mode": .string("test"), "gen": .string(gen), "chance": .double(1.0 / 45)])
+        seq += 1
+        let result = PerfEvent(type: .roundResult, timestamp: date.addingTimeInterval(40), tz: "+08:00", mono: Double(seq),
+                               launch: "L1", seq: seq, app: "0.40.1", actor: .child, mode: "lock", session: "s1",
+                               fields: ["round": .string(id), "kind": .string(kind.rawValue), "outcome": .string("solved"),
+                                        "answers": .int(firstTry ? 2 : 3), "first_try": .bool(firstTry),
+                                        "misses": .int(firstTry ? 0 : 1), "total_ms": .int(40_000),
+                                        "active_ms": .int(9_000), "earned_min": .int(5)])
+        return [dealt, result]
+    }
+
+    /// `rounds` rounds of `kind` from `start` on two days, the first `firstTry` of them right first time.
+    private func weeklyRounds(_ kind: ActivityKind, from start: Date, rounds: Int, firstTry: Int) -> [PerfEvent] {
+        (0..<rounds).flatMap { index in
+            weeklyRound(kind, at: start.addingTimeInterval(Double(index % 2) * 86_400 + Double(index) * 120),
+                        firstTry: index < firstTry)
+        }
+    }
+
+    // MARK: (15) 寫字格 setting (H4.1)
+
+    /// (15) Carter 2026-11-14 03:37 HKT (「加米字格」): 寫字格 is a 中文字設定 row, 田字格 or 米字格, 米字格 by default (D3
+    /// gave 田字格; pending his confirmation), stored as its raw value in `VisaGames.tapHanziSettings.v1`. A blob without
+    /// it (saved before H4.1), or with null, a wrong type or an unknown grid, keeps every other value and reads 米字格; a
+    /// broken H1 field or an unknown 描字提示 level still loads the defaults. The draft edits it like any row, and a save
+    /// records `tapHanzi_grid`, which the weekly report names 寫字格 with the screen's own words.
+    func testWritingGridSettingDefaultsToMiziAndKeepsOldBlobs() throws {
+        let pack = try loadPack()
+        expectEqual(HanziWritingGrid.allCases.map(\.rawValue), ["tianzi", "mizi"])
+        expectEqual(HanziTapSettings.defaults.grid, .mizi)
+        expectEqual(HanziTapSettings(week: ["上", "下", "木"]).grid, .mizi)
+        let defaults = UserDefaults(suiteName: "VisaGames.hanziGrid.\(UUID().uuidString)")!
+        let store = HanziTapSettingsStore(defaults: defaults)
+        expectEqual(store.load().grid, .mizi, "nothing saved")
+        for grid in HanziWritingGrid.allCases {
+            var chosen = HanziTapSettings.defaults
+            chosen.grid = grid
+            store.save(chosen)
+            expectEqual(store.load(), chosen, grid.rawValue)
+            let blob = try JSONSerialization.jsonObject(with: defaults.data(forKey: HanziTapSettingsStore.key)!) as! [String: Any]
+            expectEqual(blob["grid"] as? String, grid.rawValue)
+        }
+        func json(_ object: Any) -> Data { try! JSONSerialization.data(withJSONObject: object) }
+        // A blob saved before H4.1 (every H4 row, each away from its default, and no grid): all kept, 米字格.
+        let h4: [String: Any] = ["schemaVersion": 1, "week": ["左", "右", "木"], "reviewEvery": 0, "confusableGuard": false,
+                                 "audioEnabled": false, "jyutpingEnabled": true, "guidance": "less"]
+        let kept = HanziTapSettings(week: ["左", "右", "木"], reviewEvery: 0, confusableGuard: false, audioEnabled: false,
+                                    jyutpingEnabled: true, guidance: .less, grid: .mizi)
+        defaults.set(json(h4), forKey: HanziTapSettingsStore.key)
+        expectEqual(store.load(), kept, "no grid key")
+        var square = h4
+        square["grid"] = "tianzi"
+        var keptSquare = kept
+        keptSquare.grid = .tianzi
+        defaults.set(json(square), forKey: HanziTapSettingsStore.key)
+        expectEqual(store.load(), keptSquare, "grid tianzi")
+        // Null, a wrong type or an unknown grid: the other values stay and the grid reads 米字格.
+        let odd: [(String, Any)] = [("null", NSNull()), ("unknown", "jiugong"), ("capitalised", "Mizi"), ("empty", ""),
+                                    ("Chinese", "田字格"), ("number", 1), ("bool", false), ("array", ["tianzi"])]
+        for (label, value) in odd {
+            var object = h4
+            object["grid"] = value
+            defaults.set(json(object), forKey: HanziTapSettingsStore.key)
+            expectEqual(store.load(), kept, "grid \(label)")
+        }
+        // The grid never rescues a broken blob: a missing H1 field or an unknown 描字提示 level still loads the defaults.
+        var broken: [(String, [String: Any])] = []
+        for key in ["audioEnabled", "week", "schemaVersion"] {
+            var object = square
+            object.removeValue(forKey: key)
+            broken.append(("no \(key)", object))
+        }
+        var badLevel = square
+        badLevel["guidance"] = "teach"
+        broken.append(("unknown level", badLevel))
+        for (label, object) in broken {
+            defaults.set(json(object), forKey: HanziTapSettingsStore.key)
+            expectEqual(store.load(), .defaults, label)
+        }
+
+        // The draft: edits stay in the draft until Save, 還原 restores, choosing the saved grid again is no change.
+        var draft = HanziSettingsDraft(saved: .defaults)
+        draft.setGrid(.tianzi)
+        expectTrue(draft.hasChanges)
+        expectEqual([draft.value.grid, draft.saved.grid], [.tianzi, .mizi])
+        draft.revert()
+        expectFalse(draft.hasChanges)
+        draft.setGrid(.tianzi)
+        draft.setGrid(.mizi)
+        expectFalse(draft.hasChanges, "back to the saved grid")
+        draft.setGrid(.tianzi)
+        draft.acceptSaved(keptSquare)
+        expectEqual([draft.value.grid, draft.saved.grid], [.tianzi, .tianzi])
+
+        // A save records the grid like every row (`tapHanzi_grid`, its raw value), for both cards.
+        expectEqual(HanziSettingChange.changes(from: .defaults, to: keptSquare, pack: pack).map(\.what),
+                    ["week", "review_every", "guard", "guidance", "grid", "audio", "jyutping"])
+        var squareOnly = HanziTapSettings.defaults
+        squareOnly.grid = .tianzi
+        expectEqual(HanziSettingChange.changes(from: .defaults, to: squareOnly, pack: pack),
+                    [HanziSettingChange(what: "grid", value: "tianzi")])
+        expectEqual(HanziSettingChange.changes(from: squareOnly, to: .defaults, pack: pack),
+                    [HanziSettingChange(what: "grid", value: "mizi")])
+        let cards = [ActivityKind.tapHanziAll.rawValue, ActivityKind.tapHanziWrite.rawValue]
+        expectEqual(WeeklyComparison.kinds(forConfig: "tapHanzi_grid", kind: cards[0]), cards)
+        // The weekly report names it with the settings screen's words: each card's comment and page 5's change line.
+        let lastMonday = PerfCodec.parseTimestamp("2026-11-02T04:00:00.000Z")!  // 12:00 HKT
+        let monday = PerfCodec.parseTimestamp("2026-11-09T04:00:00.000Z")!
+        seq = 0
+        var events: [PerfEvent] = []
+        for start in [lastMonday, monday] {
+            events += weeklyRounds(.tapHanziAll, from: start, rounds: 6, firstTry: 3)
+            events += weeklyRounds(.tapHanziWrite, from: start.addingTimeInterval(3_600), rounds: 6, firstTry: 3)
+        }
+        seq += 1
+        events.append(PerfEvent(type: .configChange, timestamp: monday.addingTimeInterval(-3_600), tz: "+08:00",
+                                mono: Double(seq), launch: "L1", seq: seq, app: "0.40.1", actor: .parent, mode: "parent",
+                                session: "p", fields: ["what": .string("tapHanzi_grid"),
+                                                       "kind": .string(ActivityKind.tapHanziAll.rawValue),
+                                                       "value": .string("tianzi")]))
+        let text = WeeklyReportTextBuilder.build(events: events, rollup: PerfRollup(), window: WeeklyWindow(containing: monday))
+        for kind in cards {
+            let comment = text.games.first { $0.kind == kind }?.comment ?? []
+            expectEqual(comment.filter { $0.id == "any.settings" }.map { [$0.zh, $0.en] }, [[
+                "今個星期改咗設定（寫字格：田字格），同上星期比要小心。",
+                "Settings changed this week (Writing grid: Square grid); compare with last week carefully."]], kind)
+        }
+        let html = WeeklyReportHTML.render(text, options: WeeklyReportHTMLOptions(generatedAt: monday.addingTimeInterval(86_400)))
+        for line in ["寫字格改做 田字格（影響 2 個遊戲）。", "Writing grid set to Square grid (affects 2 games)."] {
+            expectTrue(html.contains(line), line)
+        }
+        print("  hanzi parent: 寫字格 米字格 by default; round-trip, H4 blob + \(odd.count) odd values keep the rest, "
+              + "\(broken.count) broken blobs → defaults; draft; tapHanzi_grid named on the report")
+    }
+
+    // MARK: (16) 寫字格 geometry (H4.1)
+
+    /// (16) `HanziWritingGridGeometry.lines`: 田字格 is the square's four sides and its centre vertical and horizontal,
+    /// with no diagonal; 米字格 is the same six lines plus exactly the two corner-to-corner diagonals, crossing at the
+    /// centre. Every point lies on the square; the border is solid, the cross and the diagonals share one dash. The
+    /// lines follow the square alone (the board's 350 × 350, the strokes' uniform 7/6 scale), never a glyph.
+    func testWritingGridGeometryIsTheSquaresOwnLines() throws {
+        let square = HanziWriteBoard.square
+        expectEqual(square, LineMatchRect(x: 465, y: 166, width: 350, height: 350))
+        expectEqual(HanziWriteBoard.scale, 350.0 / 300.0, accuracy: 1e-12)
+        func p(_ x: Double, _ y: Double) -> LineMatchPoint { LineMatchPoint(x: x, y: y) }
+        let tianzi = HanziWritingGridGeometry.lines(for: .tianzi, in: square)
+        expectEqual(tianzi, [HanziGridLine(role: .border, from: p(465, 166), to: p(815, 166)),
+                             HanziGridLine(role: .border, from: p(815, 166), to: p(815, 516)),
+                             HanziGridLine(role: .border, from: p(815, 516), to: p(465, 516)),
+                             HanziGridLine(role: .border, from: p(465, 516), to: p(465, 166)),
+                             HanziGridLine(role: .centre, from: p(640, 166), to: p(640, 516)),
+                             HanziGridLine(role: .centre, from: p(465, 341), to: p(815, 341))])
+        expectEqual(tianzi.filter { $0.role == .diagonal }, [], "田字格 has no diagonal")
+        let mizi = HanziWritingGridGeometry.lines(for: .mizi, in: square)
+        expectEqual(mizi.count, 8)
+        expectEqual(Array(mizi.prefix(6)), tianzi, "米字格 keeps every 田字格 line")
+        expectEqual(Array(mizi.dropFirst(6)), [HanziGridLine(role: .diagonal, from: p(465, 166), to: p(815, 516)),
+                                               HanziGridLine(role: .diagonal, from: p(815, 166), to: p(465, 516))])
+        expectEqual(["border", "centre", "diagonal"].map { role in mizi.filter { $0.role.rawValue == role }.count }, [4, 2, 2])
+        // Corner to corner, through the centre where the cross meets.
+        let corners = [p(465, 166), p(815, 166), p(815, 516), p(465, 516)]
+        for line in mizi where line.role == .diagonal {
+            expectTrue(corners.contains(line.from) && corners.contains(line.to), "\(line)")
+            expectEqual([abs(line.to.x - line.from.x), abs(line.to.y - line.from.y)], [square.width, square.height])
+            expectEqual([(line.from.x + line.to.x) / 2, (line.from.y + line.to.y) / 2], [square.midX, square.midY])
+        }
+        // Every point on the square; only the border is solid.
+        for grid in HanziWritingGrid.allCases {
+            for line in HanziWritingGridGeometry.lines(for: grid, in: square) {
+                expectTrue(square.contains(line.from) && square.contains(line.to), "\(grid) \(line)")
+                expectEqual(line.dashed, line.role != .border, "\(grid) \(line.role)")
+            }
+        }
+        // The lines follow the square alone: another square moves and scales them, nothing else does.
+        let other = LineMatchRect(x: 10, y: 20, width: 300, height: 300)
+        let moved = HanziWritingGridGeometry.lines(for: .mizi, in: other)
+        expectEqual(moved.map(\.role), mizi.map(\.role))
+        for (line, base) in zip(moved, mizi) {
+            for (point, origin) in [(line.from, base.from), (line.to, base.to)] {
+                expectEqual(point.x, other.x + (origin.x - square.x) * other.width / square.width, accuracy: 1e-9)
+                expectEqual(point.y, other.y + (origin.y - square.y) * other.height / square.height, accuracy: 1e-9)
+            }
+        }
+        expectEqual(HanziWritingGridGeometry.lines(for: .mizi, in: square), mizi, "a pure function")
+        print("  hanzi parent: 寫字格 lines — 田字格 4 sides + cross, 米字格 + 2 corner diagonals, on the square, dashed guides")
+    }
+
+    // MARK: (17) 寫字格 wiring (H4.1; SwiftUI / AppKit are not compiled on this box)
+
+    /// (17) The write board draws the saved grid: the host hands it `model.tapHanziSettings.grid`, and `drawGrid` strokes
+    /// `HanziWritingGridGeometry.lines(for: grid, in: HanziWriteBoard.square)` first on the canvas that draws the strokes
+    /// (no touches), under the guidance layer (cars, headlights, signs) and the numbered starts. One solid style for the
+    /// border, the cross's one dashed style for the cross and the diagonals. The strokes, starts, coach and write core
+    /// never read the grid. 中文字設定 offers 田字格 / 米字格 through the draft; the find board has no grid.
+    func testWriteBoardDrawsTheSavedGridUnderEverything() throws {
+        let host = try source("Sources/VisaGames/CanvasActivityHost.swift")
+        let write = try source("Sources/VisaGames/TapHanziWriteBoardView.swift")
+        let find = try source("Sources/VisaGames/TapHanziBoardView.swift")
+        let panel = try source("Sources/VisaGames/ParentTapHanziSettingsView.swift")
+        let model = try source("Sources/VisaGames/AppDelegate.swift")
+        let core = try source("Sources/VisaCore/HanziWrite.swift")
+
+        // From the saved settings, through the board to its stage.
+        expectEqual(count("grid: model.tapHanziSettings.grid", in: host), 1)
+        expectEqual(count("grid:", in: host), 1)
+        expectEqual(count("    let grid: HanziWritingGrid\n", in: write), 2)
+        expectTrue(write.contains("TapHanziWriteStage(round: round, pack: pack, copy: copy, audioOn: audioOn, grid: grid,"))
+        // The grid's lines on the board's square: a solid border, and the cross's one dash for every dashed line.
+        let draw = body(of: "private func drawGrid(in g: inout GraphicsContext)", in: write)
+        expectTrue(draw.contains("for line in HanziWritingGridGeometry.lines(for: grid, in: HanziWriteBoard.square) {"))
+        expectTrue(draw.contains("if line.dashed {"))
+        expectEqual(count("g.stroke(", in: draw), 2)
+        expectTrue(draw.contains("g.stroke(border, with: .color(Color(hex: 0xADBFCE)), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))"))
+        expectTrue(draw.contains("g.stroke(guides, with: .color(Color(hex: 0xB4C8D8)), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [6, 7]))"))
+        // First on the strokes' canvas, which takes no touches; then the guidance layer, then the numbers.
+        let card = body(of: "private var writingCard", in: write)
+        expectEqual(count("drawGrid(in: &g)", in: write), 1)
+        expectTrue(card.contains("""
+                    Canvas { canvas, _ in
+                        var g = canvas
+                        g.scaleBy(x: metrics.scale, y: metrics.scale)
+                        drawGrid(in: &g)
+                        drawStrokes(in: &g)
+                    }
+                    .frame(width: metrics.u(1280), height: metrics.u(720))
+                    .allowsHitTesting(false)
+        """), "the grid first, under the strokes, on a canvas without hit-testing")
+        let grid = card.range(of: "drawGrid(in: &g)"), cars = card.range(of: "            guidanceLayer\n")
+        let starts = card.range(of: "drawStarts(in: &g)")
+        expectTrue(grid != nil && cars != nil && starts != nil
+                   && grid!.upperBound < cars!.lowerBound && cars!.upperBound < starts!.lowerBound,
+                   "grid, then cars / headlights / signs, then the numbers")
+        // Only drawGrid reads the grid: the strokes, the numbered starts, the coach layer and the write core never do.
+        for name in ["private func drawStrokes(in g: inout GraphicsContext)", "private func drawStarts(in g: inout GraphicsContext)",
+                     "@ViewBuilder private var guidanceLayer"] {
+            let part = body(of: name, in: write)
+            expectFalse(part.isEmpty, name)
+            expectFalse(part.contains("grid"), name)
+        }
+        let sections = core.components(separatedBy: "// MARK: - 寫字格")
+        let tail = sections.count == 2 ? sections[1].components(separatedBy: "// MARK: - Copy") : []
+        expectEqual([sections.count, tail.count], [2, 2])
+        if sections.count == 2, tail.count == 2 {
+            for part in [sections[0], tail[1]] { expectFalse(part.contains(".grid") || part.contains("grid:")) }
+        }
+        expectFalse(body(of: "private func beginTapHanziWriting(", in: model).contains("grid"))
+        // The find board has no writing box and no grid.
+        expectFalse(find.contains("HanziWritingGrid") || find.contains("drawGrid"))
+        // 中文字設定: two choices through the draft, the chosen grid's detail lines; 「呢個版本未有」 is gone.
+        let row = body(of: "private func gridRow(_ draft: HanziSettingsDraft)", in: panel)
+        for needle in ["edit { $0.setGrid(.tianzi) }", "edit { $0.setGrid(.mizi) }", "selected: draft.value.grid == .tianzi",
+                       "selected: draft.value.grid == .mizi", "HanziParentCopy.gridLine(draft.value.grid)",
+                       "HanziParentCopy.gridLineEnglish(draft.value.grid)"] {
+            expectTrue(row.contains(needle), needle)
+        }
+        expectTrue(panel.contains("                gridRow(draft)\n"))
+        expectFalse(panel.contains("gridNote") || panel.contains("呢個版本未有"))
+        // The parent copy: the default carries 預設; both lines say what the grid shows.
+        expectEqual(HanziParentCopy.gridLine(.mizi), "米字格（預設）：田字格再加兩條斜線，幫手對準字嘅位置同平衡。")
+        expectEqual(HanziParentCopy.gridLine(.tianzi), "田字格：方框加中間十字；冇斜線，唔會同撇、捺同頭燈爭位。")
+        expectEqual([HanziParentCopy.gridName(.tianzi), HanziParentCopy.gridNameEnglish(.tianzi),
+                     HanziParentCopy.gridName(.mizi), HanziParentCopy.gridNameEnglish(.mizi)],
+                    ["田字格", "Square grid", "米字格", "Diagonal grid"])
+        // The save keeps its one path; its log line names the grid.
+        expectTrue(body(of: "func saveHanziSettings(", in: model).contains("grid=\\(hanziSettings.grid.rawValue)"))
+        print("  hanzi parent: 寫字格 wiring — saved grid to the write board, drawn first, no hit-testing; 2 parent choices")
+    }
+
+    // MARK: (18) 中文字 in the weekly area suggestions (H4.1)
+
+    /// (18) Carter 2026-11-14 03:37 HKT (「計埋」): 中文字 is a weekly quiz area for the area-level app items, exactly like
+    /// 字母 and after it in the area order (`WeeklyArea.allCases`): A10 「多做一款「中文字」遊戲。」 when ≥ 2 of its cards
+    /// are still learning, or when it is the lowest quiz area two weeks running (≥ 10 answered rounds, beside another area
+    /// with ≥ 10); A11 when every ranked card goes well two weeks running. Not suggested without Hanzi play or when
+    /// neither rule holds; on an equal rate 字母, earlier in the order, stays the lowest. Weeks without Hanzi do not change
+    /// (the two golden fixtures hold no Hanzi round and their goldens are unchanged).
+    func testWeeklyAreaSuggestionsCountHanzi() throws {
+        let fixture = URL(fileURLWithPath: "Tests/VisaCoreTests/Fixtures/traditional-check/simplified-only.txt")
+        let simplified = Set(try String(contentsOf: fixture, encoding: .utf8).split(separator: "\n")
+            .filter { !$0.hasPrefix("#") }.joined().filter { !$0.isWhitespace })
+        let lastMonday = PerfCodec.parseTimestamp("2026-11-02T04:00:00.000Z")!  // 12:00 HKT
+        let monday = PerfCodec.parseTimestamp("2026-11-09T04:00:00.000Z")!
+        func text(_ events: [PerfEvent]) -> WeeklyReportText {
+            WeeklyReportTextBuilder.build(events: events, rollup: PerfRollup(), window: WeeklyWindow(containing: monday))
+        }
+        let all = ActivityKind.tapHanziAll.rawValue, write = ActivityKind.tapHanziWrite.rawValue
+        let letters = ActivityKind.tapLetterAll.rawValue
+        var sentences: [WeeklySentence] = []
+
+        // (a) Both 中文字 cards still learning (0 of 6 right first time each, two days) beside 字母 going well (6 of 6):
+        // A10 for 中文字 by the still-learning rule, and nothing else.
+        seq = 0
+        let learning = text(weeklyRounds(.tapHanziAll, from: monday, rounds: 6, firstTry: 0)
+                            + weeklyRounds(.tapHanziWrite, from: monday.addingTimeInterval(3_600), rounds: 6, firstTry: 0)
+                            + weeklyRounds(.tapLetterAll, from: monday.addingTimeInterval(7_200), rounds: 6, firstTry: 6))
+        expectEqual(learning.analysis.ranking.stillLearning.quiz, [all, write])
+        expectEqual(learning.app.map(\.id), ["A10"])
+        if let build = learning.app.first {
+            expectEqual([build.text.id, build.because.id], ["A10", "A10.because.learning"])
+            expectEqual([build.text.zh, build.text.en], ["多做一款「中文字」遊戲。", "Add another \"Chinese characters\" game."])
+            expectEqual([build.because.zh, build.because.en], [
+                "「中文字」有 2 個答題遊戲仲學緊：「中文字 · 翻字卡」、「中文字 · 搵完寫」。",
+                "2 \"Chinese characters\" quiz games are still learning: \"Chinese characters · Find & flip\" and "
+                    + "\"Chinese characters · Find & write\"."])
+            expectEqual([build.check.zh, build.check.en],
+                        ["「中文字」嘅第一次答啱率（兩個星期）", "right first time in \"Chinese characters\" over two weeks"])
+            expectEqual(build.kinds, [all, write])
+            expectEqual(build.settings, [])
+            sentences += [build.text, build.because, build.check]
+        }
+        expectNil(learning.appNone)
+
+        // (b) 中文字 the lowest quiz area two weeks running (2 of 10 right first time, beside 字母's 10 of 10): A10 by the
+        // lowest rule with the recorded rates; 字母, going well both weeks, still gets its A11.
+        seq = 0
+        var lowestWeeks: [PerfEvent] = []
+        for start in [lastMonday, monday] {
+            lowestWeeks += weeklyRounds(.tapHanziAll, from: start, rounds: 10, firstTry: 2)
+            lowestWeeks += weeklyRounds(.tapLetterAll, from: start.addingTimeInterval(3_600), rounds: 10, firstTry: 10)
+        }
+        let lowest = text(lowestWeeks)
+        expectEqual(lowest.app.map(\.id), ["A10", "A11"])
+        expectEqual(lowest.app.map(\.kinds), [[all], [letters]])
+        if lowest.app.count == 2 {
+            expectEqual([lowest.app[0].text.zh, lowest.app[0].because.id], ["多做一款「中文字」遊戲。", "A10.because.lowest"])
+            expectEqual([lowest.app[0].because.zh, lowest.app[0].because.en], [
+                "「中文字」連續兩個星期係最低嘅答題類別：今個星期 20%（亂估都有大約 2%），上星期 20%。",
+                "\"Chinese characters\" was the lowest quiz area two weeks running: 20% this week (guessing gives about 2%), "
+                    + "20% last week."])
+            expectEqual(lowest.app[1].text.zh, "「字母」可以加難度：★★★ 題目／4 個選擇。")
+            sentences += [lowest.app[0].text, lowest.app[0].because]
+        }
+
+        // (c) Every ranked 中文字 card going well two weeks running (10 of 10) while 字母 is the lowest (2 of 10): 字母
+        // gets its A10 (two areas with 10 rounds now make a lowest one) and 中文字 its A11.
+        seq = 0
+        var harderWeeks: [PerfEvent] = []
+        for start in [lastMonday, monday] {
+            harderWeeks += weeklyRounds(.tapHanziAll, from: start, rounds: 10, firstTry: 10)
+            harderWeeks += weeklyRounds(.tapLetterAll, from: start.addingTimeInterval(3_600), rounds: 10, firstTry: 2)
+        }
+        let harder = text(harderWeeks)
+        expectEqual(harder.app.map(\.id), ["A10", "A11"])
+        expectEqual(harder.app.map(\.kinds), [[letters], [all]])
+        if harder.app.count == 2 {
+            expectEqual(harder.app[0].text.zh, "多做一款「字母」遊戲。")
+            expectEqual([harder.app[1].text.zh, harder.app[1].text.en],
+                        ["「中文字」可以加難度：★★★ 題目／4 個選擇。", "\"Chinese characters\" can get harder: ★★★ questions or 4 choices."])
+            expectEqual([harder.app[1].because.zh, harder.app[1].because.en],
+                        ["「中文字」嘅遊戲連續兩個星期都做得好：「中文字 · 翻字卡」。",
+                         "Every ranked \"Chinese characters\" game went well two weeks running: \"Chinese characters · Find & flip\"."])
+            sentences += [harder.app[1].text, harder.app[1].because]
+        }
+
+        // (d) Not suggested: no Hanzi play; one card still learning (neither area at 10 rounds); 中文字 lowest this week
+        // only (last week both areas 10 of 10: on that equal rate 字母, earlier in the order, was the lowest).
+        func naming(_ report: WeeklyReportText) -> [String] {
+            report.app.filter { $0.kinds.contains(all) || $0.kinds.contains(write) || $0.text.zh.contains("中文字") }.map(\.id)
+        }
+        seq = 0
+        let noHanzi = text(weeklyRounds(.tapLetterAll, from: monday, rounds: 6, firstTry: 0))
+        expectEqual(naming(noHanzi), [])
+        seq = 0
+        let one = text(weeklyRounds(.tapHanziAll, from: monday, rounds: 6, firstTry: 0)
+                       + weeklyRounds(.tapLetterAll, from: monday.addingTimeInterval(3_600), rounds: 6, firstTry: 6))
+        expectEqual(one.analysis.ranking.stillLearning.quiz, [all])
+        expectEqual(one.app.map(\.id), [])
+        expectEqual(one.appNone?.zh, "今個星期冇需要改嘅設定。")
+        seq = 0
+        var once = weeklyRounds(.tapHanziAll, from: lastMonday, rounds: 10, firstTry: 10)
+            + weeklyRounds(.tapLetterAll, from: lastMonday.addingTimeInterval(3_600), rounds: 10, firstTry: 10)
+        once += weeklyRounds(.tapHanziAll, from: monday, rounds: 10, firstTry: 2)
+            + weeklyRounds(.tapLetterAll, from: monday.addingTimeInterval(3_600), rounds: 10, firstTry: 10)
+        let onceText = text(once)
+        expectEqual(naming(onceText), [], "lowest this week only, and the tie last week went to 字母")
+        expectEqual(onceText.app.map(\.id), ["A11"])
+        expectEqual(onceText.app.first?.kinds, [letters])
+
+        // The golden fixtures (letters, counts, matching, pen; no Hanzi round) are the unchanged weeks: their text goldens
+        // pass as before (weekly-text group).
+        for name in ["weekly-ranking-5.6", "weekly-2026-10-19"] {
+            let events = PerfEventStore(directory: URL(fileURLWithPath: "Tests/VisaCoreTests/Fixtures/\(name)")).read().events
+            expectTrue(events.count > 100, name)
+            expectFalse(events.contains { $0.string("kind")?.hasPrefix("tapHanzi") == true }, name)
+        }
+        // Every new 中文字 sentence: HK Traditional (both lists and the OpenCC fixture), no unfilled slot.
+        expectEqual(sentences.count, 7)
+        for sentence in sentences {
+            expectTrue(sentence.problems.isEmpty, sentence.zh)
+            expectTrue(isTraditionalChineseOnly(sentence.zh) && perfTraditionalOnly(sentence.zh), sentence.zh)
+            expectFalse(sentence.zh.contains { simplified.contains($0) }, sentence.zh)
+            expectFalse(sentence.zh.contains("{") || sentence.en.contains("{"), sentence.zh)
+        }
+        print("  hanzi parent: weekly 中文字 suggestions — A10 still learning / lowest, A11 harder; none without the rule; "
+              + "ties stay 字母")
     }
 }

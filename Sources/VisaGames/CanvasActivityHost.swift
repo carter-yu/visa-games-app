@@ -450,14 +450,15 @@ struct CanvasActivityHost: View {
         }
     }
 
-    /// 中文字 · 翻字卡 (Hanzi H2): the 2 × 5 find board. 搵完寫 shows the same find phase, then (H3) its 田字格 write
-    /// round once both are found and the stroke reveal is done.
+    /// 中文字 · 翻字卡 (Hanzi H2): the 2 × 5 find board. 搵完寫 shows the same find phase, then (H3) its write round on
+    /// the saved 寫字格 (田字格 / 米字格, H4.1) once both are found and the stroke reveal is done.
     @ViewBuilder
     private var tapHanzi: some View {
         if let board = model.currentTapHanziBoard, let pack = model.tapHanziPack, let copy = model.tapHanziCopy {
             if shownKind == .tapHanziWrite, let round = model.currentTapHanziWriteRound, let writeCopy = model.tapHanziWriteCopy,
                round.phase == .writing || round.phase == .done {
                 TapHanziWriteBoardView(round: round, pack: pack, copy: writeCopy, audioOn: model.tapHanziAudioOn,
+                                       grid: model.tapHanziSettings.grid,
                                        now: model.now.timeIntervalSinceReferenceDate, bubble: model.tapHanziWriteBubble,
                                        onDown: { model.tapHanziWritePenDown($0) },
                                        onMove: { model.tapHanziWritePenMove($0) },

@@ -7,7 +7,8 @@ import Foundation
 // coach (`NumeralGuide(hanzi:)`, `TapCountGuideCoach`, `TapCountDemoTimeline`, `TapCountGuideRun`) with the Hanzi
 // compact style and 右's STOP turn injected, as `TapLetterWriteRound` does for letters. Writing is practice: nothing
 // here can miss, cost fuel or change the find result. `TapHanziWriteBoardView` draws it; AppModel owns the clocks,
-// the voice and saving. No parent card, setting or report (H4).
+// the voice and saving. No parent card, setting or report (H4). H4.1 adds the 寫字格 lines for the parent's 田字格 /
+// 米字格 choice (`HanziWritingGridGeometry`).
 
 // MARK: - Board placement
 
@@ -105,6 +106,60 @@ public struct HanziStartMark: Equatable, Sendable {
     /// Only the current start takes the pen (D10). The trace engine enforces it (`ShapeTracePenRule.orderedStarts`):
     /// a pen-down on a later start is a coached wrong start unless it is also the current start (右's ③ / ④).
     public var acceptsInput: Bool { state == .current }
+}
+
+// MARK: - 寫字格
+
+/// One line of the write board's grid (stage units).
+public struct HanziGridLine: Equatable, Sendable {
+    public enum Role: String, Equatable, Sendable {
+        /// A side of the square.
+        case border
+        /// The centre vertical or horizontal.
+        case centre
+        /// A 米字格 corner-to-corner diagonal.
+        case diagonal
+    }
+
+    public let role: Role
+    public let from: LineMatchPoint
+    public let to: LineMatchPoint
+    /// The border is a faint solid line; the centre cross and the diagonals share one light dash, so a diagonal is
+    /// never stronger than the cross.
+    public var dashed: Bool { role != .border }
+
+    public init(role: Role, from: LineMatchPoint, to: LineMatchPoint) {
+        self.role = role
+        self.from = from
+        self.to = to
+    }
+}
+
+/// 寫字格 lines (D3; 米字格 since H4.1): a pure function of the grid and the square, never of a glyph, its strokes,
+/// their judging or the coach. The write board strokes them under everything else.
+public enum HanziWritingGridGeometry {
+    /// 田字格: the four sides, then the centre vertical and horizontal. 米字格: the same six, then both diagonals
+    /// (top-left to bottom-right, top-right to bottom-left).
+    public static func lines(for grid: HanziWritingGrid, in square: LineMatchRect) -> [HanziGridLine] {
+        let topLeft = LineMatchPoint(x: square.x, y: square.y), topRight = LineMatchPoint(x: square.maxX, y: square.y)
+        let bottomRight = LineMatchPoint(x: square.maxX, y: square.maxY)
+        let bottomLeft = LineMatchPoint(x: square.x, y: square.maxY)
+        var lines = [
+            HanziGridLine(role: .border, from: topLeft, to: topRight),
+            HanziGridLine(role: .border, from: topRight, to: bottomRight),
+            HanziGridLine(role: .border, from: bottomRight, to: bottomLeft),
+            HanziGridLine(role: .border, from: bottomLeft, to: topLeft),
+            HanziGridLine(role: .centre, from: LineMatchPoint(x: square.midX, y: square.y),
+                          to: LineMatchPoint(x: square.midX, y: square.maxY)),
+            HanziGridLine(role: .centre, from: LineMatchPoint(x: square.x, y: square.midY),
+                          to: LineMatchPoint(x: square.maxX, y: square.midY))
+        ]
+        if grid == .mizi {
+            lines += [HanziGridLine(role: .diagonal, from: topLeft, to: bottomRight),
+                      HanziGridLine(role: .diagonal, from: topRight, to: bottomLeft)]
+        }
+        return lines
+    }
 }
 
 // MARK: - Copy

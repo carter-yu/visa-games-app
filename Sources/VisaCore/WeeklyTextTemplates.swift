@@ -541,6 +541,10 @@ public enum WeeklyTextCatalog {
         // Off reuses the letter review's 關 / Off words (one definition of the off wording).
         case "hanzi_review": return value == "4" ? WeeklyWords(HanziParentCopy.reviewOn, HanziParentCopy.reviewOnEnglish)
             : value == "0" ? label("letter_review", value) : nil
+        // 寫字格 (H4.1): the settings screen's own 田字格 / 米字格 words.
+        case "hanzi_grid": return HanziWritingGrid(rawValue: value).map {
+            WeeklyWords(HanziParentCopy.gridName($0), HanziParentCopy.gridNameEnglish($0))
+        }
         default: return nil
         }
     }
@@ -578,6 +582,7 @@ public enum WeeklyTextCatalog {
         case "tapHanzi_review_every": return (WeeklyWords("中文字溫習", "Character review"), "hanzi_review")
         case "tapHanzi_guard": return (hanziGuardName, "letter_guard")
         case "tapHanzi_guidance": return (hanziCoachName, "guidance")
+        case "tapHanzi_grid": return (WeeklyWords(HanziParentCopy.gridTitle, HanziParentCopy.gridEnglish), "hanzi_grid")
         case "tapHanzi_audio": return (WeeklyWords(HanziParentCopy.audioTitle, HanziParentCopy.audioEnglish), "letter_guard")
         case "tapHanzi_jyutping":
             return (WeeklyWords(HanziParentCopy.jyutpingTitle, HanziParentCopy.jyutpingEnglish), "letter_guard")
@@ -675,7 +680,8 @@ public enum WeeklyTextCatalog {
             if let label = generation(value) { words.append(label) }
         }
         for (type, values) in [("letter_set", ["b f h", ""]), ("letter_review", ["0", "4"]),
-                               ("letter_guard", ["on", "off"]), ("hanzi_review", ["0", "4"])] {
+                               ("letter_guard", ["on", "off"]), ("hanzi_review", ["0", "4"]),
+                               ("hanzi_grid", HanziWritingGrid.allCases.map(\.rawValue))] {
             for value in values { if let label = self.label(type, value) { words.append(label) } }
         }
         for category in LineMatchCategory.allCases {
@@ -687,7 +693,7 @@ public enum WeeklyTextCatalog {
                      "tapCount_trace_scaffold", "tapCount_guidance", "tapCount_stroke_order", "tapCount_tolerance",
                      "tapLetter_focus_letters", "tapLetter_review_letters", "tapLetter_review_every",
                      "tapLetter_mirror_guard", "tapHanzi_week", "tapHanzi_review_every", "tapHanzi_guard",
-                     "tapHanzi_guidance", "tapHanzi_audio", "tapHanzi_jyutping"]
+                     "tapHanzi_guidance", "tapHanzi_grid", "tapHanzi_audio", "tapHanzi_jyutping"]
         for what in whats {
             if let name = configName(what) { words.append(name.name) }
         }

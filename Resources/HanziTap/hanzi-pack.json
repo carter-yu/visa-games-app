@@ -38,8 +38,8 @@
     "jyutpingEnabled": false,
     "reviewEveryRounds": 4,
     "confusableGuard": true,
-    "grid": "tianzi",
-    "miziGridEnabled": false,
+    "grid": "mizi",
+    "miziGridEnabled": true,
     "guideLevel": "standard",
     "strokeOrder": "inheritExisting",
     "unlockStarsAfterOwnPlaytest": true

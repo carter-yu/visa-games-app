@@ -83,13 +83,45 @@ public enum HanziParentCopy {
     public static let guardEnglish = "Look-alike guard"
     public static let guardDetail = "個字第一次冇幫手又搵啱晒之前，易混嘅字（例如上同下）唔會同佢放埋一版。\nUntil a character has one clean find, its look-alikes (such as 上 and 下) stay off its board."
 
-    /// D3: 田字格; 米字格 is a parent-test alternative, OFF, and the write board draws only 田字格.
+    /// 寫字格 (D3's parent choice, H4.1): 田字格 or 米字格. 米字格 is the default since Carter's 2026-11-14 「加米字格」
+    /// (D3 had 田字格, with 米字格 OFF); `HanziTapSettings.defaults.grid` carries the 預設 mark.
     public static let gridTitle = "寫字格"
     public static let gridEnglish = "Writing grid"
     public static let gridTianzi = "田字格"
-    public static let gridTianziEnglish = "Square grid (fixed)"
-    public static let gridNote = "米字格：呢個版本未有。"
-    public static let gridNoteEnglish = "Diagonal grid (米字格): not in this build."
+    public static let gridTianziEnglish = "Square grid"
+    public static let gridMizi = "米字格"
+    public static let gridMiziEnglish = "Diagonal grid"
+
+    public static func gridName(_ grid: HanziWritingGrid) -> String {
+        switch grid {
+        case .tianzi: return gridTianzi
+        case .mizi: return gridMizi
+        }
+    }
+
+    public static func gridNameEnglish(_ grid: HanziWritingGrid) -> String {
+        switch grid {
+        case .tianzi: return gridTianziEnglish
+        case .mizi: return gridMiziEnglish
+        }
+    }
+
+    /// The detail line under the two choices: 「米字格（預設）：…」. 田字格 keeps D3's reason (v1: diagonals compete
+    /// with 撇／捺 and the headlights); 米字格 says what the diagonals are for.
+    public static func gridLine(_ grid: HanziWritingGrid) -> String {
+        let mark = grid == HanziTapSettings.defaults.grid ? "（\(defaultMark)）" : ""
+        switch grid {
+        case .tianzi: return "\(gridTianzi)\(mark)：方框加中間十字；冇斜線，唔會同撇、捺同頭燈爭位。"
+        case .mizi: return "\(gridMizi)\(mark)：田字格再加兩條斜線，幫手對準字嘅位置同平衡。"
+        }
+    }
+
+    public static func gridLineEnglish(_ grid: HanziWritingGrid) -> String {
+        switch grid {
+        case .tianzi: return "Square grid: the box and its centre cross; no diagonals to compete with slanting strokes and the headlights."
+        case .mizi: return "Diagonal grid: the square grid plus two diagonals, to help with position and balance."
+        }
+    }
 
     /// Design: 「筆順動畫：跟現有設定」. The existing setting is shown, never copied or changed here.
     public static let strokeOrderTitle = "筆順動畫"

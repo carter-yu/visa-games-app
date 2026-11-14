@@ -208,7 +208,10 @@ private struct WeeklyClaims {
 }
 
 struct WeeklyTextContext {
-    static let quizAreas: [WeeklyArea] = [.numbers, .matching, .comparing, .letters]
+    /// The areas A10, A11 and `lowestArea` weigh, in the area map's order (`WeeklyArea.allCases` without 手眼・畫線,
+    /// which has no quiz games, and 其他). 中文字 (Carter 2026-11-14 「計埋」, Hanzi H4.1) counts like 字母 and comes
+    /// last, after it in that order, so on an equal adjusted rate an earlier area stays the lowest.
+    static let quizAreas: [WeeklyArea] = [.numbers, .matching, .comparing, .letters, .hanzi]
     static let minimumRounds = WeeklyRanking.minimumRounds
 
     let analysis: WeeklyAnalysis

@@ -59,8 +59,9 @@ final class HanziGlyphTests {
         expectEqual(pack.defaults.guideLevel, .standard)
         expectEqual(pack.defaults.reviewEveryRounds, 4)
         expectTrue(pack.defaults.confusableGuard && pack.defaults.unlockStarsAfterOwnPlaytest)
-        expectEqual(pack.defaults.grid, "tianzi")
-        expectFalse(pack.defaults.miziGridEnabled)
+        // 寫字格 starts on 米字格 (Carter 2026-11-14 overrode D3's 田字格 default, H4.1).
+        expectEqual(pack.defaults.grid, "mizi")
+        expectTrue(pack.defaults.miziGridEnabled)
         expectEqual(pack.board.scheduler.retryAfterInterveningRounds, 2)
         expectEqual(pack.board.scheduler.reviewEveryRounds, 4)
         expectTrue(pack.board.scheduler.cycleTargetsOnceBeforeShuffle && pack.board.scheduler.noImmediateTargetRepeat)
