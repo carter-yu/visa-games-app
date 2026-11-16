@@ -9,7 +9,7 @@
 - Colour (D8, provisional, [TO-VERIFY U6]): Machado 2009 dichromat simulation + CIELAB; a colour that decides an answer is a listed safe pair ≥ 30 (blue–yellow 66.8, purple–yellow 34.8, blue–orange 87.3); any two colours shown together ≥ 15 (no four body colours stay ≥ 20 apart); never red with green. Cedric's colour vision is unknown (Q6).
 - App (`VisaGames`; SwiftUI / AppKit / AVFoundation are not compiled on this box): `SystemSpeechPrompt.speakSequence` with the first `AVSpeechSynthesizerDelegate`, clip-queue start times, the silent beat and one engine per sequence (`speak(_:)` unchanged); `AppDelegate` 邊個唔同類 wiring (deal on the child's ladder step, a new wrong card → `handleEvaluation` once, a known-wrong re-tap → wiggle + name only, the board's after-pause step in both lanes before the generic rule, the read-through and reveal on `speakSequence`, the stamp once through `applyEntrySuccess`, parent entry holds the reveal first, Return releases it last for the open deal, `resetTaskRound` drops it, the playtest's own reveal, 分類設定 setters with `config_change` `sort_*`); `CanvasActivityHost` (the screen, centred row) and `ActivityBoardView.choicesX` (default 110, older boards unchanged); new `OddOneOutBoardView` and `ParentSortSettingsView`; `ParentSettingsView` (panel, version); `ParentGameCard` (分類 card lines beside the 中文字 ones); `PerformanceRecorder.sortSettingChanged`.
 - Version 0.41.0 / 91: `Info.plist`, `ParentSettingsView.versionLabel`, `PerformanceRecordTests`, `WeeklyReportPDFTests`.
-- Tests: new `PatternSortCoreTests` (11: T11, T1, T2 patterns, T3/T4/T5 patterns, T2/T3 odd one out, T2 sorting, T4, T5, T7, T12, T15), `PatternSortRoundTests` (8: T13, T14, T16 kiosk model, the two lanes' miss wait, the deadline's stop, T6, T8, T10), `OddOneOutWiringTests` (5: T9a, a 形狀 week never reads as 同款唔同色, T17, the R2 wiring, board / voice / parent wiring); they run first. Updated pins: ActivityTests, MissionGameAssignmentTests, HanziTapTests, HanziWriteTests, HanziFindTests, HanziParentTests (the four kinds report under 其他 until P3), StatusClockTests, StatusChipLayerTests, PerformanceRecordTests, QuestionGeneratorTests, SessionTests (runner, banner).
+- Tests: new `PatternSortCoreTests` (11: T11, T1, T2 patterns, T3/T4/T5 patterns, T2/T3 odd one out, T2 sorting, T4, T5, T7, T12, T15), `PatternSortRoundTests` (9: T13, T14, T16 kiosk model, the two lanes' miss wait, the deadline's stop, late speech reports, T6, T8, T10), `OddOneOutWiringTests` (6: T9a, a 形狀 week never reads as 同款唔同色, T17, the R2 wiring, the R3 wiring, board / voice / parent wiring); they run first. Updated pins: ActivityTests, MissionGameAssignmentTests, HanziTapTests, HanziWriteTests, HanziFindTests, HanziParentTests (the four kinds report under 其他 until P3), StatusClockTests, StatusChipLayerTests, PerformanceRecordTests, QuestionGeneratorTests, SessionTests (runner, banner).
 - Astra implementation review R1 (2026-11-15 20:18 HKT: NOT READY, 0 blocker / 2 major / 4 minor / 1 nit), fixed on the same branch, still 0.41.0 / 91 (nothing was released):
   - Ladder: both runs belong to the step that earned them (`PatternSortTierProgress.runStep`); `readThrough` reads the dealt step's run; `record` takes the board's dealt step and the 分類方法 it was dealt with (`OddOneOutBoard.methods`), so a 分類設定 change between rounds or during an open deal can no longer skip an unplayed step or drop the read-through. Stored-step skipping unchanged.
   - Determinism: `safePairs` is an ordered array (a set's order changes per process); T1 pins two deals and a digest of 20 seeds at every step of the 3 generators + 自己排, identical in 6 separate processes.
@@ -23,22 +23,29 @@
   - The 邊個唔同類 row's gap scales with the stage (`CanvasGapRow`, `PatternSortLayout.rowGapPoints`): centred at 640 u at 1920 × 1080 and 1280 × 720 by the layout's numbers; older boards keep their 24-point gap.
   - A sequence's deadline first stops its own speech (deal and generation, `SystemSpeechPrompt.stopSequence`), then ends the light and the reveal; newer or other-lane speech keeps playing.
   - 分車房's look-alike guard also covers a kind or shape helper below ★★★ (blue 巴士 / yellow 叮叮 by colour is refused).
+- Astra code review R3 (2026-11-16: READY WITH MINORS, 0 / 0 / 1 / 0; committed as 4b503b0, PR #50) — the one minor fixed on the same branch, still 0.41.0 / 91 (an unreleased PR's fix, as the PR #33 parity hotfix kept 0.33.0 / 68):
+  - A speech delegate report now carries its original utterance across the hop to the main actor (`SpeechUnitReport`, alive until routed) and is matched by identity against the current sequence's own utterances (`SpeechSequenceUnits.route`); no `ObjectIdentifier` lookup is left, so a stopped or replaced sequence's late cancel or last finish can no longer be read as the replacement's.
 - Verification (Linux box only):
-  - `scripts/test.sh` (box toolchain, session `run-tests.sh`): EXIT=0, 47 groups, 518 checks (baseline 44 groups,
-    494 checks): + `11 pattern-sort`, `8 pattern-sort-round`, `5 odd-one-out`. At the first delivery (before R1) the
+  - `scripts/test.sh` (box toolchain, session `run-tests.sh`): EXIT=0, 47 groups, 520 checks (baseline 44 groups,
+    494 checks): + `11 pattern-sort`, `9 pattern-sort-round`, `6 odd-one-out`. At the first delivery (before R1) the
     run printed lines that differed from the baseline only in timing, `weekly report: 4581 → 4589 text budgets` (the
     four new card titles are budget-checked), the version line and the 20 new lines; every weekly golden line is
     identical, and the 8 weekly golden files are byte-identical to the start (also after R1 and R2).
   - A from-scratch build printed only the pre-existing `ProviderBlockedPolicy.swift:101` deprecation (first delivery,
-    after R1 and after R2).
+    after R1, after R2 and after R3).
   - `swiftc -parse` OK for the 9 touched `Sources/VisaGames` files. A type-check harness (the new AppModel code and
     `guideSpeakStamped()` copied verbatim over stand-ins, against the built VisaCore, Swift 6) passes; its 8 mutants
     fail. The SwiftUI views and the AVFoundation speech code (incl. the R1 clip code and the R2 `stopSequence`) are
-    not type-checked here.
+    not type-checked here. R3: a second harness type-checks the speech delegate, its sequence state and
+    `sequenceUtterance` verbatim over AVFoundation stand-ins (Swift 6, no warning; 2 negatives fail). Swift 6.0.3 on
+    the box also accepts a direct capture of the non-Sendable utterance, so it cannot show the macOS compiler's view.
   - Mutation: first delivery 42 / 42 killed — the 40 design mutants M1–M6, M8–M24, M26–M42 (M7 is P3, M25 is P2) and
     2 extras. After R1 the 42 again (M35 on the new rule) plus M43–M54 for the fixes: 54 / 54 killed. After R2 those
     54 again plus M55–M72 for the R2 fixes: 72 / 72 killed (18 app-file mutants by source guards, 54 by runtime
-    checks); every restore sha256-verified; the working tree (435 files) identical before and after each run.
+    checks). R3 (targeted, not the 72 again): 7 new mutants of the report's retention, identity routing, a foreign
+    cancel, an early finish, the delegate's phase, the adapter's route and the registration, plus a rerun of the 6
+    R2 mutants in the two changed files: 13 / 13 killed. Every restore sha256-verified; the working tree (435 files)
+    identical before and after each run.
   - Simplified scan: no Simplified-only character on a new or changed line (48 files).
   - Found by the new tests and fixed: every 分車房 ★ b deal had one item id (so `avoidingItem` could not work); the
     detector's rotation rule was ambiguous (letters now follow first appearance in the row).

@@ -43,6 +43,56 @@ public enum ReadThroughEngine: String, Sendable, Equatable, CaseIterable {
     }
 }
 
+/// One `didStart` / `didFinish` / `didCancel` report of a spoken unit on its way from the synthesizer's delegate to the
+/// main actor (astra R3). It keeps the original utterance alive until it has been routed, so no replacement utterance
+/// can be allocated where it was, and routing compares that object by identity (`===`), never by an address alone: a
+/// stopped or replaced sequence's late report can never be read as the replacement's. The utterance is only compared,
+/// never read or changed, off the main actor (hence `@unchecked Sendable`).
+public struct SpeechUnitReport<Unit: AnyObject>: @unchecked Sendable {
+    public enum Phase: Sendable, Equatable { case started, finished, cancelled }
+
+    private let original: Unit
+    public let phase: Phase
+
+    public init(_ unit: Unit, _ phase: Phase) {
+        original = unit
+        self.phase = phase
+    }
+
+    /// The utterance the report was made for.
+    public var unit: Unit { original }
+}
+
+/// The system voice's own utterances of one sequence, in unit order (kept alive with it), and what a report does to it.
+public struct SpeechSequenceUnits<Unit: AnyObject> {
+    public enum Route: Equatable, Sendable {
+        /// Unit `index` started: its item lights.
+        case started(index: Int)
+        /// The last unit finished: the sequence ends.
+        case finished
+        /// One of its units was cancelled: the light clears; never an end.
+        case cancelled
+        /// Not one of this sequence's utterances (a stopped or replaced sequence's late report), or a finish before the
+        /// last unit.
+        case ignored
+    }
+
+    public private(set) var units: [Unit] = []
+
+    public init() {}
+
+    public mutating func append(_ unit: Unit) { units.append(unit) }
+
+    public func route(_ report: SpeechUnitReport<Unit>) -> Route {
+        guard let index = units.firstIndex(where: { $0 === report.unit }) else { return .ignored }
+        switch report.phase {
+        case .started: return .started(index: index)
+        case .finished: return index == units.count - 1 ? .finished : .ignored
+        case .cancelled: return .cancelled
+        }
+    }
+}
+
 /// A sequence's deadline (silent length + 4 s), in order (astra R2): stop the speaker's sequence only while it is still
 /// this one — the same deal and generation — so an overlong clip or utterance stops while a newer sequence, the other
 /// lane's or none keeps playing; then end the cursor and the reveal (once; held outside the lock).

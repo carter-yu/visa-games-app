@@ -573,6 +573,113 @@ final class PatternSortRoundTests {
         print("  pattern sort: lanes — a 試玩 miss discarded before its callback never blocks the child's round; waits per lane and deal; stale callbacks do nothing")
     }
 
+    /// Astra R3: `SystemSpeechPrompt`'s system-voice routing on the real `SpeechUnitReport` / `SpeechSequenceUnits`, with
+    /// a stand-in utterance class and the delegate's main-actor hop held open (the reports wait in `hop` as they would in
+    /// the delegate's `Task`). A stopped or replaced sequence's late `didStart` / `didFinish` / `didCancel` never reaches
+    /// the replacement (another lane's deal, or the same deal's newer generation); each waiting report keeps its
+    /// original utterance alive until it has been routed, so no replacement can sit at its address; the replacement's
+    /// own reports still route. `Speaker` mirrors `speakSequence` / `stop()` / `sequenceUtterance`.
+    func testDelayedSpeechReportsNeverReachAReplacement() {
+        final class Utterance {}
+        struct Speaker {
+            var deal = ""
+            var generation = 0
+            var sequence: SpeechSequenceUnits<Utterance>?
+            var events: [String] = []
+
+            mutating func speak(deal: String, generation: Int, units: [Utterance]) {
+                stop()
+                var state = SpeechSequenceUnits<Utterance>()
+                for unit in units { state.append(unit) }
+                self.deal = deal
+                self.generation = generation
+                sequence = state
+            }
+
+            mutating func stop() {
+                guard sequence != nil else { return }
+                sequence = nil
+                events.append("cancelled \(deal) \(generation)")
+            }
+
+            mutating func deliver(_ report: SpeechUnitReport<Utterance>) {
+                guard let state = sequence else { return }
+                switch state.route(report) {
+                case .started(let index): events.append("started \(index) \(deal) \(generation)")
+                case .finished:
+                    sequence = nil
+                    events.append("finished \(deal) \(generation)")
+                case .cancelled:
+                    sequence = nil
+                    events.append("cancelled \(deal) \(generation)")
+                case .ignored: break
+                }
+            }
+        }
+
+        // The child's reveal speaks two units; the first starts. The delegate's later reports wait on the hop.
+        var speaker = Speaker()
+        weak var oldFirst: Utterance?
+        weak var oldLast: Utterance?
+        var hop: [SpeechUnitReport<Utterance>] = []
+        do {
+            let first = Utterance(), last = Utterance()
+            oldFirst = first
+            oldLast = last
+            speaker.speak(deal: "round-A", generation: 3, units: [first, last])
+            speaker.deliver(SpeechUnitReport(first, .started))
+            hop = [SpeechUnitReport(first, .finished), SpeechUnitReport(last, .started), SpeechUnitReport(last, .finished),
+                   SpeechUnitReport(first, .cancelled), SpeechUnitReport(last, .cancelled)]
+        }
+        expectEqual(speaker.events, ["started 0 round-A 3"])
+        // A stop, then a replacement on the 試玩's deal: the old sequence's utterances leave its state, but every waiting
+        // report still holds its own, so no replacement utterance can be allocated where one of them is.
+        speaker.stop()
+        expectTrue(oldFirst != nil && oldLast != nil, "the waiting reports keep the old utterances alive")
+        let newFirst = Utterance(), newLast = Utterance()
+        for old in [oldFirst, oldLast] {
+            for fresh in [newFirst, newLast] {
+                expectTrue(old.map { ObjectIdentifier($0) != ObjectIdentifier(fresh) } ?? false, "no reused identity")
+            }
+        }
+        speaker.speak(deal: "playtest-1", generation: 4, units: [newFirst, newLast])
+        let before = speaker.events
+        for report in hop { speaker.deliver(report) }
+        expectEqual(speaker.events, before, "late old didFinish / didStart / didCancel change nothing")
+        expectTrue(speaker.sequence != nil, "the replacement keeps speaking")
+        hop = []
+        expectTrue(oldFirst == nil && oldLast == nil, "released once routed")
+        // The replacement's own reports still route: a start lights its item, a finish before the last ends nothing,
+        // the last unit's finish ends it.
+        speaker.deliver(SpeechUnitReport(newFirst, .started))
+        speaker.deliver(SpeechUnitReport(newFirst, .finished))
+        expectTrue(speaker.sequence != nil, "a finish before the last unit")
+        speaker.deliver(SpeechUnitReport(newLast, .finished))
+        expectEqual(Array(speaker.events.dropFirst(before.count)), ["started 0 playtest-1 4", "finished playtest-1 4"])
+
+        // A replay on the same deal (a newer generation): the old generation's late cancel and last finish are ignored;
+        // the replay's own cancel still cancels it.
+        var replay = Speaker()
+        weak var replayed: Utterance?
+        var late: [SpeechUnitReport<Utterance>] = []
+        do {
+            let unit = Utterance()
+            replayed = unit
+            replay.speak(deal: "round-B", generation: 5, units: [unit])
+            late = [SpeechUnitReport(unit, .cancelled), SpeechUnitReport(unit, .finished)]
+        }
+        let again = Utterance()
+        replay.speak(deal: "round-B", generation: 6, units: [again])
+        expectTrue(replayed != nil, "still waiting")
+        for report in late { replay.deliver(report) }
+        expectTrue(replay.sequence != nil, "the newer generation keeps speaking")
+        replay.deliver(SpeechUnitReport(again, .cancelled))
+        expectEqual(replay.events, ["cancelled round-B 5", "cancelled round-B 6"])
+        late = []
+        expectNil(replayed)
+        print("  pattern sort: speech reports — late reports of a stopped or replaced sequence never reach the replacement; each keeps its utterance alive until routed")
+    }
+
     /// Astra R2: a sequence's deadline stops the speaker's sequence only while it is still the current one for its deal
     /// and generation (`ReadThroughDeadline.stopsSpeech`, what `SystemSpeechPrompt.stopSequence` checks), then ends the
     /// cursor and the reveal — once, and held under parent controls as before. `Speaker` is the one sequence slot.

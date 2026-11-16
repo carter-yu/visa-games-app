@@ -55,7 +55,7 @@ final class SystemSpeechPrompt {
             "voice — 語音 zh-HK/yue-HK picked=\(pickedName) lang=\(pickedLang) installed=\(cantonese)"
         )
         synthesizer.delegate = sequenceDelegate
-        sequenceDelegate.report = { [weak self] id, phase in self?.sequenceUtterance(id, phase) }
+        sequenceDelegate.report = { [weak self] report in self?.sequenceUtterance(report) }
     }
 
     var isAvailable: Bool { voice != nil }
@@ -225,33 +225,33 @@ struct SpeechSequenceState {
     let engine: ReadThroughEngine
     let count: Int
     let onEvent: @MainActor (SpeechSequenceEvent) -> Void
-    /// System voice: each utterance's unit (kept alive so its identifier is not reused).
-    var utterances: [ObjectIdentifier: Int] = [:]
-    var retained: [AVSpeechUtterance] = []
+    /// System voice: the sequence's own utterances in unit order, kept alive with it and matched by identity.
+    var units = SpeechSequenceUnits<AVSpeechUtterance>()
 }
 
 /// The synthesizer's delegate (there was none before P1). It only forwards which utterance started, finished or was
 /// cancelled; `SystemSpeechPrompt` ignores every utterance outside its current sequence.
 final class SpeechSequenceDelegate: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendable {
-    enum Phase: Sendable { case started, finished, cancelled }
     /// Set once on the main actor, read there only.
-    var report: (@MainActor (ObjectIdentifier, Phase) -> Void)?
+    var report: (@MainActor (SpeechUnitReport<AVSpeechUtterance>) -> Void)?
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
-        forward(utterance, .started)
+        forward(SpeechUnitReport(utterance, .started))
     }
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        forward(utterance, .finished)
+        forward(SpeechUnitReport(utterance, .finished))
     }
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        forward(utterance, .cancelled)
+        forward(SpeechUnitReport(utterance, .cancelled))
     }
 
-    private func forward(_ utterance: AVSpeechUtterance, _ phase: Phase) {
-        let id = ObjectIdentifier(utterance)
-        Task { @MainActor [weak self] in self?.report?(id, phase) }
+    /// Astra R3: the report carries the original utterance itself to the main actor, alive until it has been routed
+    /// (a stop or a replacement cannot free it first, so no replacement can reuse its address), where it is matched by
+    /// identity against the current sequence's own utterances (`SpeechSequenceUnits.route`).
+    private func forward(_ unitReport: SpeechUnitReport<AVSpeechUtterance>) {
+        Task { @MainActor [weak self] in self?.report?(unitReport) }
     }
 }
 
@@ -284,8 +284,7 @@ extension SystemSpeechPrompt {
                 utterance.voice = voice
                 utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
                 utterance.postUtteranceDelay = unit.kind == .word ? 0.05 : 0.15
-                state.utterances[ObjectIdentifier(utterance)] = index
-                state.retained.append(utterance)
+                state.units.append(utterance)
                 synthesizer.speak(utterance)
             }
         case .clips:
@@ -353,19 +352,21 @@ extension SystemSpeechPrompt {
     }
 
     /// The delegate's report: `didStart` of unit i lights item i; `didFinish` of the last unit ends the sequence;
-    /// `didCancel` clears the light (a cancel, never an end). Utterances outside the current sequence are ignored.
-    private func sequenceUtterance(_ id: ObjectIdentifier, _ phase: SpeechSequenceDelegate.Phase) {
-        guard let state = sequence, state.engine == .systemVoice, let index = state.utterances[id] else { return }
-        switch phase {
-        case .started:
+    /// `didCancel` clears the light (a cancel, never an end). Utterances outside the current sequence — a stopped or
+    /// replaced one's late reports — are ignored (`SpeechSequenceUnits.route`, by identity).
+    private func sequenceUtterance(_ report: SpeechUnitReport<AVSpeechUtterance>) {
+        guard let state = sequence, state.engine == .systemVoice else { return }
+        switch state.units.route(report) {
+        case .started(let index):
             state.onEvent(.unitStarted(index: index, deal: state.deal, generation: state.generation))
         case .finished:
-            guard index == state.count - 1 else { return }
             sequence = nil
             state.onEvent(.finished(deal: state.deal, generation: state.generation))
         case .cancelled:
             sequence = nil
             state.onEvent(.cancelled(deal: state.deal, generation: state.generation))
+        case .ignored:
+            break
         }
     }
 }

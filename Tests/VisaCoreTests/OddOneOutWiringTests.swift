@@ -347,6 +347,34 @@ final class OddOneOutWiringTests {
         print("  odd one out: R2 wiring — the miss wait per lane and deal, the stamp's voice in its helper, the row's canvas gap, the deadline stops its own sequence")
     }
 
+    // MARK: Astra R3 wiring
+
+    /// Astra R3 source guards: the synthesizer delegate's hop carries the original utterance in a `SpeechUnitReport`
+    /// (alive until it is routed) and `sequenceUtterance` routes it by identity through `SpeechSequenceUnits` — the code
+    /// `PatternSortRoundTests.testDelayedSpeechReportsNeverReachAReplacement` runs; no identifier-keyed lookup is left.
+    func testSpeechReportsKeepTheirUtterance() throws {
+        let speech = try source("Sources/VisaGames/SystemSpeechPrompt.swift")
+        let delegate = speech.components(separatedBy: "final class SpeechSequenceDelegate").dropFirst().first?
+            .components(separatedBy: "\nextension SystemSpeechPrompt {").first ?? ""
+        expectTrue(delegate.contains("var report: (@MainActor (SpeechUnitReport<AVSpeechUtterance>) -> Void)?"))
+        for (callback, phase) in [("didStart", "started"), ("didFinish", "finished"), ("didCancel", "cancelled")] {
+            expectTrue(delegate.contains("\(callback) utterance: AVSpeechUtterance) {\n        forward(SpeechUnitReport(utterance, .\(phase)))\n    }"),
+                       callback)
+        }
+        expectTrue(delegate.contains("private func forward(_ unitReport: SpeechUnitReport<AVSpeechUtterance>) {\n        Task { @MainActor [weak self] in self?.report?(unitReport) }\n    }"),
+                   "the report itself crosses the hop")
+        expectFalse(speech.contains("ObjectIdentifier"), "no identifier-keyed routing")
+        expectTrue(speech.contains("var units = SpeechSequenceUnits<AVSpeechUtterance>()"))
+        expectTrue(speech.contains("state.units.append(utterance)\n                synthesizer.speak(utterance)"))
+        expectTrue(speech.contains("sequenceDelegate.report = { [weak self] report in self?.sequenceUtterance(report) }"))
+        let route = body(of: "private func sequenceUtterance(", in: speech)
+        expectTrue(ordered("guard let state = sequence, state.engine == .systemVoice else { return }",
+                           "switch state.units.route(report) {", in: route))
+        expectTrue(route.contains("case .ignored:\n            break"))
+        expectEqual(count("sequence = nil", in: route), 2, "only the routed last finish and the routed cancel end it")
+        print("  odd one out: R3 wiring — speech reports carry their utterance across the hop and route by identity")
+    }
+
     // MARK: Board, after-pause, voice and parent wiring
 
     /// P1 wiring: a new wrong card reaches `handleEvaluation` / `playtestHandle` once and a known-wrong re-tap never; the
