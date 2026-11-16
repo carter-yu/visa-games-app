@@ -545,6 +545,12 @@ public enum WeeklyTextCatalog {
         case "hanzi_grid": return HanziWritingGrid(rawValue: value).map {
             WeeklyWords(HanziParentCopy.gridName($0), HanziParentCopy.gridNameEnglish($0))
         }
+        // 分類方法 (patterns-sorting P1): the on-set, in the stored order.
+        case "sort_methods":
+            let methods = value.split(separator: " ").compactMap { PatternSortMethod(rawValue: String($0)) }
+            guard !methods.isEmpty else { return nil }
+            return WeeklyWords(methods.map(\.zh).joined(separator: "、"), methods.map(\.en).joined(separator: ", "))
+        case "sort_progress": return value == "reset" ? WeeklyWords("由頭開始", "Started again") : nil
         default: return nil
         }
     }
@@ -553,6 +559,10 @@ public enum WeeklyTextCatalog {
     static let hanziWeekName = WeeklyWords("今星期中文字", "Characters this week")
     static let hanziGuardName = WeeklyWords(HanziParentCopy.guardTitle, HanziParentCopy.guardEnglish)
     static let hanziCoachName = WeeklyWords(HanziParentCopy.coachTitle, HanziParentCopy.coachEnglish)
+    /// 分類設定 names (patterns-sorting P1, Appendix A).
+    static let sortMethodsName = WeeklyWords("分類方法", "Ways to sort")
+    static let sortHelpName = WeeklyWords("分類提示", "Sorting help")
+    static let sortVoiceName = WeeklyWords("分類語音", "Sorting voice")
 
     /// any.settings names of `config_change.what` values: (name, value labels key).
     public static func configName(_ what: String) -> (name: WeeklyWords, labels: String)? {
@@ -586,6 +596,10 @@ public enum WeeklyTextCatalog {
         case "tapHanzi_audio": return (WeeklyWords(HanziParentCopy.audioTitle, HanziParentCopy.audioEnglish), "letter_guard")
         case "tapHanzi_jyutping":
             return (WeeklyWords(HanziParentCopy.jyutpingTitle, HanziParentCopy.jyutpingEnglish), "letter_guard")
+        case "sort_methods": return (sortMethodsName, "sort_methods")
+        case "sort_guidance": return (sortHelpName, "guidance")
+        case "sort_audio": return (sortVoiceName, "letter_guard")
+        case "sort_progress": return (WeeklyWords("分類進度", "Sorting progress"), "sort_progress")
         default: return nil
         }
     }
@@ -598,6 +612,15 @@ public enum WeeklyTextCatalog {
             case "this_week": return (hanziWeekName, "letter_set")
             case "guard": return (hanziGuardName, "letter_guard")
             case "guide_level": return (hanziCoachName, "guidance")
+            default: break
+            }
+        }
+        // 分類 (patterns-sorting P1): its own help and voice names, never 描數字提示.
+        if ActivityKind(rawValue: kind)?.isSortFamily == true {
+            switch field {
+            case "guide_level": return (sortHelpName, "guidance")
+            case "methods": return (sortMethodsName, "sort_methods")
+            case "voice": return (sortVoiceName, "letter_guard")
             default: break
             }
         }
@@ -625,6 +648,8 @@ public enum WeeklyTextCatalog {
         case "review_letters", "eligible_review_letters": return (WeeklyWords("溫習字母", "Review letters"), "letter_set")
         case "review_every": return (WeeklyWords("溫習頻率", "Review frequency"), "letter_review")
         case "guard": return (WeeklyWords("新字母護欄", "Letter guard"), "letter_guard")
+        case "ladder_step": return (WeeklyWords("題目級數（自動）", "Step (automatic)"), "")
+        case "read_through": return (WeeklyWords("自動讀一次", "Read-through (automatic)"), "letter_guard")
         default: return nil
         }
     }
@@ -650,6 +675,11 @@ public enum WeeklyTextCatalog {
         case .tapCountTrace, .tapCountTraceEnglish: return WeeklyWords("個數字", "the numbers")
         case .tapLetterAll, .tapLetterWrite: return WeeklyWords("啲字母", "the letters")
         case .tapHanziAll, .tapHanziWrite: return WeeklyWords("啲中文字", "the characters")
+        // patterns-sorting Appendix A F8 objects (the weekly family copy itself lands in P3).
+        case .patternNext: return WeeklyWords("條車隊", "the line of vehicles")
+        case .patternMake: return WeeklyWords("自己排嘅車隊", "the line they made")
+        case .oddOneOut: return WeeklyWords("每一個", "each one")
+        case .sortGarages: return WeeklyWords("車房個牌", "the garage signs")
         }
     }
 
@@ -681,7 +711,8 @@ public enum WeeklyTextCatalog {
         }
         for (type, values) in [("letter_set", ["b f h", ""]), ("letter_review", ["0", "4"]),
                                ("letter_guard", ["on", "off"]), ("hanzi_review", ["0", "4"]),
-                               ("hanzi_grid", HanziWritingGrid.allCases.map(\.rawValue))] {
+                               ("hanzi_grid", HanziWritingGrid.allCases.map(\.rawValue)),
+                               ("sort_methods", [SortSettings.defaults.methodsCode, "facing"]), ("sort_progress", ["reset"])] {
             for value in values { if let label = self.label(type, value) { words.append(label) } }
         }
         for category in LineMatchCategory.allCases {
@@ -693,13 +724,15 @@ public enum WeeklyTextCatalog {
                      "tapCount_trace_scaffold", "tapCount_guidance", "tapCount_stroke_order", "tapCount_tolerance",
                      "tapLetter_focus_letters", "tapLetter_review_letters", "tapLetter_review_every",
                      "tapLetter_mirror_guard", "tapHanzi_week", "tapHanzi_review_every", "tapHanzi_guard",
-                     "tapHanzi_guidance", "tapHanzi_grid", "tapHanzi_audio", "tapHanzi_jyutping"]
+                     "tapHanzi_guidance", "tapHanzi_grid", "tapHanzi_audio", "tapHanzi_jyutping",
+                     "sort_methods", "sort_guidance", "sort_audio", "sort_progress"]
         for what in whats {
             if let name = configName(what) { words.append(name.name) }
         }
         for field in WeeklySignature.dealFields + WeeklySignature.resultFields {
             if let name = fieldName(field, kind: ActivityKind.lineMatch.rawValue) { words.append(name.name) }
             if let name = fieldName(field, kind: ActivityKind.tapHanziAll.rawValue) { words.append(name.name) }
+            if let name = fieldName(field, kind: ActivityKind.oddOneOut.rawValue) { words.append(name.name) }
         }
         words.append(starShiftName)
         for kind in ActivityKind.allCases {

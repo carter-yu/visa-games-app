@@ -104,6 +104,11 @@ struct CanvasActivityHost: View {
                 tapLetter
             case .tapHanziAll, .tapHanziWrite:
                 tapHanzi
+            case .oddOneOut:
+                oddOneOut
+            // patterns-sorting: no board yet (P2, P5, P4); never dealt, never playtested (not playable).
+            case .patternNext, .patternMake, .sortGarages:
+                EmptyView()
             case .none:
                 EmptyView()
             }
@@ -482,6 +487,34 @@ struct CanvasActivityHost: View {
         }
     }
 
+    /// 分類 · 邊個唔同類 (patterns-sorting P1): 3 cards at ★, 4 at ★★ / ★★★, centred (design §5.6); the emblem or the
+    /// category sign above (lit by the read-through); the lane's own board, hint and reveal.
+    @ViewBuilder
+    private var oddOneOut: some View {
+        if let round = model.currentOddOneOutBoard {
+            let q = round.question
+            let count = q.cards.count
+            board(promptZH: model.oddOneOutBubble.zh, promptEN: model.oddOneOutBubble.en,
+                  hintID: round.hintCard.map { "card-\($0)" } ?? "", choiceCount: count,
+                  hintOverride: round.hintOn, lockedOverride: choicesAreLocked || model.oddOneOutRevealing,
+                  choicesX: PatternSortLayout.rowX(count)) {
+                StimulusPanel {
+                    OddOneOutStimulusView(question: q, lit: model.oddOneOutCursor.light == OddOneOutCopy.panelLight)
+                }
+            } choices: {
+                choiceRow(ids: q.slots, hintID: round.hintCard.map { "card-\($0)" } ?? "",
+                          cardWidth: PatternSortLayout.cardWidth(count), hintOverride: round.hintOn,
+                          lockedOverride: choicesAreLocked || model.oddOneOutRevealing, canvasGap: true) { id in
+                    if let index = q.slots.firstIndex(of: id) {
+                        PatternSortLookView(look: q.cards[index])
+                    }
+                } onSelect: { id in
+                    if let index = q.slots.firstIndex(of: id) { model.oddOneOutTap(card: index) }
+                }
+            }
+        }
+    }
+
     private var freeLineMatch: some View {
         LineMatchBoardView(
             board: model.currentLineMatchBoard,
@@ -511,12 +544,15 @@ struct CanvasActivityHost: View {
         hintID: String,
         choiceCount: Int,
         stimulusSize: CGSize = ActivityBoardLayout.standardStimulus,
+        hintOverride: Bool? = nil,
+        lockedOverride: Bool? = nil,
+        choicesX: CGFloat = 110,
         @ViewBuilder stimulus: @escaping () -> S,
         @ViewBuilder choices: @escaping () -> C
     ) -> some View {
         let prompt = SpokenPrompt(key: "activity.\(shownKind?.rawValue ?? "x")",
                                   traditionalChinese: promptZH, english: promptEN)
-        let hintToward: CGFloat = (hintUsed && !hintID.isEmpty) ? 36 : 0
+        let hintToward: CGFloat = ((hintOverride ?? hintUsed) && !hintID.isEmpty) ? 36 : 0
         return ActivityBoardView(
             prompt: prompt,
             coneTotal: 1,
@@ -526,9 +562,10 @@ struct CanvasActivityHost: View {
             startingMinutes: startingMinutes,
             thinkPauseRemaining: thinkRemaining,
             fuelFeedback: fuelFeedback,
-            choicesLocked: choicesAreLocked,
+            choicesLocked: lockedOverride ?? choicesAreLocked,
             onSpeak: speakPrompt,
             stimulusSize: stimulusSize,
+            choicesX: choicesX,
             stimulus: stimulus,
             choices: choices
         )
@@ -539,27 +576,46 @@ struct CanvasActivityHost: View {
         ids: [String],
         hintID: String,
         cardWidth: Double = DesignTokens.choiceCardWidth,
+        hintOverride: Bool? = nil,
+        lockedOverride: Bool? = nil,
+        canvasGap: Bool = false,
         @ViewBuilder content: @escaping (String) -> Content,
         onSelect: @escaping (String) -> Void
     ) -> some View {
-        HStack(spacing: 24) {
-            ForEach(ids, id: \.self) { id in
-                let feedback: ChoiceFeedback = {
-                    if lastCorrectID == id { return .correct }
-                    if lastIncorrectID == id { return .incorrect }
-                    if hintUsed && id == hintID { return .hint }
-                    return .idle
-                }()
-                ChoiceCardChrome(
-                    feedback: feedback,
-                    isHintTarget: hintUsed && id == hintID,
-                    isInteractionEnabled: !choicesAreLocked,
-                    cardWidth: cardWidth,
-                    action: { onSelect(id) }
-                ) {
-                    content(id)
-                }
+        let hintOn = hintOverride ?? hintUsed
+        let cards = ForEach(ids, id: \.self) { id in
+            let feedback: ChoiceFeedback = {
+                if lastCorrectID == id { return .correct }
+                if lastIncorrectID == id { return .incorrect }
+                if hintOn && id == hintID { return .hint }
+                return .idle
+            }()
+            ChoiceCardChrome(
+                feedback: feedback,
+                isHintTarget: hintOn && id == hintID,
+                isInteractionEnabled: !(lockedOverride ?? choicesAreLocked),
+                cardWidth: cardWidth,
+                action: { onSelect(id) }
+            ) {
+                content(id)
             }
         }
+        if canvasGap {
+            CanvasGapRow { cards }
+        } else {
+            HStack(spacing: 24) { cards }
+        }
+    }
+}
+
+/// patterns-sorting (astra R2): a choice row whose gap is in canvas units. It reads `canvasMetrics` inside the stage,
+/// so the gap scales like the cards and the row's left edge (`PatternSortLayout.rowGapPoints`) and the row stays
+/// centred at 640 u at every stage scale. Older boards keep their 24-point `HStack`.
+private struct CanvasGapRow<Content: View>: View {
+    @Environment(\.canvasMetrics) private var metrics
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        HStack(spacing: CGFloat(PatternSortLayout.rowGapPoints(scale: Double(metrics.scale)))) { content() }
     }
 }

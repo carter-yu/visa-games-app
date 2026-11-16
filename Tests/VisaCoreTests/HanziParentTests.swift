@@ -472,7 +472,10 @@ final class HanziParentTests {
         expectEqual(WeeklyArea.of(kind: ActivityKind.tapHanziWrite.rawValue), .hanzi)
         expectEqual(WeeklyArea.of(kind: ActivityKind.tapLetterAll.rawValue), .letters)
         expectEqual(WeeklyArea.of(kind: "mysteryQuiz"), .other)
-        for kind in ActivityKind.allCases { expectTrue(WeeklyArea.of(kind: kind.rawValue) != .other, kind.rawValue) }
+        // patterns-sorting: its four kinds report under 其他 until P3 adds their own area (design §6.3 item 1).
+        for kind in ActivityKind.allCases where !kind.isPatternFamily && !kind.isSortFamily {
+            expectTrue(WeeklyArea.of(kind: kind.rawValue) != .other, kind.rawValue)
+        }
         for kind in [ActivityKind.tapHanziAll, .tapHanziWrite] {
             expectEqual(PerfChoiceCatalog.chance(for: kind), 1.0 / 45.0)
             expectEqual(PerfChoiceCatalog.slots(kind: kind, seed: "x"), (0..<10).map { "card-\($0)" })

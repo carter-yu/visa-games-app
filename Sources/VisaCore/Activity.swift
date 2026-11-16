@@ -82,6 +82,15 @@ public enum ActivityKind: String, CaseIterable, Sendable, Codable, Equatable, Ha
     /// 中文字 · 搵完寫 / Find & write: find both copies, then write the character. Not playable until its write
     /// round (H3); the find phase is wired (H2) and holds before writing.
     case tapHanziWrite
+    /// 跟住排 · 接落去 / Patterns · What comes next (patterns-sorting P0, 0.41.0): pick what comes next or what is
+    /// missing in a repeating row. Pure core only; not playable until its UI slice (P2).
+    case patternNext
+    /// 跟住排 · 自己排 / Patterns · Make your own: practice, build a row of 8 (P5). Pure core only.
+    case patternMake
+    /// 分類 · 邊個唔同類 / Sorting · Odd one out: tap the one that is not like the others (P1 UI).
+    case oddOneOut
+    /// 分類 · 分車房 / Sorting · Two garages: park each vehicle in its garage (P4). Pure core only.
+    case sortGarages
 }
 
 extension ActivityKind {
@@ -150,9 +159,18 @@ extension ActivityKind {
     /// Hanzi D1 / D6: two independent cards (★ find, ★★ find then write), each OFF until its own playtest.
     public var isTapHanziFamily: Bool { self == .tapHanziAll || self == .tapHanziWrite }
     public var tapHanziLevel: ActivityLevel? { self == .tapHanziAll ? .l1 : self == .tapHanziWrite ? .l2 : nil }
+    /// 跟住排 (patterns-sorting design D1): 接落去 and 自己排 share 跟住排設定 (separate star assignment).
+    public var isPatternFamily: Bool { self == .patternNext || self == .patternMake }
+    /// 分類: 邊個唔同類 and 分車房 share 分類設定 and the attribute generator.
+    public var isSortFamily: Bool { self == .oddOneOut || self == .sortGarages }
     public var requiresPlaytestBeforeStars: Bool {
-        isShapeTraceFamily || isTapCountFamily || isTapLetterFamily || isTapHanziFamily
+        isShapeTraceFamily || isTapCountFamily || isTapLetterFamily || isTapHanziFamily || isPatternFamily || isSortFamily
     }
+
+    /// Design §5.7: the three new quiz kinds send the end of a Think Pause to their own board's after-pause step
+    /// (hint threshold fixed at deal: 1 at 多啲, else 2), so the generic two-miss rule never runs for them, in the
+    /// child and the playtest lanes. 自己排 is practice (no miss, no pause).
+    public var usesBoardAfterPause: Bool { self == .patternNext || self == .oddOneOut || self == .sortGarages }
 
     /// How this kind deals a line-match question. Guided kinds pin geometry (straight = L1,
     /// bridge = L2); free match uses the mission star's level. Nil when not a line-match kind.
@@ -195,6 +213,10 @@ extension ActivityKind {
         case .tapLetterWrite: return "英文字母 ABC · 搵完寫"
         case .tapHanziAll: return "中文字 · 翻字卡"
         case .tapHanziWrite: return "中文字 · 搵完寫"
+        case .patternNext: return "跟住排 · 接落去"
+        case .patternMake: return "跟住排 · 自己排"
+        case .oddOneOut: return "分類 · 邊個唔同類"
+        case .sortGarages: return "分類 · 分車房"
         }
     }
 
@@ -226,6 +248,10 @@ extension ActivityKind {
         case .tapLetterWrite: return "Letters ABC · Find & write"
         case .tapHanziAll: return "Chinese characters · Find & flip"
         case .tapHanziWrite: return "Chinese characters · Find & write"
+        case .patternNext: return "Patterns · What comes next"
+        case .patternMake: return "Patterns · Make your own"
+        case .oddOneOut: return "Sorting · Odd one out"
+        case .sortGarages: return "Sorting · Two garages"
         }
     }
 
@@ -255,6 +281,10 @@ extension ActivityKind {
         case .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return TapCountEnglishCopy.parentShortLabel(self)
         case .tapLetterAll, .tapHanziAll: return "翻字卡"
         case .tapLetterWrite, .tapHanziWrite: return "搵完寫"
+        case .patternNext: return "接落去"
+        case .patternMake: return "自己排"
+        case .oddOneOut: return "唔同類"
+        case .sortGarages: return "分車房"
         }
     }
 
@@ -286,6 +316,10 @@ extension ActivityKind {
         case .tapLetterWrite: return "搵晒個英文字母（一樣翻出字卡），再跟住箭嘴寫一次！"
         case .tapHanziAll: return "搵晒嗰個中文字，點啱一張就翻出一張字卡（圖 + 字 + 意思）！"
         case .tapHanziWrite: return "搵晒個中文字（一樣翻出字卡），再跟住箭嘴寫一次！"
+        case .patternNext: return "睇吓啲車點樣排，揀跟住嗰個！"
+        case .patternMake: return "揀幾款，自己排一條車隊！"
+        case .oddOneOut: return "邊個同其他唔一樣？撳佢！"
+        case .sortGarages: return "每架車應該泊入邊間車房？"
         }
     }
 
@@ -316,6 +350,10 @@ extension ActivityKind {
         case .tapLetterWrite: return "Find every copy, then write the letter along the arrows!"
         case .tapHanziAll: return "Find every copy of the character; each one flips into a picture card!"
         case .tapHanziWrite: return "Find every copy, then write the character along the arrows!"
+        case .patternNext: return "See how they repeat and pick the next one!"
+        case .patternMake: return "Make your own line!"
+        case .oddOneOut: return "Which one is different? Tap it!"
+        case .sortGarages: return "Which garage does each vehicle park in?"
         }
     }
 
@@ -376,6 +414,15 @@ extension ActivityKind {
             return ["tapHanzi.icon.all"]
         case .tapHanziWrite:
             return ["tapHanzi.icon.write"]
+        // Design D7: tap-count vector vehicles and the prop PNGs, no hero PNGs.
+        case .patternNext:
+            return ["tapCount.bus", "tapCount.digger"]
+        case .patternMake:
+            return ["tapCount.mixer", "tapCount.bus"]
+        case .oddOneOut:
+            return ["tapCount.mixer", "tapCount.dumper", "prop.trafficCone"]
+        case .sortGarages:
+            return ["prop.garageDoor", "tapCount.craneTruck"]
         }
     }
 }
@@ -977,7 +1024,8 @@ public enum FirstEntryActivity {
 /// Activity-type inspiration only — no Gakken IP; no Tomica/Thomas/Tayo likenesses.
 public enum ActivityCatalog {
     /// Playable kinds the child can get after picking difficulty (rotation by round seed).
-    /// `tapHanziAll` joined with its find UI (Hanzi H2, build 83); `tapHanziWrite` with its write round (H3, build 84).
+    /// `tapHanziAll` joined with its find UI (Hanzi H2, build 83); `tapHanziWrite` with its write round (H3, build 84);
+    /// `oddOneOut` with its board (patterns-sorting P1, build 91).
     public static let playableKinds: [ActivityKind] = [
         .twoPictureChoose,
         .findTheSame,
@@ -1003,17 +1051,21 @@ public enum ActivityCatalog {
         .tapCountTraceEnglish,
         .tapCountPickEnglish,
         .tapLetterAll, .tapLetterWrite,
-        .tapHanziAll, .tapHanziWrite
+        .tapHanziAll, .tapHanziWrite,
+        // patterns-sorting P1 (0.41.0 / 91): 分類 · 邊個唔同類 joins with its board, default-off. 接落去 (P2),
+        // 分車房 (P4) and 自己排 (P5) stay unplayable until their UI slices.
+        .oddOneOut
     ]
 
     /// D7 (Carter 2026-10-13, option B): new kinds join no ticket until a parent turns a star on
     /// in 家長 → 遊戲 (after 試玩). They stay playable from the parent catalog.
     /// Both Hanzi kinds are listed from H1, so each starts OFF (hanzi D6) when it becomes playable (翻字卡 in H2).
+    /// The four patterns-sorting cards are listed from P0 (design D10): each starts OFF, with its own 試玩 before a star.
     public static let defaultOffKinds: [ActivityKind] = [
         .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch, .traceLines, .traceShapesDotted,
         .traceShapesArrows, .traceShapesFree, .tapCountAll, .tapCountTrace, .tapCountPick,
         .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite,
-        .tapHanziAll, .tapHanziWrite
+        .tapHanziAll, .tapHanziWrite, .patternNext, .patternMake, .oddOneOut, .sortGarages
     ]
 
     /// Kinds every ticket deals before a parent changes anything (the v0.22 rotation).
@@ -1346,6 +1398,14 @@ public enum ActivityCatalog {
             return "提示：搵一樣嘅字母。 / Hint: look for the same letter."
         case .tapHanziAll, .tapHanziWrite:
             return "提示：搵一樣嘅中文字。 / Hint: look for the same character."
+        case .patternNext:
+            return "提示：一齊讀一次，再揀跟住嗰個。 / Hint: read the row together, then pick the next one."
+        case .patternMake:
+            return "提示：揀一個，排落條路度。 / Hint: pick one for the road."
+        case .oddOneOut:
+            return "提示：搵同其他唔一樣嗰個。 / Hint: find the one that is not like the others."
+        case .sortGarages:
+            return "提示：睇吓車房個牌。 / Hint: look at the garage signs."
         }
     }
 }

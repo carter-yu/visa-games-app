@@ -14,6 +14,9 @@ final class SystemSpeechPrompt {
     private var clipPlayers: [AVAudioPlayer] = []
     /// Device time the last scheduled clip ends (clips queue like the synthesizer does).
     private var clipQueueEndsAt: TimeInterval = 0
+    /// patterns-sorting P1: the one spoken sequence (`speakSequence`) and the delegate that reports its utterances.
+    private var sequence: SpeechSequenceState?
+    private let sequenceDelegate = SpeechSequenceDelegate()
 
     init() {
         let installed = AVSpeechSynthesisVoice.speechVoices()
@@ -51,6 +54,8 @@ final class SystemSpeechPrompt {
         VisaGamesLog.append(
             "voice — 語音 zh-HK/yue-HK picked=\(pickedName) lang=\(pickedLang) installed=\(cantonese)"
         )
+        synthesizer.delegate = sequenceDelegate
+        sequenceDelegate.report = { [weak self] id, phase in self?.sequenceUtterance(id, phase) }
     }
 
     var isAvailable: Bool { voice != nil }
@@ -178,13 +183,190 @@ final class SystemSpeechPrompt {
         return true
     }
 
+    /// A sequence's deadline (astra R2): stops it — its utterances and its clips — only while it is still the current
+    /// sequence for `deal` and `generation` (`ReadThroughDeadline.stopsSpeech`); a newer sequence, the other lane's, or
+    /// none is left alone. Like `stop()`, it reports a cancel, never an end.
+    @discardableResult
+    func stopSequence(deal: String, generation: Int) -> Bool {
+        guard ReadThroughDeadline.stopsSpeech(currentDeal: sequence?.deal, currentGeneration: sequence?.generation,
+                                              deal: deal, generation: generation) else { return false }
+        stop()
+        return true
+    }
+
     func stop() {
+        // A stopped sequence reports a cancel, never an end (clips fire no callback of their own when stopped).
+        if let state = sequence {
+            sequence = nil
+            state.onEvent(.cancelled(deal: state.deal, generation: state.generation))
+        }
         if synthesizer.isSpeaking {
             synthesizer.stopSpeaking(at: .immediate)
         }
         for player in clipPlayers { player.stop() }
         clipPlayers = []
         clipQueueEndsAt = 0
+    }
+}
+
+// MARK: - patterns-sorting P1: spoken sequences (design §5.4)
+
+/// What a sequence reports, tagged with the deal and the speech generation it was started for: the model ignores
+/// an old one. A cancel only clears the light; it is never an end.
+enum SpeechSequenceEvent: Equatable, Sendable {
+    case unitStarted(index: Int, deal: String, generation: Int)
+    case finished(deal: String, generation: Int)
+    case cancelled(deal: String, generation: Int)
+}
+
+struct SpeechSequenceState {
+    let deal: String
+    let generation: Int
+    let engine: ReadThroughEngine
+    let count: Int
+    let onEvent: @MainActor (SpeechSequenceEvent) -> Void
+    /// System voice: each utterance's unit (kept alive so its identifier is not reused).
+    var utterances: [ObjectIdentifier: Int] = [:]
+    var retained: [AVSpeechUtterance] = []
+}
+
+/// The synthesizer's delegate (there was none before P1). It only forwards which utterance started, finished or was
+/// cancelled; `SystemSpeechPrompt` ignores every utterance outside its current sequence.
+final class SpeechSequenceDelegate: NSObject, AVSpeechSynthesizerDelegate, @unchecked Sendable {
+    enum Phase: Sendable { case started, finished, cancelled }
+    /// Set once on the main actor, read there only.
+    var report: (@MainActor (ObjectIdentifier, Phase) -> Void)?
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        forward(utterance, .started)
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        forward(utterance, .finished)
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        forward(utterance, .cancelled)
+    }
+
+    private func forward(_ utterance: AVSpeechUtterance, _ phase: Phase) {
+        let id = ObjectIdentifier(utterance)
+        Task { @MainActor [weak self] in self?.report?(id, phase) }
+    }
+}
+
+extension SystemSpeechPrompt {
+    /// A recorded clip for `key` in the app bundle (`Voice/<key>.m4a`).
+    static func clipURL(_ key: String) -> URL? {
+        Bundle.main.url(forResource: key, withExtension: "m4a", subdirectory: "Voice")
+    }
+
+    /// Speaks `units` one by one on one engine (`ReadThroughEngine.choose`: voice off → silent beat; every unit has a
+    /// clip → clips; else a zh-HK / yue-HK voice → system voice; else silent beat; a clip that does not load or start
+    /// moves the whole sequence off clips) and reports each unit's start and the end, tagged with `deal` and `generation`. It interrupts what was playing first. The caller owns the deadline
+    /// (silent length + 4 s, `ReadThroughTiming.deadline`). Never Mandarin; with nothing to speak it is the silent beat.
+    @discardableResult
+    func speakSequence(_ units: [ReadThroughUnit], deal: String, generation: Int, voiceOn: Bool,
+                       onEvent: @escaping @MainActor (SpeechSequenceEvent) -> Void) -> ReadThroughEngine {
+        stop()
+        var engine = ReadThroughEngine.choose(voiceOn: voiceOn, units: units, hasClip: { Self.clipURL($0) != nil },
+                                              cantoneseVoice: voice != nil)
+        if engine == .clips, let fallback = playClipSequence(units, deal: deal, generation: generation) {
+            VisaGamesLog.append("voice sequence — a clip did not load or start; whole sequence on \(fallback.rawValue)")
+            engine = fallback
+        }
+        var state = SpeechSequenceState(deal: deal, generation: generation, engine: engine, count: units.count,
+                                        onEvent: onEvent)
+        switch engine {
+        case .systemVoice:
+            for (index, unit) in units.enumerated() {
+                let utterance = AVSpeechUtterance(string: CantoneseSpeech.spoken(unit.text))
+                utterance.voice = voice
+                utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.9
+                utterance.postUtteranceDelay = unit.kind == .word ? 0.05 : 0.15
+                state.utterances[ObjectIdentifier(utterance)] = index
+                state.retained.append(utterance)
+                synthesizer.speak(utterance)
+            }
+        case .clips:
+            // Already queued by `playClipSequence`: every unit at its own index, the end after the last clip.
+            break
+        case .silentBeat:
+            for (index, offset) in ReadThroughTiming.beatStarts(units).enumerated() {
+                sequenceTimer(after: offset, .unitStarted(index: index, deal: deal, generation: generation))
+            }
+            sequenceTimer(after: ReadThroughTiming.silentLength(units), .finished(deal: deal, generation: generation))
+        }
+        sequence = state
+        VisaGamesLog.append("voice sequence — 讀一次 engine=\(engine.rawValue) units=\(units.count) generation=\(generation)")
+        return engine
+    }
+
+    /// The clips engine, all or nothing (`ReadThroughClipPlan`): every unit's clip loads before any plays, then they
+    /// queue back to back, so unit i's start lights item i and the end follows the last clip. Returns the engine the
+    /// whole sequence falls back to when a clip does not load or start (nothing of it is left playing), nil once the
+    /// clips are queued.
+    private func playClipSequence(_ units: [ReadThroughUnit], deal: String, generation: Int) -> ReadThroughEngine? {
+        let players = units.map { unit in Self.clipURL(unit.key).flatMap { try? AVAudioPlayer(contentsOf: $0) } }
+        switch ReadThroughClipPlan.plan(durations: players.map { $0?.duration }, units: units, cantoneseVoice: voice != nil) {
+        case .fallback(let engine):
+            return engine
+        case .clips(let starts, let end):
+            let loaded = players.compactMap { $0 }
+            loaded.forEach { $0.prepareToPlay() }
+            let now = loaded[0].deviceCurrentTime
+            for (player, offset) in zip(loaded, starts) {
+                guard player.play(atTime: now + offset) else {
+                    loaded.forEach { $0.stop() }
+                    return ReadThroughEngine.choose(voiceOn: true, units: units, hasClip: { _ in false },
+                                                    cantoneseVoice: voice != nil)
+                }
+            }
+            clipPlayers = loaded
+            clipQueueEndsAt = now + end
+            for (index, offset) in starts.enumerated() {
+                sequenceTimer(after: offset, .unitStarted(index: index, deal: deal, generation: generation))
+            }
+            sequenceTimer(after: end, .finished(deal: deal, generation: generation))
+            return nil
+        }
+    }
+
+    /// A clip-start, clip-end or beat timer: it reports only while its sequence is still the current one (a stopped
+    /// or replaced sequence's timers do nothing).
+    private func sequenceTimer(after seconds: TimeInterval, _ event: SpeechSequenceEvent) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
+            self?.sequenceTimerFired(event)
+        }
+    }
+
+    private func sequenceTimerFired(_ event: SpeechSequenceEvent) {
+        guard let state = sequence else { return }
+        switch event {
+        case .unitStarted(_, let deal, let generation), .cancelled(let deal, let generation):
+            guard deal == state.deal, generation == state.generation else { return }
+        case .finished(let deal, let generation):
+            guard deal == state.deal, generation == state.generation else { return }
+            sequence = nil
+        }
+        state.onEvent(event)
+    }
+
+    /// The delegate's report: `didStart` of unit i lights item i; `didFinish` of the last unit ends the sequence;
+    /// `didCancel` clears the light (a cancel, never an end). Utterances outside the current sequence are ignored.
+    private func sequenceUtterance(_ id: ObjectIdentifier, _ phase: SpeechSequenceDelegate.Phase) {
+        guard let state = sequence, state.engine == .systemVoice, let index = state.utterances[id] else { return }
+        switch phase {
+        case .started:
+            state.onEvent(.unitStarted(index: index, deal: state.deal, generation: state.generation))
+        case .finished:
+            guard index == state.count - 1 else { return }
+            sequence = nil
+            state.onEvent(.finished(deal: state.deal, generation: state.generation))
+        case .cancelled:
+            sequence = nil
+            state.onEvent(.cancelled(deal: state.deal, generation: state.generation))
+        }
     }
 }
 

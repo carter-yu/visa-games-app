@@ -32,7 +32,9 @@ struct ParentGameCard: View {
 
             if hidden {
                 // Hanzi H4 (design: 「預設關閉」): a 中文字 card starts with no star.
-                Text(kind.isTapHanziFamily ? HanziParentCopy.cardDefaultOff : "唔會出現 / Hidden from missions")
+                // patterns-sorting (design §7): the 分類 / 跟住排 cards use the same 「預設關閉」 line.
+                Text(PatternSortParentCopy.defaultOffLine(kind)
+                     ?? (kind.isTapHanziFamily ? HanziParentCopy.cardDefaultOff : "唔會出現 / Hidden from missions"))
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.inkSoft)
                     .padding(.horizontal, 8)
@@ -62,6 +64,17 @@ struct ParentGameCard: View {
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.inkSoft)
             }
+            if let suggested = PatternSortParentCopy.suggestedStar(kind) {
+                Text(suggested)
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.inkSoft)
+            }
+            if let detail = PatternSortParentCopy.cardDetail(kind) {
+                Text(detail)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let detail = HanziParentCopy.cardDetail(kind) {
                 Text(detail)
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
@@ -73,6 +86,14 @@ struct ParentGameCard: View {
                 ForEach(ChildDifficulty.allCases, id: \.rawValue) { star in
                     starToggle(star)
                 }
+            }
+            if starsLocked, let locked = PatternSortParentCopy.starsLockedLine(kind) {
+                // Design §7: this card's own playtest unlocks its stars.
+                Text(locked)
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.inkSoft)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             if kind.isTapHanziFamily && starsLocked {
                 // Design: 「試玩一次先開星」 — this card's own playtest, not the other 中文字 card's.

@@ -144,6 +144,10 @@ public enum WeeklyArea: String, Sendable, Equatable, Hashable, CaseIterable {
             return .letters
         case .tapHanziAll, .tapHanziWrite:
             return .hanzi
+        // patterns-sorting (design §6.3 item 1): 其他 until P3 adds the 規律・分類 area, so P0–P2 goldens stay
+        // unchanged.
+        case .patternNext, .patternMake, .oddOneOut, .sortGarages:
+            return .other
         }
     }
 }

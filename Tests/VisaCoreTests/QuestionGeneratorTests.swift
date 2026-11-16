@@ -32,7 +32,9 @@ final class QuestionGeneratorTests {
                     [.countVehicles, .findTheSame, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch,
                      .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree,
                      .tapCountAll, .tapCountTrace, .tapCountPick,
-                     .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite])
+                     .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite,
+                     // patterns-sorting (design §6.2): the three quiz cards; 自己排 is practice.
+                     .patternNext, .oddOneOut, .sortGarages])
     }
 
     func testQuestionRNGIsDeterministicAndUniform() {

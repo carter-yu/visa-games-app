@@ -348,6 +348,13 @@ final class PerformanceRecorder {
         ], actorOverride: .parent)
     }
 
+    /// patterns-sorting P1 分類設定 (shared by 邊個唔同類 and 分車房; `PatternSortSettingChange`, keys `sort_*`).
+    func sortSettingChanged(what: String, value: String) {
+        emit(.configChange, [
+            "what": .string(what), "kind": .string(ActivityKind.oddOneOut.rawValue), "value": .string(value)
+        ], actorOverride: .parent)
+    }
+
     func assignmentChanged(kind: ActivityKind, star: Int, on: Bool) {
         emit(.configChange, [
             "what": .string("assignment"), "kind": .string(kind.rawValue),
