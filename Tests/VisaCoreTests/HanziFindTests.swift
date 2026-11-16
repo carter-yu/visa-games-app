@@ -385,7 +385,9 @@ final class HanziFindTests {
     func testWiringKeepsKindsOffAndTheAppPenalisesOncePerCard() throws {
         expectTrue(ActivityCatalog.playableKinds.contains(.tapHanziAll))
         expectTrue(ActivityCatalog.playableKinds.contains(.tapHanziWrite), "搵完寫 joins with its write round (H3)")
-        expectEqual(Array(ActivityCatalog.playableKinds.suffix(2)), [.tapHanziAll, .tapHanziWrite])
+        // Build 91 (patterns-sorting P1) appends 邊個唔同類 after the Hanzi kinds.
+        expectEqual(Array(ActivityCatalog.playableKinds.filter { !$0.isPatternFamily && !$0.isSortFamily }.suffix(2)),
+                    [.tapHanziAll, .tapHanziWrite])
         for kind in [ActivityKind.tapHanziAll, .tapHanziWrite] {
             expectTrue(ActivityCatalog.defaultOffKinds.contains(kind) && kind.requiresPlaytestBeforeStars)
             expectFalse(ActivityCatalog.defaultOnKinds.contains(kind))

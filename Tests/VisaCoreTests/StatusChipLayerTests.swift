@@ -14,10 +14,10 @@ final class StatusChipLayerTests {
     private static let sPick = LineMatchRect(x: 1042, y: 6, width: 84, height: 40)
     private static let watchStrip = LineMatchRect(x: 1196, y: 0, width: 84, height: 40)
 
-    /// The header families of design §2.3 rows 2–4 (10 + 4 + 13 kinds).
+    /// The header families of design §2.3 rows 2–4 (14 + 4 + 13 kinds; the four patterns-sorting kinds use board 2).
     private static let boardTwo: [ActivityKind] = [.twoPictureChoose, .findTheSame, .countVehicles, .sequenceShortToLong,
                                                    .halfMatch, .shapeCousin, .capacityCompare, .moreFewer, .shadowMatch,
-                                                   .emptyBay]
+                                                   .emptyBay, .patternNext, .patternMake, .oddOneOut, .sortGarages]
     private static let hanziLetter: [ActivityKind] = [.tapLetterAll, .tapLetterWrite, .tapHanziAll, .tapHanziWrite]
     private static let lineMatchFamily: [ActivityKind] = [.lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge,
                                                           .traceLines, .traceShapesDotted, .traceShapesArrows,

@@ -27,6 +27,8 @@ public enum PerfChoiceCatalog {
             return TapCountGenerator.reference(kind: kind).itemID
         case .tapLetterAll, .tapLetterWrite: return "tapLetter.all.reference"
         case .tapHanziAll, .tapHanziWrite: return "tapHanzi.all.reference"
+        // patterns-sorting (design §6.2): generated kinds; the dealt question carries its own item.
+        case .patternNext, .patternMake, .oddOneOut, .sortGarages: return "\(kind.rawValue).reference"
         }
     }
 
@@ -55,6 +57,11 @@ public enum PerfChoiceCatalog {
             return 1.0 / Double(TapCountGenerator.reference(kind: .tapCountPick).count)
         // Two targets among ten cards (hanzi run 1 keeps the letters' 1/45).
         case .tapLetterAll, .tapLetterWrite, .tapHanziAll, .tapHanziWrite: return 1.0 / 45.0
+        // Design §6.1 reference values; dealt rounds write their own (1/2, 1/3, 1/9, 1/4, 1/2ⁿ). 自己排 is practice.
+        case .patternNext: return 1.0 / 3.0
+        case .oddOneOut: return 1.0 / 4.0
+        case .sortGarages: return 1.0 / 16.0
+        case .patternMake: return 1.0
         }
     }
 
@@ -88,6 +95,7 @@ public enum PerfChoiceCatalog {
         case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             return TapCountGenerator.reference(kind: kind).occupiedBays.map { "bay-\($0)" }
         case .tapLetterAll, .tapLetterWrite, .tapHanziAll, .tapHanziWrite: return (0..<10).map { "card-\($0)" }
+        case .patternNext, .patternMake, .oddOneOut, .sortGarages: return PatternSortFacts.referenceChoices(kind)
         }
     }
 
@@ -111,6 +119,7 @@ public enum PerfChoiceCatalog {
         case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             return TapCountGenerator.reference(kind: kind).occupiedBays.map { "bay-\($0)" }
         case .tapLetterAll, .tapLetterWrite, .tapHanziAll, .tapHanziWrite: return (0..<10).map { "card-\($0)" }
+        case .patternNext, .patternMake, .oddOneOut, .sortGarages: return PatternSortFacts.referenceChoices(kind)
         }
     }
 
@@ -133,6 +142,8 @@ public enum PerfChoiceCatalog {
         // 揀啱數 is judged at OK (`submit`, from the dealt facts) — no single right bay.
         case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return nil
         case .tapLetterAll, .tapLetterWrite, .tapHanziAll, .tapHanziWrite: return nil
+        // Generated: the right choice comes with each dealt question (`PatternSortFacts`).
+        case .patternNext, .patternMake, .oddOneOut, .sortGarages: return nil
         }
     }
 
@@ -161,6 +172,7 @@ public enum PerfChoiceCatalog {
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree: return nil
         case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return nil
         case .tapLetterAll, .tapLetterWrite, .tapHanziAll, .tapHanziWrite: return nil
+        case .patternNext, .patternMake, .oddOneOut, .sortGarages: return nil
         }
     }
 

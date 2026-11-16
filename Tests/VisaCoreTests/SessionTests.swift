@@ -252,6 +252,37 @@ struct TestRunner {
     /// `@MainActor`: the macOS weekly-report PDF checks drive WebKit on the main thread (ADR 0025).
     @MainActor
     static func main() throws {
+        // patterns-sorting P0 + P1 (0.41.0) run first, so a regression in the new core fails fast.
+        let patternSort = PatternSortCoreTests()
+        patternSort.testCatalogueKindsAreOffGatedAndBoardTwo()
+        patternSort.testDealsAreDeterministicAndAvoidTheLastItem()
+        patternSort.testPatternGrammarAndFixtures()
+        patternSort.testPatternChoicesColourAndGuards()
+        patternSort.testOddOneOutUniquenessFixturesAndCardCounts()
+        patternSort.testSortingInvariantFixturesAndOrder()
+        patternSort.testColourVisionSafePairsAndColourOff()
+        patternSort.testLookAlikesAreNeverPairedBelowTheTopTier()
+        patternSort.testSettingsEligibilityAndEveryPermittedSet()
+        patternSort.testDetectorNamesTheRepeat()
+        patternSort.testLayoutGeometry()
+        let patternRounds = PatternSortRoundTests()
+        patternRounds.testRoundBoardsAndTheAfterPauseStep()
+        patternRounds.testReadThroughEngineAndCursor()
+        patternRounds.testRevealStampsOnceAndHoldsAtParentEntry()
+        patternRounds.testPendingMissIsBoundToItsLaneAndDeal()
+        patternRounds.testDeadlineStopsOnlyItsOwnSequence()
+        patternRounds.testDelayedSpeechReportsNeverReachAReplacement()
+        patternRounds.testStepLadderAndTheReadThroughRule()
+        patternRounds.testFactsChanceTagsAndConditionFields()
+        try patternRounds.testCopyIsTraditionalSpokenWithoutWoAndInsideTheBubble()
+        let oddOneOut = OddOneOutWiringTests()
+        oddOneOut.testSortSettingsAndConditionsMarkTheRowWeekly()
+        oddOneOut.testShapeWeekNeverReadsAsColour()
+        try oddOneOut.testRevealWiringOrderAndLanes()
+        try oddOneOut.testLaneWaitStampVoiceRowGapAndDeadlineWiring()
+        try oddOneOut.testSpeechReportsKeepTheirUtterance()
+        try oddOneOut.testBoardVoiceAndParentWiring()
+
         let session = SessionTests()
         session.testDifficultyAndRepeatedChildVisas()
         session.testChildVisaFailsClosed()
@@ -847,6 +878,6 @@ struct TestRunner {
         let macPDF = ""
         #endif
 
-        print("PASS: 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 6 weekly-metrics + 9 weekly-ranking + 8 weekly-text + 9 weekly-report-html + 12 weekly-report-pdf + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match + 12 guided-line-match + 20 shape-trace + 25 tap-count + 8 tap-count-guide + 7 stroke-order + 5 latin-glyph + 10 hanzi-glyph + 11 hanzi-tap + 6 hanzi-find + 11 hanzi-write + 18 hanzi-parent + 6 letter-deal + 35 letter-picker + 26 parent-scroll + 3 tap-letter-board + 12 parent-youtube + 9 status-clock + 8 status-chip + 3 status-watch" + macPDF + " checks")
+        print("PASS: 11 pattern-sort + 9 pattern-sort-round + 6 odd-one-out + 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 6 weekly-metrics + 9 weekly-ranking + 8 weekly-text + 9 weekly-report-html + 12 weekly-report-pdf + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match + 12 guided-line-match + 20 shape-trace + 25 tap-count + 8 tap-count-guide + 7 stroke-order + 5 latin-glyph + 10 hanzi-glyph + 11 hanzi-tap + 6 hanzi-find + 11 hanzi-write + 18 hanzi-parent + 6 letter-deal + 35 letter-picker + 26 parent-scroll + 3 tap-letter-board + 12 parent-youtube + 9 status-clock + 8 status-chip + 3 status-watch" + macPDF + " checks")
     }
 }

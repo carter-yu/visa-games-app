@@ -910,28 +910,33 @@ final class HanziTapTests {
                        "lineMatchGuidedBridge", "traceLines", "traceShapesDotted", "traceShapesArrows", "traceShapesFree",
                        "tapCountAll", "tapCountTrace", "tapCountPick", "tapCountAllEnglish", "tapCountTraceEnglish",
                        "tapCountPickEnglish", "tapLetterAll", "tapLetterWrite"]
-        expectEqual(ActivityKind.allCases.map(\.rawValue), build81 + ["tapHanziAll", "tapHanziWrite"])
+        // patterns-sorting P0 appends its four kinds after the Hanzi ones.
+        expectEqual(ActivityKind.allCases.map(\.rawValue), build81 + ["tapHanziAll", "tapHanziWrite", "patternNext",
+                                                                "patternMake", "oddOneOut", "sortGarages"])
         let decoded = try JSONDecoder().decode([ActivityKind].self, from: JSONEncoder().encode(build81))
         expectEqual(decoded, Array(ActivityKind.allCases.prefix(25)))
         expectThrowsError(try JSONDecoder().decode([ActivityKind].self, from: Data("[\"tapHanziRead\"]".utf8)))
         // Build 83 (H2): 翻字卡 joins the playable kinds; build 84 (H3): 搵完寫 with its write round.
-        expectEqual(Set(ActivityCatalog.playableKinds.map(\.rawValue)), Set(build81 + ["tapHanziAll", "tapHanziWrite"]))
-        expectEqual(ActivityCatalog.playableKinds.count, 27)
+        // Build 91 (patterns-sorting P1): 邊個唔同類 joins too.
+        expectEqual(Set(ActivityCatalog.playableKinds.map(\.rawValue)),
+                    Set(build81 + ["tapHanziAll", "tapHanziWrite", "oddOneOut"]))
+        expectEqual(ActivityCatalog.playableKinds.count, 28)
         expectEqual(ActivityCatalog.defaultOnKinds.count, 10)
         let assignment = MissionGameAssignmentStore(defaults: defaults).load()
         expectEqual(assignment, MissionGameAssignment.defaults)
-        expectEqual(assignment.enabledStars.count, 27)
+        expectEqual(assignment.enabledStars.count, 28)
         // A build-81/82 assignment (25 kinds) reloads with both Hanzi kinds added OFF on every star and nothing else
         // changed.
         var stored: [String: [Int]] = [:]
-        for kind in ActivityCatalog.playableKinds where !kind.isTapHanziFamily {
+        for kind in ActivityCatalog.playableKinds where !kind.isTapHanziFamily && !kind.isSortFamily && !kind.isPatternFamily {
             stored[kind.rawValue] = ChildDifficulty.allCases.filter { assignment.isEnabled(kind, star: $0) }.map(\.rawValue)
         }
         stored["traceLines"] = [2]
         let older = UserDefaults(suiteName: "VisaGames.hanziBuild82.\(UUID().uuidString)")!
         older.set(try JSONSerialization.data(withJSONObject: ["starsByKind": stored]), forKey: MissionGameAssignmentStore.key)
         let upgraded = MissionGameAssignmentStore(defaults: older).load()
-        expectEqual(upgraded.enabledStars.count, 27)
+        expectEqual(upgraded.enabledStars.count, 28)
+        expectEqual(upgraded.enabledStars[.oddOneOut], [], "an old blob loads 邊個唔同類 OFF")
         expectEqual(upgraded.enabledStars[.tapHanziAll], [])
         expectEqual(upgraded.enabledStars[.tapHanziWrite], [])
         expectEqual(upgraded.enabledStars[.traceLines], [.medium])

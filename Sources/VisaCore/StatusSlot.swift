@@ -46,6 +46,9 @@ public enum StatusRoute: CaseIterable, Sendable {
         case .twoPictureChoose, .findTheSame, .countVehicles, .sequenceShortToLong, .halfMatch, .shapeCousin,
              .capacityCompare, .moreFewer, .shadowMatch, .emptyBay:
             self = .boardTwo
+        // patterns-sorting (design §1, §5.6): the four new cards use the board-2 shell and its single-cone header.
+        case .patternNext, .patternMake, .oddOneOut, .sortGarages:
+            self = .boardTwo
         case .tapLetterAll, .tapLetterWrite, .tapHanziAll, .tapHanziWrite:
             self = .hanziLetter
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge,

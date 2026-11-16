@@ -17,6 +17,9 @@ struct ActivityBoardView<Stimulus: View, Choice: View>: View {
     /// Stimulus panel size in stage units, centred horizontally. Count (v0.22.0) uses a
     /// wider, taller panel so up to 10 vehicles stay countable.
     var stimulusSize: CGSize = ActivityBoardLayout.standardStimulus
+    /// Left edge of the choice row. Every older board keeps x 110; the patterns-sorting cards centre their rows
+    /// (`PatternSortLayout.rowX`, design §5.6).
+    var choicesX: CGFloat = 110
     @ViewBuilder let stimulus: () -> Stimulus
     @ViewBuilder let choices: () -> Choice
     @Environment(\.canvasMetrics) private var metrics
@@ -69,7 +72,7 @@ struct ActivityBoardView<Stimulus: View, Choice: View>: View {
                                   y: ActivityBoardLayout.stimulusTop(for: stimulusSize))
 
                 choices()
-                    .canvasPlaced(x: 110, y: 430)
+                    .canvasPlaced(x: choicesX, y: 430)
                     .allowsHitTesting(!choicesLocked)
             }
 

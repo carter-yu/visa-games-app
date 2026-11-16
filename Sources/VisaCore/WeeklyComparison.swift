@@ -124,6 +124,9 @@ public struct WeeklyComparison: Sendable, Equatable {
         } else if what.hasPrefix("tapHanzi_") {
             // 中文字設定 (Hanzi H4 fix1): one settings screen shared by both 中文字 cards.
             member = { $0.isTapHanziFamily }
+        } else if what.hasPrefix("sort_") {
+            // 分類設定 (patterns-sorting P1): shared by 邊個唔同類 and 分車房; only the playable ones are marked.
+            member = { $0.isSortFamily }
         } else {
             return []
         }
@@ -189,7 +192,10 @@ public struct WeeklySignature: Sendable, Equatable {
         "gen", "level", "tolerance", "shape_trace_level", "trace_scaffold", "range", "count_voice", "english",
         "direction_coaching", "stop_coaching", "slant_enabled", "dot_style", "category_mix", "shape_mix",
         "focus_letters", "eligible_focus_letters", "review_letters", "eligible_review_letters", "review_every", "guard",
-        "this_week"
+        "this_week",
+        // patterns-sorting P1 (design §6.3 item 7): the step, the 分類方法 on-set, the voice switch and the automatic
+        // read-through a round actually got. No older kind writes these names.
+        "ladder_step", "methods", "voice", "read_through"
     ]
     /// Read from the round's result instead of its deal.
     public static let resultFields = ["guide_level"]

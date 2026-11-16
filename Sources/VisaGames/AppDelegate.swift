@@ -268,6 +268,28 @@ final class AppModel: ObservableObject {
     @Published private(set) var tapHanziWriteBubble: HanziWriteLine?
     private var tapHanziWriteBubbleGeneration = 0
     private var tapHanziGuideSpeechGeneration = 0
+    // patterns-sorting P1 (0.41.0 / 91): 分類 · 邊個唔同類 and the shared 分類設定.
+    @Published private(set) var oddOneOutBoard: OddOneOutBoard?
+    @Published private(set) var playtestOddOneOutBoard: OddOneOutBoard?
+    @Published private(set) var sortSettings = SortSettingsStore().load()
+    @Published private(set) var sortSettingsNotice: String?
+    /// The automatic read-through each lane's deal got (`read_through`, decided at deal, design §5.2).
+    private var oddOneOutReadThrough = false
+    private var playtestOddOneOutReadThrough = false
+    private var patternSortProgress = PatternSortProgressStore().load()
+    /// Design §5.7: speech only. Every cancel (parent entry included) and every new deal bumps it; the deal seed keys
+    /// the board, the reveal, the stamp, the hold and the release, and parent entry never changes that.
+    private var patternSortSpeechGeneration = 0
+    /// One reveal per lane: the child's holds at parent entry; the playtest's never holds and never touches the child's.
+    private var childReveal = RoundReveal(lane: .child)
+    private var playtestReveal = RoundReveal(lane: .playtest)
+    @Published private(set) var oddOneOutCursor = ReadThroughCursor()
+    @Published private(set) var oddOneOutTransientLine: PatternSortLine?
+    private var oddOneOutBubbleGeneration = 0
+    /// A new wrong card's 0.6 s wait, per lane and deal (astra R2): a 試玩's never blocks the child's board.
+    private var oddOneOutPendingMiss = BoardPendingMiss()
+    private var oddOneOutLastActionAt = Date().timeIntervalSinceReferenceDate
+    private var oddOneOutIdleSpoken = false
     private lazy var hanziWriteCopy: HanziWriteCopy? = hanziPack.flatMap(HanziWriteCopy.init(pack:))
     /// 數字設定 (shared by the 3 tap-count cards). UserDefaults, not the snapshot.
     @Published private(set) var tapCountSettings = TapCountSettings.defaults
@@ -524,6 +546,7 @@ final class AppModel: ObservableObject {
         tapLetterIdleCheck(now: current.timeIntervalSinceReferenceDate)
         tapHanziIdleCheck(now: current.timeIntervalSinceReferenceDate)
         tapHanziWriteTick(now: current.timeIntervalSinceReferenceDate)
+        oddOneOutIdleCheck(now: current.timeIntervalSinceReferenceDate)
         if let outcome = resilientStore.retryIfDue(now: current) {
             noteSaveOutcome(outcome, context: "retry")
         }
@@ -596,6 +619,9 @@ final class AppModel: ObservableObject {
 
     /// The LAContext success branch. The debug soak hook is the only other caller (ADR 0011).
     private func enterParentAfterAuthentication() {
+        // patterns-sorting (design §5.7 step 5): a revealing 邊個唔同類 round is held for its own deal first, before
+        // speech stops and before the mode changes, so no end event or deadline can stamp under parent controls.
+        childReveal.enterParent()
         ParentScrollDiagnostics.record("PARENT enter authenticated")
         resetParentLetterResources()
         recoverLetterTicket(.parentEntered)
@@ -604,6 +630,8 @@ final class AppModel: ObservableObject {
         guideVoice.stop()
         // A Hanzi write demo's scheduled beat lines belong to the child's lane: drop them, not just the current one.
         tapHanziGuideSpeechGeneration += 1
+        // Speech only: the deal seed stays (design §5.7).
+        patternSortSpeechGeneration += 1
         let modeBeforeParent = session.mode
         // The player is torn down under parent controls: close the child play first.
         perf.endPlay(reason: .parentUnlock, resumeSaved: false)
@@ -675,6 +703,8 @@ final class AppModel: ObservableObject {
         logShellBranch(context: "returnToChild")
         // Last, in the child lock: a Hanzi find that came due under parent controls stamps now, once.
         finishHeldTapHanziFind()
+        // And a 邊個唔同類 reveal held at parent entry: once, for the same open deal (design §5.7 step 6).
+        finishHeldOddOneOutReveal()
     }
 
     func setup() {
@@ -761,6 +791,8 @@ final class AppModel: ObservableObject {
     }
 
     func guideSpeakStamped() {
+        // The stamp's appearance and its replay both come here: 分類 cards keep 分類設定's 廣東話語音 (astra R2).
+        guard PatternSortHelp.speaksStamp(activeActivityKind, sortAudio: sortSettings.audioEnabled) else { return }
         if activeActivityKind?.isTapLetterFamily == true { tapLetterSpeak("stamp", "Stamped!") }
         else if activeActivityKind?.isTapHanziFamily == true { tapHanziSpeak("stamp", SpokenPrompt.stamped.traditionalChinese) }
         else { guideVoice.speak(.stamped) }
@@ -1029,6 +1061,9 @@ final class AppModel: ObservableObject {
         tapHanziBoard = preparedLetterBoard?.hanzi
         tapHanziWriteRound = nil
         resetTapHanziTransient()
+        // patterns-sorting P1: 邊個唔同類 deals on the child's ladder step; its read-through is fixed here.
+        oddOneOutBoard = kind == .oddOneOut ? makeOddOneOutBoard(seed: seed, level: level, playtest: false) : nil
+        resetOddOneOutTransient(lane: .child)
         tapLetterWriteRound = kind == .tapLetterWrite ? tapLetterBoard.map { TapLetterWriteRound(deal: $0.deal) } : nil
         tapLetterGuideRun = nil
         tapLetterGuideSpeechGeneration += 1
@@ -1095,6 +1130,13 @@ final class AppModel: ObservableObject {
         tapHanziWriteRound = nil
         tapHanziBubble = nil
         tapHanziFinishHold.drop()
+        // patterns-sorting: the round's reveal and any hold go with it; late events of the old deal do nothing.
+        oddOneOutBoard = nil
+        childReveal.reset()
+        patternSortSpeechGeneration += 1
+        oddOneOutCursor.reset()
+        oddOneOutTransientLine = nil
+        oddOneOutPendingMiss.drop(lane: .child)
     }
 
     func useEntryHint() {
@@ -1142,6 +1184,8 @@ final class AppModel: ObservableObject {
             return tapLetterFacts(currentTapLetterBoard)
         case .tapHanziAll, .tapHanziWrite:
             return tapHanziFacts(currentTapHanziBoard)
+        case .oddOneOut:
+            return oddOneOutFacts()
         default: return PerfChoiceCatalog.facts(kind: kind, seed: seed)
         }
     }
@@ -1198,6 +1242,13 @@ final class AppModel: ObservableObject {
         case .tapHanziAll, .tapHanziWrite:
             // Shown as text; spoken only with 廣東話語音 on (ON by default since Carter's 2026-11-13 override of D4).
             speakTapHanziPrompt()
+            return
+        case .oddOneOut:
+            // The queued path with stable keys, only with 分類設定's 廣東話語音 on (design §5.4).
+            speakOddOneOutPrompt()
+            return
+        case .patternNext, .patternMake, .sortGarages:
+            // No board yet (P2, P5, P4): never dealt.
             return
         }
         guideVoice.speak(SpokenPrompt(
@@ -1553,6 +1604,13 @@ final class AppModel: ObservableObject {
             changed?()
             return
         }
+        if activeActivityKind?.usesBoardAfterPause == true {
+            // patterns-sorting (design §5.7): the board's own after-pause step, threshold fixed at deal; the generic
+            // two-miss rule below never runs for these cards.
+            oddOneOutAfterPause(playtest: false)
+            changed?()
+            return
+        }
         // Existing assisted/hint rescue still helps when fuel remains.
         if ActivityHintPolicy.shouldAutoHint(afterMissCount: entryMissCount), !entryHintUsed {
             useEntryHint()
@@ -1578,11 +1636,17 @@ final class AppModel: ObservableObject {
             fields["box_after"] = .string(boxes.after)
             perf.roundResultExtra(fields)
         }
+        if activeActivityKind == .oddOneOut, let board = oddOneOutBoard, !board.isComplete {
+            perf.roundResultExtra(PatternSortFacts.resultFields(oddOneOut: board, guidance: sortSettings.guidance))
+            recordOddOneOutLadder(board, outcome: .fuelOut)
+        }
         if activeActivityKind?.isTapLetterFamily == true {
             guideVoice.speak(SpokenPrompt.englishOnly(key: "en.tapLetter.outOfFuel",
                                                       WrongAnswerCopy.returnDepotEnglish))
         } else if activeActivityKind?.isTapHanziFamily == true {
             tapHanziSpeak("outOfFuel", WrongAnswerCopy.returnDepotTraditionalChinese)
+        } else if activeActivityKind?.isSortFamily == true {
+            if sortSettings.audioEnabled { guideVoice.speak(.outOfFuelDepot) }
         } else { guideVoice.speak(.outOfFuelDepot) }
         VisaGamesLog.append("returnToDepotOutOfFuel — 油用晒 返車廠")
         perf.roundFinished(outcome: .zeroed, earnedMinutes: 0, assisted: false)
@@ -3075,6 +3139,11 @@ final class AppModel: ObservableObject {
         playtestTapHanziBoard = kind.isTapHanziFamily ? makeTapHanziBoard(seed: playtestChoiceDealSeed, kind: kind, playtest: true) : nil
         playtestTapHanziWriteRound = nil
         resetTapHanziTransient()
+        // patterns-sorting P1: a 邊個唔同類 試玩 reads the child's ladder step and never writes it; its reveal is its own.
+        playtestOddOneOutBoard = kind == .oddOneOut
+            ? makeOddOneOutBoard(seed: playtestChoiceDealSeed, level: level, playtest: true) : nil
+        playtestReveal.reset()
+        resetOddOneOutTransient(lane: .playtest)
         resetTapCountTransient()
         clearPlaytestThinkPause()
         let facts = dealFacts(kind: kind, seed: playtestChoiceDealSeed,
@@ -3144,6 +3213,11 @@ final class AppModel: ObservableObject {
             return
         case .tapHanziAll, .tapHanziWrite:
             speakTapHanziPrompt()
+            return
+        case .oddOneOut:
+            speakOddOneOutPrompt()
+            return
+        case .patternNext, .patternMake, .sortGarages:
             return
         }
         guideVoice.speak(SpokenPrompt(
@@ -3366,6 +3440,10 @@ final class AppModel: ObservableObject {
             tapHanziAfterPause()
             return
         }
+        if playtestKind?.usesBoardAfterPause == true {
+            oddOneOutAfterPause(playtest: true)
+            return
+        }
         // Fuel may hit 0. Stay on the cover — do not speak the depot line or end the visa.
         if ActivityHintPolicy.shouldAutoHint(afterMissCount: playtestMissCount), !playtestHintUsed {
             playtestHintUsed = true
@@ -3404,7 +3482,12 @@ final class AppModel: ObservableObject {
         playtestTapHanziBoard = nil
         playtestTapHanziWriteRound = nil
         tapHanziBubble = nil
+        playtestOddOneOutBoard = nil
+        playtestReveal.reset()
         tapCountNotice = nil
+        // Astra R2: only the 試玩's waiting miss goes (a child's own stays), with its bubble line and light.
+        oddOneOutPendingMiss.drop(lane: .playtest)
+        clearOddOneOutDisplay()
         clearPlaytestThinkPause()
         VisaGamesLog.append("playtest discard — 試玩收起 reason=\(reason)")
     }
@@ -4153,7 +4236,7 @@ struct ShellView: View {
                 )
             case .twoPictureChoose, .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .traceLines, .traceShapesArrows, .traceShapesFree,
                  .traceShapesDotted, .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite,
-                 .tapHanziAll, .tapHanziWrite, .none:
+                 .tapHanziAll, .tapHanziWrite, .patternNext, .patternMake, .oddOneOut, .sortGarages, .none:
                 // Legacy shell is setup / parent only; 連一連 is canvas-only (CanvasActivityHost).
                 EntryActivityView(
                     question: model.currentTwoPictureQuestion,
@@ -6035,5 +6118,407 @@ extension AppModel {
         tapCountSettingsStore.save(next)
         perf.tapCountSettingChanged(what: what, value: value)
         VisaGamesLog.append("tapCount settings — 數字設定 \(what)=\(value)")
+    }
+}
+
+// MARK: - 分類 · 邊個唔同類 (patterns-sorting P1, 0.41.0 / 91)
+
+extension AppModel {
+    private var oddOneOutUsesPlaytest: Bool { isParentPlaytest && playtestKind == .oddOneOut }
+
+    /// The lane's board: a parent's 試玩 plays its own round, never the child's.
+    var currentOddOneOutBoard: OddOneOutBoard? { oddOneOutUsesPlaytest ? playtestOddOneOutBoard : oddOneOutBoard }
+
+    /// The lane on screen is revealing (or holding) a solved round: its cards take no taps.
+    var oddOneOutRevealing: Bool { (oddOneOutUsesPlaytest ? playtestReveal : childReveal).activeDeal != nil }
+
+    /// The bubble: the latest line (a wrong card's name, the hint, the explain line), else the round's prompt.
+    var oddOneOutBubble: PatternSortLine {
+        if let line = oddOneOutTransientLine { return line }
+        guard let board = currentOddOneOutBoard else { return OddOneOutCopy.generic }
+        return OddOneOutCopy.prompt(board.question, guidance: sortSettings.guidance)
+    }
+
+    /// Input reaches only the open round of the lane on screen: the child's in the lock, or a parent's 試玩.
+    private var oddOneOutInputOpen: Bool {
+        oddOneOutUsesPlaytest ? !playtestChoicesLocked
+            : session.mode == .lock && taskRoundOpen && activeActivityKind == .oddOneOut && !choicesLocked && !activityJustCompleted
+    }
+
+    /// Deals on the ladder's live step for the tier (the child's 14-day warm-up first; a playtest reads the child's step
+    /// and never writes it). An empty pool, unreachable for saved settings, deals the tier's 形狀 step. The read-through
+    /// this round gets is fixed here (`read_through`).
+    private func makeOddOneOutBoard(seed: String, level: ActivityLevel, playtest: Bool) -> OddOneOutBoard {
+        let methods = sortSettings.methods
+        if !playtest, patternSortProgress.warmUp(.oddOneOut, level, methods: methods, now: Date()) {
+            PatternSortProgressStore().save(patternSortProgress)
+        }
+        var dealMethods = methods
+        let step: PatternSortStep
+        if let live = patternSortProgress.liveStep(.oddOneOut, level, methods: methods) {
+            step = live
+        } else {
+            step = PatternSortLadder.shapeFallback(.oddOneOut, level)
+            dealMethods = [.shape]
+            VisaGamesLog.append("odd one out config_fallback — 分類方法冇得出題 level=\(level.code) step=\(step.code)")
+        }
+        let question = OddOneOutGenerator.make(seed: seed, step: step, methods: dealMethods,
+                                               avoidingItem: playtest ? nil : lastDealtItem[.oddOneOut])
+        let readThrough = patternSortProgress.readThrough(.oddOneOut, question.step, guidance: sortSettings.guidance)
+        if playtest { playtestOddOneOutReadThrough = readThrough } else { oddOneOutReadThrough = readThrough }
+        return OddOneOutBoard(question: question, deal: seed, guidance: sortSettings.guidance, methods: methods)
+    }
+
+    /// A new deal in `lane`: that lane's waiting miss goes (astra R2: never the other lane's), then the shared display.
+    private func resetOddOneOutTransient(lane: RoundRevealLane) {
+        oddOneOutPendingMiss.drop(lane: lane)
+        clearOddOneOutDisplay()
+    }
+
+    /// The bubble line, the light and the idle clock of the lane on screen (the speech generation moves on).
+    private func clearOddOneOutDisplay() {
+        patternSortSpeechGeneration += 1
+        oddOneOutCursor.reset()
+        oddOneOutBubbleGeneration += 1
+        oddOneOutTransientLine = nil
+        oddOneOutLastActionAt = Date().timeIntervalSinceReferenceDate
+        oddOneOutIdleSpoken = false
+    }
+
+    /// The lane on screen: a parent's 試玩 or the child's round.
+    private var oddOneOutLane: RoundRevealLane { oddOneOutUsesPlaytest ? .playtest : .child }
+
+    /// The board on screen waits for its own new wrong card's miss (its lane and deal only).
+    private var oddOneOutMissPending: Bool {
+        guard let board = currentOddOneOutBoard else { return false }
+        return oddOneOutPendingMiss.isPending(lane: oddOneOutLane, deal: board.deal)
+    }
+
+    /// The dealt question's facts with the condition fields (`ladder_step`, `methods`, `voice`, `read_through`).
+    private func oddOneOutFacts() -> PerfDealFacts {
+        let playtest = oddOneOutUsesPlaytest
+        guard let board = playtest ? playtestOddOneOutBoard : oddOneOutBoard else {
+            return PerfChoiceCatalog.facts(kind: .oddOneOut, seed: "reference")
+        }
+        return PatternSortFacts.facts(oddOneOut: board.question, methods: sortSettings.methodsCode,
+                                      voice: sortSettings.audioEnabled,
+                                      readThrough: playtest ? playtestOddOneOutReadThrough : oddOneOutReadThrough)
+    }
+
+    private func showOddOneOutLine(_ line: PatternSortLine, seconds: Double) {
+        oddOneOutBubbleGeneration += 1
+        let generation = oddOneOutBubbleGeneration
+        oddOneOutTransientLine = line
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
+            guard self?.oddOneOutBubbleGeneration == generation else { return }
+            self?.oddOneOutTransientLine = nil
+        }
+    }
+
+    /// A choice tap, a miss, the hint, a replay and leaving the board stop speech and clear the light: only the speech
+    /// generation changes, never the deal seed (design §5.4).
+    private func cancelOddOneOutSpeech() {
+        patternSortSpeechGeneration += 1
+        guideVoice.stop()
+    }
+
+    /// One line on the queued path with its stable key (a clip wins, else the zh-HK / yue-HK voice, else silence), only
+    /// with 分類設定's 廣東話語音 on. Every line is also on the bubble, so silence loses nothing.
+    private func speakOddOneOutLine(_ line: PatternSortLine) {
+        cancelOddOneOutSpeech()
+        guard sortSettings.audioEnabled else { return }
+        guideVoice.speakQueued(line.prompt, interrupt: true)
+    }
+
+    /// The board's first appearance and the bubble's replay: the read-through (the rule line with the emblem or sign
+    /// lit, then the prompt) when this deal got it, else the prompt alone. A replay restarts from item 1.
+    func speakOddOneOutPrompt() {
+        let playtest = oddOneOutUsesPlaytest
+        guard let board = currentOddOneOutBoard, !board.isComplete, !oddOneOutMissPending, oddOneOutInputOpen,
+              !board.pause.pausePending, !oddOneOutRevealing else { return }
+        let readThrough = playtest ? playtestOddOneOutReadThrough : oddOneOutReadThrough
+        let units = readThrough ? OddOneOutCopy.readThrough(board.question, guidance: sortSettings.guidance)
+            : [OddOneOutCopy.prompt(board.question, guidance: sortSettings.guidance).unit()]
+        oddOneOutTransientLine = nil
+        startOddOneOutSequence(units, deal: board.deal, playtest: playtest, reveal: false)
+    }
+
+    /// One spoken sequence on a fresh speech generation (`speakSequence`: one engine, events tagged with the deal and
+    /// the generation), with its deadline at silent length + 4 s. A reveal's deadline is keyed by its deal only.
+    private func startOddOneOutSequence(_ units: [ReadThroughUnit], deal: String, playtest: Bool, reveal: Bool) {
+        patternSortSpeechGeneration += 1
+        let generation = patternSortSpeechGeneration
+        let engine = guideVoice.speakSequence(units, deal: deal, generation: generation,
+                                              voiceOn: sortSettings.audioEnabled) { [weak self] event in
+            self?.oddOneOutSpeechEvent(event, playtest: playtest, reveal: reveal)
+        }
+        oddOneOutCursor.start(units: units, deal: deal, generation: generation, engine: engine)
+        DispatchQueue.main.asyncAfter(deadline: .now() + ReadThroughTiming.deadline(units)) { [weak self] in
+            guard let self else { return }
+            // Astra R2: an overlong sequence stops at its own deadline first (only while it is still the speaker's
+            // current one for this deal and generation), then the light and the reveal end.
+            self.guideVoice.stopSequence(deal: deal, generation: generation)
+            self.oddOneOutCursor.deadline(deal: deal, generation: generation)
+            if reveal { self.oddOneOutRevealDeadline(deal: deal, playtest: playtest) }
+        }
+    }
+
+    /// Each engine's events: a start lights its unit; an end ends the sequence (and may end the reveal); a cancel only
+    /// clears the light and never reaches an end.
+    private func oddOneOutSpeechEvent(_ event: SpeechSequenceEvent, playtest: Bool, reveal: Bool) {
+        switch event {
+        case .unitStarted(let index, let deal, let generation):
+            oddOneOutCursor.unitStarted(index, deal: deal, generation: generation)
+        case .finished(let deal, let generation):
+            oddOneOutCursor.finished(deal: deal, generation: generation)
+            if reveal { oddOneOutRevealEnded(deal: deal, generation: generation, playtest: playtest) }
+        case .cancelled(let deal, let generation):
+            oddOneOutCursor.cancelled(deal: deal, generation: generation)
+        }
+    }
+
+    /// A tap on card `card` (design §5.7, the letter board's wiring): a new wrong card is one miss (half the fuel and the
+    /// Think Pause, through `handleEvaluation` / `playtestHandle`); a known-wrong card only wiggles and names itself; the
+    /// right card starts the reveal, and the stamp follows it.
+    func oddOneOutTap(card: Int) {
+        let playtest = oddOneOutUsesPlaytest
+        guard var board = currentOddOneOutBoard, !board.isComplete, !oddOneOutMissPending,
+              (playtest ? playtestReveal : childReveal).activeDeal == nil else { return }
+        guard oddOneOutInputOpen else {
+            if !playtest, choicesLocked { perf.roundMashTap() }
+            return
+        }
+        let clock = Date().timeIntervalSinceReferenceDate
+        let outcome = board.tap(card, at: clock)
+        if playtest { playtestOddOneOutBoard = board } else { oddOneOutBoard = board }
+        guard outcome != .ignored && outcome != .doubleTapIgnored else { return }
+        oddOneOutLastActionAt = clock
+        oddOneOutIdleSpoken = false
+        let question = board.question
+        let choice = "card-\(card)"
+        let fields: [String: PerfValue] = ["card": .int(card), "look": .string(question.cards[card].code)]
+        switch outcome {
+        case .correct:
+            cancelOddOneOutSpeech()
+            let pending = playtest ? playtestPendingMinutes : pendingAwardMinutes
+            if playtest {
+                perf.playtestAnswer(choice: choice, correct: true, pendingBefore: pending, pendingAfter: pending,
+                                    hintOn: board.assisted, record: (tags: [], fields: fields))
+                playtestLastCorrectID = choice
+                playtestLastIncorrectID = nil
+            } else {
+                perf.roundAnswer(choice: choice, correct: true, pendingBefore: pending, pendingAfter: pending,
+                                 hintOn: board.assisted, record: (tags: [], fields: fields))
+                lastCorrectChoiceID = choice
+                lastIncorrectChoiceID = nil
+            }
+            beginOddOneOutReveal(board, playtest: playtest)
+        case .miss:
+            let line = OddOneOutCopy.wrong(question, card: card)
+            // A first miss keeps its line up through the Think Pause, so it reads with the voice off.
+            showOddOneOutLine(line, seconds: Double(WrongAnswerPolicy.thinkPauseSeconds) + 0.6)
+            speakOddOneOutLine(line)
+            // Astra R2: the wait is this lane's and this deal's; the callback settles its own ticket against the lane's
+            // open deal first, so a discarded 試玩, a reset or a new deal leaves nothing pending and nothing applied.
+            let ticket = oddOneOutPendingMiss.begin(lane: playtest ? .playtest : .child, deal: board.deal)
+            let record = (tags: PatternSortFacts.oddOneOutTags(question, card: card), fields: fields)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                guard let self,
+                      self.oddOneOutPendingMiss.settle(ticket, openDeal: playtest ? self.playtestChoiceDealSeed : self.choiceDealSeed)
+                else { return }
+                self.pendingAnswerRecord = record
+                if playtest { self.playtestHandle(.incorrect, selectionLabel: choice) }
+                else { self.handleEvaluation(.incorrect, selectionLabel: choice) }
+                self.pendingAnswerRecord = nil
+            }
+        case .knownWrongRetap:
+            // Never a miss again (design §5.1): the wiggle and the name line only; `handleEvaluation` is not called.
+            let line = OddOneOutCopy.wrong(question, card: card)
+            showOddOneOutLine(line, seconds: 2)
+            speakOddOneOutLine(line)
+            flashOddOneOutKnownWrong(choice, playtest: playtest)
+        case .ignored, .doubleTapIgnored:
+            break
+        }
+    }
+
+    private func flashOddOneOutKnownWrong(_ choice: String, playtest: Bool) {
+        if playtest { playtestLastIncorrectID = choice } else { lastIncorrectChoiceID = choice }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+            guard let self else { return }
+            if playtest, self.playtestLastIncorrectID == choice { self.playtestLastIncorrectID = nil }
+            if !playtest, self.lastIncorrectChoiceID == choice { self.lastIncorrectChoiceID = nil }
+        }
+    }
+
+    /// Design §5.7 steps 1–2: the board is complete, so fuel and misses are frozen; the reveal plays as one sequence on
+    /// the round's deal and a fresh speech generation (`odd.correct`, then `odd.done`). Nothing is credited yet.
+    private func beginOddOneOutReveal(_ board: OddOneOutBoard, playtest: Bool) {
+        let generation = patternSortSpeechGeneration + 1
+        if playtest {
+            guard playtestReveal.begin(deal: board.deal, generation: generation) else { return }
+        } else {
+            guard childReveal.begin(deal: board.deal, generation: generation) else { return }
+        }
+        showOddOneOutLine(OddOneOutCopy.correct(board.question), seconds: 12)
+        startOddOneOutSequence(OddOneOutCopy.reveal(board.question), deal: board.deal, playtest: playtest, reveal: true)
+    }
+
+    /// The reveal's sequence end (system voice `didFinish`, the last clip's end, the last beat): only for its deal and
+    /// its current speech generation.
+    private func oddOneOutRevealEnded(deal: String, generation: Int, playtest: Bool) {
+        let outcome = playtest
+            ? playtestReveal.sequenceEnded(deal: deal, generation: generation, currentGeneration: patternSortSpeechGeneration,
+                                           mode: session.mode)
+            : childReveal.sequenceEnded(deal: deal, generation: generation, currentGeneration: patternSortSpeechGeneration,
+                                        mode: session.mode)
+        oddOneOutRevealOutcome(outcome, playtest: playtest)
+    }
+
+    /// The reveal's deadline, keyed by its deal only (a stray cancel cannot orphan it).
+    private func oddOneOutRevealDeadline(deal: String, playtest: Bool) {
+        let outcome = playtest ? playtestReveal.deadline(deal: deal, mode: session.mode)
+            : childReveal.deadline(deal: deal, mode: session.mode)
+        oddOneOutRevealOutcome(outcome, playtest: playtest)
+    }
+
+    private func oddOneOutRevealOutcome(_ outcome: RoundRevealOutcome, playtest: Bool) {
+        switch outcome {
+        case .stamp(let deal), .finishLocally(let deal):
+            finishOddOneOutRound(token: deal, playtest: playtest)
+        case .held:
+            VisaGamesLog.append("odd one out reveal done under parent controls — held for return")
+        case .ignored:
+            break
+        }
+    }
+
+    /// `returnToChild`, last, in the child lock: a reveal held at parent entry stamps now, once, if its deal is still
+    /// the open one (「蓋印！」, no readback). Another deal or none drops it; Return into a running visa keeps it.
+    private func finishHeldOddOneOutReveal() {
+        let outcome = childReveal.returnToChild(openDeal: taskRoundOpen ? choiceDealSeed : nil, mode: session.mode)
+        guard case .stamp(let deal) = outcome else { return }
+        VisaGamesLog.append("odd one out reveal held under parent controls — stamping on return")
+        finishOddOneOutRound(token: deal, playtest: false)
+    }
+
+    /// Design §5.7 step 4, exactly once. The child's stamp needs its lane's deal, a complete board, the open round and
+    /// the lock (`applyEntrySuccess`); the playtest finishes locally with no visa and unlocks this card's stars (D11).
+    private func finishOddOneOutRound(token: String, playtest: Bool) {
+        guard let board = playtest ? playtestOddOneOutBoard : oddOneOutBoard, board.isComplete,
+              (playtest ? playtestChoiceDealSeed : choiceDealSeed) == token else { return }
+        let fields = PatternSortFacts.resultFields(oddOneOut: board, guidance: sortSettings.guidance)
+        if playtest {
+            guard !playtestCompleted else { return }
+            perf.playtestResultExtra(fields)
+            perf.playtestSolved(earnedMinutes: playtestPendingMinutes, assisted: board.assisted)
+            playtestCompleted = true
+            playtestFuelMessage = nil
+            clearPlaytestThinkPause()
+            if parentPlaytestLog.playtestedOn(.oddOneOut) == nil {
+                parentPlaytestLog = parentPlaytestLog.recording(.oddOneOut, on: Date())
+                parentPlaytestLogStore.save(parentPlaytestLog)
+            }
+            VisaGamesLog.append("playtest correct — 試玩完成 local no visa kind=oddOneOut")
+            return
+        }
+        guard taskRoundOpen, !activityJustCompleted, session.mode == .lock else { return }
+        perf.roundResultExtra(fields)
+        recordOddOneOutLadder(board, outcome: PatternSortFacts.outcome(misses: board.misses, assisted: board.assisted))
+        guard pendingAwardMinutes > 0 else { returnToDepotOutOfFuel(); return }
+        activityJustCompleted = true
+        applyEntrySuccess(assisted: board.assisted)
+    }
+
+    /// The child's ladder (design §5.3): a finished round moves the step it was dealt at, under the 分類方法 it was dealt
+    /// with (a 分類設定 change during the round applies from the next deal); a playtest never calls this.
+    private func recordOddOneOutLadder(_ board: OddOneOutBoard, outcome: PatternSortRoundOutcome) {
+        patternSortProgress.record(.oddOneOut, board.question.step, outcome: outcome, methods: board.methods, now: Date())
+        PatternSortProgressStore().save(patternSortProgress)
+    }
+
+    /// The end of a Think Pause on this card, in both lanes: the board's own step for the miss that started it (the hint
+    /// after the 1st miss at 多啲, the 2nd at 標準 / 少啲). A child pause that ends under parent controls still takes its
+    /// step, silently; its lit hint waits for Return.
+    private func oddOneOutAfterPause(playtest: Bool) {
+        guard var board = playtest ? playtestOddOneOutBoard : oddOneOutBoard else { return }
+        let step = board.afterPause(miss: board.misses, currentDeal: playtest ? playtestChoiceDealSeed : choiceDealSeed)
+        if playtest { playtestOddOneOutBoard = board } else { oddOneOutBoard = board }
+        oddOneOutLastActionAt = Date().timeIntervalSinceReferenceDate
+        oddOneOutIdleSpoken = false
+        let quiet = !playtest && session.mode != .lock
+        switch step {
+        case .hint:
+            // The lane's hint flag follows the board's hint, so a later new wrong card records hint_on (astra R1).
+            if playtest {
+                playtestHintUsed = true
+                perf.playtestHint(afterMisses: board.misses)
+            } else {
+                entryHintUsed = true
+                perf.roundHint(afterMisses: board.misses)
+            }
+            guard !quiet else { return }
+            let line = OddOneOutCopy.hint(board.question.target)
+            showOddOneOutLine(line, seconds: 3)
+            speakOddOneOutLine(line)
+        case .tryAgain:
+            guard !quiet else { return }
+            let line = OddOneOutCopy.prompt(board.question, guidance: sortSettings.guidance)
+            showOddOneOutLine(line, seconds: 3)
+            speakOddOneOutLine(line)
+        case .ignored:
+            break
+        }
+    }
+
+    /// 「試吓揀一個！」 with no light on the answer: 8 s at 多啲, 15 s at 標準, never at 少啲 (design §5.2).
+    private func oddOneOutIdleCheck(now clock: Double) {
+        guard let seconds = PatternSortHelp.idleNudgeSeconds(sortSettings.guidance), let board = currentOddOneOutBoard,
+              !board.isComplete, !oddOneOutIdleSpoken, !oddOneOutMissPending, !board.pause.pausePending,
+              !oddOneOutRevealing, oddOneOutInputOpen, clock - oddOneOutLastActionAt >= seconds else { return }
+        oddOneOutIdleSpoken = true
+        showOddOneOutLine(OddOneOutCopy.idle, seconds: 3)
+        speakOddOneOutLine(OddOneOutCopy.idle)
+    }
+
+    // MARK: 分類設定 (parent mode only; applies at once)
+
+    /// A 分類方法 switch: on → off unless it is the last of 顏色・大細・形狀 (the panel then says so).
+    func toggleSortMethod(_ method: PatternSortMethod) {
+        guard session.mode == .parent else { return }
+        switch sortSettings.toggling(method) {
+        case .updated(let next):
+            sortSettingsNotice = nil
+            saveSortSettings(next)
+        case .refusedLastPerceptual:
+            sortSettingsNotice = "\(PatternSortParentCopy.lastPerceptual) / \(PatternSortParentCopy.lastPerceptualEnglish)"
+        }
+    }
+
+    func setSortGuidance(_ level: TapCountGuidanceLevel) {
+        guard session.mode == .parent else { return }
+        var next = sortSettings
+        next.guidance = level
+        saveSortSettings(next)
+    }
+
+    func setSortAudio(_ on: Bool) {
+        guard session.mode == .parent else { return }
+        var next = sortSettings
+        next.audioEnabled = on
+        saveSortSettings(next)
+    }
+
+    /// Stores, reads back (normalised), and records each changed field as `config_change` `sort_*` for the weekly ⚙.
+    /// The help level's hint threshold applies from the next deal.
+    private func saveSortSettings(_ next: SortSettings) {
+        let before = sortSettings
+        let store = SortSettingsStore()
+        store.save(next)
+        sortSettings = store.load()
+        VisaGamesLog.append("sort settings saved — 分類設定 methods=\(sortSettings.methodsCode) guide=\(sortSettings.guidance.rawValue) audio=\(sortSettings.audioEnabled)")
+        for change in PatternSortSettingChange.changes(from: before, to: sortSettings) {
+            perf.sortSettingChanged(what: change.what, value: change.value)
+        }
     }
 }

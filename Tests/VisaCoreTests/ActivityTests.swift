@@ -137,8 +137,13 @@ final class ActivityTests {
 
     func testCatalogPlayableKindsAndRotation() {
         // Build 83 (Hanzi H2): 中文字 · 翻字卡 joined as the 26th playable kind, default-off; build 84 (H3): 搵完寫
-        // joins with its write round as the 27th, default-off.
-        expectEqual(ActivityCatalog.playableKinds.count, 27)
+        // joins with its write round as the 27th, default-off; build 91 (patterns-sorting P1): 邊個唔同類 as the
+        // 28th, default-off. 接落去, 自己排 and 分車房 are kinds without a board yet (P2, P5, P4).
+        expectEqual(ActivityCatalog.playableKinds.count, 28)
+        expectTrue(ActivityCatalog.playableKinds.contains(.oddOneOut))
+        for kind in [ActivityKind.patternNext, .patternMake, .sortGarages] {
+            expectFalse(ActivityCatalog.playableKinds.contains(kind), kind.rawValue)
+        }
         expectTrue(ActivityCatalog.playableKinds.contains(.tapHanziAll))
         expectTrue(ActivityCatalog.playableKinds.contains(.tapHanziWrite))
         expectTrue(ActivityCatalog.playableKinds.contains(.twoPictureChoose))
@@ -166,7 +171,7 @@ final class ActivityTests {
                     [.lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch, .traceLines, .traceShapesDotted,
                      .traceShapesArrows, .traceShapesFree, .tapCountAll, .tapCountTrace, .tapCountPick,
                      .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite,
-                     .tapHanziAll, .tapHanziWrite])
+                     .tapHanziAll, .tapHanziWrite, .patternNext, .patternMake, .oddOneOut, .sortGarages])
         expectEqual(ActivityCatalog.defaultOnKinds.count, 10)
         expectEqual(ActivityCatalog.stubKinds, [])
         // Deterministic: same seed → same kind; covering seeds hit every default-on kind (D7:

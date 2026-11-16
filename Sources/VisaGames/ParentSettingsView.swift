@@ -19,7 +19,7 @@ struct ParentSettingsView: View {
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.40.1"
+    static let versionLabel = "Visa Games v0.41.0"
 
     /// v0.21.0: 表現 (Review) is the third parent segment (layout L5).
     private enum ParentLibrary { case videos, games, review }
@@ -257,6 +257,8 @@ struct ParentSettingsView: View {
                     })
                 // Hanzi H4: 中文字設定, one draft for both 中文字 cards; it lives only while this tab is shown.
                 ParentTapHanziSettingsView(model: model)
+                // patterns-sorting P1: 分類設定 (邊個唔同類; 分車房 joins it in P4). Applies at once.
+                ParentSortSettingsView(model: model)
                 unbuiltRow
             }
         }

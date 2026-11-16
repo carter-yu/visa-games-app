@@ -844,8 +844,10 @@ final class HanziWriteTests {
     /// round opens (not a stub) and its stamp goes back through the find's parent-controls hold; 翻字卡 still stamps
     /// after the find; the shared drawing reads the injected style.
     func testWiringEntersTheWriteRoundAfterTheFind() throws {
-        expectEqual(Array(ActivityCatalog.playableKinds.suffix(2)), [.tapHanziAll, .tapHanziWrite])
-        expectEqual(ActivityCatalog.playableKinds.count, 27)
+        // Build 91 (patterns-sorting P1) appends 邊個唔同類 after the Hanzi kinds.
+        expectEqual(Array(ActivityCatalog.playableKinds.filter { !$0.isPatternFamily && !$0.isSortFamily }.suffix(2)),
+                    [.tapHanziAll, .tapHanziWrite])
+        expectEqual(ActivityCatalog.playableKinds.count, 28)
         for kind in [ActivityKind.tapHanziAll, .tapHanziWrite] {
             expectTrue(ActivityCatalog.defaultOffKinds.contains(kind) && kind.requiresPlaytestBeforeStars)
             expectFalse(ActivityCatalog.defaultOnKinds.contains(kind))
@@ -861,14 +863,15 @@ final class HanziWriteTests {
         }
         // A build-83 assignment (26 kinds, 翻字卡 turned on for ★) reloads with 搵完寫 OFF and nothing else changed.
         var stored: [String: [Int]] = [:]
-        for kind in ActivityCatalog.playableKinds where kind != .tapHanziWrite {
+        for kind in ActivityCatalog.playableKinds where kind != .tapHanziWrite && kind != .oddOneOut {
             stored[kind.rawValue] = ChildDifficulty.allCases.filter { fresh.isEnabled(kind, star: $0) }.map(\.rawValue)
         }
         stored["tapHanziAll"] = [1]
         let older = UserDefaults(suiteName: "VisaGames.hanziBuild83.\(UUID().uuidString)")!
         older.set(try JSONSerialization.data(withJSONObject: ["starsByKind": stored]), forKey: MissionGameAssignmentStore.key)
         let upgraded = MissionGameAssignmentStore(defaults: older).load()
-        expectEqual(upgraded.enabledStars.count, 27)
+        expectEqual(upgraded.enabledStars.count, 28)
+        expectEqual(upgraded.enabledStars[.oddOneOut], [], "an old blob loads 邊個唔同類 OFF")
         expectEqual(upgraded.enabledStars[.tapHanziWrite], [])
         expectEqual(upgraded.enabledStars[.tapHanziAll], [.easy])
         for kind in ActivityCatalog.playableKinds where !kind.isTapHanziFamily {
