@@ -138,9 +138,12 @@ final class ActivityTests {
     func testCatalogPlayableKindsAndRotation() {
         // Build 83 (Hanzi H2): 中文字 · 翻字卡 joined as the 26th playable kind, default-off; build 84 (H3): 搵完寫
         // joins with its write round as the 27th, default-off; build 91 (patterns-sorting P1): 邊個唔同類 as the
-        // 28th, default-off. 接落去, 自己排 and 分車房 are kinds without a board yet (P2, P5, P4).
-        expectEqual(ActivityCatalog.playableKinds.count, 28)
+        // 28th, default-off. 接落去, 自己排 and 分車房 are kinds without a board yet (P2, P5, P4). Build 92 (0.42.0):
+        // 畫直線・四方 as the 29th, default-off, beside 畫直線 · 熱身.
+        expectEqual(ActivityCatalog.playableKinds.count, 29)
         expectTrue(ActivityCatalog.playableKinds.contains(.oddOneOut))
+        expectEqual(ActivityCatalog.playableKinds.firstIndex(of: .traceOrientedLines),
+                    ActivityCatalog.playableKinds.firstIndex(of: .traceLines).map { $0 + 1 })
         for kind in [ActivityKind.patternNext, .patternMake, .sortGarages] {
             expectFalse(ActivityCatalog.playableKinds.contains(kind), kind.rawValue)
         }

@@ -1057,6 +1057,8 @@ public enum ActivityCatalog {
         .lineMatchGuidedBridge,
         .lineMatch,
         .traceLines,
+        // 畫直線・四方 (0.42.0): beside 畫直線 · 熱身 in the catalogue; default-off until its own 試玩 and a star.
+        .traceOrientedLines,
         .traceShapesDotted,
         .traceShapesArrows,
         .traceShapesFree,

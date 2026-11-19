@@ -918,14 +918,14 @@ final class HanziTapTests {
         expectEqual(decoded, Array(ActivityKind.allCases.prefix(25)))
         expectThrowsError(try JSONDecoder().decode([ActivityKind].self, from: Data("[\"tapHanziRead\"]".utf8)))
         // Build 83 (H2): 翻字卡 joins the playable kinds; build 84 (H3): 搵完寫 with its write round.
-        // Build 91 (patterns-sorting P1): 邊個唔同類 joins too.
+        // Build 91 (patterns-sorting P1): 邊個唔同類 joins too; build 92 (0.42.0): 畫直線・四方.
         expectEqual(Set(ActivityCatalog.playableKinds.map(\.rawValue)),
-                    Set(build81 + ["tapHanziAll", "tapHanziWrite", "oddOneOut"]))
-        expectEqual(ActivityCatalog.playableKinds.count, 28)
+                    Set(build81 + ["tapHanziAll", "tapHanziWrite", "oddOneOut", "traceOrientedLines"]))
+        expectEqual(ActivityCatalog.playableKinds.count, 29)
         expectEqual(ActivityCatalog.defaultOnKinds.count, 10)
         let assignment = MissionGameAssignmentStore(defaults: defaults).load()
         expectEqual(assignment, MissionGameAssignment.defaults)
-        expectEqual(assignment.enabledStars.count, 28)
+        expectEqual(assignment.enabledStars.count, 29)
         // A build-81/82 assignment (25 kinds) reloads with both Hanzi kinds added OFF on every star and nothing else
         // changed.
         var stored: [String: [Int]] = [:]
@@ -936,8 +936,9 @@ final class HanziTapTests {
         let older = UserDefaults(suiteName: "VisaGames.hanziBuild82.\(UUID().uuidString)")!
         older.set(try JSONSerialization.data(withJSONObject: ["starsByKind": stored]), forKey: MissionGameAssignmentStore.key)
         let upgraded = MissionGameAssignmentStore(defaults: older).load()
-        expectEqual(upgraded.enabledStars.count, 28)
+        expectEqual(upgraded.enabledStars.count, 29)
         expectEqual(upgraded.enabledStars[.oddOneOut], [], "an old blob loads 邊個唔同類 OFF")
+        expectEqual(upgraded.enabledStars[.traceOrientedLines], [], "and 畫直線・四方 OFF")
         expectEqual(upgraded.enabledStars[.tapHanziAll], [])
         expectEqual(upgraded.enabledStars[.tapHanziWrite], [])
         expectEqual(upgraded.enabledStars[.traceLines], [.medium])

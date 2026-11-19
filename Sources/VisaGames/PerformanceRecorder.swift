@@ -325,6 +325,14 @@ final class PerformanceRecorder {
         ], actorOverride: .parent)
     }
 
+    /// 畫直線・四方設定 change (0.42.0; this card only, `orientedLine_*`): marks its own weekly row, never 畫直線 · 熱身's.
+    func orientedLineSettingChanged(what: String, value: String) {
+        emit(.configChange, [
+            "what": .string(OrientedLineWeekly.configKey(what)), "kind": .string(ActivityKind.traceOrientedLines.rawValue),
+            "value": .string(value)
+        ], actorOverride: .parent)
+    }
+
     /// v0.28.0 數字設定 (shared by the 3 一架一架數 cards).
     func tapCountSettingChanged(what: String, value: String) {
         emit(.configChange, [

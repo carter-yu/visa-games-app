@@ -226,6 +226,12 @@ public struct OrientedLineGuideTally: Equatable, Sendable {
         if run!.noteHelp(key: "demo.\(Int(now * 10))", kind: "redemo") { otherHelps += 1 }
     }
 
+    /// The coach's re-demo (idle with the pen up): the demo again. The help itself is noted by `note(.redemo)`.
+    public mutating func redemo(now: Double, lead: Double) {
+        guard run != nil else { return }
+        run!.restartDemo(now: now, lead: lead)
+    }
+
     /// A touch while the demo plays ends it; true = the touch is swallowed (it never paints or moves the car).
     public mutating func touch(now: Double) -> Bool {
         guard run != nil else { return false }

@@ -253,6 +253,16 @@ private struct ParentGameArtWell: View {
         } else if kind.isTapCountFamily {
             // 一架一架數: the mockup 09 tile (lit cars with badges / a half-painted 3 / picks + OK).
             TapCountIconView(kind: kind)
+        } else if kind == .traceOrientedLines {
+            // 畫直線・四方: the four strokes, each from its green start to its red finish.
+            HStack(spacing: 8) {
+                ForEach(OrientedLineVariant.allCases, id: \.self) { variant in
+                    Text(variant.arrow)
+                        .font(.system(size: 30, weight: .black))
+                        .foregroundStyle(Color.ink)
+                        .fixedSize()
+                }
+            }
         } else if kind.isShapeTraceFamily {
             // 畫線畫形: the original fire engine / paint car on a coloured lane.
             HStack(spacing: 6) {

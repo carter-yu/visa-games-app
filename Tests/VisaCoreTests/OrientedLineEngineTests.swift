@@ -554,9 +554,13 @@ final class OrientedLineEngineTests {
             expectEqual(tally.resultFields["demo"], .string("skipped"))
             expectEqual(tally.resultFields["guide_level"], .string("standard"))
             expectTrue(tally.currentClean, "a demo is not help")
-            // An on-demand demo counts as help.
+            // An on-demand demo counts as help; the coach's idle re-demo plays the demo again.
             tally.demoOnDemand(now: 20, lead: 0.3)
             expectFalse(tally.currentClean)
+            tally.redemo(now: 40, lead: 0.5)
+            expectEqual(tally.resultFields["redemos"], .int(2))
+            expectEqual(tally.resultFields["demos"], .int(3))
+            expectTrue(tally.run?.demoPending(now: 40.6) == true)
         }
         print("  畫直線・四方 T14: the demo runs on its own route from the parked start to G for → ← ↗ ↙; a touch ends it unpainted; on-demand demos count as help")
     }

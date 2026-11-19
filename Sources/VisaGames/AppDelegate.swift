@@ -192,6 +192,25 @@ final class AppModel: ObservableObject {
     private let parentPlaytestLogStore = ParentPlaytestLogStore()
     /// Strokes ("shape.stroke") whose off-path hint was already spoken (once per stroke).
     private var shapeTraceHintSpoken: Set<String> = []
+    /// 畫直線・四方 (0.42.0): the child's board and its guidance record (nil on every other kind), the 試玩 copies, the
+    /// card's own settings and 識咗 (never 畫形狀設定's, never another card's), the held finish and the gentle lines.
+    @Published private(set) var orientedLineBoard: OrientedLineBoard?
+    @Published private(set) var orientedLineGuide: OrientedLineGuideTally?
+    @Published private(set) var playtestOrientedLineBoard: OrientedLineBoard?
+    @Published private(set) var playtestOrientedLineGuide: OrientedLineGuideTally?
+    @Published private(set) var orientedLineSettings = OrientedLineSettings.defaults
+    @Published private(set) var orientedLineProgress = OrientedLineGuideProgress()
+    /// 「改咗線款，建議試玩」 after a 線形 or 方向 change, until this card's next finished 試玩.
+    @Published private(set) var orientedLineAdvisory = false
+    @Published private(set) var orientedLineNotice: SpokenPrompt?
+    /// The last finished line's 「打橫、across」 (nil while the first line is drawn).
+    @Published private(set) var orientedLineBubble: SpokenPrompt?
+    private let orientedLineSettingsStore = OrientedLineSettingsStore()
+    private let orientedLineProgressStore = OrientedLineGuideProgressStore()
+    /// A child round that came due under parent controls, held for its deal until Return (C6: this card only).
+    private var orientedLineFinishHold = ChildFinishHold()
+    /// Help lines already said on the current line (each at most once a line).
+    private var orientedLineSpoken: Set<String> = []
     /// v0.28.0 一架一架數 child board (點一點 / 數完畫 / 揀啱數). Nil on every other kind.
     @Published private(set) var tapCountBoard: TapCountBoard?
     @Published private(set) var tapLetterWriteRound: TapLetterWriteRound?
@@ -391,6 +410,9 @@ final class AppModel: ObservableObject {
         gameAssignment = MissionGameAssignmentStore().load()
         lineMatchSettings = LineMatchSettingsStore().load()
         shapeTraceSettings = ShapeTraceSettingsStore().load()
+        // 畫直線・四方: its own stores only (C3, C4); nothing is read from 畫直線 · 熱身 or another card.
+        orientedLineSettings = OrientedLineSettingsStore().load()
+        orientedLineProgress = OrientedLineGuideProgressStore().load()
         tapCountSettings = TapCountSettingsStore().load()
         tapCountGuideProgress = TapCountGuideProgressStore().load()
         strokeOrderProgress = StrokeOrderProgressStore().load()
@@ -703,6 +725,9 @@ final class AppModel: ObservableObject {
         logShellBranch(context: "returnToChild")
         // Last, in the child lock: a Hanzi find that came due under parent controls stamps now, once.
         finishHeldTapHanziFind()
+        // A 畫直線・四方 round finished under parent controls: once, for the same open deal (C6). Only one card's round
+        // is open at a time, so its place beside the 邊個唔同類 release does not matter.
+        finishHeldOrientedLineRound()
         // And a 邊個唔同類 reveal held at parent entry: once, for the same open deal (design §5.7 step 6).
         finishHeldOddOneOutReveal()
     }
@@ -1055,6 +1080,11 @@ final class AppModel: ObservableObject {
             seed: seed, kind: kind, avoidingItem: lastDealtItem[kind]) : nil
         shapeTraceHintSpoken = []
         shapeTraceNotice = nil
+        // 畫直線・四方: dealt from its own settings; the question keeps them as the round's snapshot.
+        orientedLineBoard = kind == .traceOrientedLines
+            ? makeOrientedLineBoard(seed: seed, avoidingItem: lastDealtItem[kind]) : nil
+        orientedLineGuide = orientedLineBoard.map { OrientedLineGuideTally(question: $0.question) }
+        resetOrientedLineTransient()
         tapCountBoard = kind.isTapCountFamily ? makeTapCountBoard(
             seed: seed, kind: kind, avoidingItem: lastDealtItem[kind]) : nil
         tapLetterBoard = preparedLetterBoard?.letter
@@ -1092,11 +1122,13 @@ final class AppModel: ObservableObject {
         clearThinkPause()
         taskRoundOpen = true
         let facts = dealFacts(kind: kind, seed: seed, findSame: findSameQuestion, count: countQuestion,
-                              lineMatch: lineMatchBoard.question, shapeTrace: shapeTraceBoard, tapCount: tapCountBoard)
+                              lineMatch: lineMatchBoard.question, shapeTrace: shapeTraceBoard, tapCount: tapCountBoard,
+                              orientedLine: orientedLineBoard)
         if QuestionGeneration.isGenerated(kind) { lastDealtItem[kind] = facts.item }
         noteTapCountDealt(tapCountBoard)
         perf.roundDealt(round: seed, kind: kind, stars: stars, pendingStart: difficulty.minutes, pool: pool,
                         facts: facts)
+        if kind == .traceOrientedLines { orientedLineStartLine(playtest: false, lead: Self.orientedLineFirstLineLead) }
         VisaGamesLog.append("selectDifficulty — 選擇難度 stars=\(stars) kind=\(kind.rawValue) level=\(level.code) item=\(facts.item) seed=\(seed) pendingMin=\(pendingAwardMinutes) pool=\(pool.count)")
     }
 
@@ -1130,6 +1162,8 @@ final class AppModel: ObservableObject {
         tapHanziWriteRound = nil
         tapHanziBubble = nil
         tapHanziFinishHold.drop()
+        // 畫直線・四方: a held finish goes with its round; a late finish callback of the old deal does nothing.
+        orientedLineFinishHold.drop()
         // patterns-sorting: the round's reveal and any hold go with it; late events of the old deal do nothing.
         oddOneOutBoard = nil
         childReveal.reset()
@@ -1166,7 +1200,8 @@ final class AppModel: ObservableObject {
     /// Performance facts of the question actually dealt (item, slots, gen, level, tags).
     private func dealFacts(kind: ActivityKind, seed: String, findSame: FindSameQuestion,
                            count: CountQuestion, lineMatch: LineMatchQuestion,
-                           shapeTrace: ShapeTraceBoard? = nil, tapCount: TapCountBoard? = nil) -> PerfDealFacts {
+                           shapeTrace: ShapeTraceBoard? = nil, tapCount: TapCountBoard? = nil,
+                           orientedLine: OrientedLineBoard? = nil) -> PerfDealFacts {
         switch kind {
         case .findTheSame: return PerfChoiceCatalog.facts(findSame: findSame, seed: seed)
         case .countVehicles: return PerfChoiceCatalog.facts(count: count, seed: seed)
@@ -1186,6 +1221,9 @@ final class AppModel: ObservableObject {
             return tapHanziFacts(currentTapHanziBoard)
         case .oddOneOut:
             return oddOneOutFacts()
+        case .traceOrientedLines:
+            // The dealt question carries the round's own snapshot (線形, 方向, 畫線提示, 寬容度).
+            return PerfChoiceCatalog.facts(orientedLines: orientedLine?.question ?? OrientedLineGenerator.reference)
         default: return PerfChoiceCatalog.facts(kind: kind, seed: seed)
         }
     }
@@ -1251,7 +1289,8 @@ final class AppModel: ObservableObject {
             // No board yet (P2, P5, P4): never dealt.
             return
         case .traceOrientedLines:
-            // 畫直線・四方 R0: not playable until its board (R3).
+            // The header line, then the current line's demo lines or start words.
+            speakOrientedLinePrompt(playtest: false)
             return
         }
         guideVoice.speak(SpokenPrompt(
@@ -3124,6 +3163,12 @@ final class AppModel: ObservableObject {
             ? makeShapeTraceBoard(seed: playtestChoiceDealSeed, kind: kind, avoidingItem: nil) : nil
         shapeTraceHintSpoken = []
         shapeTraceNotice = nil
+        // 畫直線・四方: its own 試玩 round (it reads the child's 識咗 and never writes it; it never uses the hold).
+        playtestOrientedLineBoard = kind == .traceOrientedLines
+            ? makeOrientedLineBoard(seed: playtestChoiceDealSeed, avoidingItem: nil) : nil
+        playtestOrientedLineGuide = playtestOrientedLineBoard.map { OrientedLineGuideTally(question: $0.question) }
+        resetOrientedLineTransient()
+        if kind == .traceOrientedLines { orientedLineStartLine(playtest: true, lead: Self.orientedLineFirstLineLead) }
         playtestTapCountBoard = kind.isTapCountFamily
             ? makeTapCountBoard(seed: playtestChoiceDealSeed, kind: kind, avoidingItem: nil) : nil
         playtestTapLetterBoard = kind.isTapLetterFamily ? makeTapLetterBoard(seed: playtestChoiceDealSeed, kind: kind, playtest: true) : nil
@@ -3152,7 +3197,7 @@ final class AppModel: ObservableObject {
         let facts = dealFacts(kind: kind, seed: playtestChoiceDealSeed,
                               findSame: playtestFindSameQuestion, count: playtestCountQuestion,
                               lineMatch: playtestLineMatchBoard.question, shapeTrace: playtestShapeTraceBoard,
-                              tapCount: playtestTapCountBoard)
+                              tapCount: playtestTapCountBoard, orientedLine: playtestOrientedLineBoard)
         noteTapCountDealt(playtestTapCountBoard)
         perf.playtestStarted(round: playtestChoiceDealSeed, kind: kind, pendingStart: playtestStartingMinutes,
                              facts: facts)
@@ -3223,6 +3268,7 @@ final class AppModel: ObservableObject {
         case .patternNext, .patternMake, .sortGarages:
             return
         case .traceOrientedLines:
+            speakOrientedLinePrompt(playtest: true)
             return
         }
         guideVoice.speak(SpokenPrompt(
@@ -3481,6 +3527,10 @@ final class AppModel: ObservableObject {
         playtestChoiceDealSeed = ""
         playtestShapeTraceBoard = nil
         shapeTraceNotice = nil
+        playtestOrientedLineBoard = nil
+        playtestOrientedLineGuide = nil
+        orientedLineNotice = nil
+        orientedLineBubble = nil
         playtestTapCountBoard = nil
         playtestTapLetterBoard = nil
         tapLetterWriteRound = nil
@@ -6123,6 +6173,288 @@ extension AppModel {
         tapCountSettingsStore.save(next)
         perf.tapCountSettingChanged(what: what, value: value)
         VisaGamesLog.append("tapCount settings — 數字設定 \(what)=\(value)")
+    }
+}
+
+// MARK: - 畫直線・四方 (four-direction design; 0.42.0 / 92)
+
+extension AppModel {
+    /// The demo car starts after 「睇住架車先！」 (PROVISIONAL, R4).
+    static let orientedLineDemoLead: Double = 1.4
+    /// The first line's demo waits for the round's header line too (PROVISIONAL, R4).
+    static let orientedLineFirstLineLead: Double = 4.0
+
+    private var orientedLineUsesPlaytest: Bool { isParentPlaytest && playtestKind == .traceOrientedLines }
+
+    /// The lane's board: a parent's 試玩 plays its own round, never the child's.
+    var currentOrientedLineBoard: OrientedLineBoard? {
+        orientedLineUsesPlaytest ? playtestOrientedLineBoard : orientedLineBoard
+    }
+
+    /// The lane's guidance record (its dealt 畫線提示 and the current line's run).
+    var currentOrientedLineGuide: OrientedLineGuideTally? {
+        orientedLineUsesPlaytest ? playtestOrientedLineGuide : orientedLineGuide
+    }
+
+    /// Input reaches only the open round of the lane on screen: the child's in the lock, or a parent's 試玩.
+    private var orientedLineInputOpen: Bool {
+        if orientedLineUsesPlaytest { return !playtestCompleted && playtestOrientedLineBoard != nil }
+        return session.mode == .lock && taskRoundOpen && activeActivityKind == .traceOrientedLines
+            && !activityJustCompleted && orientedLineBoard != nil
+    }
+
+    /// A round dealt from this card's own settings: the question keeps them as its snapshot (線形, 方向, 畫線提示,
+    /// 畫線寬容度). The open round never reads `orientedLineSettings` again; 畫形狀設定 is never read.
+    private func makeOrientedLineBoard(seed: String, avoidingItem: String?) -> OrientedLineBoard {
+        OrientedLineBoard(question: OrientedLineGenerator.make(seed: seed, settings: orientedLineSettings,
+                                                               avoidingItem: avoidingItem))
+    }
+
+    private func resetOrientedLineTransient() {
+        orientedLineNotice = nil
+        orientedLineBubble = nil
+        orientedLineSpoken = []
+    }
+
+    /// A line becomes current: its plan from the dealt 畫線提示 and the variant's 識咗 now (the child's record; a 試玩
+    /// reads it and never writes it).
+    private func orientedLineStartLine(playtest: Bool, lead: Double) {
+        guard let board = playtest ? playtestOrientedLineBoard : orientedLineBoard, let line = board.currentLine else {
+            return
+        }
+        var guide = (playtest ? playtestOrientedLineGuide : orientedLineGuide) ?? OrientedLineGuideTally(question: board.question)
+        guide.startLine(learned: orientedLineProgress.isLearned(line.variant), now: Date().timeIntervalSinceReferenceDate,
+                        demoLead: lead)
+        if playtest { playtestOrientedLineGuide = guide } else { orientedLineGuide = guide }
+        orientedLineSpoken = []
+    }
+
+    /// The demo's lines (「睇住架車先！」, the way, 「到你喇！」) or the line's start words, queued after what is playing.
+    private func orientedLineSpeakLineStart(_ line: OrientedLine, demo: Bool) {
+        if demo {
+            guideVoice.speakQueued(OrientedLineCopy.demoWatch)
+            guideVoice.speakQueued(OrientedLineCopy.demo(line.variant))
+            guideVoice.speakQueued(OrientedLineCopy.demoTurn)
+        } else {
+            guideVoice.speakQueued(OrientedLineCopy.start(line.variant))
+        }
+    }
+
+    /// The header line, then the current line's demo lines or start words (the round appears; the 20 s re-prompt).
+    func speakOrientedLinePrompt(playtest: Bool) {
+        guard let board = playtest ? playtestOrientedLineBoard : orientedLineBoard else { return }
+        guideVoice.speak(board.question.prompt)
+        guard let line = board.currentLine, board.frontier < OrientedLineBoard.liftMinimum else { return }
+        let guide = playtest ? playtestOrientedLineGuide : orientedLineGuide
+        orientedLineSpeakLineStart(line, demo: guide?.run?.demoPending(now: Date().timeIntervalSinceReferenceDate) == true)
+    }
+
+    /// The view drives the board on a local copy and hands it over on pen-up and when a line finishes. Only a board that
+    /// grew from the current one is taken, so each line finishes once. Refused red-end touches are coached with the
+    /// actual green end; a finished line says 「到終點喇！」 and its cue, records the dealt variant's 識咗 (the child's
+    /// lane only), then the next line's demo or start words; the last line ends the round after 2.4 s.
+    func orientedLineCommit(_ next: OrientedLineBoard) {
+        guard orientedLineInputOpen, let current = currentOrientedLineBoard else { return }
+        guard next.isMonotonicSuccessor(of: current) else {
+            VisaGamesLog.append("orientedLine commit refused — 舊版本 item=\(next.question.itemID)")
+            return
+        }
+        guard next != current else { return }
+        let playtest = orientedLineUsesPlaytest
+        if playtest { playtestOrientedLineBoard = next } else { orientedLineBoard = next }
+        if orientedLineNotice != nil, next.lineIndex != current.lineIndex || next.frontier > current.frontier + 20 {
+            orientedLineNotice = nil
+        }
+        if next.reverseDirections > current.reverseDirections, let line = current.currentLine {
+            let early = next.earlyFinishTaps > current.earlyFinishTaps
+            if playtest { playtestOrientedLineGuide?.noteRefusal(next.reverseDirections) }
+            else { orientedLineGuide?.noteRefusal(next.reverseDirections) }
+            showOrientedLineNotice(early ? OrientedLineCopy.earlyFinish(line.variant) : OrientedLineCopy.reverse(line.variant))
+            VisaGamesLog.append(
+                "orientedLine refused — \(early ? "early finish" : "reverse") variant=\(line.variant.rawValue) (no miss)")
+        }
+        if next.lineIndex > current.lineIndex {
+            for index in current.lineIndex..<min(next.lineIndex, next.lines.count) {
+                // 識咗 of the dealt line's variant, judged by its own guidance record; a 試玩 changes nothing.
+                let variant = next.lines[index].variant
+                let clean = (playtest ? playtestOrientedLineGuide : orientedLineGuide)?.currentClean ?? false
+                if let learned = OrientedLineLearning.lineDone(orientedLineProgress, variant: variant, clean: clean,
+                                                              lane: playtest ? .playtest : .child) {
+                    orientedLineProgress = learned
+                    orientedLineProgressStore.save(learned)
+                }
+                VisaGamesLog.append(
+                    "orientedLine line done — 到終點 variant=\(variant.rawValue) done=\(index + 1)/\(next.lines.count) clean=\(clean) offPath=\(next.offPathCount) (practice, no miss)")
+            }
+            let finished = next.lines[next.lineIndex - 1].variant
+            orientedLineBubble = OrientedLineCopy.cue(finished)
+            guideVoice.speak(OrientedLineCopy.arrive)
+            guideVoice.speakQueued(OrientedLineCopy.cue(finished), english: OrientedLineCopy.cue(finished).english)
+            if let line = next.currentLine {
+                orientedLineStartLine(playtest: playtest, lead: Self.orientedLineDemoLead)
+                let demo = (playtest ? playtestOrientedLineGuide : orientedLineGuide)?.run?.plan.demo == true
+                orientedLineSpeakLineStart(line, demo: demo)
+            } else {
+                guideVoice.speakQueued(ShapeTraceCopy.donePrompt)
+            }
+        }
+        var fields = next.resultFields(playtest: playtest)
+        if let guide = playtest ? playtestOrientedLineGuide : orientedLineGuide {
+            fields.merge(guide.resultFields) { _, guided in guided }
+        }
+        if playtest { perf.playtestResultExtra(fields) } else { perf.roundResultExtra(fields) }
+        guard next.isComplete, !current.isComplete else { return }
+        let token = playtest ? playtestChoiceDealSeed : choiceDealSeed
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { [weak self] in
+            self?.finishOrientedLineRound(token: token, playtest: playtest)
+        }
+    }
+
+    /// Everything is drawn. Practice only: no `answer_attempt`, no miss; the child's round goes to the usual stamp /
+    /// visa (not assisted). Under parent controls the child's finish is held for its deal and stamps once on Return
+    /// (C6: this card only; 畫直線 · 熱身 keeps `finishShapeTraceRound`). A finished 試玩 unlocks this card's stars.
+    private func finishOrientedLineRound(token: String, playtest: Bool) {
+        if playtest {
+            guard isParentPlaytest, playtestKind == .traceOrientedLines, playtestChoiceDealSeed == token,
+                  !playtestCompleted, playtestOrientedLineBoard?.isComplete == true else { return }
+            perf.playtestSolved(earnedMinutes: playtestPendingMinutes, assisted: false)
+            playtestLastCorrectID = "shape_trace"
+            playtestCompleted = true
+            playtestFuelMessage = nil
+            if parentPlaytestLog.playtestedOn(.traceOrientedLines) == nil {
+                parentPlaytestLog = parentPlaytestLog.recording(.traceOrientedLines, on: Date())
+                parentPlaytestLogStore.save(parentPlaytestLog)
+                if gameAssignmentBanner == ParentPlaytestLog.needsPlaytestBanner { gameAssignmentBanner = nil }
+            }
+            orientedLineAdvisory = false
+            VisaGamesLog.append("playtest orientedLine done — 試玩畫直線・四方完成 stars unlocked, no visa")
+            return
+        }
+        guard taskRoundOpen, activeActivityKind == .traceOrientedLines, choiceDealSeed == token, !activityJustCompleted,
+              orientedLineBoard?.isComplete == true else { return }
+        // Parent controls opened within the 2.4 s: the stamp needs the child lock, so the round is held for Return.
+        guard orientedLineFinishHold.finishesNow(token, mode: session.mode) else {
+            VisaGamesLog.append(
+                "orientedLine done under parent controls — held for return item=\(orientedLineBoard?.question.itemID ?? "")")
+            return
+        }
+        guard pendingAwardMinutes > 0 else {
+            VisaGamesLog.append("orientedLine done blocked — pending=0 → depot")
+            returnToDepotOutOfFuel()
+            return
+        }
+        lastCorrectChoiceID = "shape_trace"
+        lastIncorrectChoiceID = nil
+        activityJustCompleted = true
+        VisaGamesLog.append(
+            "orientedLine done — 全部畫好 item=\(orientedLineBoard?.question.itemID ?? "") earnedMin=\(pendingAwardMinutes) (practice, no mastery)")
+        applyEntrySuccess(assisted: false)
+    }
+
+    /// `returnToChild`, in the child lock: a round held under parent controls stamps now, once, if its deal is still the
+    /// open one. A reset or a new deal has dropped it; `finishOrientedLineRound` checks the round and board again.
+    private func finishHeldOrientedLineRound() {
+        guard let round = orientedLineFinishHold.release(openRound: taskRoundOpen ? choiceDealSeed : nil,
+                                                         mode: session.mode) else { return }
+        VisaGamesLog.append("orientedLine held under parent controls — finishing on return")
+        finishOrientedLineRound(token: round, playtest: false)
+    }
+
+    private func showOrientedLineNotice(_ prompt: SpokenPrompt) {
+        orientedLineNotice = prompt
+        guideVoice.speak(prompt)
+    }
+
+    /// A help episode just appeared on the line (pause, ring, ghost to the finish, re-demo): noted once, so the line is
+    /// not clean, and its line said at most once a line. Never a miss.
+    func orientedLineHelpShown(_ help: OrientedLineHelp) {
+        guard orientedLineInputOpen, let board = currentOrientedLineBoard, let line = board.currentLine else { return }
+        let playtest = orientedLineUsesPlaytest
+        guard var guide = playtest ? playtestOrientedLineGuide : orientedLineGuide else { return }
+        guard guide.note(help) else { return }
+        let prompt: SpokenPrompt?
+        switch help {
+        case .none:
+            prompt = nil
+        case .pause:
+            prompt = OrientedLineCopy.pause(line.variant)
+        case .ring(let away, _, _, _):
+            if away == .offRoad {
+                prompt = ShapeTraceCopy.offPathPrompt
+            } else {
+                prompt = board.frontier < OrientedLineBoard.liftMinimum
+                    ? OrientedLineCopy.wrongStart(line.variant) : OrientedLineCopy.pause(line.variant)
+            }
+        case .ghostToEnd:
+            prompt = !board.penIsDown && board.frontier >= OrientedLineBoard.liftMinimum ? OrientedLineCopy.lifted : nil
+        case .redemo:
+            guide.redemo(now: Date().timeIntervalSinceReferenceDate, lead: Self.orientedLineDemoLead)
+            prompt = OrientedLineCopy.redemo
+        }
+        if playtest { playtestOrientedLineGuide = guide } else { orientedLineGuide = guide }
+        if let prompt, orientedLineSpoken.insert(prompt.key).inserted {
+            showOrientedLineNotice(prompt)
+            if case .redemo = help { orientedLineSpeakLineStart(line, demo: true) }
+        }
+        VisaGamesLog.append("orientedLine help — \(help.kind) variant=\(line.variant.rawValue) (no miss)")
+    }
+
+    /// A touch while the demo plays ends it; the view swallows that touch (it never paints or moves the car).
+    func orientedLineDemoTouch() {
+        guard orientedLineInputOpen else { return }
+        let clock = Date().timeIntervalSinceReferenceDate
+        if orientedLineUsesPlaytest { _ = playtestOrientedLineGuide?.touch(now: clock) }
+        else { _ = orientedLineGuide?.touch(now: clock) }
+    }
+
+    /// The header (Stampy): the round's line again with the demo, on demand. It counts as help (design §6.1).
+    func orientedLineDemoAgain() {
+        guard orientedLineInputOpen, let board = currentOrientedLineBoard, let line = board.currentLine else { return }
+        let clock = Date().timeIntervalSinceReferenceDate
+        if orientedLineUsesPlaytest { playtestOrientedLineGuide?.demoOnDemand(now: clock, lead: Self.orientedLineDemoLead) }
+        else { orientedLineGuide?.demoOnDemand(now: clock, lead: Self.orientedLineDemoLead) }
+        guideVoice.speak(board.question.prompt)
+        orientedLineSpeakLineStart(line, demo: true)
+        VisaGamesLog.append("orientedLine demo again — header variant=\(line.variant.rawValue) (help)")
+    }
+
+    // MARK: 畫直線・四方設定 (this card only; saved at once, used from the next deal)
+
+    func setOrientedLineShape(_ shape: OrientedLineShapeSetting) {
+        guard session.mode == .parent, shape != orientedLineSettings.lineShape else { return }
+        var next = orientedLineSettings
+        next.lineShape = shape
+        saveOrientedLineSettings(next, what: "line_shape", value: shape.rawValue, lineSetChanged: true)
+    }
+
+    func setOrientedLineDirection(_ direction: OrientedLineDirectionSetting) {
+        guard session.mode == .parent, direction != orientedLineSettings.lineDirection else { return }
+        var next = orientedLineSettings
+        next.lineDirection = direction
+        saveOrientedLineSettings(next, what: "line_direction", value: direction.rawValue, lineSetChanged: true)
+    }
+
+    func setOrientedLineHelp(_ level: TapCountGuidanceLevel) {
+        guard session.mode == .parent, level != orientedLineSettings.lineHelp else { return }
+        var next = orientedLineSettings
+        next.lineHelp = level
+        saveOrientedLineSettings(next, what: "line_help", value: level.rawValue, lineSetChanged: false)
+    }
+
+    func setOrientedLineTolerance(_ tolerance: LineMatchTolerance) {
+        guard session.mode == .parent, tolerance != orientedLineSettings.tolerance else { return }
+        var next = orientedLineSettings
+        next.tolerance = tolerance
+        saveOrientedLineSettings(next, what: "tolerance", value: tolerance.rawValue, lineSetChanged: false)
+    }
+
+    /// Saved at once in the card's own store with its own `config_change`; a round on screen keeps its snapshot.
+    private func saveOrientedLineSettings(_ next: OrientedLineSettings, what: String, value: String, lineSetChanged: Bool) {
+        orientedLineSettings = next
+        orientedLineSettingsStore.save(next)
+        if lineSetChanged { orientedLineAdvisory = true }
+        perf.orientedLineSettingChanged(what: what, value: value)
+        VisaGamesLog.append("orientedLine settings — 畫直線・四方設定 \(what)=\(value) (from the next round)")
     }
 }
 

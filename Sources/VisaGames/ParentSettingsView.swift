@@ -19,7 +19,7 @@ struct ParentSettingsView: View {
     @State private var library: ParentLibrary = .videos
 
     /// Parent footer version (Info.plist `CFBundleShortVersionString` must match).
-    static let versionLabel = "Visa Games v0.41.0"
+    static let versionLabel = "Visa Games v0.42.0"
 
     /// v0.21.0: 表現 (Review) is the third parent segment (layout L5).
     private enum ParentLibrary { case videos, games, review }
@@ -235,6 +235,17 @@ struct ParentSettingsView: View {
                     onCornerStop: { model.setShapeTraceCornerStop($0) },
                     onSlantLines: { model.setShapeTraceSlantLines($0) },
                     onDotStyle: { model.setShapeTraceDotStyle($0) }
+                )
+                // 畫直線・四方: its own panel (線形, 方向, 畫線提示, 畫線寬容度); none of these rows is on 畫直線 · 熱身.
+                ParentOrientedLineSettingsView(
+                    settings: model.orientedLineSettings,
+                    advisory: model.orientedLineAdvisory,
+                    playtestedOn: model.parentPlaytestLog.playtestedOn(.traceOrientedLines),
+                    learned: model.orientedLineProgress.learned,
+                    onShape: { model.setOrientedLineShape($0) },
+                    onDirection: { model.setOrientedLineDirection($0) },
+                    onHelp: { model.setOrientedLineHelp($0) },
+                    onTolerance: { model.setOrientedLineTolerance($0) }
                 )
                 ParentTapCountSettingsView(
                     settings: model.tapCountSettings,
