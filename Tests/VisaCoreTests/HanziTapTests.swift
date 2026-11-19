@@ -910,9 +910,10 @@ final class HanziTapTests {
                        "lineMatchGuidedBridge", "traceLines", "traceShapesDotted", "traceShapesArrows", "traceShapesFree",
                        "tapCountAll", "tapCountTrace", "tapCountPick", "tapCountAllEnglish", "tapCountTraceEnglish",
                        "tapCountPickEnglish", "tapLetterAll", "tapLetterWrite"]
-        // patterns-sorting P0 appends its four kinds after the Hanzi ones.
+        // patterns-sorting P0 appends its four kinds after the Hanzi ones; 畫直線・四方 (0.42.0) appends after those.
         expectEqual(ActivityKind.allCases.map(\.rawValue), build81 + ["tapHanziAll", "tapHanziWrite", "patternNext",
-                                                                "patternMake", "oddOneOut", "sortGarages"])
+                                                                "patternMake", "oddOneOut", "sortGarages",
+                                                                "traceOrientedLines"])
         let decoded = try JSONDecoder().decode([ActivityKind].self, from: JSONEncoder().encode(build81))
         expectEqual(decoded, Array(ActivityKind.allCases.prefix(25)))
         expectThrowsError(try JSONDecoder().decode([ActivityKind].self, from: Data("[\"tapHanziRead\"]".utf8)))

@@ -260,10 +260,10 @@ public enum PerfQuestionGeneration {
     /// Guided 連一連 rounds are practice exposure: never mastery evidence, never misses
     /// (design "Guided level" → Stats). Review counts them on their own line.
     public static func isPracticeOnly(_ dealt: PerfEvent) -> Bool {
-        // 跟住排 · 自己排 (patterns-sorting §6.2) is practice: nothing to guess, never a first-try rate.
+        // 跟住排 · 自己排 (patterns-sorting §6.2) is practice: nothing to guess, never a first-try rate. So is 畫直線・四方.
         if let kind = dealt.string("kind").flatMap(ActivityKind.init(rawValue:)),
            kind.isShapeTraceFamily || kind.tapCountBase == .tapCountAll || kind.tapCountBase == .tapCountTrace
-            || kind == .patternMake { return true }
+            || kind == .patternMake || kind == .traceOrientedLines { return true }
         return matchMode(of: dealt) == .guided
     }
 

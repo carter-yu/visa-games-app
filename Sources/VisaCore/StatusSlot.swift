@@ -52,7 +52,7 @@ public enum StatusRoute: CaseIterable, Sendable {
         case .tapLetterAll, .tapLetterWrite, .tapHanziAll, .tapHanziWrite:
             self = .hanziLetter
         case .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge,
-             .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree,
+             .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree, .traceOrientedLines,
              .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish:
             self = .lineMatchFamily
         }

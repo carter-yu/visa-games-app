@@ -239,9 +239,9 @@ final class PerformanceRecordTests {
                 expectEqual(Set(slots), Set(all))
             }
             // 畫線畫形 and 一架一架數 ★ / ★★ are practice only: nothing to guess (chance 1, never mastery evidence).
-            // 跟住排 · 自己排 (patterns-sorting) is practice too.
+            // 跟住排 · 自己排 (patterns-sorting) and 畫直線・四方 are practice too.
             let ceiling = kind.isShapeTraceFamily || kind.tapCountBase == .tapCountAll || kind.tapCountBase == .tapCountTrace
-                || kind == .patternMake ? 1.0 : 0.5
+                || kind == .patternMake || kind == .traceOrientedLines ? 1.0 : 0.5
             expectTrue(PerfChoiceCatalog.chance(for: kind) > 0 && PerfChoiceCatalog.chance(for: kind) <= ceiling)
             expectFalse(PerfChoiceCatalog.item(for: kind).isEmpty)
         }
@@ -254,7 +254,7 @@ final class PerformanceRecordTests {
         // Multi-step kinds have no single right choice (line match tags come per 完成).
         for kind in ActivityKind.allCases where kind != .sequenceShortToLong && !kind.isLineMatchFamily
             && !kind.isShapeTraceFamily && !kind.isTapCountFamily && !kind.isTapLetterFamily && !kind.isTapHanziFamily
-            && !kind.isPatternFamily && !kind.isSortFamily {
+            && !kind.isPatternFamily && !kind.isSortFamily && kind != .traceOrientedLines {
             guard let correct = PerfChoiceCatalog.correctChoice(for: kind) else {
                 preconditionFailure("no correct choice for \(kind)")
             }

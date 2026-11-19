@@ -140,6 +140,9 @@ public enum WeeklyArea: String, Sendable, Equatable, Hashable, CaseIterable {
         case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree, .lineMatchGuidedStraight,
              .lineMatchGuidedBridge:
             return .pen
+        // 畫直線・四方 (C5): the same 手眼・畫線 area, on its own row.
+        case .traceOrientedLines:
+            return .pen
         case .tapLetterAll, .tapLetterWrite:
             return .letters
         case .tapHanziAll, .tapHanziWrite:

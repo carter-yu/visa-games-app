@@ -34,7 +34,9 @@ final class QuestionGeneratorTests {
                      .tapCountAll, .tapCountTrace, .tapCountPick,
                      .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite,
                      // patterns-sorting (design §6.2): the three quiz cards; 自己排 is practice.
-                     .patternNext, .oddOneOut, .sortGarages])
+                     .patternNext, .oddOneOut, .sortGarages,
+                     // 畫直線・四方 (0.42.0): seeded practice rounds that avoid the last item.
+                     .traceOrientedLines])
     }
 
     func testQuestionRNGIsDeterministicAndUniform() {

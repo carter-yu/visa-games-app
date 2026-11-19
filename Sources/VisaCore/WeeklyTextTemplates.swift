@@ -680,6 +680,7 @@ public enum WeeklyTextCatalog {
         case .patternMake: return WeeklyWords("自己排嘅車隊", "the line they made")
         case .oddOneOut: return WeeklyWords("每一個", "each one")
         case .sortGarages: return WeeklyWords("車房個牌", "the garage signs")
+        case .traceOrientedLines: return WeeklyWords("條線", "the lines")
         }
     }
 

@@ -109,6 +109,9 @@ struct CanvasActivityHost: View {
             // patterns-sorting: no board yet (P2, P5, P4); never dealt, never playtested (not playable).
             case .patternNext, .patternMake, .sortGarages:
                 EmptyView()
+            // 畫直線・四方 R0: registered, not playable; its board comes with R3.
+            case .traceOrientedLines:
+                EmptyView()
             case .none:
                 EmptyView()
             }

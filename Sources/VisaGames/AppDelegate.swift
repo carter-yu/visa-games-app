@@ -1250,6 +1250,9 @@ final class AppModel: ObservableObject {
         case .patternNext, .patternMake, .sortGarages:
             // No board yet (P2, P5, P4): never dealt.
             return
+        case .traceOrientedLines:
+            // 畫直線・四方 R0: not playable until its board (R3).
+            return
         }
         guideVoice.speak(SpokenPrompt(
             key: "activity.\(kind.rawValue)",
@@ -3219,6 +3222,8 @@ final class AppModel: ObservableObject {
             return
         case .patternNext, .patternMake, .sortGarages:
             return
+        case .traceOrientedLines:
+            return
         }
         guideVoice.speak(SpokenPrompt(
             key: "playtest.\(kind.rawValue)",
@@ -4236,7 +4241,7 @@ struct ShellView: View {
                 )
             case .twoPictureChoose, .lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge, .traceLines, .traceShapesArrows, .traceShapesFree,
                  .traceShapesDotted, .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite,
-                 .tapHanziAll, .tapHanziWrite, .patternNext, .patternMake, .oddOneOut, .sortGarages, .none:
+                 .tapHanziAll, .tapHanziWrite, .patternNext, .patternMake, .oddOneOut, .sortGarages, .traceOrientedLines, .none:
                 // Legacy shell is setup / parent only; 連一連 is canvas-only (CanvasActivityHost).
                 EntryActivityView(
                     question: model.currentTwoPictureQuestion,

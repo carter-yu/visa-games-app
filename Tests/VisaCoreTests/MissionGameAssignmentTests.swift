@@ -135,11 +135,12 @@ final class MissionGameAssignmentTests {
     }
 
     func testParentCardNamesAreTraditionalAndUnbuiltAreNotKinds() {
-        // 31 kinds: 中文字 · 翻字卡 joined with its find UI (H2), 搵完寫 with its write round (H3); patterns-sorting
-        // adds four (P0), and only 邊個唔同類 has a board so far (P1).
-        expectEqual(ActivityKind.allCases.count, 31)
+        // 32 kinds: 中文字 · 翻字卡 joined with its find UI (H2), 搵完寫 with its write round (H3); patterns-sorting
+        // adds four (P0), and only 邊個唔同類 has a board so far (P1); 畫直線・四方 is the 32nd (0.42.0, R0: its board
+        // comes with R3).
+        expectEqual(ActivityKind.allCases.count, 32)
         expectEqual(ActivityKind.allCases.filter { !ActivityCatalog.playableKinds.contains($0) },
-                    [.patternNext, .patternMake, .sortGarages])
+                    [.patternNext, .patternMake, .sortGarages, .traceOrientedLines])
         expectEqual(ActivityKind.twoPictureChoose.parentCardTitle, "邊架消防車")
         expectEqual(ActivityKind.findTheSame.parentShortLabel, "搵相同")
         expectEqual(ActivityKind.emptyBay.parentCardEnglish, "Empty parking bay")
