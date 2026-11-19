@@ -262,6 +262,17 @@ struct TestRunner {
         orientedCore.testFootprintsFitTheBoardAndKeepOuts()
         try orientedCore.testSettingsDecodeMatrixAndOwnStore()
         try orientedCore.testCopyIsTraditionalAndNamesTheActualGreenEnd()
+        let orientedEngine = OrientedLineEngineTests()
+        orientedEngine.testEndpointsOnlyAndCounterexamplesForEveryVariant()
+        orientedEngine.testBacktrackIsNeutralAndOnlyLateralExitsCount()
+        orientedEngine.testRedEndRefusalsAndPaintedSignTargets()
+        orientedEngine.testTerminalArrivalAndSampledInput()
+        orientedEngine.testGuidanceStaysBeforeTheFinishBar()
+        orientedEngine.testDemoRouteAndTouchSkip()
+        orientedEngine.testHeldFinishStampsOnceForForwardAndReverse()
+        orientedEngine.testLearnedPerOrientedVariantInItsOwnStore()
+        orientedEngine.testOpenRoundKeepsItsDealtSnapshot()
+        orientedEngine.testNewCardStartsEmptyBesideAPopulatedOriginalCard()
 
         // patterns-sorting P0 + P1 (0.41.0) run first, so a regression in the new core fails fast.
         let patternSort = PatternSortCoreTests()
@@ -889,6 +900,6 @@ struct TestRunner {
         let macPDF = ""
         #endif
 
-        print("PASS: 1 oriented-line-regression + 6 oriented-line-core + 11 pattern-sort + 9 pattern-sort-round + 6 odd-one-out + 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 6 weekly-metrics + 9 weekly-ranking + 8 weekly-text + 9 weekly-report-html + 12 weekly-report-pdf + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match + 12 guided-line-match + 20 shape-trace + 25 tap-count + 8 tap-count-guide + 7 stroke-order + 5 latin-glyph + 10 hanzi-glyph + 11 hanzi-tap + 6 hanzi-find + 11 hanzi-write + 18 hanzi-parent + 6 letter-deal + 35 letter-picker + 26 parent-scroll + 3 tap-letter-board + 12 parent-youtube + 9 status-clock + 8 status-chip + 3 status-watch" + macPDF + " checks")
+        print("PASS: 1 oriented-line-regression + 6 oriented-line-core + 10 oriented-line-engine + 11 pattern-sort + 9 pattern-sort-round + 6 odd-one-out + 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 6 weekly-metrics + 9 weekly-ranking + 8 weekly-text + 9 weekly-report-html + 12 weekly-report-pdf + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match + 12 guided-line-match + 20 shape-trace + 25 tap-count + 8 tap-count-guide + 7 stroke-order + 5 latin-glyph + 10 hanzi-glyph + 11 hanzi-tap + 6 hanzi-find + 11 hanzi-write + 18 hanzi-parent + 6 letter-deal + 35 letter-picker + 26 parent-scroll + 3 tap-letter-board + 12 parent-youtube + 9 status-clock + 8 status-chip + 3 status-watch" + macPDF + " checks")
     }
 }
