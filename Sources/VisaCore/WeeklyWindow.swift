@@ -164,6 +164,8 @@ public enum WeeklyPracticeFamily: String, Sendable, Equatable, Hashable, CaseIte
         guard let known = ActivityKind(rawValue: kind) else { return nil }
         switch known {
         case .traceLines: return .lines
+        // 畫直線・四方 (C5): the same 畫線 family, on its own row.
+        case .traceOrientedLines: return .lines
         case .traceShapesDotted, .traceShapesArrows, .traceShapesFree: return .shapes
         case .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch: return .roads
         case .tapCountAll, .tapCountAllEnglish: return .tapAll
@@ -224,7 +226,8 @@ public enum WeeklySmooth {
     public static func evaluate(kind: String, result: PerfEvent) -> Bool? {
         guard result.string("outcome") == "solved", let known = ActivityKind(rawValue: kind) else { return nil }
         switch known {
-        case .traceLines, .traceShapesDotted, .traceShapesArrows:
+        // 畫直線・四方 keeps the lines rule; its `off_path_count` counts lateral exits (`trace_rule`).
+        case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceOrientedLines:
             guard let done = result.int("shapes_done"), let total = result.int("shapes_total"),
                   let wrongStart = result.int("wrong_start"), let reverse = result.int("reverse_direction"),
                   let offPath = result.int("off_path_count") else { return nil }

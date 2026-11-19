@@ -14,6 +14,20 @@ public enum OrientedLineFacts {
     }
 }
 
+/// 畫直線・四方 in the weekly report (C5): the same 手眼・畫線 area and lines family, its own row; its settings changes
+/// (`config_change.what` = `orientedLine_*`) mark that row only; A8 / A9 never read its rounds.
+public enum OrientedLineWeekly {
+    public static let configPrefix = "orientedLine_"
+    /// `config_change.what` of each new-card setting.
+    public static func configKey(_ setting: String) -> String { configPrefix + setting }
+    public static let configKeys = ["line_shape", "line_direction", "line_help", "tolerance"].map(configKey)
+
+    public static let shapeName = WeeklyWords("線形", "Line shape")
+    public static let directionName = WeeklyWords("方向", "Direction")
+    public static let helpName = WeeklyWords("畫線提示", "Line help")
+    public static let toleranceName = WeeklyWords("畫直線・四方寬容度", "Four ways tolerance")
+}
+
 extension PerfChoiceCatalog {
     /// A dealt 畫直線・四方 round. Practice only, like 畫直線 · 熱身 (chance 1, no correct choice, `match_mode: guided`),
     /// recorded from the round's own snapshot: `line_shape`, `line_direction`, `line_help` and the card's own
