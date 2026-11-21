@@ -92,7 +92,7 @@ final class OrientedLineWiringTests {
         expectTrue(card.count > 5_000)
         for signature in ["func orientedLineCommit(", "private func finishOrientedLineRound(", "func orientedLineHelpShown(",
                           "private func orientedLineStartLine(", "func speakOrientedLinePrompt(", "func orientedLineDemoAgain()",
-                          "func orientedLineDemoTouch()", "private var orientedLineInputOpen:"] {
+                          "func orientedLineDemoTouch()", "private var orientedLineInputOpen:", "private func orientedLineSay("] {
             let text = body(of: signature, in: model)
             expectFalse(text.isEmpty, signature)
             expectFalse(text.contains("orientedLineSettings"), "\(signature) reads live settings")
@@ -106,7 +106,8 @@ final class OrientedLineWiringTests {
         expectTrue(body(of: "private func dealFacts(", in: model)
             .contains("PerfChoiceCatalog.facts(orientedLines: orientedLine?.question ?? OrientedLineGenerator.reference)"))
         let commit = body(of: "func orientedLineCommit(", in: model)
-        expectTrue(commit.contains("var fields = next.resultFields(playtest: playtest)"))
+        expectTrue(commit.contains(
+            "let fields = OrientedLineRecord.resultFields(board: next, guide: playtest ? playtestOrientedLineGuide : orientedLineGuide,"))
         expectTrue(commit.contains("let variant = next.lines[index].variant"), "識咗 of the dealt line's variant")
         for forbidden in ["shapeTraceSettings", "ShapeTraceSettingsStore", "lineMatchSettings", "tapCountGuideProgress",
                           "TapCountGuideProgressStore", ".traceLines"] {
@@ -135,6 +136,37 @@ final class OrientedLineWiringTests {
         print("  畫直線・四方 T20 (app): live settings read only at the deal and by the parent setters; guidance and facts from the dealt question; no 畫形狀設定, 跟連一連 or other learning")
     }
 
+    /// Astra code review minors 2 and 5: every line said for this card goes through `orientedLineSay`, which sets the
+    /// caption before it speaks (the round's line itself is the header); the board shows every caption line and hides it
+    /// once F moves on its own current board; a help line is chosen from the view's current board, passed with the help.
+    func testSaidIsShownAndHelpUsesTheLiveBoard() throws {
+        let model = try source("Sources/VisaGames/AppDelegate.swift")
+        let card = newCardExtension(model)
+        let say = body(of: "private func orientedLineSay(", in: model)
+        expectTrue(ordered("orientedLineCaption = OrientedLineCaption(lines, on: board)",
+                           "guideVoice.speakQueued(line, english: english, interrupt: interrupt && index == 0)", in: say))
+        expectEqual(count("guideVoice.", in: card), 3)
+        expectEqual(count("guideVoice.speak(board.question.prompt)", in: card), 2)
+        expectEqual(count("guideVoice.speakQueued(", in: card), 1)
+        expectEqual(count("OrientedLineCopy.lineStart(", in: card), 4)
+        expectFalse(card.contains("frontier + 20") || card.contains("orientedLineNotice") || card.contains("orientedLineBubble"))
+        let commit = body(of: "func orientedLineCommit(", in: model)
+        expectTrue(commit.contains("on: next, interrupt: true)"))
+        expectTrue(commit.contains("orientedLineSay(said, on: next, interrupt: true)"))
+        let help = body(of: "func orientedLineHelpShown(", in: model)
+        expectTrue(help.contains("func orientedLineHelpShown(_ help: OrientedLineHelp, on snapshot: OrientedLineBoard)"))
+        expectTrue(help.contains("snapshot == current || snapshot.isMonotonicSuccessor(of: current)"))
+        expectTrue(help.contains("OrientedLineCopy.helpLine(help, board: snapshot)"))
+        expectTrue(help.contains("orientedLineSay(said, on: snapshot, interrupt: true)"))
+        expectFalse(help.contains("board.frontier") || help.contains("board.penIsDown"), "the line is chosen in VisaCore, from the snapshot")
+        let view = try source("Sources/VisaGames/OrientedLineBoardView.swift")
+        expectTrue(view.contains("if key != nil { view.onHelp(help, board) }"))
+        let rows = body(of: "private var captionRows:", in: view)
+        expectTrue(rows.contains("if let caption = view.caption, caption.isShowing(on: board) {"))
+        expectTrue(rows.contains("return caption.lines.map { ($0.traditionalChinese, $0.english) }"))
+        print("  畫直線・四方 R3 parity: every line said goes through orientedLineSay (caption first), shown until F moves; help lines from the view's live board")
+    }
+
     /// The board view, the route and the parent panel: layer order, the clip at G, the swallowed demo touch, faded ink,
     /// a mirrored car but upright words (T4b, M31), and the card's own panel with no 原本.
     func testBoardViewRouteAndParentPanel() throws {
@@ -143,6 +175,8 @@ final class OrientedLineWiringTests {
         expectTrue(host.contains("case .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree:\n                shapeTrace"))
         let route = body(of: "private var orientedLines: some View {", in: host)
         expectTrue(route.contains("OrientedLineBoardView(") && route.contains("model.orientedLineCommit(next)"))
+        expectTrue(route.contains("caption: model.orientedLineCaption,"))
+        expectTrue(route.contains("onHelp: { help, board in model.orientedLineHelpShown(help, on: board) }"))
         expectFalse(route.contains("Settings"))
         let view = try source("Sources/VisaGames/OrientedLineBoardView.swift")
         expectFalse(view.contains("TextField") || view.contains("Settings"))
@@ -178,7 +212,16 @@ final class OrientedLineWiringTests {
         expectTrue(taxi.contains("layer.scaleBy(x: mirrored ? -carScale : carScale, y: carScale)"))
         expectEqual(count("rotate(by:", in: view), 1)
         expectEqual(count("scaleBy(x: mirrored", in: view), 1)
-        expectTrue(body(of: "static func ink(", in: view).contains("navy.opacity(b.counted ? 1 : 0.4)"))
+        // Ink edges take the shared rule (the edge into a join stays faded); dots keep their own sample's flag.
+        let ink = body(of: "static func ink(", in: view)
+        expectTrue(ink.contains("for edge in OrientedLineInk.edges(strokes) {"))
+        expectTrue(ink.contains("navy.opacity(edge.counted ? 1 : 0.4)") && ink.contains("if edge.counted {"))
+        expectFalse(ink.contains(".counted ? 1 : 0.4)), style") && ink.contains("b.counted"))
+        // The 上方進度列 under the header (DECISIONS Q6); the caption in the tray; the tray's old status rect is gone.
+        expectTrue(body(of: "private var progressRow: some View {", in: view).contains("let rect = OrientedLineLayout.progressRow"))
+        expectTrue(body(of: "private var captionView: some View {", in: view).contains("let rect = OrientedLineLayout.caption"))
+        expectFalse(view.contains("OrientedLineLayout.status"))
+        expectTrue(view.contains("            progressRow\n            captionView\n            header"))
         // The card's own panel, after the shared 畫形狀設定 panel; no 原本 and no 跟連一連.
         let settings = try source("Sources/VisaGames/ParentSettingsView.swift")
         expectTrue(ordered("ParentShapeTraceSettingsView(", "ParentOrientedLineSettingsView(", in: settings))

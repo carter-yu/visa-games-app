@@ -202,9 +202,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var orientedLineProgress = OrientedLineGuideProgress()
     /// 「改咗線款，建議試玩」 after a 線形 or 方向 change, until this card's next finished 試玩.
     @Published private(set) var orientedLineAdvisory = false
-    @Published private(set) var orientedLineNotice: SpokenPrompt?
-    /// The last finished line's 「打橫、across」 (nil while the first line is drawn).
-    @Published private(set) var orientedLineBubble: SpokenPrompt?
+    /// Every line just said for this card, shown as it is said (`orientedLineSay`); the board hides it once F moves.
+    @Published private(set) var orientedLineCaption: OrientedLineCaption?
     private let orientedLineSettingsStore = OrientedLineSettingsStore()
     private let orientedLineProgressStore = OrientedLineGuideProgressStore()
     /// A child round that came due under parent controls, held for its deal until Return (C6: this card only).
@@ -3529,8 +3528,7 @@ final class AppModel: ObservableObject {
         shapeTraceNotice = nil
         playtestOrientedLineBoard = nil
         playtestOrientedLineGuide = nil
-        orientedLineNotice = nil
-        orientedLineBubble = nil
+        orientedLineCaption = nil
         playtestTapCountBoard = nil
         playtestTapLetterBoard = nil
         tapLetterWriteRound = nil
@@ -6211,8 +6209,7 @@ extension AppModel {
     }
 
     private func resetOrientedLineTransient() {
-        orientedLineNotice = nil
-        orientedLineBubble = nil
+        orientedLineCaption = nil
         orientedLineSpoken = []
     }
 
@@ -6229,30 +6226,34 @@ extension AppModel {
         orientedLineSpoken = []
     }
 
-    /// The demo's lines (「睇住架車先！」, the way, 「到你喇！」) or the line's start words, queued after what is playing.
-    private func orientedLineSpeakLineStart(_ line: OrientedLine, demo: Bool) {
-        if demo {
-            guideVoice.speakQueued(OrientedLineCopy.demoWatch)
-            guideVoice.speakQueued(OrientedLineCopy.demo(line.variant))
-            guideVoice.speakQueued(OrientedLineCopy.demoTurn)
-        } else {
-            guideVoice.speakQueued(OrientedLineCopy.start(line.variant))
+    /// Says `lines` and shows them as they are said, on the board they belong to (Q8, design §6.4): one state drives both
+    /// the voice and the text, and the board hides the text once F moves (§6.2). `interrupt` cuts what is playing (a
+    /// refusal, a help line, an arrival); otherwise the lines queue after it. A cue (「打橫、across」) adds its English word.
+    private func orientedLineSay(_ lines: [SpokenPrompt], on board: OrientedLineBoard, interrupt: Bool) {
+        guard !lines.isEmpty else { return }
+        orientedLineCaption = OrientedLineCaption(lines, on: board)
+        for (index, line) in lines.enumerated() {
+            let english = line.key.hasPrefix("trace.cue.") ? line.english : nil
+            guideVoice.speakQueued(line, english: english, interrupt: interrupt && index == 0)
         }
     }
 
-    /// The header line, then the current line's demo lines or start words (the round appears; the 20 s re-prompt).
+    /// The round's line (shown in the header), then the current line's demo lines or start words, shown as they are said
+    /// (the round appears; the 20 s re-prompt).
     func speakOrientedLinePrompt(playtest: Bool) {
         guard let board = playtest ? playtestOrientedLineBoard : orientedLineBoard else { return }
         guideVoice.speak(board.question.prompt)
         guard let line = board.currentLine, board.frontier < OrientedLineBoard.liftMinimum else { return }
         let guide = playtest ? playtestOrientedLineGuide : orientedLineGuide
-        orientedLineSpeakLineStart(line, demo: guide?.run?.demoPending(now: Date().timeIntervalSinceReferenceDate) == true)
+        let demo = guide?.run?.demoPending(now: Date().timeIntervalSinceReferenceDate) == true
+        orientedLineSay(OrientedLineCopy.lineStart(line.variant, demo: demo), on: board, interrupt: false)
     }
 
     /// The view drives the board on a local copy and hands it over on pen-up and when a line finishes. Only a board that
     /// grew from the current one is taken, so each line finishes once. Refused red-end touches are coached with the
     /// actual green end; a finished line says 「到終點喇！」 and its cue, records the dealt variant's 識咗 (the child's
-    /// lane only), then the next line's demo or start words; the last line ends the round after 2.4 s.
+    /// lane only), then the next line's demo or start words — all shown as they are said; the last line ends the round
+    /// after 2.4 s.
     func orientedLineCommit(_ next: OrientedLineBoard) {
         guard orientedLineInputOpen, let current = currentOrientedLineBoard else { return }
         guard next.isMonotonicSuccessor(of: current) else {
@@ -6262,14 +6263,12 @@ extension AppModel {
         guard next != current else { return }
         let playtest = orientedLineUsesPlaytest
         if playtest { playtestOrientedLineBoard = next } else { orientedLineBoard = next }
-        if orientedLineNotice != nil, next.lineIndex != current.lineIndex || next.frontier > current.frontier + 20 {
-            orientedLineNotice = nil
-        }
         if next.reverseDirections > current.reverseDirections, let line = current.currentLine {
             let early = next.earlyFinishTaps > current.earlyFinishTaps
             if playtest { playtestOrientedLineGuide?.noteRefusal(next.reverseDirections) }
             else { orientedLineGuide?.noteRefusal(next.reverseDirections) }
-            showOrientedLineNotice(early ? OrientedLineCopy.earlyFinish(line.variant) : OrientedLineCopy.reverse(line.variant))
+            orientedLineSay([early ? OrientedLineCopy.earlyFinish(line.variant) : OrientedLineCopy.reverse(line.variant)],
+                            on: next, interrupt: true)
             VisaGamesLog.append(
                 "orientedLine refused — \(early ? "early finish" : "reverse") variant=\(line.variant.rawValue) (no miss)")
         }
@@ -6287,21 +6286,18 @@ extension AppModel {
                     "orientedLine line done — 到終點 variant=\(variant.rawValue) done=\(index + 1)/\(next.lines.count) clean=\(clean) offPath=\(next.offPathCount) (practice, no miss)")
             }
             let finished = next.lines[next.lineIndex - 1].variant
-            orientedLineBubble = OrientedLineCopy.cue(finished)
-            guideVoice.speak(OrientedLineCopy.arrive)
-            guideVoice.speakQueued(OrientedLineCopy.cue(finished), english: OrientedLineCopy.cue(finished).english)
+            var said = [OrientedLineCopy.arrive, OrientedLineCopy.cue(finished)]
             if let line = next.currentLine {
                 orientedLineStartLine(playtest: playtest, lead: Self.orientedLineDemoLead)
                 let demo = (playtest ? playtestOrientedLineGuide : orientedLineGuide)?.run?.plan.demo == true
-                orientedLineSpeakLineStart(line, demo: demo)
+                said += OrientedLineCopy.lineStart(line.variant, demo: demo)
             } else {
-                guideVoice.speakQueued(ShapeTraceCopy.donePrompt)
+                said.append(ShapeTraceCopy.donePrompt)
             }
+            orientedLineSay(said, on: next, interrupt: true)
         }
-        var fields = next.resultFields(playtest: playtest)
-        if let guide = playtest ? playtestOrientedLineGuide : orientedLineGuide {
-            fields.merge(guide.resultFields) { _, guided in guided }
-        }
+        let fields = OrientedLineRecord.resultFields(board: next, guide: playtest ? playtestOrientedLineGuide : orientedLineGuide,
+                                                     playtest: playtest)
         if playtest { perf.playtestResultExtra(fields) } else { perf.roundResultExtra(fields) }
         guard next.isComplete, !current.isComplete else { return }
         let token = playtest ? playtestChoiceDealSeed : choiceDealSeed
@@ -6360,41 +6356,22 @@ extension AppModel {
         finishOrientedLineRound(token: round, playtest: false)
     }
 
-    private func showOrientedLineNotice(_ prompt: SpokenPrompt) {
-        orientedLineNotice = prompt
-        guideVoice.speak(prompt)
-    }
-
-    /// A help episode just appeared on the line (pause, ring, ghost to the finish, re-demo): noted once, so the line is
-    /// not clean, and its line said at most once a line. Never a miss.
-    func orientedLineHelpShown(_ help: OrientedLineHelp) {
-        guard orientedLineInputOpen, let board = currentOrientedLineBoard, let line = board.currentLine else { return }
+    /// A help episode just appeared on the board the child is drawing on — the view's current copy, passed with it,
+    /// because the committed board can be a stroke behind (a pen still down, F already moved). Noted once, so the line is
+    /// not clean; its line said and shown at most once a line, chosen from that board. Never a miss.
+    func orientedLineHelpShown(_ help: OrientedLineHelp, on snapshot: OrientedLineBoard) {
+        guard orientedLineInputOpen, let current = currentOrientedLineBoard,
+              snapshot == current || snapshot.isMonotonicSuccessor(of: current),
+              let line = snapshot.currentLine else { return }
         let playtest = orientedLineUsesPlaytest
         guard var guide = playtest ? playtestOrientedLineGuide : orientedLineGuide else { return }
         guard guide.note(help) else { return }
-        let prompt: SpokenPrompt?
-        switch help {
-        case .none:
-            prompt = nil
-        case .pause:
-            prompt = OrientedLineCopy.pause(line.variant)
-        case .ring(let away, _, _, _):
-            if away == .offRoad {
-                prompt = ShapeTraceCopy.offPathPrompt
-            } else {
-                prompt = board.frontier < OrientedLineBoard.liftMinimum
-                    ? OrientedLineCopy.wrongStart(line.variant) : OrientedLineCopy.pause(line.variant)
-            }
-        case .ghostToEnd:
-            prompt = !board.penIsDown && board.frontier >= OrientedLineBoard.liftMinimum ? OrientedLineCopy.lifted : nil
-        case .redemo:
-            guide.redemo(now: Date().timeIntervalSinceReferenceDate, lead: Self.orientedLineDemoLead)
-            prompt = OrientedLineCopy.redemo
-        }
+        if case .redemo = help { guide.redemo(now: Date().timeIntervalSinceReferenceDate, lead: Self.orientedLineDemoLead) }
         if playtest { playtestOrientedLineGuide = guide } else { orientedLineGuide = guide }
-        if let prompt, orientedLineSpoken.insert(prompt.key).inserted {
-            showOrientedLineNotice(prompt)
-            if case .redemo = help { orientedLineSpeakLineStart(line, demo: true) }
+        if let prompt = OrientedLineCopy.helpLine(help, board: snapshot), orientedLineSpoken.insert(prompt.key).inserted {
+            var said = [prompt]
+            if case .redemo = help { said += OrientedLineCopy.lineStart(line.variant, demo: true) }
+            orientedLineSay(said, on: snapshot, interrupt: true)
         }
         VisaGamesLog.append("orientedLine help — \(help.kind) variant=\(line.variant.rawValue) (no miss)")
     }
@@ -6414,7 +6391,7 @@ extension AppModel {
         if orientedLineUsesPlaytest { playtestOrientedLineGuide?.demoOnDemand(now: clock, lead: Self.orientedLineDemoLead) }
         else { orientedLineGuide?.demoOnDemand(now: clock, lead: Self.orientedLineDemoLead) }
         guideVoice.speak(board.question.prompt)
-        orientedLineSpeakLineStart(line, demo: true)
+        orientedLineSay(OrientedLineCopy.lineStart(line.variant, demo: true), on: board, interrupt: false)
         VisaGamesLog.append("orientedLine demo again — header variant=\(line.variant.rawValue) (help)")
     }
 

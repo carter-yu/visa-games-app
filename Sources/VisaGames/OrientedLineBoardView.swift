@@ -16,15 +16,16 @@ struct OrientedLineBoardView: View {
     let ticketStars: Int
     let pendingMinutes: Int
     let locked: Bool
-    let notice: SpokenPrompt?
-    let bubble: SpokenPrompt?
+    /// Every line just said, shown as it is said; hidden here as soon as F moves on the board being drawn.
+    let caption: OrientedLineCaption?
     /// Model clock (seconds since reference date) for help timing and the idle re-prompt.
     let now: Double
     let onSpeak: () -> Void
     let onDemoAgain: () -> Void
     let onCommit: (OrientedLineBoard) -> Void
     let onDemoTouch: () -> Void
-    let onHelp: (OrientedLineHelp) -> Void
+    /// A help episode appeared, with the board it appeared on (this view's current copy, not the last commit).
+    let onHelp: (OrientedLineHelp, OrientedLineBoard) -> Void
 
     var body: some View {
         CanvasStage {
@@ -162,8 +163,8 @@ private struct OrientedLineStageContent: View {
                 .gesture(dragGesture)
                 .allowsHitTesting(!view.locked && !board.isComplete)
                 .accessibilityHidden(true)
-            bubbleView
-            status
+            progressRow
+            captionView
             header
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.6), value: lineIndex)
@@ -182,7 +183,8 @@ private struct OrientedLineStageContent: View {
             }
         }
         .onChange(of: help.key) { key in
-            if key != nil { view.onHelp(help) }
+            // With the board it was seen on: the model chooses the line from this, not from its last commit.
+            if key != nil { view.onHelp(help, board) }
         }
         .onChange(of: idleDue) { due in
             guard due else { return }
@@ -261,91 +263,67 @@ private struct OrientedLineStageContent: View {
         .accessibilityHidden(true)
     }
 
-    // MARK: Bubble (the demo's line, or the last line's 「打橫、across」)
+    // MARK: 上方進度列 (DECISIONS Q6: the round's → ← ↗ ↙ — done ✓ / current / next — just under the header)
 
-    @ViewBuilder
-    private var bubbleView: some View {
-        if let line = self.line, let text = bubbleText(line) {
-            let rect = LineMatchRect(x: 40, y: 560, width: 380, height: 92)
-            ZStack {
-                RoundedRectangle(cornerRadius: metrics.u(28), style: .continuous)
-                    .fill(LM.ink.opacity(0.16))
-                    .offset(y: metrics.u(6))
-                RoundedRectangle(cornerRadius: metrics.u(28), style: .continuous)
-                    .fill(Color.white)
-                RoundedRectangle(cornerRadius: metrics.u(28), style: .continuous)
-                    .strokeBorder(LM.ink, lineWidth: metrics.u(5))
-                HStack(spacing: metrics.u(10)) {
-                    Image(systemName: "speaker.wave.2.fill")
-                        .font(.system(size: metrics.u(24), weight: .bold))
-                        .foregroundStyle(LM.route)
-                    VStack(alignment: .leading, spacing: 0) {
-                        CanvasText(text.zh, size: 26, weight: 900, color: LM.ink)
-                        CanvasText(text.en, size: 16, weight: 700, color: Color(hex: 0x4C8FE0))
+    private var progressRow: some View {
+        let rect = OrientedLineLayout.progressRow
+        return HStack(spacing: metrics.u(12)) {
+            ForEach(Array(board.lines.indices), id: \.self) { index in
+                let done = board.isDone(line: index)
+                let current = index == board.lineIndex
+                ZStack {
+                    RoundedRectangle(cornerRadius: metrics.u(10), style: .continuous)
+                        .fill(done ? LM.go : current ? LM.pill : Color.white)
+                    RoundedRectangle(cornerRadius: metrics.u(10), style: .continuous)
+                        .strokeBorder(LM.ink, lineWidth: metrics.u(current ? 5 : 3))
+                    if done {
+                        CheckShape()
+                            .stroke(Color.white, style: StrokeStyle(lineWidth: metrics.u(5), lineCap: .round,
+                                                                    lineJoin: .round))
+                            .padding(metrics.u(10))
+                    } else {
+                        Text(board.lines[index].variant.arrow)
+                            .font(.system(size: metrics.u(26), weight: .black))
+                            .foregroundStyle(LM.ink)
                     }
                 }
+                .frame(width: metrics.u(46), height: metrics.u(40))
+                .accessibilityLabel("\(board.lines[index].variant.arrow) \(done ? "畫好 / done" : current ? "而家 / now" : "")")
             }
-            .frame(width: metrics.u(CGFloat(rect.width)), height: metrics.u(CGFloat(rect.height)))
-            .canvasPlaced(x: CGFloat(rect.x), y: CGFloat(rect.y))
-            .allowsHitTesting(false)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(text.zh) / \(text.en)")
         }
+        .frame(width: metrics.u(CGFloat(rect.width)), height: metrics.u(CGFloat(rect.height)))
+        .canvasPlaced(x: CGFloat(rect.x), y: CGFloat(rect.y))
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .combine)
     }
 
-    private func bubbleText(_ line: OrientedLine) -> (zh: String, en: String)? {
-        if demoPlaying {
-            let demo = OrientedLineCopy.demo(line.variant)
-            return (demo.traditionalChinese, demo.english)
-        }
-        if let bubble = view.bubble, board.frontier < OrientedLineBoard.liftMinimum, !dragSeen {
-            return ("\(bubble.traditionalChinese)、", bubble.english)
-        }
-        return nil
-    }
+    // MARK: Caption (every line just said, shown as it is said, until F moves) — else the lines left
 
-    // MARK: Status (the round's → ← ↗ ↙, then one line)
-
-    private var statusLines: (zh: String, en: String) {
-        if board.isComplete { return (ShapeTraceCopy.doneTraditionalChinese, ShapeTraceCopy.doneEnglish) }
-        if let notice = view.notice { return (notice.traditionalChinese, notice.english) }
-        if board.away(now: view.now) == .offRoad {
-            return (ShapeTraceCopy.offPathTraditionalChinese, ShapeTraceCopy.offPathEnglish)
+    private var captionRows: [(zh: String, en: String)] {
+        if let caption = view.caption, caption.isShowing(on: board) {
+            return caption.lines.map { ($0.traditionalChinese, $0.english) }
         }
+        if board.isComplete { return [(ShapeTraceCopy.doneTraditionalChinese, ShapeTraceCopy.doneEnglish)] }
         let n = board.remainingLines
-        return (ShapeTraceCopy.remainingTraditionalChinese(n, kind: nil), ShapeTraceCopy.remainingEnglish(n, kind: nil))
+        return [(ShapeTraceCopy.remainingTraditionalChinese(n, kind: nil), ShapeTraceCopy.remainingEnglish(n, kind: nil))]
     }
 
-    private var status: some View {
-        let lines = statusLines
-        let rect = OrientedLineLayout.status
-        return VStack(spacing: metrics.u(4)) {
-            HStack(spacing: metrics.u(12)) {
-                ForEach(Array(board.lines.indices), id: \.self) { index in
-                    let done = board.isDone(line: index)
-                    let current = index == board.lineIndex
-                    ZStack {
-                        RoundedRectangle(cornerRadius: metrics.u(10), style: .continuous)
-                            .fill(done ? LM.go : current ? LM.pill : Color.white)
-                        RoundedRectangle(cornerRadius: metrics.u(10), style: .continuous)
-                            .strokeBorder(LM.ink, lineWidth: metrics.u(current ? 5 : 3))
-                        if done {
-                            CheckShape()
-                                .stroke(Color.white, style: StrokeStyle(lineWidth: metrics.u(5), lineCap: .round,
-                                                                        lineJoin: .round))
-                                .padding(metrics.u(10))
-                        } else {
-                            Text(board.lines[index].variant.arrow)
-                                .font(.system(size: metrics.u(26), weight: .black))
-                                .foregroundStyle(LM.ink)
-                        }
-                    }
-                    .frame(width: metrics.u(46), height: metrics.u(40))
-                    .accessibilityLabel("\(board.lines[index].variant.arrow) \(done ? "畫好 / done" : current ? "而家 / now" : "")")
+    private var captionView: some View {
+        let rows = captionRows
+        let rect = OrientedLineLayout.caption
+        return VStack(alignment: .center, spacing: metrics.u(2)) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(alignment: .lastTextBaseline, spacing: metrics.u(10)) {
+                    Text(row.zh)
+                        .font(CanvasFont.font(size: metrics.u(22), weight: 900))
+                        .foregroundStyle(LM.ink)
+                    Text(row.en)
+                        .font(CanvasFont.font(size: metrics.u(14), weight: 700))
+                        .foregroundStyle(LM.soft)
                 }
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
             }
-            CanvasText(lines.zh, size: 24, weight: 900, color: LM.ink)
-            CanvasText(lines.en, size: 16, weight: 700, color: LM.soft)
         }
         .frame(width: metrics.u(CGFloat(rect.width)), height: metrics.u(CGFloat(rect.height)), alignment: .top)
         .canvasPlaced(x: CGFloat(rect.x), y: CGFloat(rect.y))
@@ -632,25 +610,22 @@ enum OrientedLineDrawing {
                at: CGPoint(x: red.x, y: red.y + 16), anchor: .center)
     }
 
-    /// Navy ink: drawn while joined at full strength with its highlight; drawn before joining faded (40 %), forever.
+    /// Navy ink: drawn while joined at full strength with its highlight; drawn before joining faded (40 %), forever. Each
+    /// edge takes `OrientedLineInk.edges`' style, so the edge arriving at a join stays faded.
     static func ink(_ strokes: [[OrientedInkSample]], in g: inout GraphicsContext) {
-        for stroke in strokes where !stroke.isEmpty {
-            if stroke.count == 1 {
-                let p = stroke[0].point
-                g.fill(Path(ellipseIn: CGRect(x: p.x - 7, y: p.y - 7, width: 14, height: 14)),
-                       with: .color(navy.opacity(stroke[0].counted ? 1 : 0.4)))
-                continue
-            }
-            for index in 1..<stroke.count {
-                let a = stroke[index - 1].point, b = stroke[index]
-                var piece = Path()
-                piece.move(to: cg(a))
-                piece.addLine(to: cg(b.point))
-                g.stroke(piece, with: .color(navy.opacity(b.counted ? 1 : 0.4)),
-                         style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round))
-                if b.counted {
-                    g.stroke(piece, with: .color(navyHighlight), style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                }
+        for stroke in strokes where stroke.count == 1 {
+            let p = stroke[0].point
+            g.fill(Path(ellipseIn: CGRect(x: p.x - 7, y: p.y - 7, width: 14, height: 14)),
+                   with: .color(navy.opacity(stroke[0].counted ? 1 : 0.4)))
+        }
+        for edge in OrientedLineInk.edges(strokes) {
+            var piece = Path()
+            piece.move(to: cg(edge.from))
+            piece.addLine(to: cg(edge.to))
+            g.stroke(piece, with: .color(navy.opacity(edge.counted ? 1 : 0.4)),
+                     style: StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round))
+            if edge.counted {
+                g.stroke(piece, with: .color(navyHighlight), style: StrokeStyle(lineWidth: 4, lineCap: .round))
             }
         }
     }

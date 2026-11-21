@@ -185,6 +185,65 @@ public enum OrientedLineCoach {
     public static func demoRoute(line: OrientedLine) -> ClosedRange<Double> { 0...line.guidanceLimit }
 }
 
+// MARK: - What is said is what is shown (Q8, design §6.2, §6.4)
+
+extension OrientedLineCopy {
+    /// The lines that start a line: the demo's three (「睇住架車先！」, the way, 「到你喇！」) or the start words.
+    public static func lineStart(_ variant: OrientedLineVariant, demo: Bool) -> [SpokenPrompt] {
+        demo ? [demoWatch, OrientedLineCopy.demo(variant), demoTurn] : [start(variant)]
+    }
+
+    /// The line a help episode says, chosen from the board the help was seen on — the view's current one, never an older
+    /// commit: a ring before anything is drawn names the green start, after it the way on; a ghost to the finish says
+    /// 「架車等緊你」 only with the pen up and the car under way.
+    public static func helpLine(_ help: OrientedLineHelp, board: OrientedLineBoard) -> SpokenPrompt? {
+        guard let line = board.currentLine else { return nil }
+        switch help {
+        case .none:
+            return nil
+        case .pause:
+            return pause(line.variant)
+        case let .ring(away, _, _, _):
+            if away == .offRoad { return ShapeTraceCopy.offPathPrompt }
+            return board.frontier < OrientedLineBoard.liftMinimum ? wrongStart(line.variant) : pause(line.variant)
+        case .ghostToEnd:
+            return !board.penIsDown && board.frontier >= OrientedLineBoard.liftMinimum ? lifted : nil
+        case .redemo:
+            return redemo
+        }
+    }
+}
+
+/// The lines just said for this card, shown on screen as they are said: one state drives both the voice and the text.
+/// Said on a line at F, they show until F moves or the line changes (design §6.2: the pause line hides as soon as F
+/// moves), judged on the board the child is drawing on now.
+public struct OrientedLineCaption: Sendable, Equatable {
+    public let lines: [SpokenPrompt]
+    public let lineIndex: Int
+    public let frontier: Double
+
+    public init(_ lines: [SpokenPrompt], on board: OrientedLineBoard) {
+        self.lines = lines
+        lineIndex = board.lineIndex
+        frontier = board.frontier
+    }
+
+    public func isShowing(on board: OrientedLineBoard) -> Bool {
+        !lines.isEmpty && board.lineIndex == lineIndex && board.frontier <= frontier
+    }
+}
+
+public enum OrientedLineRecord {
+    /// A round's `round_result` extras: the board's practice fields and the dealt help level's guidance record, both
+    /// from the round's own snapshot.
+    public static func resultFields(board: OrientedLineBoard, guide: OrientedLineGuideTally?,
+                                    playtest: Bool) -> [String: PerfValue] {
+        var fields = board.resultFields(playtest: playtest)
+        if let guide { fields.merge(guide.resultFields) { _, guided in guided } }
+        return fields
+    }
+}
+
 // MARK: - The round's guidance record (one TapCountGuideRun per line)
 
 public struct OrientedLineGuideTally: Equatable, Sendable {

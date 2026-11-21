@@ -84,6 +84,30 @@ public struct OrientedInkSample: Sendable, Equatable {
     }
 }
 
+/// One drawn piece of ink between two consecutive samples of a stroke.
+public struct OrientedInkEdge: Sendable, Equatable {
+    public let from: LineMatchPoint
+    public let to: LineMatchPoint
+    /// Normal navy only when both ends were drawn while joined; otherwise faded.
+    public let counted: Bool
+}
+
+public enum OrientedLineInk {
+    /// The edges of every stroke, in drawing order (one-sample strokes have none; they are dots). An edge is counted only
+    /// when both its samples are, so the edge that arrives at a join stays faded: it was drawn before the join, and
+    /// joining never recolours earlier drawing (design §4.3, §5.1; R3 m2).
+    public static func edges(_ strokes: [[OrientedInkSample]]) -> [OrientedInkEdge] {
+        var out: [OrientedInkEdge] = []
+        for stroke in strokes where stroke.count > 1 {
+            for index in 1..<stroke.count {
+                let a = stroke[index - 1], b = stroke[index]
+                out.append(OrientedInkEdge(from: a.point, to: b.point, counted: a.counted && b.counted))
+            }
+        }
+        return out
+    }
+}
+
 /// Practice stats of one line (`per_shape` row).
 public struct OrientedLineStats: Sendable, Equatable {
     public var deviationSum = 0.0

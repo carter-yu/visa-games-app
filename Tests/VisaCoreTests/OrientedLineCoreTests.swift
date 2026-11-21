@@ -257,6 +257,17 @@ final class OrientedLineCoreTests {
         let diagonals = OrientedLineGenerator.allLines.filter { !$0.variant.isHorizontal }.map(\.outerBounds)
         expectEqual(diagonals.map(\.x).min() ?? 0, 257.5, accuracy: 0.05)
         expectEqual(diagonals.map(\.maxX).max() ?? 0, 921.0, accuracy: 0.05)
+        // The 上方進度列 (DECISIONS Q6) sits just under the header, above every road; the caption sits in the tray. Neither
+        // touches any footprint's drawn road or sign, the clock keep-out K or the parent corner.
+        let row = OrientedLineLayout.progressRow, caption = OrientedLineLayout.caption
+        expectTrue(row.y >= 118 && row.maxY <= 240, "upper: below the header (and its shadow), above the board's roads")
+        expectTrue(caption.y >= 540 && caption.maxX <= ShapeTraceLayout.parentZone.x)
+        for rect in [row, caption] {
+            expectFalse(rect.intersects(StatusSlot.mainKeepOut) || rect.intersects(ShapeTraceLayout.parentZone))
+            for line in OrientedLineGenerator.allLines {
+                expectFalse(line.intersects([rect]), "\(rect) clear of \(line.variant) \(line.footprint.code)")
+            }
+        }
         print("  畫直線・四方 T3: 30 footprints × 2 directions inside the board — L 510–630 / 340 u, top 120.4, bottom 576.6, K, the parent corner and the status block clear")
     }
 

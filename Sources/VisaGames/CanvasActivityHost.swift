@@ -406,14 +406,13 @@ struct CanvasActivityHost: View {
                 ticketStars: usingPlaytest ? 1 : (model.selectedStars ?? 1),
                 pendingMinutes: pendingMinutes,
                 locked: justCompleted || board.isComplete,
-                notice: model.orientedLineNotice,
-                bubble: model.orientedLineBubble,
+                caption: model.orientedLineCaption,
                 now: model.now.timeIntervalSinceReferenceDate,
                 onSpeak: { speakPrompt() },
                 onDemoAgain: { model.orientedLineDemoAgain() },
                 onCommit: { next in model.orientedLineCommit(next) },
                 onDemoTouch: { model.orientedLineDemoTouch() },
-                onHelp: { help in model.orientedLineHelpShown(help) }
+                onHelp: { help, board in model.orientedLineHelpShown(help, on: board) }
             )
         }
     }

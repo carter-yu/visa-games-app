@@ -219,7 +219,30 @@ final class OrientedLineEngineTests {
                     expectTrue(after.dropFirst(before.count).allSatisfy(\.counted))
                     expectEqual(after.filter { !$0.counted }.count, faded)
                     expectEqual(b.frontier, 60, accuracy: 1e-9)
+                    // Drawn edges across the join: every edge up to and into the join point is faded; only edges
+                    // between two joined samples are counted.
+                    var crossed = 0
+                    for stroke in b.ink[0] where stroke.contains(where: \.counted) && stroke.contains(where: { !$0.counted }) {
+                        let join = stroke.firstIndex(where: \.counted) ?? 0
+                        expectTrue(join > 0 && stroke.suffix(from: join).allSatisfy(\.counted))
+                        for (index, edge) in OrientedLineInk.edges([stroke]).enumerated() {
+                            expectEqual(edge.counted, index >= join, "edge \(index) across the join at \(join)")
+                        }
+                        crossed += 1
+                    }
+                    expectEqual(crossed, form < 2 ? 1 : 0, "forms 0 and 1 join inside one stroke")
                 }
+                // The review's case: F = 0, touch at s 100, move back to s 0 — it joins there, and the 100 u it crossed
+                // to get there is drawn faded, not as counted ink.
+                b = OrientedLineBoard(question: q)
+                expectEqual(b.penDown(at: Self.at(line, 100), now: clock), .unjoined)
+                expectEqual(b.penMove(to: Self.at(line, 0), now: clock), .joined)
+                expectEqual(b.frontier, 0)
+                expectEqual(OrientedLineInk.edges(b.ink[0]).map(\.counted), [false])
+                Self.sweep(&b, line, from: 0, to: 40, clock: &clock)
+                let edges = OrientedLineInk.edges(b.ink[0])
+                expectEqual(edges.first?.counted, false)
+                expectTrue(edges.count > 1 && edges.dropFirst().allSatisfy(\.counted))
                 // #12 positive control: the car's body, then forward → done on the first sample at L − 10.
                 b = OrientedLineBoard(question: q)
                 expectEqual(b.penDown(at: Self.at(line, -30), now: clock), .joined)
@@ -379,7 +402,7 @@ final class OrientedLineEngineTests {
                 expectEqual(b.penDown(at: line.greenSign, now: clock), .joined)
                 var s = -130.0
                 var finished = false
-                while !finished {
+                while !finished, s < L + 1_000 {
                     s += 140
                     let move = b.penMove(to: Self.at(line, min(s, L)), now: clock)
                     if move == .lineDone(0) { finished = true }
@@ -565,6 +588,67 @@ final class OrientedLineEngineTests {
         print("  畫直線・四方 T14: the demo runs on its own route from the parked start to G for → ← ↗ ↙; a touch ends it unpainted; on-demand demos count as help")
     }
 
+    /// Astra code review minors 2 and 5: the line a help says comes from the board the child is drawing on (the view's
+    /// copy), not from an older commit; what is said is shown, and the caption hides as soon as F moves (design §6.2,
+    /// §6.4, Q8).
+    func testCoachingFollowsTheLiveBoardAndCaptionsHideAsFMoves() {
+        for v in Self.variants {
+            let q = Self.question([v, v, v])
+            let line = q.lines[0]
+            let plan = OrientedLineCoach.plan(level: .standard, learned: true)
+            var tally = OrientedLineGuideTally(question: q)
+            tally.startLine(learned: true, now: 0, demoLead: 0)
+            // One continuous stroke: to F = 100, off the road and back in ahead of the car, pen still down. The model's
+            // last commit is the empty board (F = 0).
+            let committed = OrientedLineBoard(question: q)
+            var live = committed
+            var clock = 1.0
+            Self.drawTo(&live, 100, clock: &clock)
+            expectEqual(live.penMove(to: Self.at(line, 110, q.halfWidth + 30), now: clock), .segmentEnded(.offRoad))
+            expectEqual(live.penMove(to: Self.at(line, 180), now: clock + 0.1), .neutral)
+            expectEqual(live.segment, .unjoined)
+            let ring = OrientedLineCoach.help(plan: plan, run: tally.run!, board: live, now: clock + 2.2)
+            Self.expectHelp(ring, .ring(.notJoined, from: 100, to: 280, since: clock + 2))
+            expectEqual(OrientedLineCopy.helpLine(ring, board: live), OrientedLineCopy.pause(v), "the way on, from F = 100")
+            expectEqual(OrientedLineCopy.helpLine(ring, board: committed), OrientedLineCopy.wrongStart(v),
+                        "the stale commit would have said to start at green")
+            // After a committed lift at F = 100, a new stroke held still: the pen is down, so no 「架車等緊你」.
+            var lifted = OrientedLineBoard(question: q)
+            var c2 = 1.0
+            Self.drawTo(&lifted, 100, clock: &c2)
+            lifted.penUp()
+            var holding = lifted
+            expectEqual(holding.penDown(at: Self.at(line, 90), now: c2 + 1), .joined)
+            let ghost = OrientedLineCoach.help(plan: plan, run: tally.run!, board: holding, now: c2 + 9.5)
+            if case .ghostToEnd = ghost {} else { preconditionFailure("ghost to the finish expected, got \(ghost)") }
+            expectNil(OrientedLineCopy.helpLine(ghost, board: holding))
+            expectEqual(OrientedLineCopy.helpLine(ghost, board: lifted), OrientedLineCopy.lifted)
+            expectEqual(OrientedLineCopy.helpLine(.redemo(since: 0), board: lifted), OrientedLineCopy.redemo)
+            expectEqual(OrientedLineCopy.helpLine(.ring(.offRoad, from: 0, to: 0, since: 0), board: live), ShapeTraceCopy.offPathPrompt)
+            // The caption: shown on the board it was said on, hidden as soon as F moves, or on another line.
+            let caption = OrientedLineCaption([OrientedLineCopy.pause(v)], on: holding)
+            expectTrue(caption.isShowing(on: holding))
+            var moved = holding
+            expectEqual(moved.penMove(to: Self.at(line, 100.5), now: c2 + 10), .earned)
+            expectFalse(caption.isShowing(on: moved), "hides as soon as F moves")
+            expectTrue(caption.isShowing(on: lifted), "a board before the move still shows it")
+            var next = moved
+            Self.sweep(&next, line, from: 100.5, to: line.length, clock: &c2)
+            expectEqual(next.lineIndex, 1)
+            expectFalse(caption.isShowing(on: next))
+            let arrival = OrientedLineCaption([OrientedLineCopy.arrive, OrientedLineCopy.cue(v)] + OrientedLineCopy.lineStart(v, demo: false),
+                                              on: next)
+            expectTrue(arrival.isShowing(on: next) && arrival.lines.count == 3)
+            expectFalse(OrientedLineCaption([], on: next).isShowing(on: next))
+            // A line's start: the demo's three lines, or its start words (「打橫，向左！」 on ←).
+            expectEqual(OrientedLineCopy.lineStart(v, demo: true),
+                        [OrientedLineCopy.demoWatch, OrientedLineCopy.demo(v), OrientedLineCopy.demoTurn])
+            expectEqual(OrientedLineCopy.lineStart(v, demo: false), [OrientedLineCopy.start(v)])
+        }
+        expectEqual(OrientedLineCopy.lineStart(.left, demo: false).map(\.traditionalChinese), ["打橫，向左！"])
+        print("  畫直線・四方 review m2 / m5: help lines from the live board (ring at F = 100 says the way on; a held pen never hears 「架車等緊你」); captions show what is said and hide as soon as F moves")
+    }
+
     // MARK: T16 (pure), T19, T20 (pure), T21
 
     func testHeldFinishStampsOnceForForwardAndReverse() {
@@ -650,72 +734,138 @@ final class OrientedLineEngineTests {
         print("  畫直線・四方 T19: 識咗 per oriented variant — two clean → mark only line.right; a helped ↙ resets only line.downLeft; 試玩 never writes")
     }
 
+    /// Draws every remaining line of `board` from its green sign to its red bar.
+    static func finishRound(_ board: inout OrientedLineBoard, clock: inout Double) {
+        var attempts = 0
+        while let line = board.currentLine, attempts < 12 {
+            attempts += 1
+            board.penUp()
+            expectEqual(board.penDown(at: line.greenSign, now: clock), .joined)
+            sweep(&board, line, from: -130, to: line.length, clock: &clock)
+        }
+        board.penUp()
+    }
+
+    /// T20 (the full matrix, Astra code review minor 3). For → ← ↗ ↙ and each 家長 change on its own deal — 線形 only,
+    /// 方向 only, 畫線提示 only, 畫線寬容度 only, all four, and dealt 少啲 with 多啲 saved — in the child's lane and in a
+    /// parent's 試玩: the round dealt with S1 is drawn to F ≈ L / 2, S2 is saved, and the open round keeps S1 in geometry,
+    /// corridor, guidance, prompts, facts and 識咗 to its stamp, with and without the held finish; the next deal takes S2.
     func testOpenRoundKeepsItsDealtSnapshot() {
         let suite = "VisaGames.orientedSnapshot.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let store = OrientedLineSettingsStore(defaults: defaults)
+        var cases = 0
         for v in Self.variants {
-            let s1 = OrientedLineSettings(lineShape: v.isHorizontal ? .across : .diagonal,
-                                          lineDirection: v.isRightward ? .rightward : .leftward, lineHelp: .standard,
-                                          tolerance: .narrow)
-            store.save(s1)
-            let q = OrientedLineGenerator.make(seed: "snap-\(v.rawValue)", settings: store.load())
-            expectEqual(q.dealt, s1)
-            expectTrue(q.lines.allSatisfy { $0.variant == v })
-            var b = OrientedLineBoard(question: q)
-            var tally = OrientedLineGuideTally(question: q)
-            var progress = OrientedLineGuideProgress()
-            tally.startLine(learned: progress.isLearned(v), now: 0, demoLead: 0)
-            var clock = 1.0
-            let line = q.lines[0]
-            Self.drawTo(&b, line.length / 2, clock: &clock)
-            let before = b
-            // 家長: every setting changes (also each alone), saved at once.
-            let s2 = OrientedLineSettings(lineShape: v.isHorizontal ? .diagonal : .across,
-                                          lineDirection: v.isRightward ? .leftward : .rightward, lineHelp: .less,
-                                          tolerance: .wide)
-            for changed in [s2, OrientedLineSettings(lineShape: s2.lineShape, lineDirection: s1.lineDirection,
-                                                     lineHelp: s1.lineHelp, tolerance: s1.tolerance),
-                            OrientedLineSettings(lineShape: s1.lineShape, lineDirection: s1.lineDirection,
-                                                 lineHelp: .less, tolerance: s1.tolerance), s2] {
-                store.save(changed)
+            let shape: OrientedLineShapeSetting = v.isHorizontal ? .across : .diagonal
+            let direction: OrientedLineDirectionSetting = v.isRightward ? .rightward : .leftward
+            let otherShape: OrientedLineShapeSetting = v.isHorizontal ? .diagonal : .across
+            let otherDirection: OrientedLineDirectionSetting = v.isRightward ? .leftward : .rightward
+            let s1 = OrientedLineSettings(lineShape: shape, lineDirection: direction, lineHelp: .standard, tolerance: .narrow)
+            var pairs: [(String, OrientedLineSettings, OrientedLineSettings)] = [
+                ("線形", s1, OrientedLineSettings(lineShape: otherShape, lineDirection: direction, lineHelp: .standard, tolerance: .narrow)),
+                ("方向", s1, OrientedLineSettings(lineShape: shape, lineDirection: otherDirection, lineHelp: .standard, tolerance: .narrow)),
+                ("畫線提示", s1, OrientedLineSettings(lineShape: shape, lineDirection: direction, lineHelp: .less, tolerance: .narrow)),
+                ("畫線寬容度", s1, OrientedLineSettings(lineShape: shape, lineDirection: direction, lineHelp: .standard, tolerance: .wide)),
+                ("all", s1, OrientedLineSettings(lineShape: otherShape, lineDirection: otherDirection, lineHelp: .less, tolerance: .wide))
+            ]
+            pairs.append(("少啲→多啲", OrientedLineSettings(lineShape: shape, lineDirection: direction, lineHelp: .less, tolerance: .wide),
+                          OrientedLineSettings(lineShape: shape, lineDirection: direction, lineHelp: .more, tolerance: .narrow)))
+            for (name, dealt, saved) in pairs {
+                for playtest in [false, true] {
+                    checkFreeze(v, dealt: dealt, saved: saved, name: name, playtest: playtest, store: store)
+                    cases += 1
+                }
             }
-            b.cancelStroke()
-            // (a) geometry: the same item, lines, variant, footprint, ends, signs and F.
-            expectEqual(b.question, before.question)
-            expectEqual(b.frontier, before.frontier)
-            expectEqual(b.halfWidth, 50, accuracy: 1e-9)
-            // (b) guidance follows S1: dealt 標準 still shows the pause after 2 s with 少啲 saved.
-            expectEqual(tally.level, .standard)
-            var resumed = b
-            expectEqual(resumed.penDown(at: Self.at(line, line.length / 2 - 5), now: clock), .joined)
-            let plan = OrientedLineCoach.plan(level: tally.level, learned: false)
-            Self.expectHelp(OrientedLineCoach.help(plan: plan, run: tally.run!, board: resumed, now: clock + 2.1),
-                            .pause(from: line.length / 2, to: min(line.length / 2 + 180, line.length - 15.5), since: clock + 2))
-            // (c) recorded facts carry S1.
-            let fields = PerfChoiceCatalog.facts(orientedLines: q).dealtFields
-            expectEqual(fields["line_help"], .string("standard"))
-            expectEqual(fields["tolerance"], .string("narrow"))
-            expectEqual(fields["line_shape"], .string(s1.lineShape.rawValue))
-            expectEqual(fields["line_direction"], .string(s1.lineDirection.rawValue))
-            expectEqual(resumed.resultFields(playtest: false)["tolerance"], .string("narrow"))
-            expectEqual(tally.resultFields["guide_level"], .string("standard"))
-            // (d) learning: only the dealt line's variant, judged by its own record.
-            tally.note(OrientedLineCoach.help(plan: plan, run: tally.run!, board: resumed, now: clock + 2.1))
-            progress = OrientedLineLearning.lineDone(progress, variant: line.variant, clean: tally.currentClean,
-                                                     lane: .child)!
-            expectEqual(progress.streak(v), 0)
-            expectEqual(progress.streaks.keys.sorted(), [v.learnKey])
-            // (f) the next deal uses S2 in every respect.
-            let next = OrientedLineGenerator.make(seed: "snap-next-\(v.rawValue)", settings: store.load())
-            expectEqual(next.dealt, s2)
-            expectTrue(next.lines.allSatisfy { $0.variant.isHorizontal == (s2.lineShape == .across) })
-            expectTrue(next.lines.allSatisfy { $0.variant.isRightward == (s2.lineDirection == .rightward) })
-            expectEqual(next.halfWidth, 110, accuracy: 1e-9)
-            expectEqual(OrientedLineGuideTally(question: next).level, .less)
         }
-        print("  畫直線・四方 T20 (pure): a round dealt with S1 keeps its geometry, corridor, guidance level, facts and 識咗 key after 家長 saves S2 for → ← ↗ ↙; the next deal takes S2")
+        expectEqual(cases, 48)
+        print("  畫直線・四方 T20 (pure, full matrix): \(cases) deals — → ← ↗ ↙ × (線形, 方向, 畫線提示, 寬容度, all, 少啲 dealt / 多啲 saved) × child and 試玩: geometry, corridor, guidance, facts and 識咗 keep S1 to the stamp, with and without the hold; the next deal takes S2")
+    }
+
+    private func checkFreeze(_ v: OrientedLineVariant, dealt s1: OrientedLineSettings, saved s2: OrientedLineSettings,
+                             name: String, playtest: Bool, store: OrientedLineSettingsStore) {
+        let label = "\(v.rawValue) \(name) \(playtest ? "試玩" : "child")"
+        store.save(s1)
+        let q = OrientedLineGenerator.make(seed: "freeze-\(v.rawValue)-\(name)-\(playtest)", settings: store.load())
+        expectEqual(q.dealt, s1, label)
+        expectTrue(q.lines.allSatisfy { $0.variant == v }, label)
+        var b = OrientedLineBoard(question: q)
+        var tally = OrientedLineGuideTally(question: q)
+        tally.startLine(learned: false, now: 0, demoLead: 0)
+        var clock = 2.0
+        let line = q.lines[0]
+        Self.drawTo(&b, line.length / 2, clock: &clock)
+        let before = b
+        // 家長: S2 saved at once; the parent lock ends the segment and keeps F.
+        store.save(s2)
+        expectEqual(store.load(), s2, label)
+        b.cancelStroke()
+        // (a) Geometry: item, lines, variants, footprints, ends, signs and F; the judged corridor from S1.
+        expectEqual(b.question, before.question, label)
+        expectEqual(b.question.itemID, q.itemID, label)
+        expectEqual(b.lines.map(\.footprint), before.lines.map(\.footprint), label)
+        expectEqual(b.lines.map(\.start), before.lines.map(\.start), label)
+        expectEqual(b.lines.map(\.greenSign), before.lines.map(\.greenSign), label)
+        expectEqual(b.frontier, before.frontier, label)
+        expectEqual(b.halfWidth, q.laneWidth * s1.tolerance.roadWidthFactor / 2, accuracy: 1e-9)
+        // (b) Guidance and prompts follow S1: the dealt level's plan and timings, never the saved one.
+        expectEqual(tally.level, s1.lineHelp, label)
+        var resumed = b
+        expectEqual(resumed.penDown(at: Self.at(line, line.length / 2 - 5), now: clock), .joined)
+        let plan = OrientedLineCoach.plan(level: tally.level, learned: false)
+        let early = OrientedLineCoach.help(plan: plan, run: tally.run!, board: resumed, now: clock + 1.1)
+        expectEqual(early, .none, "\(label): no pause help at 1.1 s (多啲 saved would show it)")
+        let paused = OrientedLineCoach.help(plan: plan, run: tally.run!, board: resumed, now: clock + 2.1)
+        if s1.lineHelp == .less {
+            expectEqual(paused, .none, "\(label): dealt 少啲 never shows the pause next-arrow")
+            expectTrue(OrientedLineCoach.headlights(plan: plan, line: line, frontier: resumed.frontier).isEmpty, label)
+        } else {
+            Self.expectHelp(paused, .pause(from: line.length / 2, to: min(line.length / 2 + 180, line.length - 15.5),
+                                          since: clock + 2))
+            expectEqual(OrientedLineCopy.helpLine(paused, board: resumed), OrientedLineCopy.pause(v), label)
+        }
+        expectEqual(resumed.question.prompt, before.question.prompt, label)
+        // (c) Recorded facts carry S1.
+        let fields = PerfChoiceCatalog.facts(orientedLines: resumed.question).dealtFields
+        expectEqual(fields["line_shape"], .string(s1.lineShape.rawValue), label)
+        expectEqual(fields["line_direction"], .string(s1.lineDirection.rawValue), label)
+        expectEqual(fields["line_help"], .string(s1.lineHelp.rawValue), label)
+        expectEqual(fields["tolerance"], .string(s1.tolerance.rawValue), label)
+        // (d) 識咗: only the dealt line's variant, judged by its own record; a 試玩 writes nothing.
+        if paused != .none { tally.note(paused) }
+        let learned = OrientedLineLearning.lineDone(OrientedLineGuideProgress(), variant: line.variant,
+                                                    clean: tally.currentClean, lane: playtest ? .playtest : .child)
+        if playtest {
+            expectNil(learned)
+        } else {
+            expectEqual(learned?.streaks.keys.sorted(), [v.learnKey])
+            expectEqual(learned?.streak(v), s1.lineHelp == .less ? 1 : 0)
+        }
+        // (e) Finishing: every line drawn, the record still S1; the child's stamp once, held or not.
+        var c2 = clock + 3
+        Self.finishRound(&resumed, clock: &c2)
+        expectTrue(resumed.isComplete, label)
+        let record = OrientedLineRecord.resultFields(board: resumed, guide: tally, playtest: playtest)
+        expectEqual(record["tolerance"], .string(s1.tolerance.rawValue), label)
+        expectEqual(record["guide_level"], .string(s1.lineHelp.rawValue), label)
+        expectEqual(record["shapes_done"], .int(3), label)
+        expectEqual(record["max_sample_gap_u"] == nil, !playtest, label)
+        if !playtest {
+            var held = ChildFinishHold()
+            expectFalse(held.finishesNow(q.itemID, mode: .parent))
+            expectEqual(held.release(openRound: q.itemID, mode: .lock), q.itemID)
+            expectNil(held.release(openRound: q.itemID, mode: .lock))
+            var direct = ChildFinishHold()
+            expectTrue(direct.finishesNow(q.itemID, mode: .lock))
+            expectEqual(PerfChoiceCatalog.facts(orientedLines: resumed.question).dealtFields["line_help"],
+                        .string(s1.lineHelp.rawValue), label)
+        }
+        // (f) The next deal takes S2 in every respect.
+        let next = OrientedLineGenerator.make(seed: "freeze-next-\(v.rawValue)-\(name)-\(playtest)", settings: store.load())
+        expectEqual(next.dealt, s2, label)
+        expectTrue(next.lines.allSatisfy { s2.variants.contains($0.variant) }, label)
+        expectEqual(next.halfWidth, next.laneWidth * s2.tolerance.roadWidthFactor / 2, accuracy: 1e-9)
+        expectEqual(OrientedLineGuideTally(question: next).level, s2.lineHelp, label)
     }
 
     func testNewCardStartsEmptyBesideAPopulatedOriginalCard() {

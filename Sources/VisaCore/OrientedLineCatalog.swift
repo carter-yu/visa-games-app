@@ -302,8 +302,12 @@ public enum OrientedLineLayout {
         ShapeTraceLayout.parentZone,
         LineMatchRect(x: 440, y: 580, width: 400, height: 140)
     ]
-    /// The progress row (→ ← ↗ ↙ icons, done ✓ / current / next) sits where today's progress dots do.
-    public static let status = ShapeTraceLayout.status
+    /// The 上方進度列 (DECISIONS Q6): the round's → ← ↗ ↙ (done ✓ / current / next), just under the header, where no
+    /// footprint's road or sign reaches.
+    public static let progressRow = LineMatchRect(x: 420, y: 122, width: 260, height: 50)
+    /// What is said, shown as it is said (and otherwise the lines left), in the tray between the status block's left edge
+    /// and the parent corner.
+    public static let caption = LineMatchRect(x: 440, y: 578, width: 610, height: 140)
 }
 
 // MARK: - Parent settings (design §3.2, §6.3, §8.2–8.3; C2, C3)
