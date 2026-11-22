@@ -208,8 +208,8 @@ final class AppModel: ObservableObject {
     private let orientedLineProgressStore = OrientedLineGuideProgressStore()
     /// A child round that came due under parent controls, held for its deal until Return (C6: this card only).
     private var orientedLineFinishHold = ChildFinishHold()
-    /// Help lines already said on the current line (each at most once a line).
-    private var orientedLineSpoken: Set<String> = []
+    /// Help lines already said on each lane's current line (each at most once a line); the child's and a 試玩's apart.
+    private var orientedLineSpoken = OrientedLineSpokenLines()
     /// v0.28.0 一架一架數 child board (點一點 / 數完畫 / 揀啱數). Nil on every other kind.
     @Published private(set) var tapCountBoard: TapCountBoard?
     @Published private(set) var tapLetterWriteRound: TapLetterWriteRound?
@@ -1083,7 +1083,7 @@ final class AppModel: ObservableObject {
         orientedLineBoard = kind == .traceOrientedLines
             ? makeOrientedLineBoard(seed: seed, avoidingItem: lastDealtItem[kind]) : nil
         orientedLineGuide = orientedLineBoard.map { OrientedLineGuideTally(question: $0.question) }
-        resetOrientedLineTransient()
+        resetOrientedLineTransient(lane: .child)
         tapCountBoard = kind.isTapCountFamily ? makeTapCountBoard(
             seed: seed, kind: kind, avoidingItem: lastDealtItem[kind]) : nil
         tapLetterBoard = preparedLetterBoard?.letter
@@ -3166,7 +3166,7 @@ final class AppModel: ObservableObject {
         playtestOrientedLineBoard = kind == .traceOrientedLines
             ? makeOrientedLineBoard(seed: playtestChoiceDealSeed, avoidingItem: nil) : nil
         playtestOrientedLineGuide = playtestOrientedLineBoard.map { OrientedLineGuideTally(question: $0.question) }
-        resetOrientedLineTransient()
+        resetOrientedLineTransient(lane: .playtest)
         if kind == .traceOrientedLines { orientedLineStartLine(playtest: true, lead: Self.orientedLineFirstLineLead) }
         playtestTapCountBoard = kind.isTapCountFamily
             ? makeTapCountBoard(seed: playtestChoiceDealSeed, kind: kind, avoidingItem: nil) : nil
@@ -6208,9 +6208,11 @@ extension AppModel {
                                                                avoidingItem: avoidingItem))
     }
 
-    private func resetOrientedLineTransient() {
+    /// A new round on `lane`: the caption on screen goes, and that lane's said lines start again; the other lane's
+    /// record stays (a 試玩 never clears or fills the child's, design §6.4).
+    private func resetOrientedLineTransient(lane: OrientedLineLane) {
         orientedLineCaption = nil
-        orientedLineSpoken = []
+        orientedLineSpoken.newLine(lane)
     }
 
     /// A line becomes current: its plan from the dealt 畫線提示 and the variant's 識咗 now (the child's record; a 試玩
@@ -6223,7 +6225,7 @@ extension AppModel {
         guide.startLine(learned: orientedLineProgress.isLearned(line.variant), now: Date().timeIntervalSinceReferenceDate,
                         demoLead: lead)
         if playtest { playtestOrientedLineGuide = guide } else { orientedLineGuide = guide }
-        orientedLineSpoken = []
+        orientedLineSpoken.newLine(playtest ? .playtest : .child)
     }
 
     /// Says `lines` and shows them as they are said, on the board they belong to (Q8, design §6.4): one state drives both
@@ -6368,7 +6370,8 @@ extension AppModel {
         guard guide.note(help) else { return }
         if case .redemo = help { guide.redemo(now: Date().timeIntervalSinceReferenceDate, lead: Self.orientedLineDemoLead) }
         if playtest { playtestOrientedLineGuide = guide } else { orientedLineGuide = guide }
-        if let prompt = OrientedLineCopy.helpLine(help, board: snapshot), orientedLineSpoken.insert(prompt.key).inserted {
+        if let prompt = OrientedLineCopy.helpLine(help, board: snapshot),
+           orientedLineSpoken.firstTime(prompt.key, lane: playtest ? .playtest : .child) {
             var said = [prompt]
             if case .redemo = help { said += OrientedLineCopy.lineStart(line.variant, demo: true) }
             orientedLineSay(said, on: snapshot, interrupt: true)

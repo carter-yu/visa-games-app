@@ -159,6 +159,17 @@ final class OrientedLineWiringTests {
         expectTrue(help.contains("OrientedLineCopy.helpLine(help, board: snapshot)"))
         expectTrue(help.contains("orientedLineSay(said, on: snapshot, interrupt: true)"))
         expectFalse(help.contains("board.frontier") || help.contains("board.penIsDown"), "the line is chosen in VisaCore, from the snapshot")
+        // Said once a line per lane (design §6.4, recheck m2): a 試玩 keeps its own record and never clears the child's.
+        expectTrue(help.contains("orientedLineSpoken.firstTime(prompt.key, lane: playtest ? .playtest : .child)"))
+        expectTrue(body(of: "private func orientedLineStartLine(", in: model)
+            .contains("orientedLineSpoken.newLine(playtest ? .playtest : .child)"))
+        expectTrue(body(of: "private func resetOrientedLineTransient(lane: OrientedLineLane)", in: model)
+            .contains("orientedLineSpoken.newLine(lane)"))
+        expectTrue(body(of: "func startPlaytest(kind: ActivityKind)", in: model).contains("resetOrientedLineTransient(lane: .playtest)"))
+        expectEqual(count("resetOrientedLineTransient(lane: .child)", in: model), 1)
+        expectEqual(count("resetOrientedLineTransient(lane: .playtest)", in: model), 1)
+        expectTrue(model.contains("private var orientedLineSpoken = OrientedLineSpokenLines()"))
+        expectEqual(count("orientedLineSpoken", in: model), 4)
         let view = try source("Sources/VisaGames/OrientedLineBoardView.swift")
         expectTrue(view.contains("if key != nil { view.onHelp(help, board) }"))
         let rows = body(of: "private var captionRows:", in: view)
@@ -198,6 +209,15 @@ final class OrientedLineWiringTests {
         expectTrue(ordered("OrientedLineDrawing.clipToGuidance(line, in: &g)", "OrientedLineDrawing.help(", in: guidance))
         expectTrue(guidance.contains(".overlay(alignment: .topLeading) {\n            stageCanvas { g in OrientedLineDrawing.bars(line, in: &g) }"),
                    "the bars stay above the timed guidance")
+        // Recheck m3: the demo is drawn from the coach's frame (its fades after the drive, design §6.1), and a ghost to
+        // the finish under Reduce Motion as the coach's lit stretch (design §6.2).
+        expectTrue(guidance.contains("OrientedLineCoach.demoFrame(line: line, run: run, now: clock, reduceMotion: reduce)"))
+        expectTrue(guidance.contains("lit: OrientedLineCoach.litStretch(help, line: line, now: clock, reduceMotion: reduce),"))
+        expectFalse(view.contains("demoPending(now: view.now)"), "the demo is not cut off when its drive ends")
+        let demo = body(of: "static func demo(", in: view)
+        expectTrue(demo.contains("glow.opacity(frame.routeOpacity)") && demo.contains("if let ghost = frame.ghost"))
+        let helpDrawing = body(of: "static func help(", in: view)
+        expectTrue((helpDrawing.components(separatedBy: "case .ghostToEnd:").last ?? "").contains("if let lit {"))
         expectTrue(ordered("clipToGuidance(line, in: &layer)", "layer.stroke(", in: body(of: "static func staticGuidance(", in: view)))
         let clip = body(of: "static func clipToGuidance(", in: view)
         expectTrue(clip.contains("let G = line.guidanceLimit") && clip.contains("g.clip(to: half)"))

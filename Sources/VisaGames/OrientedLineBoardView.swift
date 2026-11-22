@@ -64,8 +64,6 @@ private struct OrientedLineStageContent: View {
         return OrientedLineCoach.help(plan: run.plan, run: run, board: board, now: view.now)
     }
 
-    private var demoPlaying: Bool { run?.demoPending(now: view.now) == true }
-
     /// The 20 s voice re-prompt where the level has no re-demo (少啲); 多啲 / 標準 re-demo through the coach.
     private var idleDue: Bool {
         guard let last = lastInputAt, !view.locked, !board.isComplete, !dragSeen, run?.plan.redemoSeconds == nil else {
@@ -224,21 +222,20 @@ private struct OrientedLineStageContent: View {
         let scale = metrics.scale
         let frontier = self.frontier
         let reduce = reduceMotion
-        let start = run?.demoStartedAt
-        let pending = demoPlaying
+        let run = self.run
         return TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
             let clock = timeline.date.timeIntervalSinceReferenceDate
             Canvas { context, _ in
                 var g = context
                 g.scaleBy(x: scale, y: scale)
                 OrientedLineDrawing.clipToGuidance(line, in: &g)
-                if pending, let start {
-                    let t = clock - start
-                    OrientedLineDrawing.demo(line, ghost: OrientedLineCoach.demoGhost(line: line, t: max(t, 0), reduceMotion: reduce),
-                                             showRoute: t >= 0, in: &g)
+                // The demo on its own route, then its fades once the drive is over (design §6.1).
+                if let run, let frame = OrientedLineCoach.demoFrame(line: line, run: run, now: clock, reduceMotion: reduce) {
+                    OrientedLineDrawing.demo(line, frame: frame, in: &g)
                 }
                 OrientedLineDrawing.help(help, line: line, frontier: frontier,
                                          ghost: OrientedLineCoach.ghost(help, line: line, now: clock, reduceMotion: reduce),
+                                         lit: OrientedLineCoach.litStretch(help, line: line, now: clock, reduceMotion: reduce),
                                          in: &g)
             }
             .frame(width: metrics.u(1280), height: metrics.u(720))
@@ -476,9 +473,10 @@ enum OrientedLineDrawing {
         }
     }
 
-    /// The pause (glow, big chevrons, one ghost run) or the ring (on the car, with the forward glow; no trail).
+    /// The pause (glow, big chevrons, one ghost run), the ring (on the car, with the forward glow; no trail), or a ghost
+    /// to the finish (its ghost run, or with Reduce Motion the lit stretch `lit` instead).
     static func help(_ help: OrientedLineHelp, line: OrientedLine, frontier: Double, ghost: OrientedLineGhost?,
-                     in g: inout GraphicsContext) {
+                     lit: ClosedRange<Double>?, in g: inout GraphicsContext) {
         switch help {
         case .none, .redemo:
             return
@@ -502,19 +500,23 @@ enum OrientedLineDrawing {
                 g.stroke(ring, with: .color(Color(hex: 0xF5B82E)), style: StrokeStyle(lineWidth: 5, dash: [10, 9]))
             }
         case .ghostToEnd:
-            break
+            // Reduce Motion: guidance is static and the ghost becomes this lit stretch [F, G] (design §6.2).
+            if let lit {
+                g.stroke(segment(line, from: lit.lowerBound, to: lit.upperBound), with: .color(Self.glow),
+                         style: StrokeStyle(lineWidth: 54, lineCap: .butt))
+            }
         }
         if let ghost { ghostCar(line, ghost: ghost, in: &g) }
     }
 
-    /// The demo: its own route glow to G (butt cap) and the ghost car, never the child's tint or ink.
-    static func demo(_ line: OrientedLine, ghost: OrientedLineGhost, showRoute: Bool, in g: inout GraphicsContext) {
-        if showRoute {
-            let route = OrientedLineCoach.demoRoute(line: line)
-            g.stroke(segment(line, from: route.lowerBound, to: route.upperBound), with: .color(glow.opacity(0.8)),
+    /// The demo: its own route glow to G (butt cap) and the ghost car at the frame's opacities (both fade once the drive
+    /// is over, design §6.1); never the child's tint or ink.
+    static func demo(_ line: OrientedLine, frame: OrientedLineDemoFrame, in g: inout GraphicsContext) {
+        if let route = frame.route {
+            g.stroke(segment(line, from: route.lowerBound, to: route.upperBound), with: .color(glow.opacity(frame.routeOpacity)),
                      style: StrokeStyle(lineWidth: 54, lineCap: .butt))
         }
-        ghostCar(line, ghost: ghost, in: &g)
+        if let ghost = frame.ghost { ghostCar(line, ghost: ghost, in: &g) }
     }
 
     /// A pale, dashed ghost taxi with its nose at `ghost.nose` (its outline reaches `ghost.front`), under the child's car.

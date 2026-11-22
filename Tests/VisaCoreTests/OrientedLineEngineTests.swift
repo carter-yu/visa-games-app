@@ -623,7 +623,8 @@ final class OrientedLineEngineTests {
             lifted.penUp()
             var holding = lifted
             expectEqual(holding.penDown(at: Self.at(line, 90), now: c2 + 1), .joined)
-            let ghost = OrientedLineCoach.help(plan: plan, run: tally.run!, board: holding, now: c2 + 9.5)
+            // 0.5 s into the ghost's single run (it starts 8 s after the last progress, at c2 + 8).
+            let ghost = OrientedLineCoach.help(plan: plan, run: tally.run!, board: holding, now: c2 + 8.5)
             if case .ghostToEnd = ghost {} else { preconditionFailure("ghost to the finish expected, got \(ghost)") }
             expectNil(OrientedLineCopy.helpLine(ghost, board: holding))
             expectEqual(OrientedLineCopy.helpLine(ghost, board: lifted), OrientedLineCopy.lifted)
@@ -651,6 +652,172 @@ final class OrientedLineEngineTests {
         }
         expectEqual(OrientedLineCopy.lineStart(.left, demo: false).map(\.traditionalChinese), ["打橫，向左！"])
         print("  畫直線・四方 review m2 / m5: help lines from the live board (ring at F = 100 says the way on; a held pen never hears 「架車等緊你」); captions show what is said and hide as soon as F moves")
+    }
+
+    /// Astra recheck minor 1 (design §5.1, §6.2): the ghost to the finish runs once, and recovery guidance never waits
+    /// on it. After its run an unjoined or off-road pen gets its ring, and a still, joined pen its pause glow again.
+    func testRecoveryRingAfterTheGhostToTheFinish() {
+        for v in Self.variants {
+            // 少啲 (no pause help, ghost after 8 s, no re-demo): draw to F = 100, lift, touch ahead at s 200 at t = 30.
+            let q = Self.question([v, v, v], help: .less)
+            let line = q.lines[0]
+            let G = line.length - 15.5
+            let less = OrientedLineCoach.plan(level: .less, learned: false)
+            var tally = OrientedLineGuideTally(question: q)
+            tally.startLine(learned: false, now: 0, demoLead: 0)
+            var b = OrientedLineBoard(question: q)
+            var clock = 1.0
+            Self.drawTo(&b, 100, clock: &clock)
+            b.penUp()
+            let ghostAt = (b.lastProgressAt ?? 0) + 8
+            let shown = OrientedLineCoach.ghostToEndShownSeconds(line: line, from: 100, to: G)
+            expectTrue(shown >= 0.75 && shown < 5)
+            let running = OrientedLineCoach.help(plan: less, run: tally.run!, board: b, now: ghostAt + 0.3)
+            Self.expectHelp(running, .ghostToEnd(from: 100, to: G, since: ghostAt))
+            expectTrue(OrientedLineCoach.ghost(running, line: line, now: ghostAt + 0.3) != nil, "\(v): the ghost runs")
+            // After its run the ghost is over: nothing with the pen up, never the stale ghost.
+            expectEqual(OrientedLineCoach.help(plan: less, run: tally.run!, board: b, now: ghostAt + shown + 0.01), .none)
+            expectEqual(OrientedLineCoach.help(plan: less, run: tally.run!, board: b, now: 20), .none)
+            expectEqual(b.penDown(at: Self.at(line, 200), now: 30), .unjoined)
+            expectEqual(OrientedLineCoach.help(plan: less, run: tally.run!, board: b, now: 31.9), .none)
+            let ring = OrientedLineCoach.help(plan: less, run: tally.run!, board: b, now: 32.1)
+            Self.expectHelp(ring, .ring(.notJoined, from: 100, to: 280, since: 32))
+            expectEqual(OrientedLineCopy.helpLine(ring, board: b), OrientedLineCopy.pause(v), "\(v): the way on from the car")
+            // 標準, pen held on the road past the ghost's start, then off the road (pen still down): the ring, not the ghost.
+            let qs = Self.question([v, v, v])
+            let ls = qs.lines[0]
+            let standard = OrientedLineCoach.plan(level: .standard, learned: true)
+            var ts = OrientedLineGuideTally(question: qs)
+            ts.startLine(learned: true, now: 0, demoLead: 0)
+            var d = OrientedLineBoard(question: qs)
+            var c2 = 1.0
+            Self.drawTo(&d, 100, clock: &c2)
+            let since = (d.lastProgressAt ?? 0) + 8
+            let Gs = ls.length - 15.5
+            Self.expectHelp(OrientedLineCoach.help(plan: standard, run: ts.run!, board: d, now: since + 0.3),
+                            .ghostToEnd(from: 100, to: Gs, since: since))
+            // Held still after the run: the pause glow again (since its 2 s), not the expired ghost.
+            let held = OrientedLineCoach.help(plan: standard, run: ts.run!, board: d,
+                                              now: since + OrientedLineCoach.ghostToEndShownSeconds(line: ls, from: 100, to: Gs) + 0.01)
+            Self.expectHelp(held, .pause(from: 100, to: 280, since: (d.lastProgressAt ?? 0) + 2))
+            expectEqual(d.penMove(to: Self.at(ls, 110, qs.halfWidth + 30), now: 12), .segmentEnded(.offRoad))
+            expectEqual(OrientedLineCoach.help(plan: standard, run: ts.run!, board: d, now: 13.9), .none)
+            let road = OrientedLineCoach.help(plan: standard, run: ts.run!, board: d, now: 14.1)
+            Self.expectHelp(road, .ring(.offRoad, from: 100, to: 280, since: 14))
+            expectEqual(OrientedLineCopy.helpLine(road, board: d), ShapeTraceCopy.offPathPrompt)
+            expectNil(OrientedLineCoach.ghost(road, line: ls, now: 14.1))
+            // A ring that comes due while the ghost runs takes over at once (recovery first).
+            var early = OrientedLineBoard(question: qs)
+            var c3 = 1.0
+            Self.drawTo(&early, 100, clock: &c3)
+            let start = (early.lastProgressAt ?? 0) + 8
+            expectEqual(early.penMove(to: Self.at(ls, 110, qs.halfWidth + 30), now: start - 2), .segmentEnded(.offRoad))
+            Self.expectHelp(OrientedLineCoach.help(plan: standard, run: ts.run!, board: early, now: start + 0.1),
+                            .ring(.offRoad, from: 100, to: 280, since: start))
+        }
+        print("  畫直線・四方 recheck m1: the ghost to the finish runs once; afterwards 少啲's touch ahead gets the 2 s ring (t 32.1), 標準's off-road pen the trace.offroad ring, a held pen its pause glow")
+    }
+
+    /// Astra recheck minor 3 (design §6.1, §6.2): the demo's route and ghost fade after the drive (1.5 s / 0.6 s), a
+    /// touch removes them at once; with Reduce Motion the demo is in its end pose with the route lit, and a ghost to the
+    /// finish is a lit stretch [F, G] instead of a ghost.
+    func testDemoFadesAndTheReduceMotionLitStretch() {
+        for v in Self.variants {
+            let q = Self.question([v, v, v])
+            let line = q.lines[0]
+            let G = line.guidanceLimit
+            expectEqual(G, line.length - 15.5, accuracy: 1e-9)
+            var tally = OrientedLineGuideTally(question: q)
+            tally.startLine(learned: false, now: 10, demoLead: 0.5)
+            let run = tally.run!
+            let driveEnd = 10.5 + OrientedLineCoach.demoSeconds
+            expectEqual(OrientedLineCoach.demoRouteFadeSeconds, 1.5, accuracy: 1e-9)
+            expectEqual(OrientedLineCoach.demoGhostFadeSeconds, 0.6, accuracy: 1e-9)
+            func frame(_ now: Double, reduce: Bool = false) -> OrientedLineDemoFrame? {
+                OrientedLineCoach.demoFrame(line: line, run: run, now: now, reduceMotion: reduce)
+            }
+            // Lead-in: parked at the start, no route yet. Drive: the route lit at full strength.
+            expectEqual(frame(10.2)?.ghost?.nose ?? -1, 0, accuracy: 1e-9)
+            expectNil(frame(10.2)?.route)
+            let driving = frame(11.2)
+            expectEqual(driving?.route, 0...G)
+            expectEqual(driving?.routeOpacity ?? 0, 0.8, accuracy: 1e-9)
+            expectTrue((driving?.ghost?.front ?? 0) > 1.35 && (driving?.ghost?.front ?? .infinity) < G)
+            // After the drive: parked at G, the ghost fading over 0.6 s and the route over 1.5 s.
+            let fading = frame(driveEnd + 0.3)
+            expectEqual(fading?.ghost?.front ?? 0, G, accuracy: 1e-9)
+            expectEqual(fading?.ghost?.opacity ?? 0, 0.5, accuracy: 1e-9)
+            expectEqual(fading?.route, 0...G)
+            expectEqual(fading?.routeOpacity ?? 0, 0.8 * 0.8, accuracy: 1e-9)
+            expectNil(frame(driveEnd + 0.61)?.ghost)
+            expectEqual(frame(driveEnd + 0.61)?.routeOpacity ?? 0, 0.8 * (1 - 0.61 / 1.5), accuracy: 1e-9)
+            expectNil(frame(driveEnd + 1.51))
+            var last = (ghost: 1.0, route: 0.8)
+            for step in 0...30 {
+                guard let f = frame(driveEnd + Double(step) * 0.05) else { continue }
+                expectTrue((f.ghost?.opacity ?? 0) <= last.ghost + 1e-9 && f.routeOpacity <= last.route + 1e-9, "fades only down")
+                last = (f.ghost?.opacity ?? 0, f.routeOpacity)
+            }
+            // A touch ends the demo at once: nothing fades.
+            var skipped = OrientedLineGuideTally(question: q)
+            skipped.startLine(learned: false, now: 10, demoLead: 0.5)
+            expectTrue(skipped.touch(now: 10.8))
+            expectNil(OrientedLineCoach.demoFrame(line: line, run: skipped.run!, now: 10.9))
+            expectNil(OrientedLineCoach.demoFrame(line: line, run: skipped.run!, now: driveEnd + 0.3))
+            // No demo (識咗 at 標準): nothing to draw. An on-demand demo draws again.
+            var learned = OrientedLineGuideTally(question: q)
+            learned.startLine(learned: true, now: 10, demoLead: 0.5)
+            expectNil(OrientedLineCoach.demoFrame(line: line, run: learned.run!, now: 11))
+            learned.demoOnDemand(now: 20, lead: 0.3)
+            expectEqual(OrientedLineCoach.demoFrame(line: line, run: learned.run!, now: 21)?.route, 0...G)
+            // Reduce Motion: the end pose with the route lit during the drive, then the same fades.
+            expectEqual(frame(11.2, reduce: true)?.ghost?.front ?? 0, G, accuracy: 1e-9)
+            expectEqual(frame(11.2, reduce: true)?.route, 0...G)
+            expectEqual(frame(driveEnd + 0.3, reduce: true), fading)
+            // A ghost to the finish: a ghost run, or with Reduce Motion the lit stretch [F, G] and no ghost.
+            let toEnd = OrientedLineHelp.ghostToEnd(from: 100, to: G, since: 50)
+            let shown = OrientedLineCoach.ghostToEndShownSeconds(line: line, from: 100, to: G)
+            expectTrue(OrientedLineCoach.ghost(toEnd, line: line, now: 50.2) != nil)
+            expectNil(OrientedLineCoach.litStretch(toEnd, line: line, now: 50.2, reduceMotion: false))
+            expectNil(OrientedLineCoach.ghost(toEnd, line: line, now: 50.2, reduceMotion: true))
+            expectEqual(OrientedLineCoach.litStretch(toEnd, line: line, now: 50.2, reduceMotion: true), 100...G)
+            expectEqual(OrientedLineCoach.litStretch(toEnd, line: line, now: 50 + shown - 1e-6, reduceMotion: true), 100...G)
+            expectNil(OrientedLineCoach.litStretch(toEnd, line: line, now: 50 + shown + 0.01, reduceMotion: true))
+            expectNil(OrientedLineCoach.litStretch(toEnd, line: line, now: 49.9, reduceMotion: true))
+            // The pause's lit stretch is its glow [F, T]; under Reduce Motion it has no ghost and no extra stretch.
+            let pause = OrientedLineHelp.pause(from: 100, to: 280, since: 50)
+            expectNil(OrientedLineCoach.ghost(pause, line: line, now: 50.2, reduceMotion: true))
+            expectNil(OrientedLineCoach.litStretch(pause, line: line, now: 50.2, reduceMotion: true))
+            expectEqual(OrientedLineCoach.glow(line: line, frontier: 100), 100...280)
+        }
+        print("  畫直線・四方 recheck m3: the demo route fades over 1.5 s and its ghost over 0.6 s after the drive (a touch removes both); Reduce Motion: the end pose with the route lit, and a lit stretch [F, G] for the ghost to the finish")
+    }
+
+    /// Astra recheck minor 2 (design §6.4): each help line is said once a line, per lane. A parent's 試玩 neither fills
+    /// nor clears the child's record.
+    func testSpokenLinesArePerLane() {
+        var spoken = OrientedLineSpokenLines()
+        let pause = OrientedLineCopy.pause(.right).key
+        expectTrue(spoken.firstTime(pause, lane: .child))
+        expectFalse(spoken.firstTime(pause, lane: .child), "once a line")
+        // A 試玩 of the same variant says its own first line, and starting it again keeps the child's record.
+        expectTrue(spoken.firstTime(pause, lane: .playtest))
+        spoken.newLine(.playtest)
+        expectTrue(spoken.hasSaid(pause, lane: .child))
+        expectFalse(spoken.firstTime(pause, lane: .child), "a 試玩 never clears the child's record")
+        // The child's next line may say it again; the 試玩's record is its own.
+        expectTrue(spoken.firstTime(pause, lane: .playtest))
+        spoken.newLine(.child)
+        expectFalse(spoken.hasSaid(pause, lane: .child))
+        expectTrue(spoken.hasSaid(pause, lane: .playtest))
+        expectTrue(spoken.firstTime(pause, lane: .child))
+        // A key the 試玩 said first never suppresses the child's first saying (and its caption).
+        var fresh = OrientedLineSpokenLines()
+        let wrong = OrientedLineCopy.wrongStart(.left).key
+        expectTrue(fresh.firstTime(wrong, lane: .playtest))
+        expectFalse(fresh.hasSaid(wrong, lane: .child))
+        expectTrue(fresh.firstTime(wrong, lane: .child))
+        print("  畫直線・四方 recheck m2: help lines said once a line per lane — a 試玩 never fills or clears the child's record")
     }
 
     // MARK: T16 (pure), T19, T20 (pure), T21

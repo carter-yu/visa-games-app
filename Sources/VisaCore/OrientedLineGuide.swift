@@ -50,6 +50,14 @@ public struct OrientedLineGhost: Sendable, Equatable {
     public var nose: Double { front - OrientedLineCoach.ghostOutline }
 }
 
+/// The demo at one moment: its ghost (nil once it has faded) and its own route glow [0, G] (nil once faded) with the
+/// route's opacity.
+public struct OrientedLineDemoFrame: Equatable, Sendable {
+    public let ghost: OrientedLineGhost?
+    public let route: ClosedRange<Double>?
+    public let routeOpacity: Double
+}
+
 public enum OrientedLineCoach {
     /// The pause arrow reaches this far ahead of F (T = min(F + 180, G)).
     public static let pauseReach: Double = 180
@@ -137,13 +145,16 @@ public enum OrientedLineCoach {
         if let redemo = plan.redemoSeconds, idle >= redemo, !board.penIsDown {
             return .redemo(since: lastMove + redemo)
         }
-        if let ghost = plan.ghostToEndSeconds, idle >= ghost, limit - frontier >= ghostMinimumRun - 1e-9 {
-            return .ghostToEnd(from: frontier, to: limit, since: lastMove + ghost)
-        }
+        // Recovery comes first (design §5.1, §6.2): a pen down off the road or not joined gets its ring whatever ran
+        // before it, and the ghost to the finish is a single run that never stands in for later guidance.
         if let away = board.away(now: now) {
             let since = (away == .offRoad ? board.offRoadSince : board.awaySince) ?? now
             return .ring(away, from: frontier, to: pauseTarget(line: line, frontier: frontier),
                          since: since + OrientedLineBoard.hintAfterSeconds)
+        }
+        if let ghost = plan.ghostToEndSeconds, idle >= ghost, limit - frontier >= ghostMinimumRun - 1e-9,
+           now - (lastMove + ghost) <= ghostToEndShownSeconds(line: line, from: frontier, to: limit) {
+            return .ghostToEnd(from: frontier, to: limit, since: lastMove + ghost)
         }
         if let stall = plan.stallSeconds, board.segment == .joined {
             let since = max(lastMove, board.joinedAt ?? -Double.infinity)
@@ -154,24 +165,76 @@ public enum OrientedLineCoach {
         return .none
     }
 
+    /// A ghost run lasts its drive and then fades out over another quarter of it.
+    static let ghostRunTail = 1.25
+
+    /// The drive of a ghost to the finish: the demo's pace, at least 0.6 s.
+    public static func ghostToEndSeconds(line: OrientedLine, from: Double, to: Double) -> Double {
+        max(0.6, (to - from) / max(line.guidanceLimit / demoSeconds, 1))
+    }
+
+    /// How long a ghost to the finish is on screen from its start (drive and fade); after that the help is over.
+    public static func ghostToEndShownSeconds(line: OrientedLine, from: Double, to: Double) -> Double {
+        ghostRunTail * ghostToEndSeconds(line: line, from: from, to: to)
+    }
+
     /// The ghost of a pause (one 1.2 s run) or a ghost-to-the-finish help: its frontmost paint moves forward only, from
-    /// F to T ≤ G; nil when T − F < 20 u or after its run. With Reduce Motion it is shown at its end.
+    /// F to T ≤ G; nil when T − F < 20 u or after its run. With Reduce Motion there is no ghost: guidance is static and
+    /// the ghost becomes the lit stretch (design §6.2; the pause's glow, or `litStretch` for a ghost to the finish).
     public static func ghost(_ help: OrientedLineHelp, line: OrientedLine, now: Double,
                              reduceMotion: Bool = false) -> OrientedLineGhost? {
+        guard !reduceMotion else { return nil }
         let run: (from: Double, to: Double, since: Double, seconds: Double)
         switch help {
         case let .pause(from, to, since): run = (from, to, since, pauseGhostSeconds)
-        case let .ghostToEnd(from, to, since):
-            run = (from, to, since, max(0.6, (to - from) / max(line.guidanceLimit / demoSeconds, 1)))
+        case let .ghostToEnd(from, to, since): run = (from, to, since, ghostToEndSeconds(line: line, from: from, to: to))
         case .none, .ring, .redemo: return nil
         }
         let to = min(run.to, line.guidanceLimit)
         // 1e-9: a run of exactly 20 u (F = L − 35.5) still shows; positions come from projections.
         guard to - run.from >= ghostMinimumRun - 1e-9 else { return nil }
         let u = (now - run.since) / run.seconds
-        guard u >= 0, u <= 1.25 else { return nil }
-        let front = reduceMotion ? to : run.from + (to - run.from) * min(u, 1)
+        guard u >= 0, u <= ghostRunTail else { return nil }
+        let front = run.from + (to - run.from) * min(u, 1)
         return OrientedLineGhost(front: front, opacity: u > 1 ? max(0, 1 - (u - 1) * 4) : 1)
+    }
+
+    /// With Reduce Motion a ghost to the finish is the lit stretch [F, G] instead (design §6.2), on screen for as long
+    /// as the ghost's run would be. Nil otherwise (the pause's lit stretch is its glow).
+    public static func litStretch(_ help: OrientedLineHelp, line: OrientedLine, now: Double,
+                                  reduceMotion: Bool) -> ClosedRange<Double>? {
+        guard reduceMotion, case let .ghostToEnd(from, to, since) = help else { return nil }
+        let end = min(to, line.guidanceLimit)
+        guard end - from >= ghostMinimumRun - 1e-9, now >= since,
+              now - since <= ghostToEndShownSeconds(line: line, from: from, to: end) else { return nil }
+        return from...end
+    }
+
+    /// The demo route's glow at full strength, and the reused fades after the drive (design §6.1): the route over
+    /// 1.5 s, the ghost over 0.6 s.
+    public static let demoRouteOpacity = 0.8
+    public static var demoRouteFadeSeconds: Double { TapCountGuideData.timing.routeFadeSeconds }
+    public static var demoGhostFadeSeconds: Double { TapCountGuideData.timing.mergeSeconds }
+
+    /// The demo at `now` (design §6.1): parked at the start in the lead-in; driving to G with its own route lit; then,
+    /// once the drive is over, parked at G and fading, the route more slowly. A touch that ends the demo removes it at
+    /// once. With Reduce Motion it is shown in its end pose with the route lit, and fades the same way. Nil when nothing
+    /// of the demo is on screen.
+    public static func demoFrame(line: OrientedLine, run: TapCountGuideRun, now: Double,
+                                 reduceMotion: Bool = false) -> OrientedLineDemoFrame? {
+        guard let start = run.demoStartedAt, run.demoStoppedAt == nil, !run.isGlance else { return nil }
+        let t = now - start
+        if t < run.demoDuration {
+            return OrientedLineDemoFrame(ghost: demoGhost(line: line, t: max(t, 0), reduceMotion: reduceMotion),
+                                         route: t >= 0 ? demoRoute(line: line) : nil, routeOpacity: demoRouteOpacity)
+        }
+        let after = t - run.demoDuration
+        let ghostLeft = 1 - after / demoGhostFadeSeconds, routeLeft = 1 - after / demoRouteFadeSeconds
+        guard ghostLeft > 0 || routeLeft > 0 else { return nil }
+        let parked = demoGhost(line: line, t: demoSeconds)
+        return OrientedLineDemoFrame(ghost: ghostLeft > 0 ? OrientedLineGhost(front: parked.front, opacity: ghostLeft) : nil,
+                                     route: routeLeft > 0 ? demoRoute(line: line) : nil,
+                                     routeOpacity: routeLeft > 0 ? demoRouteOpacity * routeLeft : 0)
     }
 
     /// The demo ghost at `t` seconds into the demo: parked at the green start (nose at s = 0), then forward until its
@@ -346,6 +409,28 @@ public struct OrientedLineGuideProgress: Equatable, Sendable, Codable {
 public enum OrientedLineLane: Sendable, Equatable {
     case child
     case playtest
+}
+
+/// The help lines already said on each lane's current line, so each is said at most once a line (design §6.4). The
+/// lanes are kept apart: a parent's 試玩 never fills or clears the child's record, nor the child's the 試玩's.
+public struct OrientedLineSpokenLines: Equatable, Sendable {
+    private var said: [OrientedLineLane: Set<String>] = [:]
+
+    public init() {}
+
+    /// True the first time `key` is said on the lane's current line (and records it).
+    public mutating func firstTime(_ key: String, lane: OrientedLineLane) -> Bool {
+        said[lane, default: []].insert(key).inserted
+    }
+
+    /// A new line or a new deal on that lane: its lines may be said again. The other lane keeps its record.
+    public mutating func newLine(_ lane: OrientedLineLane) {
+        said[lane] = nil
+    }
+
+    public func hasSaid(_ key: String, lane: OrientedLineLane) -> Bool {
+        said[lane]?.contains(key) == true
+    }
 }
 
 public enum OrientedLineLearning {

@@ -270,6 +270,9 @@ struct TestRunner {
         orientedEngine.testGuidanceStaysBeforeTheFinishBar()
         orientedEngine.testDemoRouteAndTouchSkip()
         orientedEngine.testCoachingFollowsTheLiveBoardAndCaptionsHideAsFMoves()
+        orientedEngine.testRecoveryRingAfterTheGhostToTheFinish()
+        orientedEngine.testDemoFadesAndTheReduceMotionLitStretch()
+        orientedEngine.testSpokenLinesArePerLane()
         orientedEngine.testHeldFinishStampsOnceForForwardAndReverse()
         orientedEngine.testLearnedPerOrientedVariantInItsOwnStore()
         orientedEngine.testOpenRoundKeepsItsDealtSnapshot()
@@ -910,6 +913,6 @@ struct TestRunner {
         let macPDF = ""
         #endif
 
-        print("PASS: 1 oriented-line-regression + 6 oriented-line-core + 11 oriented-line-engine + 3 oriented-line-weekly + 4 oriented-line-wiring + 11 pattern-sort + 9 pattern-sort-round + 6 odd-one-out + 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 6 weekly-metrics + 9 weekly-ranking + 8 weekly-text + 9 weekly-report-html + 12 weekly-report-pdf + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match + 12 guided-line-match + 20 shape-trace + 25 tap-count + 8 tap-count-guide + 7 stroke-order + 5 latin-glyph + 10 hanzi-glyph + 11 hanzi-tap + 6 hanzi-find + 11 hanzi-write + 18 hanzi-parent + 6 letter-deal + 35 letter-picker + 26 parent-scroll + 3 tap-letter-board + 12 parent-youtube + 9 status-clock + 8 status-chip + 3 status-watch" + macPDF + " checks")
+        print("PASS: 1 oriented-line-regression + 6 oriented-line-core + 14 oriented-line-engine + 3 oriented-line-weekly + 4 oriented-line-wiring + 11 pattern-sort + 9 pattern-sort-round + 6 odd-one-out + 11 session + 10 reward-ledger + 8 reward-persistence + 6 theme-preference + 18 scoped-playback + 19 activity + 10 mission-game-assignment + 9 canvas + 4 voice + 4 pen-spark + 13 ux-p2-p3 + 8 wrong-answer-policy + 20 performance-log + 19 performance-review + 6 weekly-metrics + 9 weekly-ranking + 8 weekly-text + 9 weekly-report-html + 12 weekly-report-pdf + 8 provider-blocked + 2 save-failure + 21 question-generator + 5 actor-isolation + 3 kiosk-presentation + 17 line-match + 12 guided-line-match + 20 shape-trace + 25 tap-count + 8 tap-count-guide + 7 stroke-order + 5 latin-glyph + 10 hanzi-glyph + 11 hanzi-tap + 6 hanzi-find + 11 hanzi-write + 18 hanzi-parent + 6 letter-deal + 35 letter-picker + 26 parent-scroll + 3 tap-letter-board + 12 parent-youtube + 9 status-clock + 8 status-chip + 3 status-watch" + macPDF + " checks")
     }
 }
