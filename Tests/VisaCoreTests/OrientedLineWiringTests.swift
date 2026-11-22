@@ -207,6 +207,16 @@ final class OrientedLineWiringTests {
         expectFalse(signs.contains("rotate") || signs.contains("scaleBy"))
         expectTrue(signs.contains("g.draw(Text(OrientedLineCopy.startSign)") && signs.contains("g.draw(Text(OrientedLineCopy.finishSign)"))
         expectTrue(signs.contains("y: green.y - 15 + line.unit.y * 18"), "the start arrow sits above the word, along u")
+        // The arrow's tip is on the red side (+u) and its tail on the green side, so it never points back (M2b).
+        expectTrue(signs.contains("let tip = CGPoint(x: green.x + line.unit.x * 18, y: green.y - 15 + line.unit.y * 18)"))
+        expectTrue(signs.contains("let tail = CGPoint(x: green.x - line.unit.x * 18, y: green.y - 15 - line.unit.y * 18)"))
+        expectTrue(ordered("arrow.move(to: tail)", "arrow.addLine(to: tip)", in: signs))
+        // Every chevron is a ">" along +u: its point at s + half, its arms at s − half (M2c).
+        let chevron = body(of: "static func chevron(", in: view)
+        for part in ["path.move(to: at(line, s - half, -16 * k))", "path.addLine(to: at(line, s + half, 0))",
+                     "path.addLine(to: at(line, s - half, 16 * k))"] {
+            expectTrue(chevron.contains(part), part)
+        }
         let taxi = body(of: "static func taxi(", in: view)
         expectTrue(taxi.contains("let mirrored = !line.variant.isRightward"))
         expectTrue(taxi.contains("layer.scaleBy(x: mirrored ? -carScale : carScale, y: carScale)"))

@@ -436,6 +436,10 @@ final class OrientedLineEngineTests {
 
     func testGuidanceStaysBeforeTheFinishBar() {
         var checks = 0
+        // The static-chevron loop (F + 60 … L − 30) already keeps every ">" (±13 u) within [F, G = L − 15.5], so the paint
+        // filter in `staticChevrons` removes nothing with these constants (mutant M23e is equivalent); this pins the margins.
+        let reach = OrientedLineCoach.chevronReach()
+        expectTrue(OrientedLineCoach.chevronStart - reach >= 0 && OrientedLineCoach.chevronEndInset - reach >= 15.5)
         for v in Self.variants {
             for long in [false, true] {
                 let q = Self.question([v, v, v], long: long)
@@ -899,6 +903,17 @@ final class OrientedLineEngineTests {
         expectNil(playtests.load().playtestedOn(kind))
         expectFalse(playtests.load().allowsStars(for: kind))
         for star in ChildDifficulty.allCases { expectFalse(stars.load().isEnabled(kind, star: star)) }
+        // The upgrade path: a payload stored before this card existed has no key for it. Loading fills that key with no
+        // star, never with 畫直線 · 熱身's (the save above already wrote the new key, so drop it as 0.41 would have).
+        var legacy = ((try? JSONSerialization.jsonObject(with: defaults.data(forKey: MissionGameAssignmentStore.key) ?? Data()))
+            as? [String: Any]) ?? [:]
+        var byKind = (legacy["starsByKind"] as? [String: Any]) ?? [:]
+        expectTrue(byKind[kind.rawValue] != nil && byKind[ActivityKind.traceLines.rawValue] != nil)
+        byKind[kind.rawValue] = nil
+        legacy["starsByKind"] = byKind
+        defaults.set(try? JSONSerialization.data(withJSONObject: legacy), forKey: MissionGameAssignmentStore.key)
+        for star in ChildDifficulty.allCases { expectFalse(stars.load().isEnabled(kind, star: star), "upgrade: \(star)") }
+        expectTrue(stars.load().isEnabled(.traceLines, star: .easy))
         let learned = OrientedLineGuideProgressStore(defaults: defaults).load()
         for v in OrientedLineVariant.allCases {
             expectFalse(learned.isLearned(v))
