@@ -1,5 +1,21 @@
 # Progress
 
+## 2026-11-23 — v0.42.0 / 92 — 畫直線・四方: Astra recheck minors
+
+- Written by Claude Code on `feat/four-direction-lines` (local commits only; no push, no PR, no Mac mini). Astra's recheck of `f8bfa9f` (2026-11-22 14:32 HKT): READY WITH MINORS, 0 blocker / 0 major / 3 minor / 1 nit, for the Linux code-review scope only. Version unchanged (unreleased branch).
+- `b826a56`:
+  - Recovery after the ghost (design §5.1, §6.2): the coach checks the pen-down ring (off the road, or not joined for 2 s) before the ghost to the finish. It offers the ghost only while its single run is on screen. An expired ghost no longer hides later guidance.
+  - Said lines per lane (design §6.4): `OrientedLineSpokenLines` keeps the once-a-line record per lane, so a 試玩 never repeats or suppresses the child's lines and captions.
+  - Presentation (design §6.1, §6.2): `OrientedLineCoach.demoFrame` fades the demo route over 1.5 s and its ghost over 0.6 s after the drive; a touch still removes the demo at once. With Reduce Motion no ghost is drawn: a ghost to the finish becomes the lit stretch [F, G] (`litStretch`) and the pause keeps its glow.
+- Tests: three new engine tests:
+  - the cited 少啲 touch ahead (ring at t 32.1), a 標準 pen off the road after the ghost's start, a ring due during the ghost's run, and a held pen getting its pause glow back;
+  - demo fades, skip and Reduce Motion, and the lit stretch;
+  - per-lane said lines.
+
+  Also wiring guards for the lanes and the view's use of `demoFrame` / `litStretch`. The live-coaching test now asks for the ghost during its run. 12 reverse mutants that put back `f8bfa9f`'s behaviour each fail one of the new checks; each was restored from its original bytes (session `impl/mutants-recheck/`).
+- Verification (Linux box): `scripts/test.sh` EXIT=0 on the clean tree at `b826a56`, 52 groups / 548 checks (2026-11-23 01:09 HKT). The AppModel type-check harness passes with no warning, and its 8 compile-fail controls fail. The scratch-build summary was regenerated from the unchanged log: 16 instances of the single pre-existing `ProviderBlockedPolicy.swift:101` deprecation and their 16 continuation lines, no other warning. No macOS build, UI test or pixel check.
+- Next: an independent Astra recheck (not done).
+
 ## 2026-11-22 — v0.42.0 / 92 — 畫直線・四方: code-review fixes and the M1–M34 mutation campaign
 
 - Written by Claude Code on `feat/four-direction-lines` (local commits only; no push, no PR, no Mac mini). Astra's code review of `8b644f8` (2026-11-20 22:16 HKT): NOT READY, 0 blocker / 1 major / 5 minor / 0 nit. Version unchanged (unreleased branch).
