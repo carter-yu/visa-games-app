@@ -121,7 +121,9 @@ public enum QuestionGeneration {
         .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish,
         .tapLetterAll, .tapLetterWrite,
         // patterns-sorting (design §6.2): the three quiz cards.
-        .patternNext, .oddOneOut, .sortGarages
+        .patternNext, .oddOneOut, .sortGarages,
+        // 畫直線・四方 (0.42.0): seeded rounds; the next deal avoids the last item.
+        .traceOrientedLines
     ]
 
     public static let maxRerolls = 8

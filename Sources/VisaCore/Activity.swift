@@ -91,6 +91,10 @@ public enum ActivityKind: String, CaseIterable, Sendable, Codable, Equatable, Ha
     case oddOneOut
     /// 分類 · 分車房 / Sorting · Two garages: park each vehicle in its garage (P4). Pure core only.
     case sortGarages
+    /// 畫直線・四方 / Straight lines · Four ways (0.42.0; four-direction design): → ← ↗ ↙ lines, green = the actual start,
+    /// one line at a time, connected coverage. Its own card beside 畫直線 · 熱身, which it never changes: own settings,
+    /// 試玩, stars and 識咗; not part of the shared 畫形狀設定 family. Practice only. Listed last so no older kind moves.
+    case traceOrientedLines
 }
 
 extension ActivityKind {
@@ -163,8 +167,10 @@ extension ActivityKind {
     public var isPatternFamily: Bool { self == .patternNext || self == .patternMake }
     /// 分類: 邊個唔同類 and 分車房 share 分類設定 and the attribute generator.
     public var isSortFamily: Bool { self == .oddOneOut || self == .sortGarages }
+    /// 畫直線・四方 has its own 試玩 before a star, like every newer card (D11); its record is its own (C3, C4).
     public var requiresPlaytestBeforeStars: Bool {
         isShapeTraceFamily || isTapCountFamily || isTapLetterFamily || isTapHanziFamily || isPatternFamily || isSortFamily
+            || self == .traceOrientedLines
     }
 
     /// Design §5.7: the three new quiz kinds send the end of a Think Pause to their own board's after-pause step
@@ -217,6 +223,8 @@ extension ActivityKind {
         case .patternMake: return "跟住排 · 自己排"
         case .oddOneOut: return "分類 · 邊個唔同類"
         case .sortGarages: return "分類 · 分車房"
+        // Carter t372s2028 (C1): the exact title, separator U+30FB.
+        case .traceOrientedLines: return "畫直線・四方"
         }
     }
 
@@ -252,6 +260,8 @@ extension ActivityKind {
         case .patternMake: return "Patterns · Make your own"
         case .oddOneOut: return "Sorting · Odd one out"
         case .sortGarages: return "Sorting · Two garages"
+        // Implementer technical default (t373s2037), not Carter's wording.
+        case .traceOrientedLines: return "Straight lines · Four ways"
         }
     }
 
@@ -285,6 +295,7 @@ extension ActivityKind {
         case .patternMake: return "自己排"
         case .oddOneOut: return "唔同類"
         case .sortGarages: return "分車房"
+        case .traceOrientedLines: return "四方"
         }
     }
 
@@ -320,6 +331,7 @@ extension ActivityKind {
         case .patternMake: return "揀幾款，自己排一條車隊！"
         case .oddOneOut: return "邊個同其他唔一樣？撳佢！"
         case .sortGarages: return "每架車應該泊入邊間車房？"
+        case .traceOrientedLines: return OrientedLineCopy.mixedPromptTraditionalChinese
         }
     }
 
@@ -354,6 +366,7 @@ extension ActivityKind {
         case .patternMake: return "Make your own line!"
         case .oddOneOut: return "Which one is different? Tap it!"
         case .sortGarages: return "Which garage does each vehicle park in?"
+        case .traceOrientedLines: return OrientedLineCopy.mixedPromptEnglish
         }
     }
 
@@ -423,6 +436,9 @@ extension ActivityKind {
             return ["tapCount.mixer", "tapCount.dumper", "prop.trafficCone"]
         case .sortGarages:
             return ["prop.garageDoor", "tapCount.craneTruck"]
+        // The parent card draws its own → ← ↗ ↙ tile (ParentGameCard); this id names it.
+        case .traceOrientedLines:
+            return ["shapeTrace.orientedLines"]
         }
     }
 }
@@ -1041,6 +1057,8 @@ public enum ActivityCatalog {
         .lineMatchGuidedBridge,
         .lineMatch,
         .traceLines,
+        // 畫直線・四方 (0.42.0): beside 畫直線 · 熱身 in the catalogue; default-off until its own 試玩 and a star.
+        .traceOrientedLines,
         .traceShapesDotted,
         .traceShapesArrows,
         .traceShapesFree,
@@ -1065,7 +1083,9 @@ public enum ActivityCatalog {
         .lineMatchGuidedStraight, .lineMatchGuidedBridge, .lineMatch, .traceLines, .traceShapesDotted,
         .traceShapesArrows, .traceShapesFree, .tapCountAll, .tapCountTrace, .tapCountPick,
         .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish, .tapLetterAll, .tapLetterWrite,
-        .tapHanziAll, .tapHanziWrite, .patternNext, .patternMake, .oddOneOut, .sortGarages
+        .tapHanziAll, .tapHanziWrite, .patternNext, .patternMake, .oddOneOut, .sortGarages,
+        // 畫直線・四方 (0.42.0): no star until a parent turns one on after its own 試玩; never inherits 畫直線's stars.
+        .traceOrientedLines
     ]
 
     /// Kinds every ticket deals before a parent changes anything (the v0.22 rotation).
@@ -1406,6 +1426,8 @@ public enum ActivityCatalog {
             return "提示：搵同其他唔一樣嗰個。 / Hint: find the one that is not like the others."
         case .sortGarages:
             return "提示：睇吓車房個牌。 / Hint: look at the garage signs."
+        case .traceOrientedLines:
+            return OrientedLineCopy.hint
         }
     }
 }

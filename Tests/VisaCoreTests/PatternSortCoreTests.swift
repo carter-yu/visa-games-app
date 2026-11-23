@@ -27,7 +27,8 @@ final class PatternSortCoreTests {
     /// the board after-pause step for the three quiz kinds only; the unbuilt 形狀分類 row stays until P4.
     func testCatalogueKindsAreOffGatedAndBoardTwo() {
         let new: [ActivityKind] = [.patternNext, .patternMake, .oddOneOut, .sortGarages]
-        expectEqual(Array(ActivityKind.allCases.suffix(4)), new)
+        // 畫直線・四方 (0.42.0) is listed after them.
+        expectEqual(Array(ActivityKind.allCases.dropLast().suffix(4)), new)
         expectEqual(ActivityCatalog.playableKinds.filter(new.contains), [.oddOneOut])
         for kind in new {
             expectTrue(ActivityCatalog.defaultOffKinds.contains(kind), kind.rawValue)

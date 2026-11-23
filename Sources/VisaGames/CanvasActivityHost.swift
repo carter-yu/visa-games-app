@@ -109,6 +109,8 @@ struct CanvasActivityHost: View {
             // patterns-sorting: no board yet (P2, P5, P4); never dealt, never playtested (not playable).
             case .patternNext, .patternMake, .sortGarages:
                 EmptyView()
+            case .traceOrientedLines:
+                orientedLines
             case .none:
                 EmptyView()
             }
@@ -390,6 +392,27 @@ struct CanvasActivityHost: View {
                 onWrongStart: { model.shapeTraceWrongStart() },
                 onReverse: { model.shapeTraceReverse() },
                 onHint: { key in model.shapeTraceHintShown(key: key) }
+            )
+        }
+    }
+
+    /// 畫直線・四方 (0.42.0): its own pen board, `OrientedLineBoardView`; 畫直線 · 熱身 keeps `ShapeTraceBoardView`.
+    @ViewBuilder
+    private var orientedLines: some View {
+        if let board = model.currentOrientedLineBoard {
+            OrientedLineBoardView(
+                board: board,
+                guide: model.currentOrientedLineGuide,
+                ticketStars: usingPlaytest ? 1 : (model.selectedStars ?? 1),
+                pendingMinutes: pendingMinutes,
+                locked: justCompleted || board.isComplete,
+                caption: model.orientedLineCaption,
+                now: model.now.timeIntervalSinceReferenceDate,
+                onSpeak: { speakPrompt() },
+                onDemoAgain: { model.orientedLineDemoAgain() },
+                onCommit: { next in model.orientedLineCommit(next) },
+                onDemoTouch: { model.orientedLineDemoTouch() },
+                onHelp: { help, board in model.orientedLineHelpShown(help, on: board) }
             )
         }
     }

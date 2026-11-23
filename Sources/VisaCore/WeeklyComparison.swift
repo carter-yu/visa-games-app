@@ -112,6 +112,8 @@ public struct WeeklyComparison: Sendable, Equatable {
     /// Kinds a `config_change` applies to: its settings family, or the kind of an `assignment`.
     public static func kinds(forConfig what: String, kind: String?) -> [String] {
         if what == "assignment" { return kind.map { [$0] } ?? [] }
+        // 畫直線・四方 (C5): its own exact keys mark its own row only, never 畫直線 · 熱身 or the 畫形狀設定 cards.
+        if what.hasPrefix(OrientedLineWeekly.configPrefix) { return [ActivityKind.traceOrientedLines.rawValue] }
         let member: (ActivityKind) -> Bool
         if what.hasPrefix("lineMatch_") {
             member = { $0.isLineMatchFamily }
@@ -195,7 +197,9 @@ public struct WeeklySignature: Sendable, Equatable {
         "this_week",
         // patterns-sorting P1 (design §6.3 item 7): the step, the 分類方法 on-set, the voice switch and the automatic
         // read-through a round actually got. No older kind writes these names.
-        "ladder_step", "methods", "voice", "read_through"
+        "ladder_step", "methods", "voice", "read_through",
+        // 畫直線・四方 (four-direction design §9): its 線形 and 方向; only its deals write them, so only its row moves.
+        "line_shape", "line_direction"
     ]
     /// Read from the round's result instead of its deal.
     public static let resultFields = ["guide_level"]

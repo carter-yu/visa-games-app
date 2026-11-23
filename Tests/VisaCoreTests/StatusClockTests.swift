@@ -284,7 +284,8 @@ final class StatusClockTests {
             expectFalse(rect.intersects(StatusSlot.main) || rect.intersects(StatusSlot.mainKeepOut), "\(rect)")
         }
         expectEqual(StatusSlot.main.gap(to: nudgedHeader), 8)
-        // Header families (design §2.3 rows 2–4: 14 + 4 + 13 kinds; the four patterns-sorting kinds use board 2).
+        // Header families (design §2.3 rows 2–4: 14 + 4 + 14 kinds; the four patterns-sorting kinds use board 2;
+        // 畫直線・四方 shares the shape-trace route, 0.42.0).
         let boardTwo: [ActivityKind] = [.twoPictureChoose, .findTheSame, .countVehicles, .sequenceShortToLong, .halfMatch,
                                         .shapeCousin, .capacityCompare, .moreFewer, .shadowMatch, .emptyBay,
                                         .patternNext, .patternMake, .oddOneOut, .sortGarages]
@@ -292,7 +293,7 @@ final class StatusClockTests {
         let lineMatchFamily: [ActivityKind] = [.lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge,
                                                .traceLines, .traceShapesDotted, .traceShapesArrows, .traceShapesFree,
                                                .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish,
-                                               .tapCountTraceEnglish, .tapCountPickEnglish]
+                                               .tapCountTraceEnglish, .tapCountPickEnglish, .traceOrientedLines]
         expectEqual(Set(boardTwo + hanziLetter + lineMatchFamily), Set(ActivityKind.allCases))
         expectEqual(boardTwo.count + hanziLetter.count + lineMatchFamily.count, ActivityKind.allCases.count)
         for kind in boardTwo { expectEqual(StatusRoute(board: kind), .boardTwo, "\(kind)") }

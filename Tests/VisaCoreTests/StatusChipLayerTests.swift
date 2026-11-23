@@ -14,7 +14,8 @@ final class StatusChipLayerTests {
     private static let sPick = LineMatchRect(x: 1042, y: 6, width: 84, height: 40)
     private static let watchStrip = LineMatchRect(x: 1196, y: 0, width: 84, height: 40)
 
-    /// The header families of design §2.3 rows 2–4 (14 + 4 + 13 kinds; the four patterns-sorting kinds use board 2).
+    /// The header families of design §2.3 rows 2–4 (14 + 4 + 14 kinds; the four patterns-sorting kinds use board 2;
+    /// 畫直線・四方 shares the shape-trace route, 0.42.0).
     private static let boardTwo: [ActivityKind] = [.twoPictureChoose, .findTheSame, .countVehicles, .sequenceShortToLong,
                                                    .halfMatch, .shapeCousin, .capacityCompare, .moreFewer, .shadowMatch,
                                                    .emptyBay, .patternNext, .patternMake, .oddOneOut, .sortGarages]
@@ -22,7 +23,8 @@ final class StatusChipLayerTests {
     private static let lineMatchFamily: [ActivityKind] = [.lineMatch, .lineMatchGuidedStraight, .lineMatchGuidedBridge,
                                                           .traceLines, .traceShapesDotted, .traceShapesArrows,
                                                           .traceShapesFree, .tapCountAll, .tapCountTrace, .tapCountPick,
-                                                          .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish]
+                                                          .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish,
+                                                          .traceOrientedLines]
 
     /// `StatusRoute(mode:…)` with nothing else switched on by default.
     private static func shown(_ mode: Mode, providerBlocked: Bool = false, timesUp: Bool = false,
@@ -120,7 +122,8 @@ final class StatusChipLayerTests {
         for route in StatusRoute.allCases {
             expectEqual(StatusChipPlan.hiddenRoutes.contains(route), StatusSlot.rect(for: route) == nil, "\(route)")
         }
-        // Through the shell: the 13 LM-family boards show no chip, every other board shows it at S.
+        // Through the shell: the 14 LM-family boards (畫直線・四方 included, 0.42.0) show no chip, every other board shows
+        // it at S.
         var hiddenBoards = 0
         for kind in ActivityKind.allCases {
             let lineMatch = Self.lineMatchFamily.contains(kind)
@@ -128,7 +131,7 @@ final class StatusChipLayerTests {
                         lineMatch ? nil : Self.s, "\(kind)")
             if lineMatch { hiddenBoards += 1 }
         }
-        expectEqual(hiddenBoards, 13)
+        expectEqual(hiddenBoards, 14)
         // Watch shows it in the strip above the player (C5), the picker moves it to S_pick, Time's up over a playing
         // video puts it at S, Setup shows it at S, and parent controls (with or without a 試玩 board) never show the
         // child chip.

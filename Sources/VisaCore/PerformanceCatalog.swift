@@ -29,6 +29,7 @@ public enum PerfChoiceCatalog {
         case .tapHanziAll, .tapHanziWrite: return "tapHanzi.all.reference"
         // patterns-sorting (design §6.2): generated kinds; the dealt question carries its own item.
         case .patternNext, .patternMake, .oddOneOut, .sortGarages: return "\(kind.rawValue).reference"
+        case .traceOrientedLines: return OrientedLineGenerator.reference.itemID
         }
     }
 
@@ -62,6 +63,8 @@ public enum PerfChoiceCatalog {
         case .oddOneOut: return 1.0 / 4.0
         case .sortGarages: return 1.0 / 16.0
         case .patternMake: return 1.0
+        // 畫直線・四方: practice only, nothing to guess (like 畫直線 · 熱身).
+        case .traceOrientedLines: return 1.0
         }
     }
 
@@ -96,6 +99,7 @@ public enum PerfChoiceCatalog {
             return TapCountGenerator.reference(kind: kind).occupiedBays.map { "bay-\($0)" }
         case .tapLetterAll, .tapLetterWrite, .tapHanziAll, .tapHanziWrite: return (0..<10).map { "card-\($0)" }
         case .patternNext, .patternMake, .oddOneOut, .sortGarages: return PatternSortFacts.referenceChoices(kind)
+        case .traceOrientedLines: return OrientedLineFacts.slots(OrientedLineGenerator.reference)
         }
     }
 
@@ -120,6 +124,7 @@ public enum PerfChoiceCatalog {
             return TapCountGenerator.reference(kind: kind).occupiedBays.map { "bay-\($0)" }
         case .tapLetterAll, .tapLetterWrite, .tapHanziAll, .tapHanziWrite: return (0..<10).map { "card-\($0)" }
         case .patternNext, .patternMake, .oddOneOut, .sortGarages: return PatternSortFacts.referenceChoices(kind)
+        case .traceOrientedLines: return OrientedLineFacts.slots(OrientedLineGenerator.reference)
         }
     }
 
@@ -144,6 +149,7 @@ public enum PerfChoiceCatalog {
         case .tapLetterAll, .tapLetterWrite, .tapHanziAll, .tapHanziWrite: return nil
         // Generated: the right choice comes with each dealt question (`PatternSortFacts`).
         case .patternNext, .patternMake, .oddOneOut, .sortGarages: return nil
+        case .traceOrientedLines: return nil
         }
     }
 
@@ -173,6 +179,7 @@ public enum PerfChoiceCatalog {
         case .tapCountAll, .tapCountTrace, .tapCountPick, .tapCountAllEnglish, .tapCountTraceEnglish, .tapCountPickEnglish: return nil
         case .tapLetterAll, .tapLetterWrite, .tapHanziAll, .tapHanziWrite: return nil
         case .patternNext, .patternMake, .oddOneOut, .sortGarages: return nil
+        case .traceOrientedLines: return nil
         }
     }
 

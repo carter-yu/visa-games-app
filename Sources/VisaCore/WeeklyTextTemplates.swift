@@ -551,6 +551,13 @@ public enum WeeklyTextCatalog {
             guard !methods.isEmpty else { return nil }
             return WeeklyWords(methods.map(\.zh).joined(separator: "、"), methods.map(\.en).joined(separator: ", "))
         case "sort_progress": return value == "reset" ? WeeklyWords("由頭開始", "Started again") : nil
+        // 畫直線・四方: the settings panel's own 線形 / 方向 words.
+        case "line_shape": return OrientedLineShapeSetting(rawValue: value).map {
+            WeeklyWords($0.labelTraditionalChinese, $0.labelEnglish)
+        }
+        case "line_direction": return OrientedLineDirectionSetting(rawValue: value).map {
+            WeeklyWords($0.labelTraditionalChinese, $0.labelEnglish)
+        }
         default: return nil
         }
     }
@@ -600,6 +607,10 @@ public enum WeeklyTextCatalog {
         case "sort_guidance": return (sortHelpName, "guidance")
         case "sort_audio": return (sortVoiceName, "letter_guard")
         case "sort_progress": return (WeeklyWords("分類進度", "Sorting progress"), "sort_progress")
+        case "orientedLine_line_shape": return (OrientedLineWeekly.shapeName, "line_shape")
+        case "orientedLine_line_direction": return (OrientedLineWeekly.directionName, "line_direction")
+        case "orientedLine_line_help": return (OrientedLineWeekly.helpName, "guidance")
+        case "orientedLine_tolerance": return (OrientedLineWeekly.toleranceName, "tolerance")
         default: return nil
         }
     }
@@ -612,6 +623,16 @@ public enum WeeklyTextCatalog {
             case "this_week": return (hanziWeekName, "letter_set")
             case "guard": return (hanziGuardName, "letter_guard")
             case "guide_level": return (hanziCoachName, "guidance")
+            default: break
+            }
+        }
+        // 畫直線・四方: its own 線形 / 方向 / 畫線提示 / 寬容度 names (never 描數字提示 or 畫形狀寬容度).
+        if kind == ActivityKind.traceOrientedLines.rawValue {
+            switch field {
+            case "line_shape": return (OrientedLineWeekly.shapeName, "line_shape")
+            case "line_direction": return (OrientedLineWeekly.directionName, "line_direction")
+            case "guide_level": return (OrientedLineWeekly.helpName, "guidance")
+            case "tolerance": return (OrientedLineWeekly.toleranceName, "tolerance")
             default: break
             }
         }
@@ -680,6 +701,7 @@ public enum WeeklyTextCatalog {
         case .patternMake: return WeeklyWords("自己排嘅車隊", "the line they made")
         case .oddOneOut: return WeeklyWords("每一個", "each one")
         case .sortGarages: return WeeklyWords("車房個牌", "the garage signs")
+        case .traceOrientedLines: return WeeklyWords("條線", "the lines")
         }
     }
 
@@ -712,7 +734,9 @@ public enum WeeklyTextCatalog {
         for (type, values) in [("letter_set", ["b f h", ""]), ("letter_review", ["0", "4"]),
                                ("letter_guard", ["on", "off"]), ("hanzi_review", ["0", "4"]),
                                ("hanzi_grid", HanziWritingGrid.allCases.map(\.rawValue)),
-                               ("sort_methods", [SortSettings.defaults.methodsCode, "facing"]), ("sort_progress", ["reset"])] {
+                               ("sort_methods", [SortSettings.defaults.methodsCode, "facing"]), ("sort_progress", ["reset"]),
+                               ("line_shape", OrientedLineShapeSetting.allCases.map(\.rawValue)),
+                               ("line_direction", OrientedLineDirectionSetting.allCases.map(\.rawValue))] {
             for value in values { if let label = self.label(type, value) { words.append(label) } }
         }
         for category in LineMatchCategory.allCases {
@@ -725,7 +749,7 @@ public enum WeeklyTextCatalog {
                      "tapLetter_focus_letters", "tapLetter_review_letters", "tapLetter_review_every",
                      "tapLetter_mirror_guard", "tapHanzi_week", "tapHanzi_review_every", "tapHanzi_guard",
                      "tapHanzi_guidance", "tapHanzi_grid", "tapHanzi_audio", "tapHanzi_jyutping",
-                     "sort_methods", "sort_guidance", "sort_audio", "sort_progress"]
+                     "sort_methods", "sort_guidance", "sort_audio", "sort_progress"] + OrientedLineWeekly.configKeys
         for what in whats {
             if let name = configName(what) { words.append(name.name) }
         }
@@ -733,6 +757,7 @@ public enum WeeklyTextCatalog {
             if let name = fieldName(field, kind: ActivityKind.lineMatch.rawValue) { words.append(name.name) }
             if let name = fieldName(field, kind: ActivityKind.tapHanziAll.rawValue) { words.append(name.name) }
             if let name = fieldName(field, kind: ActivityKind.oddOneOut.rawValue) { words.append(name.name) }
+            if let name = fieldName(field, kind: ActivityKind.traceOrientedLines.rawValue) { words.append(name.name) }
         }
         words.append(starShiftName)
         for kind in ActivityKind.allCases {

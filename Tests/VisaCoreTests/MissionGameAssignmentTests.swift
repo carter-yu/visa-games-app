@@ -4,8 +4,9 @@ import VisaCore
 final class MissionGameAssignmentTests {
     func testDefaultsAllStarsOn() {
         let assignment = MissionGameAssignment.defaults
-        // Build 91 (patterns-sorting P1): 邊個唔同類 is the 28th playable kind, default-off.
-        expectEqual(ActivityCatalog.playableKinds.count, 28)
+        // Build 91 (patterns-sorting P1): 邊個唔同類 is the 28th playable kind, default-off; build 92: 畫直線・四方 the 29th.
+        expectEqual(ActivityCatalog.playableKinds.count, 29)
+        expectTrue(assignment.isHiddenFromMissions(.traceOrientedLines))
         for kind in ActivityCatalog.defaultOnKinds {
             for star in ChildDifficulty.allCases {
                 expectTrue(assignment.isEnabled(kind, star: star))
@@ -135,9 +136,9 @@ final class MissionGameAssignmentTests {
     }
 
     func testParentCardNamesAreTraditionalAndUnbuiltAreNotKinds() {
-        // 31 kinds: 中文字 · 翻字卡 joined with its find UI (H2), 搵完寫 with its write round (H3); patterns-sorting
-        // adds four (P0), and only 邊個唔同類 has a board so far (P1).
-        expectEqual(ActivityKind.allCases.count, 31)
+        // 32 kinds: 中文字 · 翻字卡 joined with its find UI (H2), 搵完寫 with its write round (H3); patterns-sorting
+        // adds four (P0), and only 邊個唔同類 has a board so far (P1); 畫直線・四方 is the 32nd and playable (0.42.0).
+        expectEqual(ActivityKind.allCases.count, 32)
         expectEqual(ActivityKind.allCases.filter { !ActivityCatalog.playableKinds.contains($0) },
                     [.patternNext, .patternMake, .sortGarages])
         expectEqual(ActivityKind.twoPictureChoose.parentCardTitle, "邊架消防車")
