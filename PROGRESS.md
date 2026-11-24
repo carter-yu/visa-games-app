@@ -1,5 +1,29 @@
 # Progress
 
+## 2026-11-24 — v0.42.0 / 92 — Four-direction lines: A+ completion-path source contracts (tests only)
+
+- Written by Claude Code on `feat/four-direction-lines` at `6f05e7a`, left uncommitted for Carter (no commit, push, PR, Mac mini or native build). Scope: A+ only, as Carter chose (pt396u, 2026-11-24 00:45 HKT) after the architecture review (`visa-games-sessions/architecture-review-20261123/v2/DECISION-RFC-A-PLUS.md`); B0 and B1 not started. Version unchanged; no app source, store, key, schema, reward, weekly, speech or clock change.
+- `Tests/VisaCoreTests/OrientedLineWiringTests.swift`, additive only (+204 lines, none changed or removed): the registered `testHeldFinishAndPlaytestLane` (T16) ends with one new call, and new private helpers follow the last test. Every earlier assertion (G01–G41) and helper is unchanged; the call moves the later lines down by one. Four named source contracts on the `AppDelegate.swift` text, each read only from the function it covers, never from a whole-file match (other cards' commits and finishes, e.g. `shapeTraceCommit` and `finishShapeTraceRound`, contain several of the same lines):
+  - A1_CAPTURE (`orientedLineCommit`, 4 assertions): the lane Bool taken once from `orientedLineUsesPlaytest`; the token chosen from it (`playtest ? playtestChoiceDealSeed : choiceDealSeed`); the commit's only finish call, the delayed callback, gets that token and that lane.
+  - A2_DELAY (`orientedLineCommit`, 4): one `DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { [weak self] in` that calls the finish through `self?`; the newly-complete guard, then the token, then the schedule; and (added after Astra's review, below) the guard, the token, the schedule and its callback, as exact text, end the commit's body line after line at its top level, so no branch can keep the guard to one lane.
+  - A3_ELIGIBILITY (`finishOrientedLineRound`, 12): each lane's branch opens with its own guard. The playtest guard checks `isParentPlaytest`, its kind, its deal, `!playtestCompleted` and its complete board. The child guard checks `taskRoundOpen`, its kind, its deal, `!activityJustCompleted` and its complete board.
+  - A4_HOLD_ORDER (11): in the child branch, the guard, then the hold, with only a comment between. The fuel check, the depot, `lastCorrectChoiceID`, `lastIncorrectChoiceID`, `activityJustCompleted = true` and `applyEntrySuccess(` come only after the hold, never before it or inside the held branch. In `returnToChild`, `leaveParent` happens once with nothing released before it, then the held release once.
+  - 35 negative controls (6 / 9 / 12 / 8) run on in-memory copies of the function text; nothing is written to disk. Each of their 43 edit anchors must occur exactly once before it is edited, and the same contract must reject the edited copy. They cover:
+    - a wrong token or callback lane;
+    - a changed delay, queue, weak capture or transition order, or the transition guard wrapped in `if playtest { … }` or `if !playtest { … }` with the token and schedule outside;
+    - each lane's guard conditions, removed or moved to the other branch;
+    - the fuel check, depot, stamp or completed flag before the hold or inside the held branch;
+    - validation after the hold;
+    - a release before `leaveParent`.
+- These are source-text predicates, not runtime tests: no AppModel runs and no timing is measured. A failure means the source has drifted from the contract and needs inspection, not necessarily that the product has a bug.
+- Astra implementation review (2026-11-24 05:05 HKT, read-only): NOT READY, 0 blocker / 1 major / 0 minor / 0 nit. The major: A2 as first delivered (3 assertions, 7 controls; 30 / 33 in all) still passed with the newly-complete guard wrapped in `if playtest { … }` or `if !playtest { … }` and the token and schedule left outside, so one lane could schedule without the guard. `AppDelegate.swift:6304` itself has the unconditional guard; the gap was in the new test. Bounded correction (Carter approved, 2026-11-24 11:55 HKT): one A2 assertion and two A2 controls (the two wrapped guards) added; A2's earlier checks, A1, A3, A4 and every earlier assertion unchanged.
+- Verification (Linux box, Swift 6.0.3):
+  - `sh scripts/test.sh` exit 0 after the correction. The new output line: `A1_CAPTURE / A2_DELAY / A3_ELIGIBILITY / A4_HOLD_ORDER — 4 / 4 / 12 / 11 named assertions hold; 6 / 9 / 12 / 8 in-memory negative controls rejected` (31 / 35). As first delivered: exit 0 with `4 / 3 / 12 / 11` and `6 / 7 / 12 / 8`.
+  - The PASS banner is static text and unchanged: 52 groups / 548 checks, the same as the coordinator's baseline run at `6f05e7a` (same script and toolchain, exit 0). The A+ checks run inside the already-registered T16 and are not counted in the banner.
+  - `git diff --check` clean.
+  - The suite builds only `VisaCoreChecks`. Not run: a `VisaGames` / SwiftUI / AppKit build, the type-check harness, a mutation run, anything on the Mac.
+- Next: independent Astra recheck of the correction (pending).
+
 ## 2026-11-23 — v0.42.0 / 92 — 畫直線・四方: Astra recheck minors
 
 - Written by Claude Code on `feat/four-direction-lines` (local commits only; no push, no PR, no Mac mini). Astra's recheck of `f8bfa9f` (2026-11-22 14:32 HKT): READY WITH MINORS, 0 blocker / 0 major / 3 minor / 1 nit, for the Linux code-review scope only. Version unchanged (unreleased branch).

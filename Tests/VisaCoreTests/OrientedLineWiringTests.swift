@@ -82,6 +82,7 @@ final class OrientedLineWiringTests {
         let original = body(of: "private func finishShapeTraceRound(", in: model)
         expectFalse(original.isEmpty || original.contains("Hold") || original.contains("orientedLine"))
         print("  畫直線・四方 T16 (app): the child's finish held under parent controls, once on Return, dropped by a reset; 試玩 never holds or writes 識咗; 畫直線 · 熱身's path unchanged")
+        checkCompletionPathContracts(model)
     }
 
     /// T20 (app part), M32, M34, C4: the open round reads its dealt question, never the live settings; this card never
@@ -276,5 +277,208 @@ final class OrientedLineWiringTests {
             expectTrue(found.isEmpty, "\(name): Simplified \(found)")
         }
         print("  畫直線・四方 R3 view: road → guidance clipped at G → bars → signs → ink → car; demo touch swallowed; upright words, mirrored car; own panel without 原本")
+    }
+
+    /// A+ (architecture review 2026-11-23, DECISION-RFC-A-PLUS; run from T16): four named source contracts of this card's
+    /// completion path. Each is read from the function it is about, never from a whole-file occurrence (other cards'
+    /// commits and finishes, e.g. `shapeTraceCommit` and `finishShapeTraceRound`, hold several of the same lines). Each
+    /// must hold on the real text and reject every in-memory edited copy below. Source text only, not runtime: no
+    /// AppModel runs and no time passes, so a failure is contract drift to inspect, not necessarily a product bug.
+    private func checkCompletionPathContracts(_ model: String) {
+        let commit = body(of: "func orientedLineCommit(", in: model)
+        let finish = body(of: "private func finishOrientedLineRound(", in: model)
+        let back = body(of: "func returnToChild(", in: model)
+        let groups: [(String, [(String, Bool)])] = [
+            ("A1_CAPTURE", captureContract(commit)), ("A2_DELAY", delayContract(commit)),
+            ("A3_ELIGIBILITY", eligibilityContract(finish)),
+            ("A4_HOLD_ORDER", holdOrderContract(finish) + returnReleaseContract(back))]
+        for (group, assertions) in groups {
+            for (name, holds) in assertions { expectTrue(holds, "\(group): \(name)") }
+        }
+        // Negative controls: (name, [(anchor, replacement)]) applied to a copy of the function's text.
+        let token = "let token = playtest ? playtestChoiceDealSeed : choiceDealSeed"
+        let callback = "self?.finishOrientedLineRound(token: token, playtest: playtest)"
+        let transition = "guard next.isComplete, !current.isComplete else { return }"
+        let capture: [(String, [(String, String)])] = [
+            ("token from the child's seed in both lanes", [(token, "let token = choiceDealSeed")]),
+            ("token seeds swapped", [(token, "let token = playtest ? choiceDealSeed : playtestChoiceDealSeed")]),
+            ("token from the live lane rule",
+             [(token, "let token = orientedLineUsesPlaytest ? playtestChoiceDealSeed : choiceDealSeed")]),
+            ("callback lane fixed to the child", [(callback, "self?.finishOrientedLineRound(token: token, playtest: false)")]),
+            ("callback lane read when it fires",
+             [(callback, "self?.finishOrientedLineRound(token: token, playtest: self?.orientedLineUsesPlaytest == true)")]),
+            ("callback token read when it fires",
+             [(callback, "self?.finishOrientedLineRound(token: self?.choiceDealSeed ?? token, playtest: playtest)")])]
+        let delay: [(String, [(String, String)])] = [
+            ("2.5 s", [(".now() + 2.4", ".now() + 2.5")]),
+            ("no delay", [("DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {", "DispatchQueue.main.async {")]),
+            ("off the main queue", [("DispatchQueue.main.", "DispatchQueue.global().")]),
+            ("strong self", [("{ [weak self] in", "{"), ("self?.finishOrientedLineRound(", "self.finishOrientedLineRound(")]),
+            ("any complete board schedules", [(transition, "guard next.isComplete else { return }")]),
+            ("scheduled before the transition guard",
+             [(transition + "\n", ""), (callback + "\n        }\n", callback + "\n        }\n        " + transition + "\n")]),
+            ("token taken before the transition guard", [(token + "\n", ""), (transition, token + "\n        " + transition)]),
+            ("transition guard only in the playtest lane", [(transition, "if playtest {\n            " + transition + "\n        }")]),
+            ("transition guard only in the child lane", [(transition, "if !playtest {\n            " + transition + "\n        }")])]
+        let eligibility: [(String, [(String, String)])] = [
+            ("playtest without !playtestCompleted", [("!playtestCompleted, ", "")]),
+            ("playtest board present, not complete",
+             [("playtestOrientedLineBoard?.isComplete == true", "playtestOrientedLineBoard != nil")]),
+            ("playtest without isParentPlaytest", [("guard isParentPlaytest, ", "guard ")]),
+            ("playtest without its kind", [("playtestKind == .traceOrientedLines, ", "")]),
+            ("playtest without its deal", [("playtestChoiceDealSeed == token,", "")]),
+            ("child without !activityJustCompleted", [(" !activityJustCompleted,", "")]),
+            ("child board present, not complete",
+             [("orientedLineBoard?.isComplete == true else { return }", "orientedLineBoard != nil else { return }")]),
+            ("child without taskRoundOpen", [("guard taskRoundOpen, ", "guard ")]),
+            ("child without its kind", [("activeActivityKind == .traceOrientedLines, ", "")]),
+            ("child without its deal", [(" choiceDealSeed == token,", "")]),
+            ("child's !activityJustCompleted only in the playtest guard",
+             [(" !activityJustCompleted,", ""), ("guard isParentPlaytest, ", "guard isParentPlaytest, !activityJustCompleted, ")]),
+            ("playtest's !playtestCompleted only in the child guard",
+             [("!playtestCompleted, ", ""), ("guard taskRoundOpen, ", "guard taskRoundOpen, !playtestCompleted, ")])]
+        let child = finishLanes(finish).child
+        let hold = body(of: "guard orientedLineFinishHold.finishesNow(token, mode: session.mode) else {", in: child)
+        let fuel = body(of: "guard pendingAwardMinutes > 0 else {", in: child)
+        let validation = child.range(of: " else { return }")
+            .map { child[..<$0.upperBound].trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
+        let order: [(String, [(String, String)])] = [
+            ("fuel checked before the hold", [(fuel, ""), (hold, fuel + "\n        " + hold)]),
+            ("depot before the hold", [(hold, "if pendingAwardMinutes == 0 { returnToDepotOutOfFuel(); return }\n        " + hold)]),
+            ("stamp before the hold", [(hold, "applyEntrySuccess(assisted: false)\n        " + hold)]),
+            ("completed flag before the hold", [(hold, "activityJustCompleted = true\n        " + hold)]),
+            ("stamp in the held branch",
+             [("mode: session.mode) else {\n", "mode: session.mode) else {\n            applyEntrySuccess(assisted: false)\n")]),
+            ("validation after the hold", [(validation, ""), (hold, hold + "\n        " + validation)])]
+        let release: [(String, [(String, String)])] = [
+            ("held release before leaveParent",
+             [("finishHeldOrientedLineRound()\n", ""),
+              ("update { $0.leaveParent(now: Date()) }", "finishHeldOrientedLineRound()\n        update { $0.leaveParent(now: Date()) }")]),
+            ("an extra held release before leaveParent",
+             [("discardPlaytestCover(reason: \"leaveParent\")",
+               "finishHeldOrientedLineRound()\n        discardPlaytestCover(reason: \"leaveParent\")")])]
+        for (name, edits) in capture { expectRejected("A1_CAPTURE: \(name)", commit, edits, by: captureContract) }
+        for (name, edits) in delay { expectRejected("A2_DELAY: \(name)", commit, edits, by: delayContract) }
+        for (name, edits) in eligibility { expectRejected("A3_ELIGIBILITY: \(name)", finish, edits, by: eligibilityContract) }
+        for (name, edits) in order { expectRejected("A4_HOLD_ORDER: \(name)", finish, edits, by: holdOrderContract) }
+        for (name, edits) in release { expectRejected("A4_HOLD_ORDER: \(name)", back, edits, by: returnReleaseContract) }
+        let named = groups.map { "\($0.1.count)" }.joined(separator: " / ")
+        let rejected = [capture.count, delay.count, eligibility.count, order.count + release.count].map { "\($0)" }
+            .joined(separator: " / ")
+        print("  畫直線・四方 A+ source contracts (source text, not runtime): A1_CAPTURE / A2_DELAY / A3_ELIGIBILITY / A4_HOLD_ORDER — \(named) named assertions hold; \(rejected) in-memory negative controls rejected")
+    }
+
+    /// A negative control on an in-memory copy (nothing is written): each anchor must occur exactly once before it is
+    /// edited, so a control never passes as a no-op, and the same contract must then fail on the edited copy.
+    private func expectRejected(_ name: String, _ text: String, _ edits: [(String, String)],
+                                by contract: (String) -> [(String, Bool)]) {
+        var copy = text
+        for (anchor, replacement) in edits {
+            expectEqual(anchor.isEmpty ? 0 : count(anchor, in: copy), 1, "\(name): its anchor must occur once")
+            copy = copy.replacingOccurrences(of: anchor, with: replacement)
+        }
+        expectFalse(copy == text || contract(copy).allSatisfy { $0.1 }, "\(name): the contract accepts the edit")
+    }
+
+    /// A1_CAPTURE, in `orientedLineCommit`: the lane Bool is taken once from the lane rule, the token is chosen from that
+    /// Bool, and the commit's one finish call (the delayed callback) gets that token and that lane.
+    private func captureContract(_ commit: String) -> [(String, Bool)] {
+        let lane = "let playtest = orientedLineUsesPlaytest\n"
+        let token = "let token = playtest ? playtestChoiceDealSeed : choiceDealSeed\n"
+        let callback = "self?.finishOrientedLineRound(token: token, playtest: playtest)\n"
+        return [("the lane Bool taken once, from the lane rule", count("let playtest = ", in: commit) == 1 && commit.contains(lane)),
+                ("the token chosen once, from that Bool", count("let token = ", in: commit) == 1 && commit.contains(token)),
+                ("the one finish call gets that token and that lane",
+                 count("finishOrientedLineRound(", in: commit) == 1 && commit.contains(callback)),
+                ("lane, then token, then callback", ordered(lane, token, in: commit) && ordered(token, callback, in: commit))]
+    }
+
+    /// A2_DELAY, in `orientedLineCommit`: one main-queue `asyncAfter(deadline: .now() + 2.4)` with `[weak self]` that calls
+    /// the finish through the weak reference, after the newly-complete transition guard and the token. The guard, the
+    /// token and the schedule end the commit line after line at its top level, so no branch can keep the guard to one
+    /// lane (Astra implementation review, major). The source only, not when the callback actually runs.
+    private func delayContract(_ commit: String) -> [(String, Bool)] {
+        let transition = "guard next.isComplete, !current.isComplete else { return }\n"
+        let token = "let token = playtest ? playtestChoiceDealSeed : choiceDealSeed\n"
+        let schedule = "DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { [weak self] in\n"
+        let path = "\n        " + transition + "        " + token + "        " + schedule
+            + "            self?.finishOrientedLineRound(token: token, playtest: playtest)\n        }\n    }"
+        return [("one schedule: main queue, now + 2.4, weak self", count("DispatchQueue.", in: commit) == 1 && commit.contains(schedule)),
+                ("the finish called inside it, through the weak self",
+                 body(of: schedule, in: commit).contains("self?.finishOrientedLineRound(")),
+                ("transition guard, then token, then schedule",
+                 ordered(transition, token, in: commit) && ordered(token, schedule, in: commit)),
+                ("guard, token and schedule unbroken at the top level, ending the commit", commit.hasSuffix(path))]
+    }
+
+    /// `finishOrientedLineRound`'s two lanes: its `if playtest { … }` block, and the child's code after it.
+    private func finishLanes(_ finish: String) -> (playtest: String, child: String) {
+        let playtest = body(of: "if playtest {", in: finish)
+        guard !playtest.isEmpty, let end = finish.range(of: playtest)?.upperBound else { return ("", "") }
+        return (playtest, String(finish[end...]))
+    }
+
+    /// The conditions of the `guard … else { return }` that opens `branch` right after `opening`; nil when anything else
+    /// comes first.
+    private func openingGuard(of branch: String, after opening: String) -> [String]? {
+        guard branch.hasPrefix(opening) else { return nil }
+        let rest = branch.dropFirst(opening.count).drop(while: \.isWhitespace)
+        guard rest.hasPrefix("guard ") else { return nil }
+        let conditions = rest.dropFirst(6)
+        guard let end = conditions.range(of: " else { return }") else { return nil }
+        return conditions[..<end.lowerBound].components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+    }
+
+    /// A3_ELIGIBILITY, in `finishOrientedLineRound`: each lane's branch opens with its own guard, and that guard (not the
+    /// other branch, not another function) checks the lane's mode / kind / deal / open state, its not-completed flag and
+    /// its complete board. The child's mode is checked by the hold (A4).
+    private func eligibilityContract(_ finish: String) -> [(String, Bool)] {
+        let lanes = finishLanes(finish)
+        let expected: [(String, [String]?, [String])] = [
+            ("playtest", openingGuard(of: lanes.playtest, after: "if playtest {"),
+             ["isParentPlaytest", "playtestKind == .traceOrientedLines", "playtestChoiceDealSeed == token", "!playtestCompleted",
+              "playtestOrientedLineBoard?.isComplete == true"]),
+            ("child", openingGuard(of: lanes.child, after: ""),
+             ["taskRoundOpen", "activeActivityKind == .traceOrientedLines", "choiceDealSeed == token", "!activityJustCompleted",
+              "orientedLineBoard?.isComplete == true"])]
+        var result: [(String, Bool)] = []
+        for (lane, conditions, clauses) in expected {
+            result.append(("the \(lane) branch opens with its guard", conditions != nil))
+            for clause in clauses { result.append(("the \(lane) guard checks \(clause)", conditions?.contains(clause) == true)) }
+        }
+        return result
+    }
+
+    /// A4_HOLD_ORDER, in the child branch of `finishOrientedLineRound`: its guard, then the hold, nothing between; the
+    /// fuel check, the depot and every completion effect only after the hold (none before it, none in the held branch).
+    private func holdOrderContract(_ finish: String) -> [(String, Bool)] {
+        let child = finishLanes(finish).child
+        let hold = body(of: "guard orientedLineFinishHold.finishesNow(token, mode: session.mode) else {", in: child)
+        let parts = hold.isEmpty ? [child] : child.components(separatedBy: hold)
+        let before = parts[0], after = parts.count == 2 ? parts[1] : ""
+        let between = before.range(of: " else { return }").map { String(before[$0.upperBound...]) } ?? "missing"
+        let commentsOnly = between.split(separator: "\n").allSatisfy {
+            let line = $0.trimmingCharacters(in: .whitespaces)
+            return line.isEmpty || line.hasPrefix("//")
+        }
+        var result: [(String, Bool)] = [("the child branch holds once", parts.count == 2),
+                                        ("its guard, then the hold, nothing between",
+                                         openingGuard(of: before, after: "") != nil && commentsOnly)]
+        for effect in ["pendingAwardMinutes", "returnToDepotOutOfFuel(", "lastCorrectChoiceID", "lastIncorrectChoiceID",
+                       "activityJustCompleted = true", "applyEntrySuccess("] {
+            result.append(("\(effect) only after the hold",
+                           after.contains(effect) && !before.contains(effect) && !hold.contains(effect)))
+        }
+        return result
+    }
+
+    /// A4_HOLD_ORDER, in `returnToChild`: parent controls are left once, then the held finish is released once.
+    private func returnReleaseContract(_ back: String) -> [(String, Bool)] {
+        let parts = back.components(separatedBy: "update { $0.leaveParent(now: Date()) }")
+        let before = parts[0], after = parts.count == 2 ? parts[1] : ""
+        let early = ["finishHeldOrientedLineRound(", "orientedLineFinishHold.", "finishOrientedLineRound("]
+        return [("Return leaves parent controls once", parts.count == 2),
+                ("nothing released or finished before that", !early.contains { before.contains($0) }),
+                ("the held finish released once, after it", count("finishHeldOrientedLineRound()", in: after) == 1)]
     }
 }
